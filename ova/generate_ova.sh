@@ -236,10 +236,12 @@ main() {
         BUILDER_ARGS+=" -d staging"
     fi
 
+    echo "Building Wazuh OVA version ${OVA_VERSION}"
     echo "Cloning Wazuh installation assistant repository"
     git clone https://github.com/wazuh/${WAZUH_INSTALLATION_ASSISTANT}.git >> /dev/null 2>&1
     cd ${WAZUH_INSTALLATION_ASSISTANT}
     if git ls-remote ${REMOTE_TYPE} origin ${INSTALLATION_ASSISTANT_BRANCH} | grep -q "${INSTALLATION_ASSISTANT_BRANCH}"; then
+        echo "Using ${INSTALLATION_ASSISTANT_BRANCH} branch of ${WAZUH_INSTALLATION_ASSISTANT} repository"
         git checkout ${INSTALLATION_ASSISTANT_BRANCH} >> /dev/null 2>&1
         WIA_VERSION=$(cat VERSION)
         if [ "${OVA_VERSION}" != "${WIA_VERSION}" ]; then
