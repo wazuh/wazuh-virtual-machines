@@ -1,0 +1,4 @@
+.vagrant
+*.ova
+*.ovf
+*.vmdk
