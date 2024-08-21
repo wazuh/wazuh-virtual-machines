@@ -126,7 +126,6 @@ build_ova() {
         clean 1
     fi
 
-
     # Make output dir of OVA file
     mkdir -p "${OUTPUT_DIR}"
     mv "${OVA_FIXED}" "${OUTPUT_DIR}"/"${OVA_VM}"
