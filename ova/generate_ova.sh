@@ -228,7 +228,9 @@ main() {
 
     INSTALLER="wazuh-install.sh"
     WAZUH_INSTALLATION_ASSISTANT="wazuh-installation-assistant"
+    WAZUH_INSTALLATION_ASSISTANT_URL="https://github.com/wazuh/${WAZUH_INSTALLATION_ASSISTANT}.git"
     BUILDER_ARGS="-i"
+
     if [[ "${PACKAGES_REPOSITORY}" == "dev" ]]; then
         BUILDER_ARGS+=" -d"
     elif [[ "${PACKAGES_REPOSITORY}" == "staging" ]]; then
@@ -236,12 +238,11 @@ main() {
     fi
 
     echo "Building Wazuh OVA version ${OVA_VERSION}"
-    echo "Cloning Wazuh installation assistant repository"
-    git clone https://github.com/wazuh/${WAZUH_INSTALLATION_ASSISTANT}.git >> /dev/null 2>&1
-    cd ${WAZUH_INSTALLATION_ASSISTANT}
-    if git ls-remote ${REMOTE_TYPE} origin ${INSTALLATION_ASSISTANT_BRANCH} | grep -q "${INSTALLATION_ASSISTANT_BRANCH}"; then
+    if git ls-remote ${REMOTE_TYPE} ${WAZUH_INSTALLATION_ASSISTANT_URL} ${INSTALLATION_ASSISTANT_BRANCH} | grep -q "${INSTALLATION_ASSISTANT_BRANCH}"; then
+        echo "Cloning Wazuh installation assistant repository"
+        git clone ${WAZUH_INSTALLATION_ASSISTANT_URL} -b ${INSTALLATION_ASSISTANT_BRANCH} >> /dev/null 2>&1
         echo "Using ${INSTALLATION_ASSISTANT_BRANCH} branch of ${WAZUH_INSTALLATION_ASSISTANT} repository"
-        git checkout ${INSTALLATION_ASSISTANT_BRANCH} >> /dev/null 2>&1
+        cd ${WAZUH_INSTALLATION_ASSISTANT}
         WIA_VERSION=$(cat VERSION)
         if [ "${OVA_VERSION}" != "${WIA_VERSION}" ]; then
             echo "Wazuh installation assistant version ${WIA_VERSION} does not match with OVA version ${OVA_VERSION}"
