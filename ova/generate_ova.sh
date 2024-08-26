@@ -22,8 +22,6 @@ scriptpath=$(
 OUTPUT_DIR="${scriptpath}/output"
 CHECKSUM_DIR="${scriptpath}/checksum"
 
-UNATTENDED_RESOURCES_FOLDER="unattended_installer"
-UNATTENDED_PATH="../${UNATTENDED_RESOURCES_FOLDER}"
 VERSION_FILE="../VERSION"
 
 PACKAGES_REPOSITORY="prod"
@@ -39,6 +37,10 @@ help () {
     echo -e "        $(basename "$0") -r | -s | -c | -f | -h"
     echo -e ""
     echo -e "DESCRIPTION"
+    echo -e "        -a,  --installation-assistant"
+    echo -e "                Set the installation assistant branch for building the OVA."
+    echo -e "                By default the same branch name as wazuh-virtual-machines will be used."
+    echo -e ""
     echo -e "        -r,  --repository"
     echo -e "                Use development or production repository."
     echo -e "                Values: [prod|dev|staging]. By default: ${PACKAGES_REPOSITORY}."
@@ -67,7 +69,8 @@ clean() {
     cd "${scriptpath}"
     vagrant destroy -f
     OVA_VMDK="wazuh-${OVA_VERSION}-disk001.vmdk"
-    rm -f "${OVA_VM}" "${OVF_VM}" "${OVA_VMDK}" "${OVA_FIXED}"
+    rm -f "${OVA_VM}" "${OVF_VM}" "${OVA_VMDK}" "${OVA_FIXED}" "${INSTALLER}"
+    rm -rf "${WAZUH_INSTALLATION_ASSISTANT}"
 
     exit "${exit_code}"
 }
@@ -122,7 +125,6 @@ build_ova() {
         echo "Cannot find python"
         clean 1
     fi
-    
 
     # Make output dir of OVA file
     mkdir -p "${OUTPUT_DIR}"
@@ -137,6 +139,16 @@ main() {
         case $1 in
             "-h" | "--help")
             help 0
+        ;;
+
+        "-a" | "--installation-assistant")
+            if [ -n "$2" ]; then
+                INSTALLATION_ASSISTANT_BRANCH="$2"
+                shift 2
+            else
+                echo "ERROR: Need installation assistant branch"
+                help 1
+            fi
         ;;
 
         "-r" | "--repository")
@@ -200,21 +212,57 @@ main() {
         CHECKSUM_DIR="${OUTPUT_DIR}"
     fi
 
-    [[ ${PACKAGES_REPOSITORY} = "prod" ]] && REPO="production" || REPO="development"
-
-    cp -r ../${UNATTENDED_RESOURCES_FOLDER} .
-
     OVA_VERSION=$(cat ${VERSION_FILE})
     if [ "${OVA_VERSION:0:1}" == "v" ]; then
         OVA_VERSION=${OVA_VERSION:1}
     fi
 
+    if [ -z "${INSTALLATION_ASSISTANT_BRANCH}" ]; then
+        INSTALLATION_ASSISTANT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+    fi
+    if [ "${INSTALLATION_ASSISTANT_BRANCH:0:1}" == "v" ]; then
+        REMOTE_TYPE="--tags"
+    else
+        REMOTE_TYPE="--heads"
+    fi
+
+    INSTALLER="wazuh-install.sh"
+    WAZUH_INSTALLATION_ASSISTANT="wazuh-installation-assistant"
+    WAZUH_INSTALLATION_ASSISTANT_URL="https://github.com/wazuh/${WAZUH_INSTALLATION_ASSISTANT}.git"
+    BUILDER_ARGS="-i"
+
+    if [[ "${PACKAGES_REPOSITORY}" == "dev" ]]; then
+        BUILDER_ARGS+=" -d"
+    elif [[ "${PACKAGES_REPOSITORY}" == "staging" ]]; then
+        BUILDER_ARGS+=" -d staging"
+    fi
+
+    echo "Building Wazuh OVA version ${OVA_VERSION}"
+    if git ls-remote ${REMOTE_TYPE} ${WAZUH_INSTALLATION_ASSISTANT_URL} ${INSTALLATION_ASSISTANT_BRANCH} | grep -q "${INSTALLATION_ASSISTANT_BRANCH}"; then
+        echo "Cloning Wazuh installation assistant repository"
+        git clone ${WAZUH_INSTALLATION_ASSISTANT_URL} -b ${INSTALLATION_ASSISTANT_BRANCH} >> /dev/null 2>&1
+        echo "Using ${INSTALLATION_ASSISTANT_BRANCH} branch of ${WAZUH_INSTALLATION_ASSISTANT} repository"
+        cd ${WAZUH_INSTALLATION_ASSISTANT}
+        WIA_VERSION=$(cat VERSION)
+        if [ "${OVA_VERSION}" != "${WIA_VERSION}" ]; then
+            echo "Wazuh installation assistant version ${WIA_VERSION} does not match with OVA version ${OVA_VERSION}"
+            clean 1
+        fi
+        echo "Building Wazuh installation assistant from ${INSTALLATION_ASSISTANT_BRANCH} branch"
+    else
+        echo "Branch ${INSTALLATION_ASSISTANT_BRANCH} not found in wazuh-installation-assistant repository"
+        clean 1
+    fi
+    bash builder.sh ${BUILDER_ARGS}
+
+    cp ${INSTALLER} ../
+    cd ..
+    rm -rf ${WAZUH_INSTALLATION_ASSISTANT}
 
     # Build OVA file (no standard)
+    [[ ${PACKAGES_REPOSITORY} = "prod" ]] && REPO="production" || REPO="development"
     echo "Version to build: ${OVA_VERSION} with ${REPO} repository"
     build_ova
-
-    rm -rf ${UNATTENDED_RESOURCES_FOLDER}
 
     # Standarize OVA
     bash setOVADefault.sh "${scriptpath}" "${OUTPUT_DIR}/${OVA_VM}" "${OUTPUT_DIR}/${OVA_VM}" "${scriptpath}/wazuh_ovf_template" "${OVA_VERSION}"  || clean 1

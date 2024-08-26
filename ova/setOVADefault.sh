@@ -17,7 +17,6 @@ tar -xvf ${path_ova} --directory ${workspace}/new-ova/
 echo "OVF extracted"
 
 mv "${workspace}"/new-ova/*.ovf ${workspace}/new-ova/${file}.ovf
-mv "${workspace}"/new-ova/*.mf ${workspace}/new-ova/${file}.mf
 mv "${workspace}"/new-ova/*.vmdk ${workspace}/new-ova/${file}-disk-1.vmdk
 echo "Files renamed"
 
@@ -27,7 +26,7 @@ sed -i "s/{WAZUH_VERSION}/${wazuh_version}/" ${workspace}/new-ova/${file}.ovf
 echo "OVF Version changed"
 
 ovf_size=$(stat --printf=%s ${workspace}/new-ova/${file}-disk-1.vmdk)
-sed -i "s/{SIZE}/${ovf_size}/" "${workspace}/new-ova/${file}.ovf"   
+sed -i "s/{SIZE}/${ovf_size}/" "${workspace}/new-ova/${file}.ovf"
 echo "OVF Size changed"
 
 export workspace
