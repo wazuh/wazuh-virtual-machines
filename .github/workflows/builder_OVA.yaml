@@ -1,0 +1,44 @@
+run-name: Build OVA - Wazuh ${{ inputs.PACKAGE_VERSION }} Version - Launched by @${{ github.actor }}
+name: Build OVA
+
+on:
+  workflow_dispatch:
+    inputs:
+      WAZUH_VIRTUAL_MACHINES_REFERENCE:
+        description: 'Branch or tag of the wazuh-virtual-machines repository'
+        required: true
+        default: '4.10.0'
+      WAZUH_INSTALLATION_ASSISTANT_REFERENCE:
+        description: 'Branch or tag of the wazuh-installation-assistant repository'
+        required: true
+        default: '4.10.0'
+      WAZUH_AUTOMATION_REFERENCE:
+        description: 'Branch or tag of the wazuh-automation repository'
+        required: true
+        default: '4.10.0'
+      WAZUH_PACKAGE_REPOSITORY:
+        type: choice
+        description: 'Wazuh package repository from which to download the packages'
+        required: true
+        options:
+          - prod
+          - dev
+          - staging
+      S3_REPOSITORY:
+        type: choice
+        description: 'packages-dev repository to upload the OVA'
+        required: true
+        options:
+          - pre-release
+          - staging
+
+env:
+  LABEL: ubuntu-latest
+
+jobs:
+  initialize-environment:
+    runs-on: $LABEL
+
+    steps:
+    - name: Set up Git
+      uses: actions/checkout@v3
