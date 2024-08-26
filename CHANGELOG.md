@@ -9,7 +9,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Migrated the OVA construction files to the wazuh-virtual-machines repository ([#5524](https://github.com/wazuh/wazuh-virtual-machines/pull/29)) - (OVA)
+- Migrated the OVA construction files to the wazuh-virtual-machines repository ([#29](https://github.com/wazuh/wazuh-virtual-machines/pull/29)) - (OVA)
 
 ### Fixed
 
