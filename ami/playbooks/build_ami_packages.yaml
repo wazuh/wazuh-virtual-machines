@@ -1,0 +1,342 @@
+- hosts: all
+  become: true
+
+  vars:
+    installation_assistant_reference: "{{ installation_assistant_reference }}"
+
+    provision_path: '/var/provision'
+    username: 'wazuh-user'
+
+    automatic_ram_script_name: 'automatic_set_ram.sh'
+    update_indexer_heap_service_name: 'updateIndexerHeap.service'
+    builder_script_name: 'builder.sh'
+    installer_script_name: 'wazuh-install.sh'
+    passwords_tool_script_name: 'wazuh-passwords-tool.sh'
+    passwords_file_name: 'wazuh-passwords.txt'
+
+    ova_custom_path: 'ova/assets/'
+    automatic_ram_script_path: 'ova/assets/custom'
+
+    installation_assistant_directory: '{{ provision_path }}/wazuh-installation-assistant'
+
+    rpm_packages:
+      - git
+      - libnss3.so
+      - xorg-x11-fonts-100dpi
+      - xorg-x11-fonts-75dpi
+      - xorg-x11-utils
+      - xorg-x11-fonts-cyrillic
+      - xorg-x11-fonts-Type1
+      - xorg-x11-fonts-misc
+      - fontconfig
+      - freetype
+      - ipa-gothic-fonts
+
+  remote_user: "{{ username }}"
+  tasks:
+
+    ###############################
+    # Configuration stage
+    ###############################
+
+    - name: Stop systemd-journald logs storage
+      replace:
+        path: "/etc/systemd/journald.conf"
+        regexp: "{{ item.regex1 }}"
+        replace: "{{ item.replace1 }}"
+      with_items:
+        - { regex1: '#Storage=auto', replace1: 'Storage=none' }
+        - { regex1: '#ForwardToSyslog=yes', replace1: 'ForwardToSyslog=yes' }
+
+    - name: Restart journal service
+      systemd:
+        name: "systemd-journald"
+        enabled: yes
+        state: restarted
+
+    - name: Flush journald
+      command: "journalctl --flush"
+
+    - name: System update
+      command: yum update -y
+
+    - name: Install dependencies
+      ansible.builtin.package:
+        name: "{{ rpm_packages }}"
+        state: present
+
+    - name: Make provision directory
+      file:
+        path: "{{ provision_path }}"
+        state: directory
+
+    - name: Copy necessary directories from virtual-machine repository
+      copy:
+        src: "../../{{ automatic_ram_script_path }}"
+        dest: "{{ provision_path }}/{{ ova_custom_path }}"
+
+    - name: Copy automatic ram set on reboot
+      copy:
+        src: "{{ provision_path }}/{{ automatic_ram_script_path }}/{{ automatic_ram_script_name }}"
+        dest: "/etc"
+        mode: "+x"
+        remote_src: yes
+
+    - name: Copy update wazuh indexer jvm heap service
+      copy:
+        src: "{{ provision_path }}/{{ automatic_ram_script_path }}/{{ update_indexer_heap_service_name }}"
+        dest: "/etc/systemd/system/"
+        mode: "+x"
+        remote_src: yes
+
+    - name: Enable update wazuh indexer jvm heap service
+      systemd:
+        name: "{{ item }}"
+        enabled: yes
+        daemon_reload: yes
+      with_items:
+        - updateIndexerHeap
+
+    - name: Clone the wazuh-packages repository
+      git:
+        repo: "https://github.com/wazuh/wazuh-installation-assistant.git"
+        version: "{{ installation_assistant_reference }}"
+        dest: '{{ installation_assistant_directory }}'
+        depth: 1
+      register: clone_result
+      retries: 6
+      delay: 10
+      until: clone_result is success
+
+    - name: Build install script
+      shell: "bash {{ installation_assistant_directory }}/{{ builder_script_name }} -i -d"
+
+    - name: Build password change script
+      shell: "bash {{ installation_assistant_directory }}/{{ builder_script_name }} -p"
+
+    - name: Copy wazuh-passwords-tool script
+      copy:
+        src: "{{ installation_assistant_directory }}/{{ passwords_tool_script_name }}"
+        dest: "/etc/.{{ passwords_tool_script_name }}"
+        remote_src: yes
+
+
+    ###############################
+    # Edit unattended script
+    ###############################
+
+    - name: Add full debug
+      replace:
+        path: "{{ installation_assistant_directory }}/{{ installer_script_name }}"
+        regexp: "#!/bin/bash"
+        replace: "#!/bin/bash\\nset -x"
+
+    - name: Modify install script
+      shell: sed -i "s/passwords+=\(.*\)/passwords+=\(\"\${users[i]}\"\)/g" {{ installation_assistant_directory }}/{{ installer_script_name }}
+
+    - name: Modify install script
+      shell: sed -i "s/api_passwords+=\(.*\)//g" {{ installation_assistant_directory }}/{{ installer_script_name }}
+
+    - name: Modify install script
+      shell: sed -i "s/passwords_checkPassword .*//g" {{ installation_assistant_directory }}/{{ installer_script_name }}
+
+    - name: Modify install script
+      shell: sed -i "s/filecorrect=.*/filecorrect=1/g" {{ installation_assistant_directory }}/{{ installer_script_name }}
+
+    - name: Modify install script
+      shell: sed -i "s/main \"\$@\"//g" {{ installation_assistant_directory }}/{{ installer_script_name }}
+
+    - name: Modify install script
+      shell: cat {{ provision_path }}/{{ automatic_ram_script_path }}/functions.sh >> {{ installation_assistant_directory }}/{{ installer_script_name }}
+
+    - name: Modify install script
+      shell: echo "" >> {{ installation_assistant_directory }}/{{ installer_script_name }}
+
+    - name: Modify install script
+      shell: echo "main \"\$@\"" >> {{ installation_assistant_directory }}/{{ installer_script_name }}
+
+    - name: Modify install script
+      shell: cat {{ installation_assistant_directory }}/{{ installer_script_name }}
+
+    - name: Modify install script
+      shell: sed -i "s/passwords_checkPassword .*/echo/g" /etc/.{{ passwords_tool_script_name }}
+
+    ###############################
+    # Install stage
+    ###############################
+
+    - name: Run {{ installer_script_name }} script
+      command: "bash {{ installation_assistant_directory }}/{{ installer_script_name }} -a -v -o"
+
+    ###############################
+    # Post-install stage
+    ###############################
+
+    - name: Extract password file
+      command: "tar -xf {{ installation_assistant_directory }}/wazuh-install-files.tar -C /etc/ wazuh-install-files/{{ passwords_file_name }}"
+
+    - name: Hide password file directory
+      command: "mv /etc/wazuh-install-files /etc/.wazuh-install-files"
+
+    - name: Stop and enable Filebeat and Wazuh manager services
+      systemd:
+        name: "{{ item }}"
+        enabled: yes
+        state: stopped
+        daemon_reload: yes
+      with_items:
+        - filebeat
+        - wazuh-manager
+
+    - name: Define list of Indexer indices
+      set_fact:
+        indexer_indices:
+          - wazuh-alerts
+          - wazuh-archives
+          - wazuh-states-vulnerabilities
+          - wazuh-statistics
+          - wazuh-monitoring
+    
+    - name: Set old password fact
+      shell: >
+        old_password=$(cat /etc/.wazuh-install-files/{{ passwords_file_name }} | grep -P "\\'admin\\'" -A 1 | grep indexer_password | awk -F"'" '{print $2}') && echo $old_password
+      register: old_password
+
+    - name: Extract old password
+      set_fact:
+        old_password: "{{ old_password.stdout_lines[0] }}"
+
+    - name: Delete Indexer indices
+      uri:
+        url: "https://localhost:9200/{{ item }}-*"
+        method: DELETE
+        user: admin
+        password: "{{ old_password }}"
+        validate_certs: no
+        status_code: 200
+      loop: "{{ indexer_indices }}"
+      register: delete_response
+
+    - name: Execute Wazuh indexer security initialization script
+      shell: bash /usr/share/wazuh-indexer/bin/indexer-security-init.sh -ho 127.0.0.1
+
+    - name: Stop and enable Wazuh indexer and Wazuh dashboard services
+      systemd:
+        name: "{{ item }}"
+        enabled: yes
+        state: stopped
+        daemon_reload: yes
+      with_items:
+        - wazuh-indexer
+        - wazuh-dashboard
+
+    - name: Create changePassword script file
+      file:
+        dest: "/etc/.changePasswords.sh"
+        state: touch
+        mode: +x
+
+    - name: Add script to change passwords on boot
+      blockinfile:
+        path: "/etc/.changePasswords.sh"
+        block: |
+          #!/bin/bash
+          mv /home/{{ username }}/.ssh/authorized_keys /home/{{ username }}/.ssh/.authorized_keys_ori
+
+          until $(sudo curl -XGET https://localhost:9200/ -uadmin:admin -k --max-time 120 --silent --output /dev/null); do
+            sleep 10
+          done
+
+          new_password=$(ec2-metadata | grep "instance-id" | cut -d":" -f2 | tr -d " ")
+          sed -i "s/password:.*/password: ${new_password}/g" /etc/.wazuh-install-files/{{ passwords_file_name }}
+          bash /etc/.wazuh-passwords-tool.sh -f /etc/.wazuh-install-files/{{ passwords_file_name }}
+          rm -f /etc/.changePasswords.sh /etc/.wazuh-passwords-tool.sh /etc/.wazuh-install-files/{{ passwords_file_name }} /var/log/wazuh-passwords-tool.log
+          rmdir /etc/.wazuh-install-files
+
+          until $(sudo curl -XGET https://localhost:9200/ -uadmin:${new_password} -k --max-time 120 --silent --output /dev/null); do
+            sleep 10
+          done
+
+          sed -i "/#Ansible: Change Passwords/,//d" /var/spool/cron/root
+          mv /home/{{ username }}/.ssh/.authorized_keys_ori /home/{{ username }}/.ssh/authorized_keys
+
+    - name: Add change password to crontab
+      cron:
+        name: Change Passwords
+        job: ". /etc/.changePasswords.sh"
+        special_time: reboot
+
+    ###############################
+    # Cleaning stage
+    ###############################
+
+    - name: Clean provision files
+      file:
+        path: "/var/provision/"
+        state: absent
+
+    - name: Find all cloud instances files
+      find:
+        path: "/var/lib/cloud/instances"
+        recurse: yes
+      register: cleanup_instances
+
+    - name: Clean cloud instances files
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      with_items: "{{ cleanup_instances.files }}"
+
+    - name: Find all journal files
+      find:
+        path: /var/log/journal/
+        recurse: yes
+      register: cleanup_journal
+
+    - name: Clean journal files
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      with_items: "{{ cleanup_journal.files }}"
+
+    - name: Clean yum cache
+      shell: yum clean all
+
+    - name: Clean securityadmin_demo.sh
+      file:
+        path: "/securityadmin_demo.sh"
+        state: absent
+
+    - name: Clean logout files
+      shell: "cat /dev/null > {{ item }}"
+      with_items:
+        - "/home/{{ username }}/.bash_logout"
+        - "/root/.bash_logout"
+
+    - name: Enable systemd-journald logs storage at boot
+      replace:
+        path: "/etc/systemd/journald.conf"
+        regexp: "{{ item.regex1 }}"
+        replace: "{{ item.replace1 }}"
+      with_items:
+        - { regex1: 'Storage=none', replace1: '#Storage=auto' }
+        - { regex1: 'ForwardToSyslog=yes', replace1: '#ForwardToSyslog=yes' }
+
+    - name: Clean logs
+      shell: |
+        find /var/log/ -type f -exec bash -c 'cat /dev/null > {}' \;
+        find /var/ossec/logs -type f -execdir sh -c 'cat /dev/null > "$1"' _ {} \;
+        find /var/log/wazuh-indexer -type f -execdir sh -c 'cat /dev/null > "$1"' _ {} \;
+        find /var/log/filebeat -type f -execdir sh -c 'cat /dev/null > "$1"' _ {} \;
+
+    - name: Clean history
+      shell: "cat /dev/null > {{ item }} && history -c"
+      with_items:
+        - "/home/{{ username }}/.bash_history"
+        - "/root/.bash_history"
+
+    - name: Clean authorized_keys
+      shell: "cat /dev/null > {{ item }}"
+      with_items:
+        - "/root/.ssh/authorized_keys"
+        - "/home/{{ username }}/.ssh/authorized_keys"
