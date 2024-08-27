@@ -1,0 +1,18 @@
+run-name: Build AMI - Wazuh ${{ inputs.PACKAGE_VERSION }} Version - Launched by @${{ github.actor }}
+name: Build AMI
+
+on:
+  workfolw_dispatch:
+    inputs:
+      PACKAGE_VERSION:
+        description: 'Wazuh version to build'
+        required: true
+        default: '4.10.0'
+      WAZUH_VIRTUAL_MACHINES_REFERENCE:
+        description: 'Branch or tag of the wazuh-virtual-machines repository where the workflow will be triggered
+        required: true
+        default: '4.10.0'
+      WAZUH_AUTOMATION_REFERENCE:
+        description: 'Branch or tag of the wazuh-automation repository'
+        required: true
+        default: '4.10.0'
