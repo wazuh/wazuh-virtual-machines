@@ -16,6 +16,10 @@ on:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
         default: '4.10.0'
+      WAZUH_INSTALLATION_ASSISTANT_REFERENCE:
+        description: 'Branch or tag of the wazuh-installation-assistant repository'
+        required: true
+        default: '4.10.0'
       SUFFIX-AMI:
         description: 'Suffix to add to the AMI name, must begin with "_" without quotes. For pre-relase, use -1'
         required: false
