@@ -5,7 +5,11 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- None
+- Added builder_OVA workflow ([#32](https://github.com/wazuh/wazuh-virtual-machines/pull/32))
+
+- Added packages_builder_ami workflow header ([#31](https://github.com/wazuh/wazuh-virtual-machines/pull/31))
+
+- Added the OVA to the wazuh-virtual-machines repository without changes ([#30](https://github.com/wazuh/wazuh-virtual-machines/pull/30)) - (OVA)
 
 ### Changed
 
