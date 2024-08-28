@@ -9,10 +9,18 @@ on:
         required: true
         default: '4.10.0'
       WAZUH_VIRTUAL_MACHINES_REFERENCE:
-        description: 'Branch or tag of the wazuh-virtual-machines repository where the workflow will be triggered
+        description: 'Branch or tag of the wazuh-virtual-machines repository where the workflow will be triggered'
         required: true
         default: '4.10.0'
       WAZUH_AUTOMATION_REFERENCE:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
         default: '4.10.0'
+      SUFFIX-AMI:
+        description: 'Suffix to add to the AMI name, must begin with "_" without quotes. For pre-relase, use -1'
+        required: false
+      DESTROY:
+        type: boolean
+        description: 'Destroy the base instance after the AMI is created'
+        required: false
+        default: true
