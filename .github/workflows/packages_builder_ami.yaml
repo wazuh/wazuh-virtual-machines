@@ -2,7 +2,7 @@ run-name: Build AMI - Wazuh ${{ inputs.PACKAGE_VERSION }} Version - Launched by 
 name: Build AMI
 
 on:
-  workfolw_dispatch:
+  workflow_dispatch:
     inputs:
       PACKAGE_VERSION:
         description: 'Wazuh version to build'
