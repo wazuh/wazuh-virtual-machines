@@ -20,9 +20,10 @@ on:
         description: 'Branch or tag of the wazuh-installation-assistant repository'
         required: true
         default: '4.10.0'
-      SUFFIX-AMI:
+      SUFFIX_AMI:
         description: 'Suffix to add to the AMI name, must begin with "_" without quotes. For pre-relase, use -1'
         required: false
+        default: '-1'
       DESTROY:
         type: boolean
         description: 'Destroy the base instance after the AMI is created'
