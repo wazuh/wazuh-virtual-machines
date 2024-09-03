@@ -163,7 +163,7 @@ jobs:
 
       - name: Getting OVA from temporal bucket
         run: |
-          aws s3 --quiet cp "s3://${{ env.TEMPORAL_S3_BUCKET }}/${{ env.TEMPORAL_S3_PATH }}/${{ env.FILENAME_OVA }}${{ env.EXPORT_ID }}.ova" /tmp/${{ env.FILENAME_OVA }}
+          aws s3 --quiet cp "s3://${{ env.TEMPORAL_S3_BUCKET }}/${{ env.TEMPORAL_S3_PATH }}/${{ env.FILENAME }}${{ env.EXPORT_ID }}.ova" /tmp/${{ env.FILENAME_OVA }}
 
       - name: Standarizing OVA
         run: |
@@ -181,7 +181,7 @@ jobs:
 
       - name: Removing temporal files
         run: |
-          aws s3 rm --quiet s3://${{ env.TEMPORAL_S3_BUCKET }}/${{ env.TEMPORAL_S3_PATH }}/${{ env.FILENAME_OVA }}/${{ env.FILENAME_OVA }}${{ env.EXPORT_ID }}.ova
+          aws s3 rm --quiet s3://${{ env.TEMPORAL_S3_BUCKET }}/${{ env.TEMPORAL_S3_PATH }}/${{ env.FILENAME }}${{ env.EXPORT_ID }}.ova
 
       - name: Delete allocated VM
         if: always() && steps.alloc_vm_ova.outcome == 'success'
