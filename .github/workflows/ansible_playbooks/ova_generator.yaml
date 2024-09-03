@@ -106,6 +106,31 @@
         name: amazon-ssm-agent
         state: absent
 
+    - name: Remove ec2-hibinit-agent
+      yum:
+        name: ec2-hibinit-agent
+        state: absent
+
+    - name: Remove ec2-net-utils
+      yum:
+        name: ec2-net-utils
+        state: absent
+
+    - name: Remove ec2-utils
+      yum:
+        name: ec2-utils
+        state: absent
+
+    - name: Remove ec2-instance-connect
+      yum:
+        name: ec2-instance-connect
+        state: absent
+
+    - name: Remove aws-cfn-bootstrap
+      yum:
+        name: aws-cfn-bootstrap
+        state: absent
+
     - name: Change ssh port to 22
       replace:
         path: /etc/ssh/sshd_config
@@ -115,13 +140,13 @@
     - name: Remove AuthorizedKeysCommand from sshd_config
       lineinfile:
         path: /etc/ssh/sshd_config
-        regexp: '^AuthorizedKeysCommand'
+        regexp: '^#?AuthorizedKeysCommand.*'
         state: absent
 
     - name: Remove AuthorizedKeysCommandUser from sshd_config
       lineinfile:
         path: /etc/ssh/sshd_config
-        regexp: '^AuthorizedKeysCommandUser'
+        regexp: '^#?AuthorizedKeysCommandUser.*'
         state: absent
 
     - name: Restart SSH service
