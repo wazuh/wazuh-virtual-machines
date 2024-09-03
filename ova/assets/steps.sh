@@ -6,6 +6,15 @@
 systemConfig() {
 
   echo "Upgrading the system. This may take a while ..."
+  attempt=0
+  seconds=30
+  max_attempts=10
+  yum_lockfile="/var/run/yum.pid"
+  while [ -f "${yum_lockfile}" ] && [ "${attempt}" -lt "${max_attempts}" ]; do
+    echo "Waiting for other package managers to finish..."
+    sleep "${seconds}"
+    attempt=$((attempt+1))
+  done
   yum upgrade -y > /dev/null 2>&1
 
   # Disable kernel messages and edit background

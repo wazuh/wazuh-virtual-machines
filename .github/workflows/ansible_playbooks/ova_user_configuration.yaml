@@ -1,0 +1,38 @@
+- hosts: all
+  become: true
+
+  tasks:
+    - name: Make sure we have a 'wazuh-user' group
+      group:
+        name: wazuh-user
+        state: present
+
+    - name: Create Wazuh-user user
+      user:
+        name: wazuh-user
+        password: "$6$JCdDevgWSFA7hwHD$/beU/tttOe5./mEa2IVb7iEijVCfrwq6KEVySugIx7sziTBDICquYR2vplCUwMkqEiRicQiTDMHa17SqFHfTC/"
+        state: present
+        create_home: yes
+        home: /home/wazuh-user
+        groups: wazuh-user
+        shell: /bin/bash
+
+    - name: Add wazuh-user to sudoers
+      lineinfile:
+        dest: /etc/sudoers
+        state: present
+        regexp: '^wazuh-user'
+        line: '%wazuh-user ALL=(ALL) NOPASSWD: ALL'
+        validate: 'visudo -cf %s'
+
+    - name: Enable SSH password authentication
+      lineinfile:
+        dest: /etc/ssh/sshd_config
+        state: present
+        regexp: '^PasswordAuthentication'
+        line: 'PasswordAuthentication yes'
+
+    - name: Restart SSH service
+      service:
+        name: sshd
+        state: restarted
