@@ -78,6 +78,11 @@
         state: absent
       with_items: "{{ packages_to_uninstall }}"
 
+    - name: Disable cloud-init
+      file:
+        path: /etc/cloud/cloud-init.disabled
+        state: touch
+
     - name: Install additional packages
       yum:
         name: "{{ item }}"
