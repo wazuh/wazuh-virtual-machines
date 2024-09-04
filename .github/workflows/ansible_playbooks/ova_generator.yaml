@@ -72,17 +72,17 @@
       async: 3600
       poll: 10
 
-    - name: Install additional packages
-      yum:
-        name: "{{ item }}"
-        state: present
-      with_items: "{{ packages_to_install }}"
-
     - name: Remove unneeded packages
       yum:
         name: "{{ item }}"
         state: absent
       with_items: "{{ packages_to_uninstall }}"
+
+    - name: Install additional packages
+      yum:
+        name: "{{ item }}"
+        state: present
+      with_items: "{{ packages_to_install }}"
 
     - name: Clean provision files
       file:
