@@ -83,6 +83,9 @@
         path: /etc/cloud/cloud-init.disabled
         state: touch
 
+    - name: Clean cloud dir
+      command: "rm -rf /var/lib/cloud/*"
+
     - name: Install additional packages
       yum:
         name: "{{ item }}"
