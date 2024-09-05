@@ -113,6 +113,24 @@ jobs:
           echo "[gha_instance]" > /tmp/allocatorvm_ova/inventory
           echo "$ansible_host ansible_user=wazuh-user ansible_password=wazuh ansible_ssh_common_args='-o StrictHostKeyChecking=no'" >> /tmp/allocatorvm_ova/inventory
 
+      - name: Wait for SSH to be available
+        run: |
+          ansible_host=$(cat /tmp/allocatorvm_ova/inventory | grep -oP '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}')
+          MAX_RETRIES=40
+          NUM_RETRIES=0
+          while true; do
+            if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 wazuh-user@$ansible_host "exit"; then
+              break
+            fi
+            sleep 30
+            NUM_RETRIES=$((NUM_RETRIES+1))
+            if [ ${NUM_RETRIES} -eq ${MAX_RETRIES} ]; then
+              echo "Error connecting to OVA VM"
+              aws ec2 terminate-instances --instance-ids "${{ env.INSTANCE_ID }}"
+              exit 1
+            fi
+          done
+
       - name: Run Ansible playbook to generate the OVA
         run: |
           if [ "${{ inputs.WAZUH_PACKAGE_REPOSITORY }}" == "prod" ]; then
