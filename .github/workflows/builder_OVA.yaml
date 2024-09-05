@@ -41,7 +41,7 @@ on:
           - -vvv
 
 env:
-    OVA_BASE_AMI: "ami-0d4bd55523ee67aa4"
+    OVA_AMI: "ami-0d4bd55523ee67aa4"
     INSTANCE_TYPE: "t2.xlarge"
     SECURITY_GROUP: "sg-0471247ce289c863c"
     SUBNET: "subnet-064e4e7b320dc5c2d"
@@ -102,7 +102,7 @@ jobs:
       - name: Create OVA VM
         id: alloc_vm_ova
         run: |
-          instance=$(aws ec2 run-instances --image-id "${{ OVA_BASE_AMI }}" --count 1 --instance-type "${{ INSTANCE_TYPE }}" --key-name Ephemeral --security-group-ids "${{ SECURITY_GROUP }}" --subnet-id "${{ SUBNET }}" \
+          instance=$(aws ec2 run-instances --image-id "${{ OVA_AMI }}" --count 1 --instance-type "${{ INSTANCE_TYPE }}" --key-name Ephemeral --security-group-ids "${{ SECURITY_GROUP }}" --subnet-id "${{ SUBNET }}" \
           --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=gha_${{ github.run_id }}_ova_build},{Key=team,Value=devops}]')
           INSTANCE_ID=$(echo $instance | jq -r '.Instances[0].InstanceId')
           echo "INSTANCE_ID=${INSTANCE_ID}" >> $GITHUB_ENV
