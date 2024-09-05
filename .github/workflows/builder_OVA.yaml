@@ -39,8 +39,8 @@ on:
 env:
     OVA_AMI: "ami-0d4bd55523ee67aa4"
     INSTANCE_TYPE: "t2.xlarge"
-    SECURITY_GROUP: "sg-0471247ce289c863c"
-    SUBNET: "subnet-064e4e7b320dc5c2d"
+    SECURITY_GROUP: "sg-005cff996b335d497"
+    SUBNET: "subnet-0b6aea31fb32cffad"
     TEMPORAL_S3_BUCKET: "warehouse.wazuh.com"
     S3_BUCKET: "packages-dev.wazuh.com"
     OVA_ENVIRONMENT: "vmware"
@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install Ansible
-        run: sudo apt-get update && sudo apt install -y python3 jq && python3 -m pip install --user ansible-core==2.16
+        run: sudo apt-get update && sudo apt install -y python3 jq sshpass && python3 -m pip install --user ansible-core==2.16
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -83,10 +83,28 @@ jobs:
           aws-region: "us-east-1"
           role-duration-seconds: 10800 # Set the duration of the role session to 3 hours
 
+      - name: Install and config OpenVPN
+        run: |
+          sudo apt update
+          sudo apt install -y openvpn openvpn-systemd-resolved
+          echo "${{ secrets.CI_VPN_GITHUB }}" > vpn.ovpn
+          sudo openvpn --config "vpn.ovpn" --daemon
+
+      - name: Wait for a VPN connection
+        id: vpn_connected
+        timeout-minutes: 10
+        run: |
+          while ! ping -c2 10.10.0.252; do
+            sudo kill -9 `pidof openvpn`;
+            sudo openvpn --config "vpn.ovpn" --daemon;
+            sleep 30;
+          done
+
       - name: Create OVA VM
         id: alloc_vm_ova
         run: |
-          instance=$(aws ec2 run-instances --image-id "${{ env.OVA_AMI }}" --count 1 --instance-type "${{ env.INSTANCE_TYPE }}" --key-name Ephemeral --security-group-ids "${{ env.SECURITY_GROUP }}" --subnet-id "${{ env.SUBNET }}" \
+          instance=$(aws ec2 run-instances --image-id "${{ env.OVA_AMI }}" --count 1 --instance-type "${{ env.INSTANCE_TYPE }}" --key-name Ephemeral \
+          --security-group-ids "${{ env.SECURITY_GROUP }}" --subnet-id "${{ env.SUBNET }}" --no-associate-public-ip-address \
           --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=gha_${{ github.run_id }}_ova_build},{Key=team,Value=devops}]')
           INSTANCE_ID=$(echo $instance | jq -r '.Instances[0].InstanceId')
           echo "INSTANCE_ID=${INSTANCE_ID}" >> $GITHUB_ENV
@@ -119,7 +137,7 @@ jobs:
           MAX_RETRIES=40
           NUM_RETRIES=0
           while true; do
-            if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 wazuh-user@$ansible_host "exit"; then
+            if sshpass -p wazuh ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 wazuh-user@$ansible_host "exit"; then
               break
             fi
             sleep 30
