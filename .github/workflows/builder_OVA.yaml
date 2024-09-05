@@ -168,8 +168,7 @@ jobs:
 
       - name: Export Instance to create OVA
         run: |
-          ID=$(grep -oP '^identifier: \K.*' /tmp/allocatorvm_ova/track.yml)
-          EXPORT=$(aws ec2 create-instance-export-task --instance-id "${ID}" --target-environment vmware \
+          EXPORT=$(aws ec2 create-instance-export-task --instance-id "${{ env.INSTANCE_ID }}" --target-environment vmware \
           --export-to-s3-task "ContainerFormat=${{ env.CONTAINER_FORMAT }},DiskImageFormat=VMDK,S3Bucket=${{ env.TEMPORAL_S3_BUCKET }},S3Prefix=${{ env.TEMPORAL_S3_PATH }}/${{ env.FILENAME }}")
           EXPORT_ID=$(echo ${EXPORT} | jq -r '.ExportTask.ExportTaskId')
           echo "EXPORT_ID=${EXPORT_ID}" >> $GITHUB_ENV
