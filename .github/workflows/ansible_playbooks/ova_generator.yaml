@@ -1,3 +1,10 @@
+- name: wait for ssh
+  tasks:
+  - wait_for:
+      port: 22
+      host: '{{ inventory_hostname }}'
+    delegate_to: localhost
+
 - hosts: all
   become: true
   vars:

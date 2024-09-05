@@ -12,10 +12,6 @@ on:
         description: 'Branch or tag of the wazuh-installation-assistant repository'
         required: true
         default: '4.10.0'
-      WAZUH_AUTOMATION_REFERENCE:
-        description: 'Branch or tag of the wazuh-automation repository'
-        required: true
-        default: '4.10.0'
       WAZUH_PACKAGE_REPOSITORY:
         type: choice
         description: 'Wazuh package repository from which to download the packages'
@@ -86,18 +82,6 @@ jobs:
           role-session-name: "OVA-Builder"
           aws-region: "us-east-1"
           role-duration-seconds: 10800 # Set the duration of the role session to 3 hours
-
-      - name: Checkout wazuh/wazuh-automation repository
-        uses: actions/checkout@v4
-        with:
-          repository: wazuh/wazuh-automation
-          ref: ${{ inputs.WAZUH_AUTOMATION_REFERENCE }}
-          token: ${{ secrets.GH_CLONE_TOKEN }}
-          path: wazuh-automation
-
-      - name: Install and set allocator requirements
-        run: |
-          pip3 install -r wazuh-automation/deployability/deps/requirements.txt
 
       - name: Create OVA VM
         id: alloc_vm_ova
