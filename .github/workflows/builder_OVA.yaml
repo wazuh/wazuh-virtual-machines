@@ -133,11 +133,12 @@ jobs:
 
       - name: Wait for SSH to be available
         run: |
+          set -x
           ansible_host=$(cat /tmp/allocatorvm_ova/inventory | grep -oP '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}')
           MAX_RETRIES=40
           NUM_RETRIES=0
           while true; do
-            if sshpass -p wazuh ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 wazuh-user@$ansible_host "exit"; then
+            if sshpass -p wazuh ssh -o 'StrictHostKeyChecking no' -o 'ConnectTimeout=10' wazuh-user@$ansible_host "exit"; then
               break
             fi
             sleep 30
@@ -148,6 +149,7 @@ jobs:
               exit 1
             fi
           done
+          set +x
 
       - name: Run Ansible playbook to generate the OVA
         run: |
