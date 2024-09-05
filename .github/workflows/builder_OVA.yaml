@@ -138,7 +138,8 @@ jobs:
           MAX_RETRIES=40
           NUM_RETRIES=0
           while true; do
-            if sshpass -p wazuh ssh -o 'StrictHostKeyChecking no' -o 'ConnectTimeout=10' wazuh-user@$ansible_host "exit"; then
+            sshpass -p wazuh ssh -o 'StrictHostKeyChecking no' -o 'ConnectTimeout=10' wazuh-user@$ansible_host "exit"
+            if [ $? -eq 0 ] ; then
               break
             fi
             sleep 30
