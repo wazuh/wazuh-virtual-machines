@@ -126,20 +126,18 @@ jobs:
               exit 1
             fi
           done
-          ansible_host=$(aws ec2 describe-instances --instance-ids "${{ env.INSTANCE_ID }}" | jq -r '.Reservations[0].Instances[0].PublicIpAddress')
+          ansible_host=$(aws ec2 describe-instances --instance-ids "${{ env.INSTANCE_ID }}" | jq -r '.Reservations[0].Instances[0].PrivateIpAddress')
           mkdir -p /tmp/allocatorvm_ova
           echo "[gha_instance]" > /tmp/allocatorvm_ova/inventory
           echo "$ansible_host ansible_user=wazuh-user ansible_password=wazuh ansible_ssh_common_args='-o StrictHostKeyChecking=no'" >> /tmp/allocatorvm_ova/inventory
 
       - name: Wait for SSH to be available
         run: |
-          set -x
           ansible_host=$(cat /tmp/allocatorvm_ova/inventory | grep -oP '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}')
           MAX_RETRIES=40
           NUM_RETRIES=0
           while true; do
-            sshpass -p wazuh ssh -o 'StrictHostKeyChecking no' -o 'ConnectTimeout=10' wazuh-user@$ansible_host "exit"
-            if [ $? -eq 0 ] ; then
+            if sshpass -p wazuh ssh -o 'StrictHostKeyChecking no' -o 'ConnectTimeout=10' wazuh-user@$ansible_host "exit"; then
               break
             fi
             sleep 30
@@ -150,7 +148,6 @@ jobs:
               exit 1
             fi
           done
-          set +x
 
       - name: Run Ansible playbook to generate the OVA
         run: |
