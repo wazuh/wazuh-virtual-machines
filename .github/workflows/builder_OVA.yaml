@@ -102,7 +102,7 @@ jobs:
       - name: Create OVA VM
         id: alloc_vm_ova
         run: |
-          instance=$(aws ec2 run-instances --image-id ${{ OVA_BASE_AMI }} --count 1 --instance-type ${{ INSTANCE_TYPE }} --key-name Ephemeral --security-group-ids ${{ SECURITY_GROUP }} --subnet-id ${{ SUBNET }} \
+          instance=$(aws ec2 run-instances --image-id "${{ OVA_BASE_AMI }}" --count 1 --instance-type "${{ INSTANCE_TYPE }}" --key-name Ephemeral --security-group-ids "${{ SECURITY_GROUP }}" --subnet-id "${{ SUBNET }}" \
           --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=gha_${{ github.run_id }}_ova_build},{Key=team,Value=devops}]')
           INSTANCE_ID=$(echo $instance | jq -r '.Instances[0].InstanceId')
           echo "INSTANCE_ID=${INSTANCE_ID}" >> $GITHUB_ENV
@@ -112,7 +112,7 @@ jobs:
           MAX_RETRIES=40
           NUM_RETRIES=0
           while true; do
-            STATUS=$(aws ec2 describe-instances --instance-ids ${{ INSTANCE_ID }} | jq -r '.Reservations[0].Instances[0].State.Name')
+            STATUS=$(aws ec2 describe-instances --instance-ids "${{ INSTANCE_ID }}" | jq -r '.Reservations[0].Instances[0].State.Name')
             if [ "${STATUS}" == "running" ]; then
               break
             fi
@@ -120,11 +120,11 @@ jobs:
             NUM_RETRIES=$((NUM_RETRIES+1))
             if [ ${NUM_RETRIES} -eq ${MAX_RETRIES} ]; then
               echo "Error creating OVA VM"
-              aws ec2 terminate-instances --instance-ids ${{ INSTANCE_ID }}
+              aws ec2 terminate-instances --instance-ids "${{ INSTANCE_ID }}"
               exit 1
             fi
           done
-          ansible_host=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID | jq -r '.Reservations[0].Instances[0].PublicIpAddress')
+          ansible_host=$(aws ec2 describe-instances --instance-ids "${{ INSTANCE_ID }}" | jq -r '.Reservations[0].Instances[0].PublicIpAddress')
           mkdir -p /tmp/allocatorvm_ova
           echo "[gha_instance]" > /tmp/allocatorvm_ova/inventory
           echo "$ansible_host ansible_user=wazuh-user ansible_password=wazuh ansible_ssh_common_args='-o StrictHostKeyChecking=no'" >> /tmp/allocatorvm_ova/inventory
@@ -159,7 +159,7 @@ jobs:
           MAX_RETRIES=40
           NUM_RETRIES=0
           while true; do
-            STATUS=$(aws ec2 describe-export-tasks --export-task-ids ${{ env.EXPORT_ID }} | jq -r '.ExportTasks[0].State')
+            STATUS=$(aws ec2 describe-export-tasks --export-task-ids "${{ env.EXPORT_ID }}" | jq -r '.ExportTasks[0].State')
             if [ "${STATUS}" == "completed" ]; then
               break
             fi
@@ -196,4 +196,4 @@ jobs:
       - name: Delete allocated VM
         if: always() && steps.alloc_vm_ova.outcome == 'success'
         run: |
-          aws ec2 terminate-instances --instance-ids ${{ INSTANCE_ID }}
+          aws ec2 terminate-instances --instance-ids "${{ INSTANCE_ID }}"
