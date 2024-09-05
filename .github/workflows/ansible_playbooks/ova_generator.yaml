@@ -4,30 +4,6 @@
         ova_path: '/var/provision/wazuh-virtual-machines'
         wia_scripts: 'wazuh-installation-assistant'
         wia_repository: 'https://github.com/wazuh/wazuh-installation-assistant/'
-        packages_to_uninstall:
-          - ec2-instance-connect
-          - amazon-ssm-agent
-          - ec2-hibinit-agent
-          - ec2-net-utils
-          - ec2-utils
-          - ec2-instance-connect
-          - aws-cfn-bootstrap
-          - ucpid
-          - amazon-linux-extras-yum-plugin
-          - dracut-config-ec2
-          - dracut-fips
-          - ec2-instance-connect-selinux
-          - grub2-efi-x64-ec2
-          - grub2-tools-efi
-          - grub2-tools-extra
-          - hibagent
-          - hmaccalc
-        packages_to_install:
-          - amazon-linux-onprem
-          - apr
-          - apr-util
-          - cpp
-          - gcc
 
   tasks:
     - name: Install git
@@ -72,26 +48,6 @@
       async: 3600
       poll: 10
 
-    - name: Remove unneeded packages
-      yum:
-        name: "{{ item }}"
-        state: absent
-      with_items: "{{ packages_to_uninstall }}"
-
-    - name: Disable cloud-init
-      file:
-        path: /etc/cloud/cloud-init.disabled
-        state: touch
-
-    - name: Clean cloud dir
-      command: "rm -rf /var/lib/cloud/*"
-
-    - name: Install additional packages
-      yum:
-        name: "{{ item }}"
-        state: present
-      with_items: "{{ packages_to_install }}"
-
     - name: Clean provision files
       file:
         path: /var/provision/
@@ -127,24 +83,6 @@
       shell: |
         yum clean all
         rm -rf /var/cache/yum/*
-
-    - name: Remove ec2-user
-      user:
-        name: ec2-user
-        state: absent
-        remove: yes
-        force: yes
-
-    - name: Remove ec2-user group
-      group:
-        name: ec2-user
-        state: absent
-
-    - name: Change ssh port to 22
-      replace:
-        path: /etc/ssh/sshd_config
-        regexp: 'Port 2200'
-        replace: '#Port 22'
 
     - name: Remove AuthorizedKeysCommand from sshd_config
       lineinfile:

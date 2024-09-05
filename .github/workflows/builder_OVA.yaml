@@ -96,28 +96,36 @@ jobs:
         run: |
           pip3 install -r wazuh-automation/deployability/deps/requirements.txt
 
-      - name: Execute allocator module and set ssh variables to create OVA VM
+      - name: Create OVA VM
         id: alloc_vm_ova
         run: |
-          python3 wazuh-automation/deployability/modules/allocation/main.py --action create --provider aws --size large --composite-name ${{ env.COMPOSITE_NAME }} --working-dir /tmp/allocatorvm_ova \
-            --track-output /tmp/allocatorvm_ova/track.yml --inventory-output /tmp/allocatorvm_ova/inventory.yml --instance-name gha_${{ github.run_id }}_ova_build \
-            --label-team devops --label-termination-date 1d
-            sed 's/: */=/g' /tmp/allocatorvm_ova/inventory.yml > /tmp/allocatorvm_ova/inventory_mod.yml
-            sed -i 's/-o StrictHostKeyChecking=no/\"-o StrictHostKeyChecking=no\"/g' /tmp/allocatorvm_ova/inventory_mod.yml
-            source /tmp/allocatorvm_ova/inventory_mod.yml
-            echo "[gha_instance]" > /tmp/allocatorvm_ova/inventory
-            echo "$ansible_host ansible_port=$ansible_port ansible_user=$ansible_user ansible_ssh_private_key_file=$ansible_ssh_private_key_file ansible_ssh_common_args='$ansible_ssh_common_args'" >> /tmp/allocatorvm_ova/inventory
-            echo "ansible_ssh_private_key_file=$ansible_ssh_private_key_file" >> $GITHUB_ENV;
+          instance=$(aws ec2 run-instances --image-id ami-0d4bd55523ee67aa4 --count 1 --instance-type t2.xlarge --key-name Ephemeral --security-group-ids sg-0471247ce289c863c --subnet-id subnet-064e4e7b320dc5c2d)
+          instance_id=$(echo $instance | jq -r '.Instances[0].InstanceId')
+          aws ec2 create-tags --resources ${instance_id} --tags Key=Name,Value=gha_${{ github.run_id }}_ova_build
+          aws ec2 create-tags --resources ${instance_id} --tags Key=team,Value=devops
+          echo "instance_id=${instance_id}" >> $GITHUB_ENV
 
-      - name: Run Ansible playbook to configure wazuh-user user
+      - name: Wait for instance to be running
         run: |
-          ansible-playbook -i /tmp/allocatorvm_ova/inventory .github/workflows/ansible_playbooks/ova_user_configuration.yaml ${{ inputs.DEBUG }}
-
-      - name: Update inventory with wazuh-user
-        run: |
-          sed -i 's|ec2-user|wazuh-user|g' /tmp/allocatorvm_ova/inventory
-          sed -i 's|ansible_ssh_private_key_file=${{ env.ansible_ssh_private_key_file }}||g' /tmp/allocatorvm_ova/inventory
-          sed -i '${s/$/ ansible_password=wazuh/}' /tmp/allocatorvm_ova/inventory
+          MAX_RETRIES=40
+          NUM_RETRIES=0
+          while true; do
+            STATUS=$(aws ec2 describe-instances --instance-ids ${{ instance_id }} | jq -r '.Reservations[0].Instances[0].State.Name')
+            if [ "${STATUS}" == "running" ]; then
+              break
+            fi
+            sleep 30
+            NUM_RETRIES=$((NUM_RETRIES+1))
+            if [ ${NUM_RETRIES} -eq ${MAX_RETRIES} ]; then
+              echo "Error creating OVA VM"
+              aws ec2 terminate-instances --instance-ids ${{ instance_id }}
+              exit 1
+            fi
+          done
+          ansible_host=$(aws ec2 describe-instances --instance-ids $instance_id | jq -r '.Reservations[0].Instances[0].PublicIpAddress')
+          mkdir -p /tmp/allocatorvm_ova
+          echo "[gha_instance]" > /tmp/allocatorvm_ova/inventory
+          echo "$ansible_host ansible_user=wazuh-user ansible_password=wazuh ansible_ssh_common_args='-o StrictHostKeyChecking=no'" >> /tmp/allocatorvm_ova/inventory
 
       - name: Run Ansible playbook to generate the OVA
         run: |
@@ -186,4 +194,4 @@ jobs:
       - name: Delete allocated VM
         if: always() && steps.alloc_vm_ova.outcome == 'success'
         run: |
-          python3 wazuh-automation/deployability/modules/allocation/main.py --action delete --track-output /tmp/allocatorvm_ova/track.yml
+          aws ec2 terminate-instances --instance-ids ${{ instance_id }}
