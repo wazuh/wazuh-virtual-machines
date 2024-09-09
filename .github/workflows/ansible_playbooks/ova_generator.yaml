@@ -1,9 +1,5 @@
 - hosts: all
   become: true
-  vars:
-        ova_path: '/var/provision/wazuh-virtual-machines'
-        wia_scripts: 'wazuh-installation-assistant'
-        wia_repository: 'https://github.com/wazuh/wazuh-installation-assistant/'
 
   tasks:
     - name: Install git

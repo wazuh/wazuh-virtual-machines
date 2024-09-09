@@ -46,6 +46,13 @@ env:
     OVA_ENVIRONMENT: "vmware"
     CONTAINER_FORMAT: "ova"
     TEMPORAL_S3_PATH: "trash/vm"
+    OVA_USER: "wazuh-user"
+    OVA_USER_PASSWORD: "wazuh"
+    INVENTORY_PATH: "/tmp/allocatorvm_ova"
+    AWS_REGION: "us-east-1"
+    OVA_PATH: "/var/provision/wazuh-virtual-machines"
+    WIA_DIR: "wazuh-installation-assistant"
+    WIA_REPOSITORY: "https://github.com/wazuh/wazuh-installation-assistant"
 
 permissions:
   id-token: write   # This is required for requesting the JWT
@@ -80,7 +87,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
           role-session-name: "OVA-Builder"
-          aws-region: "us-east-1"
+          aws-region: "${{ env.AWS_REGION }}"
           role-duration-seconds: 10800 # Set the duration of the role session to 3 hours
 
       - name: Install and config OpenVPN
@@ -127,17 +134,18 @@ jobs:
             fi
           done
           ansible_host=$(aws ec2 describe-instances --instance-ids "${{ env.INSTANCE_ID }}" | jq -r '.Reservations[0].Instances[0].PrivateIpAddress')
-          mkdir -p /tmp/allocatorvm_ova
-          echo "[gha_instance]" > /tmp/allocatorvm_ova/inventory
-          echo "$ansible_host ansible_user=wazuh-user ansible_password=wazuh ansible_ssh_common_args='-o StrictHostKeyChecking=no'" >> /tmp/allocatorvm_ova/inventory
+          mkdir -p ${{ env.INVENTORY_PATH }}
+          echo "[gha_instance]" > ${{ env.INVENTORY_PATH }}/inventory
+          echo "$ansible_host ansible_user=${{ env.OVA_USER }} ansible_password=${{ env.OVA_USER_PASSWORD }} ansible_ssh_common_args='-o StrictHostKeyChecking=no'" >> ${{ env.INVENTORY_PATH }}/inventory
+          echo "ANSIBLE_HOST=$ansible_host" >> $GITHUB_ENV
 
       - name: Wait for SSH to be available
         run: |
-          ansible_host=$(cat /tmp/allocatorvm_ova/inventory | grep -oP '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}')
+          ansible_host=${{ env.ANSIBLE_HOST }}
           MAX_RETRIES=40
           NUM_RETRIES=0
           while true; do
-            if sshpass -p wazuh ssh -o 'StrictHostKeyChecking no' -o 'ConnectTimeout=10' wazuh-user@$ansible_host "exit"; then
+            if sshpass -p ${{ env.OVA_USER_PASSWORD }} ssh -o 'StrictHostKeyChecking no' -o 'ConnectTimeout=10' ${{ env.OVA_USER }}@$ansible_host "exit"; then
               break
             fi
             sleep 30
@@ -158,11 +166,14 @@ jobs:
           elif [ "${{ inputs.WAZUH_PACKAGE_REPOSITORY }}" == "dev" ]; then
             builder_args="-i -d"
           fi
-          ansible-playbook -i /tmp/allocatorvm_ova/inventory .github/workflows/ansible_playbooks/ova_generator.yaml \
+          ansible-playbook -i ${{ env.INVENTORY_PATH }}/inventory .github/workflows/ansible_playbooks/ova_generator.yaml \
           --extra-vars " \
           wia_branch=${{ inputs.WAZUH_INSTALLATION_ASSISTANT_REFERENCE }} \
           ova_branch=${{ inputs.WAZUH_VIRTUAL_MACHINES_REFERENCE }} \
           repository=${{ inputs.WAZUH_PACKAGE_REPOSITORY }}  \
+          ova_path=${{ env.OVA_PATH }} \
+          wia_scripts=${{ env.WIA_DIR }} \
+          wia_repository=${{ env.WIA_REPOSITORY }} \
           builder_args='$builder_args' \
           debug=yes" ${{ inputs.DEBUG }}
 
