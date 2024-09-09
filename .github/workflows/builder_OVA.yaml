@@ -75,7 +75,7 @@ jobs:
       - name: View parameters
         run: echo "${{ toJson(inputs) }}"
 
-      - name: configure aws credentials
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
