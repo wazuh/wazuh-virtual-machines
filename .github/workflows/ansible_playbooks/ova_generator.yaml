@@ -1,0 +1,98 @@
+- hosts: all
+  become: true
+
+  tasks:
+    - name: Install git
+      yum:
+        name: git
+        state: present
+
+    - name: Make build directory
+      file:
+        path: "{{ ova_path }}"
+        state: directory
+
+    - name: Copy ova directory
+      copy:
+        src: "../../../ova"
+        dest: "{{ ova_path }}"
+
+    - name: Download the Wazuh installation assistant repository
+      git:
+        repo: "{{ wia_repository }}"
+        version: "{{ wia_branch }}"
+        dest: '/tmp/{{ wia_scripts }}'
+        depth: 1
+      register: clone_result
+      retries: 6
+      delay: 10
+      until: clone_result is success
+
+    - name: Set custom hostname
+      command: "hostnamectl set-hostname wazuh-server"
+
+    - name: Build Wazuh installation assistant script
+      command: "bash /tmp/{{ wia_scripts }}/builder.sh {{ builder_args }}"
+
+    - name: Copy Wazuh installation assistant script to tmp dir
+      command: "cp /tmp/{{ wia_scripts }}/wazuh-install.sh /tmp/wazuh-install.sh"
+
+    - name: Run provision script
+      command: "bash provision.sh {{ repository }} {{ debug }}"
+      args:
+        chdir: "{{ ova_path }}/ova"
+      async: 3600
+      poll: 10
+
+    - name: Clean provision files
+      file:
+        path: /var/provision/
+        state: absent
+
+    - name: Clean Wazuh installation assistant resources
+      file:
+        path: /tmp/{{ wia_scripts }}
+        state: absent
+
+    - name: Clean Wazuh installation assistant script
+      file:
+        path: /tmp/wazuh-install.sh
+        state: absent
+
+    - name: Clean Wazuh installation assistant files
+      file:
+        path: /tmp/wazuh-install-files.tar
+        state: absent
+
+    - name: Clean logs
+      shell: |
+        find /var/log/ -type f -exec bash -c 'cat /dev/null > {}' \;
+        find /var/ossec/logs -type f -execdir sh -c 'cat /dev/null > "$1"' _ {} \;
+        find /var/log/wazuh-indexer -type f -execdir sh -c 'cat /dev/null > "$1"' _ {} \;
+        find /var/log/filebeat -type f -execdir sh -c 'cat /dev/null > "$1"' _ {} \;
+        rm -rf /var/log/wazuh-install.log
+
+    - name: Clean history
+      shell: cat /dev/null > ~/.bash_history && history -c
+
+    - name: Clean YUM cache
+      shell: |
+        yum clean all
+        rm -rf /var/cache/yum/*
+
+    - name: Remove AuthorizedKeysCommand from sshd_config
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?AuthorizedKeysCommand.*'
+        state: absent
+
+    - name: Remove AuthorizedKeysCommandUser from sshd_config
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?AuthorizedKeysCommandUser.*'
+        state: absent
+
+    - name: Restart SSH service
+      service:
+        name: sshd
+        state: restarted
