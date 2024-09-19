@@ -14,7 +14,7 @@ If you believe you've discovered a potential security vulnerability in one of ou
 Please submit your findings as security advisories under the "Security" tab in the relevant GitHub repository. Alternatively, you may send the details of your findings to [security@wazuh.com](mailto:security@wazuh.com).
 
 ## Vulnerability Disclosure Policy
-Upon receiving a report of a potential vulnerability, our team will initiate an investigation. If the reported issue is confirmed as a vulnerability, we will take the following steps
+Upon receiving a report of a potential vulnerability, our team will initiate an investigation. If the reported issue is confirmed as a vulnerability, we will take the following steps:
 
 1. Acknowledgment: We will acknowledge the receipt of your vulnerability report and begin our investigation.
 2. Validation: We will validate the issue and work on reproducing it in our environment.
