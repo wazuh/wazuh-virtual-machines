@@ -16,13 +16,6 @@ on:
           - prod
           - dev
           - staging
-      S3_REPOSITORY:
-        type: choice
-        description: 'packages-dev repository to upload the OVA'
-        required: true
-        options:
-          - pre-release
-          - staging
       DEBUG:
         type: choice
         description: 'Debug mode'
@@ -39,6 +32,7 @@ env:
     SUBNET: "subnet-0b6aea31fb32cffad"
     TEMPORAL_S3_BUCKET: "warehouse.wazuh.com"
     S3_BUCKET: "packages-dev.wazuh.com"
+    S3_PATH: "development/wazuh/4.x/secondary/OVA"
     OVA_ENVIRONMENT: "vmware"
     CONTAINER_FORMAT: "ova"
     TEMPORAL_S3_PATH: "trash/vm"
@@ -201,12 +195,12 @@ jobs:
 
       - name: Exporting OVA to final repository
         run: |
-          aws s3 cp --quiet --acl public-read /tmp/${{ env.FILENAME_OVA }} s3://${{ env.S3_BUCKET }}/${{ inputs.S3_REPOSITORY }}/vm/${{ env.FILENAME_OVA }}
+          aws s3 cp --quiet --acl public-read /tmp/${{ env.FILENAME_OVA }} s3://${{ secrets.AWS_S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_OVA }}
 
       - name: Generating sha512 file
         run: |
           sha512sum /tmp/${{ env.FILENAME_OVA }} > /tmp/${{ env.FILENAME_SHA }}
-          aws s3 cp --quiet --acl public-read /tmp/${{ env.FILENAME_SHA }} s3://${{ env.S3_BUCKET }}/${{ inputs.S3_REPOSITORY }}/checksums/wazuh/${{ env.WAZUH_VERSION }}/${{ env.FILENAME_SHA }}
+          aws s3 cp --quiet --acl public-read /tmp/${{ env.FILENAME_SHA }} s3://${{ secrets.AWS_S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_SHA }}
 
       - name: Removing temporal files
         run: |
