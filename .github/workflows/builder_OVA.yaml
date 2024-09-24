@@ -159,13 +159,7 @@ jobs:
 
       - name: Run Ansible playbook to generate the OVA
         run: |
-          if [ "${{ inputs.WAZUH_PACKAGE_REPOSITORY }}" == "prod" ]; then
-            builder_args="-i"
-          elif [ "${{ inputs.WAZUH_PACKAGE_REPOSITORY }}" == "staging" ]; then
-            builder_args="-i -d staging"
-          elif [ "${{ inputs.WAZUH_PACKAGE_REPOSITORY }}" == "dev" ]; then
-            builder_args="-i -d"
-          fi
+          builder_args="-i"
           ansible-playbook -i ${{ env.INVENTORY_PATH }}/inventory .github/workflows/ansible_playbooks/ova_generator.yaml \
           --extra-vars " \
           wia_branch=${{ inputs.WAZUH_INSTALLATION_ASSISTANT_REFERENCE }} \
