@@ -1,4 +1,4 @@
-run-name: Build OVA ${{ inputs.is_stage && ' - is stage' || '' }} ${{ inputs.id }} - Wazuh virtual machines branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
+run-name: Build OVA ${{ inputs.is_stage && ' - is stage' || '' }}${{ inputs.checksum && ' - checksum' || '' }} ${{ inputs.id }} - Wazuh virtual machines branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
 name: Build OVA
 
 on:
@@ -29,6 +29,12 @@ on:
         description: "Is stage?"
         type: boolean
         default: false
+      checksum:
+        type: boolean
+        description: |
+          Generate package checksum.
+          Default is 'false'.
+        required: false
       DEBUG:
         type: choice
         description: 'Debug mode'
@@ -41,6 +47,9 @@ on:
     inputs:
       id:
         type: string
+        required: false
+      checksum:
+        type: boolean
         required: false
 
 env:
@@ -222,6 +231,7 @@ jobs:
           aws s3 cp --quiet --acl public-read /tmp/${{ env.FILENAME_OVA }} s3://${{ secrets.AWS_S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_OVA }}
 
       - name: Generating sha512 file
+        if: ${{ inputs.checksum == true }}
         run: |
           sha512sum /tmp/${{ env.FILENAME_OVA }} > /tmp/${{ env.FILENAME_SHA }}
           aws s3 cp --quiet --acl public-read /tmp/${{ env.FILENAME_SHA }} s3://${{ secrets.AWS_S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_SHA }}
