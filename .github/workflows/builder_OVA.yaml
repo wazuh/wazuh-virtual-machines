@@ -1,13 +1,9 @@
-run-name: Build OVA - Wazuh virtual machines branch ${{ inputs.WAZUH_VIRTUAL_MACHINES_REFERENCE }} - Launched by @${{ github.actor }}
+run-name: Build OVA - Wazuh virtual machines branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
 name: Build OVA
 
 on:
   workflow_dispatch:
     inputs:
-      WAZUH_VIRTUAL_MACHINES_REFERENCE:
-        description: 'Branch or tag of the wazuh-virtual-machines repository'
-        required: true
-        default: '4.10.0'
       WAZUH_INSTALLATION_ASSISTANT_REFERENCE:
         description: 'Branch or tag of the wazuh-installation-assistant repository'
         required: true
@@ -163,7 +159,6 @@ jobs:
           ansible-playbook -i ${{ env.INVENTORY_PATH }}/inventory .github/workflows/ansible_playbooks/ova_generator.yaml \
           --extra-vars " \
           wia_branch=${{ inputs.WAZUH_INSTALLATION_ASSISTANT_REFERENCE }} \
-          ova_branch=${{ inputs.WAZUH_VIRTUAL_MACHINES_REFERENCE }} \
           repository=${{ inputs.WAZUH_PACKAGE_REPOSITORY }}  \
           ova_path=${{ env.OVA_PATH }} \
           wia_scripts=${{ env.WIA_DIR }} \
