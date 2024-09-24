@@ -16,6 +16,15 @@ on:
           - prod
           - dev
           - staging
+      OVA_REVISION:
+        type: string
+        description: 'Revision of the OVA file. Use -1 for stage builds, -0 for development builds'
+        required: true
+        default: '-0'
+      is_stage:
+        description: "Is stage?"
+        type: boolean
+        default: false
       DEBUG:
         type: choice
         description: 'Debug mode'
@@ -61,8 +70,14 @@ jobs:
       - name: Setting FILENAME var
         run: |
           WAZUH_VERSION=$(cat VERSION)
+          COMMIT_SHA=$(git rev-parse --short ${{ github.sha }})
           echo "WAZUH_VERSION=$WAZUH_VERSION" >> $GITHUB_ENV
-          FILENAME="wazuh-${WAZUH_VERSION}"
+          FILENAME="wazuh-${WAZUH_VERSION}-${{ inputs.OVA_REVISION }}"
+
+          if [ ${{ inputs.is_stage }} == false ]; then
+            FILENAME="${FILENAME}-${COMMIT_SHA}"
+          fi
+          
           echo "FILENAME=$FILENAME" >> $GITHUB_ENV
           FILENAME_OVA="${FILENAME}.ova"
           echo "FILENAME_OVA=$FILENAME_OVA" >> $GITHUB_ENV
