@@ -1,9 +1,13 @@
-run-name: Build OVA - Wazuh virtual machines branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
+run-name: Build OVA ${{ inputs.is_stage && ' - is stage' || '' }} ${{ inputs.id }} - Wazuh virtual machines branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
 name: Build OVA
 
 on:
   workflow_dispatch:
     inputs:
+      id:
+        description: "ID used to identify the workflow uniquely."
+        type: string
+        required: false
       WAZUH_INSTALLATION_ASSISTANT_REFERENCE:
         description: 'Branch or tag of the wazuh-installation-assistant repository'
         required: true
@@ -33,6 +37,11 @@ on:
           - -v
           - -vv
           - -vvv
+  workflow_call:
+    inputs:
+      id:
+        type: string
+        required: false
 
 env:
     OVA_AMI: "ami-0d4bd55523ee67aa4"
