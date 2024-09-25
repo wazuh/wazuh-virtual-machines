@@ -30,6 +30,7 @@ on:
         description: |
           'For AMI candidates must be a number, e,g: -1.'
           'To build a development AMI, use another revision format, e.g: -dev'
+        required: false
         default: '-1'
       DESTROY:
         type: boolean
