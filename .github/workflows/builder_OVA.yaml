@@ -70,6 +70,7 @@ env:
     OVA_PATH: "/var/provision/wazuh-virtual-machines"
     WIA_DIR: "wazuh-installation-assistant"
     WIA_REPOSITORY: "https://github.com/wazuh/wazuh-installation-assistant"
+    ANSIBLE_CALLBACK: "yaml"
 
 permissions:
   id-token: write   # This is required for requesting the JWT
@@ -80,7 +81,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install Ansible
-        run: sudo apt-get update && sudo apt install -y python3 jq sshpass && python3 -m pip install --user ansible-core==2.16
+        run: sudo apt-get update && sudo apt install -y python3 jq sshpass && python3 -m pip install --user ansible-core==2.16 && pip install pyyaml && ansible-galaxy collection install community.general
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -183,7 +184,7 @@ jobs:
       - name: Run Ansible playbook to generate the OVA
         run: |
           builder_args="-i"
-          ansible-playbook -i ${{ env.INVENTORY_PATH }}/inventory .github/workflows/ansible_playbooks/ova_generator.yaml \
+          ANSIBLE_STDOUT_CALLBACK=$ANSIBLE_CALLBACK ansible-playbook -i ${{ env.INVENTORY_PATH }}/inventory .github/workflows/ansible_playbooks/ova_generator.yaml \
           --extra-vars " \
           wia_branch=${{ inputs.WAZUH_INSTALLATION_ASSISTANT_REFERENCE }} \
           repository=${{ inputs.WAZUH_PACKAGE_REPOSITORY }}  \
