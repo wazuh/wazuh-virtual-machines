@@ -1,4 +1,4 @@
-run-name: Build OVA ${{ inputs.is_stage && ' - is stage' || '' }}${{ inputs.checksum && ' - checksum' || '' }} ${{ inputs.id }} - Wazuh virtual machines branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
+run-name: Build OVA ${{ inputs.id }} ${{ inputs.is_stage && ' - is stage' || '' }}${{ inputs.checksum && ' - checksum' || '' }} - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
 name: Build OVA
 
 on:
@@ -22,9 +22,9 @@ on:
           - staging
       OVA_REVISION:
         type: string
-        description: 'Revision of the OVA file. Use -1 for stage builds, -0 for development builds'
+        description: 'Revision of the OVA file. Use -0 for development builds'
         required: true
-        default: '-0'
+        default: '0'
       is_stage:
         description: "Is stage?"
         type: boolean
@@ -228,13 +228,13 @@ jobs:
 
       - name: Exporting OVA to final repository
         run: |
-          aws s3 cp --quiet --acl public-read /tmp/${{ env.FILENAME_OVA }} s3://${{ secrets.AWS_S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_OVA }}
+          aws s3 cp --quiet /tmp/${{ env.FILENAME_OVA }} s3://${{ secrets.AWS_S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_OVA }}
 
       - name: Generating sha512 file
         if: ${{ inputs.checksum == true }}
         run: |
           sha512sum /tmp/${{ env.FILENAME_OVA }} > /tmp/${{ env.FILENAME_SHA }}
-          aws s3 cp --quiet --acl public-read /tmp/${{ env.FILENAME_SHA }} s3://${{ secrets.AWS_S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_SHA }}
+          aws s3 cp --quiet /tmp/${{ env.FILENAME_SHA }} s3://${{ secrets.AWS_S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_SHA }}
 
       - name: Removing temporal files
         run: |
