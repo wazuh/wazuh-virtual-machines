@@ -109,7 +109,7 @@
       until: clone_result is success
 
     - name: Build install script
-      shell: "bash {{ installation_assistant_directory }}/{{ builder_script_name }} -i -d"
+      shell: "bash {{ installation_assistant_directory }}/{{ builder_script_name }} -i"
 
     - name: Build password change script
       shell: "bash {{ installation_assistant_directory }}/{{ builder_script_name }} -p"
@@ -166,7 +166,7 @@
     ###############################
 
     - name: Run {{ installer_script_name }} script
-      command: "bash {{ installation_assistant_directory }}/{{ installer_script_name }} -a -v -o"
+      command: "bash {{ installation_assistant_directory }}/{{ installer_script_name }} -a -v -o -d"
 
     ###############################
     # Post-install stage
