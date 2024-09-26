@@ -25,7 +25,6 @@ find /var/log/ -type f -exec bash -c 'cat /dev/null > {}' \;
 find /var/ossec/logs -type f -execdir sh -c 'cat /dev/null > "$1"' _ {} \;
 find /var/log/wazuh-indexer -type f -execdir sh -c 'cat /dev/null > "$1"' _ {} \;
 find /var/log/filebeat -type f -execdir sh -c 'cat /dev/null > "$1"' _ {} \;
-find /usr/share/wazuh-dashboard/data/wazuh/logs -type f -execdir sh -c 'cat /dev/null > "$1"' _ {} \;
 
 history -c
 shutdown -r now > /dev/null 2>&1
