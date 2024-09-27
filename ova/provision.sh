@@ -11,7 +11,7 @@ INDEXES=("wazuh-alerts-*" "wazuh-archives-*" "wazuh-states-vulnerabilities-*" "w
 CURRENT_PATH="$( cd $(dirname $0) ; pwd -P )"
 ASSETS_PATH="${CURRENT_PATH}/assets"
 CUSTOM_PATH="${ASSETS_PATH}/custom"
-INSTALL_ARGS="-a"
+INSTALL_ARGS="-a --install-dependencies"
 
 if [[ "${DEBUG}" = "yes" ]]; then
   INSTALL_ARGS+=" -v"
