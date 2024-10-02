@@ -1,17 +1,13 @@
-run-name: Build AMI - Wazuh ${{ inputs.PACKAGE_VERSION }} Version - Launched by @${{ github.actor }}
+run-name: Build AMI - Wazuh virtual machines ${{ inputs.id }} - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
 name: Build AMI
 
 on:
   workflow_dispatch:
     inputs:
-      PACKAGE_VERSION:
-        description: 'Wazuh version to build'
-        required: true
-        default: '5.0.0'
-      WAZUH_VIRTUAL_MACHINES_REFERENCE:
-        description: 'Branch or tag of the wazuh-virtual-machines repository where the workflow will be triggered'
-        required: true
-        default: '5.0.0'
+      id:
+        description: "ID used to identify the workflow uniquely."
+        type: string
+        required: false
       WAZUH_AUTOMATION_REFERENCE:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
@@ -20,8 +16,20 @@ on:
         description: 'Branch or tag of the wazuh-installation-assistant repository'
         required: true
         default: '5.0.0'
-      SUFFIX_AMI:
-        description: 'Suffix to add to the AMI name, must begin with "_" without quotes. For pre-relase, use -1'
+      VERBOSITY:
+        description: 'Verbosity level on playbooks execution'
+        required: true
+        default: '-v'
+        type: choice
+        options:
+          - -v
+          - -vv
+          - -vvv
+          - -vvvv
+      AMI_REVISION:
+        description: |
+          'For AMI candidates must be a number, e,g: -1.'
+          'To build a development AMI, use another revision format, e.g: -dev'
         required: false
         default: '-1'
       DESTROY:
@@ -29,3 +37,170 @@ on:
         description: 'Destroy the base instance after the AMI is created'
         required: false
         default: true
+  workflow_call:
+    inputs:
+      id:
+        type: string
+        required: false
+
+env:
+    COMPOSITE_NAME: "linux-amazon-2-ami-amd64"
+    ALLOCATOR_PATH: "/tmp/allocatorvm_ami"
+    PLAYBOOKS_PATH: "${{ github.workspace }}/ami/playbooks/"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  Build_AMI:
+    runs-on: ubuntu-latest
+    steps:
+      - name: View parameters
+        run: echo "${{ toJson(inputs) }}"
+
+      - name: Checkout wazuh/wazuh-virtual-machines repository
+        uses: actions/checkout@v4
+
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
+          aws-region: us-east-1
+      
+      - name: Get Wazuh version
+        run: |
+            WAZUH_VERSION=$(cat VERSION)
+            echo WAZUH_VERSION=$WAZUH_VERSION >> $GITHUB_ENV
+
+      - name: Install Ansible
+        run: sudo apt-get update && sudo apt install -y python3 && python3 -m pip install --user ansible-core==2.16
+    
+      - name: Ansible version
+        run: ansible --version
+
+      - name: Checkout wazuh/wazuh-automation repository
+        uses: actions/checkout@v4
+        with:
+          repository: wazuh/wazuh-automation
+          ref: ${{ inputs.WAZUH_AUTOMATION_REFERENCE }}
+          token: ${{ secrets.GH_CLONE_TOKEN }}
+          path: wazuh-automation
+
+      - name: Install and set allocator requirements
+        run: |
+          pip3 install -r wazuh-automation/deployability/deps/requirements.txt
+
+      - name: Execute allocator module that will create the base instance
+        id: alloc_vm_ami
+        run: |
+          python3 wazuh-automation/deployability/modules/allocation/main.py --action create --provider aws --size large --composite-name ${{ env.COMPOSITE_NAME }} --working-dir ${{ env.ALLOCATOR_PATH }} \
+            --track-output ${{ env.ALLOCATOR_PATH }}/track.yml --inventory-output ${{ env.ALLOCATOR_PATH }}/inventory.yml --instance-name gha_${{ github.run_id }}_ami_build \
+            --label-team devops --label-termination-date 1d
+          sed 's/: */=/g' ${{ env.ALLOCATOR_PATH }}/inventory.yml > ${{ env.ALLOCATOR_PATH }}/inventory_mod.yml
+          sed -n 's/^identifier: \(.*\)$/identifier=\1/p' ${{ env.ALLOCATOR_PATH }}/track.yml >> ${{ env.ALLOCATOR_PATH }}/inventory_mod.yml
+          source ${{ env.ALLOCATOR_PATH }}/inventory_mod.yml
+          echo "::add-mask::$ansible_host"
+          echo "::add-mask::$ansible_port"
+          echo "::add-mask::$ansible_user"
+          echo "::add-mask::$ansible_ssh_private_key_file"
+          echo "::add-mask::$ansible_ssh_common_args"
+          echo "::add-mask::$identifier"
+          cat "${{ env.ALLOCATOR_PATH }}/inventory_mod.yml" >> $GITHUB_ENV;
+      
+      - name: Generate inventory
+        run: |
+          echo "[gha_instance]" > ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini
+          echo "${{ env.ansible_host }} ansible_port=${{ env.ansible_port }} ansible_user=${{ env.ansible_user }} ansible_ssh_private_key_file=${{ env.ansible_ssh_private_key_file }} ansible_ssh_common_args='${{ env.ansible_ssh_common_args }}'" >> ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini
+
+
+      - name: Run Ansible playbook to install Wazuh components
+        run: |
+          ansible-playbook -i ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini ${{ env.PLAYBOOKS_PATH }}/build_ami_packages.yaml --extra-vars "installation_assistant_reference=${{ inputs.WAZUH_INSTALLATION_ASSISTANT_REFERENCE }}" ${{ inputs.VERBOSITY }}
+
+      - name: Stop instance
+        run: |
+          aws ec2 stop-instances --instance-ids ${{ env.identifier }}
+
+      - name: Check EC2 instance status until stopped
+        id: check_status
+        run: |
+          TIMEOUT=120
+          INTERVAL=2
+          ELAPSED=0
+
+          while [ $ELAPSED -lt $TIMEOUT ]; do
+            STATUS=$(aws ec2 describe-instances --instance-ids ${{ env.identifier }} --query 'Reservations[*].Instances[*].State.Name' --output text)
+            echo "Instance status: $STATUS"
+            
+            if [ "$STATUS" == "stopped" ]; then
+              echo "Instance is stopped."
+              break
+            fi
+
+            echo "Waiting for instance to stop..."
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED + INTERVAL))
+          done
+
+          if [ $ELAPSED -ge $TIMEOUT ]; then
+            echo "Timeout reached. The instance is still not stopped."
+            exit 1
+          fi
+
+      - name: Build AMI from instance
+        if: success()
+        run: |
+          AMI_NAME="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.AMI_REVISION }}"
+          aws ec2 create-image --instance-id ${{ env.identifier }} --name "$AMI_NAME" --no-reboot
+          AMI_ID=$(aws ec2 describe-images --filters "Name=name,Values=$AMI_NAME" --query 'Images[*].ImageId' --output text)
+          echo "AMI_ID=$AMI_ID" >> $GITHUB_ENV
+          echo "AMI creation started with name $AMI_NAME"
+          
+      - name: Check AMI status until available
+        id: check_ami_status
+        run: |
+          TIMEOUT=1800
+          INTERVAL=30
+          ELAPSED=0
+          
+          while [ $ELAPSED -lt $TIMEOUT ]; do
+            STATUS=$(aws ec2 describe-images --image-ids ${{ env.AMI_ID }} --query 'Images[*].State' --output text)
+            echo "AMI status: $STATUS"
+            
+            if [ "$STATUS" == "available" ]; then
+              echo "AMI is available."
+              break
+            fi
+
+            echo "Waiting for AMI ${{ env.AMI_ID }} to be available..."
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED + INTERVAL))
+          done
+
+          if [ $ELAPSED -ge $TIMEOUT ]; then
+            echo "Timeout reached. The AMI ${{ env.AMI_ID }} is still not available."
+            exit 1
+          fi
+
+      - name: Tag AMI
+        if: success()
+        run: |
+          aws ec2 create-tags --resources ${{ env.AMI_ID }} --tags Key=Name,Value="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.AMI_REVISION }}"
+
+      - name: Delete allocated VM
+        if: always() && steps.alloc_vm_ami.outcome == 'success' && inputs.DESTROY == true
+        run: python3 wazuh-automation/deployability/modules/allocation/main.py --action delete --track-output ${{ env.ALLOCATOR_PATH }}/track.yml
+      
+      - name: Compress Allocator directory
+        id: generate_artifacts
+        if: always() && steps.alloc_vm_ami.outcome == 'success' && inputs.DESTROY == false 
+        run: zip -P "${{ secrets.ZIP_ARTIFACTS_PASSWORD }}" -r ${{ env.ALLOCATOR_PATH }}.zip ${{ env.ALLOCATOR_PATH }}
+        continue-on-error: true
+
+      - name: Upload Allocator directory as artifact
+        if: always() && steps.generate_artifacts.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: instance_info
+          path: ${{ env.ALLOCATOR_PATH }}.zip
