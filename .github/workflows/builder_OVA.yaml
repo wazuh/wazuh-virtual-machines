@@ -1,19 +1,15 @@
-run-name: Build OVA - Wazuh ${{ inputs.PACKAGE_VERSION }} Version - Launched by @${{ github.actor }}
+run-name: Build OVA ${{ inputs.id }} ${{ inputs.is_stage && ' - is stage' || '' }}${{ inputs.checksum && ' - checksum' || '' }} - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
 name: Build OVA
 
 on:
   workflow_dispatch:
     inputs:
-      WAZUH_VIRTUAL_MACHINES_REFERENCE:
-        description: 'Branch or tag of the wazuh-virtual-machines repository'
-        required: true
-        default: '5.0.0'
+      id:
+        description: "ID used to identify the workflow uniquely."
+        type: string
+        required: false
       WAZUH_INSTALLATION_ASSISTANT_REFERENCE:
         description: 'Branch or tag of the wazuh-installation-assistant repository'
-        required: true
-        default: '5.0.0'
-      WAZUH_AUTOMATION_REFERENCE:
-        description: 'Branch or tag of the wazuh-automation repository'
         required: true
         default: '5.0.0'
       WAZUH_PACKAGE_REPOSITORY:
@@ -24,21 +20,228 @@ on:
           - prod
           - dev
           - staging
-      S3_REPOSITORY:
-        type: choice
-        description: 'packages-dev repository to upload the OVA'
+      OVA_REVISION:
+        type: string
+        description: 'Revision of the OVA file. Use "0" for development builds'
         required: true
+        default: '0'
+      is_stage:
+        description: "Is stage?"
+        type: boolean
+        default: false
+      checksum:
+        type: boolean
+        description: |
+          Generate package checksum.
+          Default is 'false'.
+        required: false
+      DEBUG:
+        type: choice
+        description: 'Debug mode'
+        required: false
         options:
-          - pre-release
-          - staging
+          - -v
+          - -vv
+          - -vvv
+  workflow_call:
+    inputs:
+      id:
+        type: string
+        required: false
+      checksum:
+        type: boolean
+        required: false
 
 env:
-  LABEL: ubuntu-latest
+    OVA_AMI: "ami-0d4bd55523ee67aa4"
+    INSTANCE_TYPE: "t2.xlarge"
+    SECURITY_GROUP: "sg-005cff996b335d497"
+    SUBNET: "subnet-0b6aea31fb32cffad"
+    TEMPORAL_S3_BUCKET: "warehouse.wazuh.com"
+    S3_BUCKET: "packages-dev.wazuh.com"
+    S3_PATH: "development/wazuh/4.x/secondary/OVA"
+    OVA_ENVIRONMENT: "vmware"
+    CONTAINER_FORMAT: "ova"
+    TEMPORAL_S3_PATH: "trash/vm"
+    OVA_USER: "wazuh-user"
+    OVA_USER_PASSWORD: "wazuh"
+    INVENTORY_PATH: "/tmp/allocatorvm_ova"
+    AWS_REGION: "us-east-1"
+    OVA_PATH: "/var/provision/wazuh-virtual-machines"
+    WIA_DIR: "wazuh-installation-assistant"
+    WIA_REPOSITORY: "https://github.com/wazuh/wazuh-installation-assistant"
+    ANSIBLE_CALLBACK: "yaml"
+
+permissions:
+  id-token: write   # This is required for requesting the JWT
+  contents: read    # This is required for actions/checkout
 
 jobs:
-  initialize-environment:
-    runs-on: $LABEL
-
+  build_and_run:
+    runs-on: ubuntu-latest
     steps:
-    - name: Set up Git
-      uses: actions/checkout@v3
+      - name: Install Ansible
+        run: sudo apt-get update && sudo apt install -y python3 jq sshpass && python3 -m pip install --user ansible-core==2.16 && pip install pyyaml && ansible-galaxy collection install community.general
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setting FILENAME var
+        run: |
+          WAZUH_VERSION=$(cat VERSION)
+          COMMIT_SHA=$(git rev-parse --short ${{ github.sha }})
+          echo "WAZUH_VERSION=$WAZUH_VERSION" >> $GITHUB_ENV
+          FILENAME="wazuh-${WAZUH_VERSION}-${{ inputs.OVA_REVISION }}"
+
+          if [ ${{ inputs.is_stage }} == false ]; then
+            FILENAME="${FILENAME}-${COMMIT_SHA}"
+          fi
+          
+          echo "FILENAME=$FILENAME" >> $GITHUB_ENV
+          FILENAME_OVA="${FILENAME}.ova"
+          echo "FILENAME_OVA=$FILENAME_OVA" >> $GITHUB_ENV
+          FILENAME_SHA="${FILENAME}.sha512"
+          echo "FILENAME_SHA=$FILENAME_SHA" >> $GITHUB_ENV
+
+      - name: View parameters
+        run: echo "${{ toJson(inputs) }}"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
+          role-session-name: "OVA-Builder"
+          aws-region: "${{ env.AWS_REGION }}"
+          role-duration-seconds: 10800 # Set the duration of the role session to 3 hours
+
+      - name: Install and config OpenVPN
+        run: |
+          sudo apt update
+          sudo apt install -y openvpn openvpn-systemd-resolved
+          echo "${{ secrets.CI_VPN_GITHUB }}" > vpn.ovpn
+          sudo openvpn --config "vpn.ovpn" --daemon
+
+      - name: Wait for a VPN connection
+        id: vpn_connected
+        timeout-minutes: 10
+        run: |
+          while ! ping -c2 10.10.0.252; do
+            sudo kill -9 `pidof openvpn`;
+            sudo openvpn --config "vpn.ovpn" --daemon;
+            sleep 30;
+          done
+
+      - name: Create OVA VM
+        id: alloc_vm_ova
+        run: |
+          instance=$(aws ec2 run-instances --image-id "${{ env.OVA_AMI }}" --count 1 --instance-type "${{ env.INSTANCE_TYPE }}" --key-name Ephemeral \
+          --security-group-ids "${{ env.SECURITY_GROUP }}" --subnet-id "${{ env.SUBNET }}" \
+          --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=gha_${{ github.run_id }}_ova_build},{Key=team,Value=devops}]')
+          INSTANCE_ID=$(echo $instance | jq -r '.Instances[0].InstanceId')
+          echo "INSTANCE_ID=${INSTANCE_ID}" >> $GITHUB_ENV
+
+      - name: Wait for instance to be running
+        run: |
+          MAX_RETRIES=40
+          NUM_RETRIES=0
+          while true; do
+            STATUS=$(aws ec2 describe-instances --instance-ids "${{ env.INSTANCE_ID }}" | jq -r '.Reservations[0].Instances[0].State.Name')
+            if [ "${STATUS}" == "running" ]; then
+              break
+            fi
+            sleep 30
+            NUM_RETRIES=$((NUM_RETRIES+1))
+            if [ ${NUM_RETRIES} -eq ${MAX_RETRIES} ]; then
+              echo "Error creating OVA VM"
+              aws ec2 terminate-instances --instance-ids "${{ env.INSTANCE_ID }}"
+              exit 1
+            fi
+          done
+          ansible_host=$(aws ec2 describe-instances --instance-ids "${{ env.INSTANCE_ID }}" | jq -r '.Reservations[0].Instances[0].PrivateIpAddress')
+          mkdir -p ${{ env.INVENTORY_PATH }}
+          echo "[gha_instance]" > ${{ env.INVENTORY_PATH }}/inventory
+          echo "$ansible_host ansible_user=${{ env.OVA_USER }} ansible_password=${{ env.OVA_USER_PASSWORD }} ansible_ssh_common_args='-o StrictHostKeyChecking=no'" >> ${{ env.INVENTORY_PATH }}/inventory
+          echo "ANSIBLE_HOST=$ansible_host" >> $GITHUB_ENV
+
+      - name: Wait for SSH to be available
+        run: |
+          ansible_host=${{ env.ANSIBLE_HOST }}
+          MAX_RETRIES=40
+          NUM_RETRIES=0
+          while true; do
+            if sshpass -p ${{ env.OVA_USER_PASSWORD }} ssh -o 'StrictHostKeyChecking no' -o 'ConnectTimeout=10' ${{ env.OVA_USER }}@$ansible_host "exit"; then
+              break
+            fi
+            sleep 30
+            NUM_RETRIES=$((NUM_RETRIES+1))
+            if [ ${NUM_RETRIES} -eq ${MAX_RETRIES} ]; then
+              echo "Error connecting to OVA VM"
+              aws ec2 terminate-instances --instance-ids "${{ env.INSTANCE_ID }}"
+              exit 1
+            fi
+          done
+
+      - name: Run Ansible playbook to generate the OVA
+        run: |
+          builder_args="-i"
+          ANSIBLE_STDOUT_CALLBACK=$ANSIBLE_CALLBACK ansible-playbook -i ${{ env.INVENTORY_PATH }}/inventory .github/workflows/ansible_playbooks/ova_generator.yaml \
+          --extra-vars " \
+          wia_branch=${{ inputs.WAZUH_INSTALLATION_ASSISTANT_REFERENCE }} \
+          repository=${{ inputs.WAZUH_PACKAGE_REPOSITORY }}  \
+          ova_path=${{ env.OVA_PATH }} \
+          wia_scripts=${{ env.WIA_DIR }} \
+          wia_repository=${{ env.WIA_REPOSITORY }} \
+          builder_args='$builder_args' \
+          debug=yes" ${{ inputs.DEBUG }}
+
+      - name: Export Instance to create OVA
+        run: |
+          EXPORT=$(aws ec2 create-instance-export-task --instance-id "${{ env.INSTANCE_ID }}" --target-environment vmware \
+          --export-to-s3-task "ContainerFormat=${{ env.CONTAINER_FORMAT }},DiskImageFormat=VMDK,S3Bucket=${{ env.TEMPORAL_S3_BUCKET }},S3Prefix=${{ env.TEMPORAL_S3_PATH }}/${{ env.FILENAME }}")
+          EXPORT_ID=$(echo ${EXPORT} | jq -r '.ExportTask.ExportTaskId')
+          echo "EXPORT_ID=${EXPORT_ID}" >> $GITHUB_ENV
+
+      - name: Wait for export OVA
+        run: |
+          MAX_RETRIES=40
+          NUM_RETRIES=0
+          while true; do
+            STATUS=$(aws ec2 describe-export-tasks --export-task-ids "${{ env.EXPORT_ID }}" | jq -r '.ExportTasks[0].State')
+            if [ "${STATUS}" == "completed" ]; then
+              break
+            fi
+            sleep 270
+            NUM_RETRIES=$((NUM_RETRIES+1))
+            if [ ${NUM_RETRIES} -eq ${MAX_RETRIES} ]; then
+              echo "Error exporting OVA"
+              exit 1
+            fi
+          done
+
+      - name: Getting OVA from temporal bucket
+        run: |
+          aws s3 --quiet cp "s3://${{ env.TEMPORAL_S3_BUCKET }}/${{ env.TEMPORAL_S3_PATH }}/${{ env.FILENAME }}${{ env.EXPORT_ID }}.ova" /tmp/${{ env.FILENAME_OVA }}
+
+      - name: Standarizing OVA
+        run: |
+          sed -i "s|ovf:capacity=\"40\"|ovf:capacity=\"50\"|g" ova/wazuh_ovf_template
+          bash ova/setOVADefault.sh "ova/" "/tmp/${{ env.FILENAME_OVA }}" "/tmp/${{ env.FILENAME_OVA }}" "ova/wazuh_ovf_template" "${{ env.WAZUH_VERSION }}"
+
+      - name: Exporting OVA to final repository
+        run: |
+          aws s3 cp --quiet /tmp/${{ env.FILENAME_OVA }} s3://${{ secrets.AWS_S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_OVA }}
+
+      - name: Generating sha512 file
+        if: ${{ inputs.checksum == true }}
+        run: |
+          sha512sum /tmp/${{ env.FILENAME_OVA }} > /tmp/${{ env.FILENAME_SHA }}
+          aws s3 cp --quiet /tmp/${{ env.FILENAME_SHA }} s3://${{ secrets.AWS_S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_SHA }}
+
+      - name: Removing temporal files
+        run: |
+          aws s3 rm --quiet s3://${{ env.TEMPORAL_S3_BUCKET }}/${{ env.TEMPORAL_S3_PATH }}/${{ env.FILENAME }}${{ env.EXPORT_ID }}.ova
+
+      - name: Delete allocated VM
+        if: always() && steps.alloc_vm_ova.outcome == 'success'
+        run: |
+          aws ec2 terminate-instances --instance-ids "${{ env.INSTANCE_ID }}"
