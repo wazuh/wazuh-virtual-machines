@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Add a new input for wazuh-virtual-machines reference to the OVA and AMI workflows ([#70](https://github.com/wazuh/wazuh-virtual-machines/pull/70))
 - Adapted repository selection in OVA generation ([#58](https://github.com/wazuh/wazuh-virtual-machines/pull/58))
 - Modify the AMI GHA workflow with the new Installation Assistant logic ([#55](https://github.com/wazuh/wazuh-virtual-machines/pull/55))
 - Migrated the OVA construction files to the wazuh-virtual-machines repository ([#29](https://github.com/wazuh/wazuh-virtual-machines/pull/29)) - (OVA)
