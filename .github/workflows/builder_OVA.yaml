@@ -90,7 +90,7 @@ jobs:
       - name: Checkout wazuh/wazuh-virtual-machines repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.WAZUH_VIRTUAL_MACHINES_REFERENCE}}
+          ref: ${{ inputs.WAZUH_VIRTUAL_MACHINES_REFERENCE }}
 
       - name: Setting FILENAME var
         run: |

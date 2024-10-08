@@ -66,7 +66,7 @@ jobs:
       - name: Checkout wazuh/wazuh-virtual-machines repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.WAZUH_VIRTUAL_MACHINES_REFERENCE}}
+          ref: ${{ inputs.WAZUH_VIRTUAL_MACHINES_REFERENCE }}
 
       - name: Configure aws credentials
         uses: aws-actions/configure-aws-credentials@v3
