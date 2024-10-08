@@ -8,6 +8,10 @@ on:
         description: "ID used to identify the workflow uniquely."
         type: string
         required: false
+      WAZUH_VIRTUAL_MACHINES_REFERENCE:
+        description: 'Branch or tag of the wazuh-virtual-machines repository'
+        required: true
+        default: '4.10.0'
       WAZUH_INSTALLATION_ASSISTANT_REFERENCE:
         description: 'Branch or tag of the wazuh-installation-assistant repository'
         required: true
@@ -83,8 +87,10 @@ jobs:
       - name: Install Ansible
         run: sudo apt-get update && sudo apt install -y python3 jq sshpass && python3 -m pip install --user ansible-core==2.16 && pip install pyyaml && ansible-galaxy collection install community.general
 
-      - name: Checkout code
+      - name: Checkout wazuh/wazuh-virtual-machines repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.WAZUH_VIRTUAL_MACHINES_REFERENCE}}
 
       - name: Setting FILENAME var
         run: |
