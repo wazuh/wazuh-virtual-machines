@@ -80,7 +80,7 @@ jobs:
             echo WAZUH_VERSION=$WAZUH_VERSION >> $GITHUB_ENV
 
       - name: Install Ansible
-        run: sudo apt-get update && sudo apt install -y python3 && python3 -m pip install --user ansible-core==2.16
+        run: sudo apt-get update && sudo apt install -y python3 && python3 -m pip install --user ansible-core==2.16 --break-system-packages
     
       - name: Ansible version
         run: ansible --version
@@ -95,7 +95,7 @@ jobs:
 
       - name: Install and set allocator requirements
         run: |
-          pip3 install -r wazuh-automation/deployability/deps/requirements.txt
+          pip3 install -r wazuh-automation/deployability/deps/requirements.txt --break-system-packages
 
       - name: Execute allocator module that will create the base instance
         id: alloc_vm_ami
