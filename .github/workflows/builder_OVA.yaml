@@ -85,7 +85,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install Ansible
-        run: sudo apt-get update && sudo apt install -y python3 jq sshpass && python3 -m pip install --user ansible-core==2.16 --break-system-packages && pip install pyyaml && ansible-galaxy collection install community.general
+        run: sudo apt-get update && sudo apt install -y python3 jq sshpass && python3 -m pip install --user ansible-core==2.16 --break-system-packages && pip install pyyaml --break-system-packages && ansible-galaxy collection install community.general
 
       - name: Checkout wazuh/wazuh-virtual-machines repository
         uses: actions/checkout@v4
