@@ -62,7 +62,7 @@ env:
     SECURITY_GROUP: "sg-005cff996b335d497"
     SUBNET: "subnet-0b6aea31fb32cffad"
     TEMPORAL_S3_BUCKET: "warehouse.wazuh.com"
-    S3_BUCKET: "packages-dev.wazuh.com"
+    S3_BUCKET: "packages-dev.internal.wazuh.com"
     S3_PATH: "development/wazuh/4.x/secondary/OVA"
     OVA_ENVIRONMENT: "vmware"
     CONTAINER_FORMAT: "ova"
@@ -235,13 +235,17 @@ jobs:
 
       - name: Exporting OVA to final repository
         run: |
-          aws s3 cp --quiet /tmp/${{ env.FILENAME_OVA }} s3://${{ secrets.AWS_S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_OVA }}
+          aws s3 cp --quiet /tmp/${{ env.FILENAME_OVA }} s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_OVA }}
+          s3uri="s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_OVA }}" }}
+          echo "S3 OVA URI: ${s3uri}"
 
       - name: Generating sha512 file
         if: ${{ inputs.checksum == true }}
         run: |
           sha512sum /tmp/${{ env.FILENAME_OVA }} > /tmp/${{ env.FILENAME_SHA }}
           aws s3 cp --quiet /tmp/${{ env.FILENAME_SHA }} s3://${{ secrets.AWS_S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_SHA }}
+          s3uri="s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_SHA }}"
+          echo "S3 OVA URI: ${s3uri}"
 
       - name: Removing temporal files
         run: |
