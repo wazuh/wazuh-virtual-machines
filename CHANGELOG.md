@@ -11,7 +11,6 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Fix OVA and AMI workflows Python error. ([#80](https://github.com/wazuh/wazuh-virtual-machines/pull/80))
 - Migrated certificates and passwords changes for AMI. ([#73](https://github.com/wazuh/wazuh-virtual-machines/pull/73))
 - Add a new input for wazuh-virtual-machines reference to the OVA and AMI workflows ([#70](https://github.com/wazuh/wazuh-virtual-machines/pull/70))
 - Adapted repository selection in OVA generation ([#58](https://github.com/wazuh/wazuh-virtual-machines/pull/58))
@@ -20,6 +19,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Fix OVA and AMI workflows Python error. ([#80](https://github.com/wazuh/wazuh-virtual-machines/pull/80))
 - Deleted dashboard logs cleanup in OVA local build([#57](https://github.com/wazuh/wazuh-virtual-machines/pull/57))
 - Fix typos and add news inputs in the AMI workflow header ([#35](https://github.com/wazuh/wazuh-virtual-machines/pull/35))
 
