@@ -84,8 +84,19 @@ jobs:
   build_and_run:
     runs-on: ubuntu-latest
     steps:
+      - name: Install Python and create virtual environment
+        run: |
+          sudo apt-get update
+          sudo apt install -y python3 && sudo apt-get install python3-venv
+          python3 -m venv ova_env
+
       - name: Install Ansible
-        run: sudo apt-get update && sudo apt install -y python3 jq sshpass && python3 -m pip install --user ansible-core==2.16 --break-system-packages && pip install pyyaml --break-system-packages && ansible-galaxy collection install community.general
+        run: |
+          source ova_env/bin/activate
+          sudo apt install -y jq sshpass
+          python3 -m pip install --user ansible-core==2.16
+          pip install pyyaml
+          ansible-galaxy collection install community.general
 
       - name: Checkout wazuh/wazuh-virtual-machines repository
         uses: actions/checkout@v4
@@ -102,7 +113,7 @@ jobs:
           if [ ${{ inputs.is_stage }} == false ]; then
             FILENAME="${FILENAME}-${COMMIT_SHA}"
           fi
-          
+
           echo "FILENAME=$FILENAME" >> $GITHUB_ENV
           FILENAME_OVA="${FILENAME}.ova"
           echo "FILENAME_OVA=$FILENAME_OVA" >> $GITHUB_ENV
