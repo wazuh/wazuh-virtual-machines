@@ -132,6 +132,7 @@ jobs:
 
       - name: Run Ansible playbook to install Wazuh components
         run: |
+          source ami_env/bin/activate
           ansible-playbook -i ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini ${{ env.PLAYBOOKS_PATH }}/build_ami_packages.yaml --extra-vars "installation_assistant_reference=${{ inputs.WAZUH_INSTALLATION_ASSISTANT_REFERENCE }}" ${{ inputs.VERBOSITY }}
 
       - name: Stop instance
@@ -206,7 +207,9 @@ jobs:
 
       - name: Delete allocated VM
         if: always() && steps.alloc_vm_ami.outcome == 'success' && inputs.DESTROY == true
-        run: python3 wazuh-automation/deployability/modules/allocation/main.py --action delete --track-output ${{ env.ALLOCATOR_PATH }}/track.yml
+        run: |
+          source ami_env/bin/activate
+          python3 wazuh-automation/deployability/modules/allocation/main.py --action delete --track-output ${{ env.ALLOCATOR_PATH }}/track.yml
       
       - name: Compress Allocator directory
         id: generate_artifacts
