@@ -19,6 +19,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Fix OVA and AMI workflows Python error. ([#80](https://github.com/wazuh/wazuh-virtual-machines/pull/80))
 - Deleted dashboard logs cleanup in OVA local build([#57](https://github.com/wazuh/wazuh-virtual-machines/pull/57))
 - Fix typos and add news inputs in the AMI workflow header ([#35](https://github.com/wazuh/wazuh-virtual-machines/pull/35))
 
