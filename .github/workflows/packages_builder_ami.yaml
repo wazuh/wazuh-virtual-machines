@@ -88,7 +88,7 @@ jobs:
       - name: Install Ansible
         run: | 
           source ami_env/bin/activate
-          python3 -m pip install --user ansible-core==2.16
+          python3 -m pip install ansible-core==2.16
     
       - name: Ansible version
         run: ansible --version

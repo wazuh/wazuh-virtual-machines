@@ -94,7 +94,7 @@ jobs:
         run: |
           source ova_env/bin/activate
           sudo apt install -y jq sshpass
-          python3 -m pip install --user ansible-core==2.16
+          python3 -m pip install ansible-core==2.16
           pip install pyyaml
           ansible-galaxy collection install community.general
 
