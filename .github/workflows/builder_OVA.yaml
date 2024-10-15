@@ -200,7 +200,6 @@ jobs:
 
       - name: Run Ansible playbook to generate the OVA
         run: |
-          source ${{ github.workspace }}/ova_env/bin/activate
           builder_args="-i"
           ANSIBLE_STDOUT_CALLBACK=$ANSIBLE_CALLBACK ansible-playbook -i ${{ env.INVENTORY_PATH }}/inventory .github/workflows/ansible_playbooks/ova_generator.yaml \
           --extra-vars " \
