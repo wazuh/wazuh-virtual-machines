@@ -151,6 +151,7 @@ jobs:
       - name: Create OVA VM
         id: alloc_vm_ova
         run: |
+          source ova_env/bin/activate
           instance=$(aws ec2 run-instances --image-id "${{ env.OVA_AMI }}" --count 1 --instance-type "${{ env.INSTANCE_TYPE }}" --key-name Ephemeral \
           --security-group-ids "${{ env.SECURITY_GROUP }}" --subnet-id "${{ env.SUBNET }}" \
           --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=gha_${{ github.run_id }}_ova_build},{Key=team,Value=devops}]')
