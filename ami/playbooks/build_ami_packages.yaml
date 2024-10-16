@@ -315,6 +315,19 @@
         job: ". /etc/.changePasswords.sh"
         special_time: reboot
 
+    - name: Change SSH port to 22
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^Port 2200'
+        line: 'Port 22'
+        state: present
+
+    - name: Restart SSH service
+      systemd:
+        name: sshd
+        enabled: yes
+        state: restarted
+
     ###############################
     # Cleaning stage
     ###############################
