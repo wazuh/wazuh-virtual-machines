@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Changed the SSH port of the AMI to 22 ([#83](https://github.com/wazuh/wazuh-virtual-machines/pull/83))
 - Migrated certificates and passwords changes for AMI. ([#73](https://github.com/wazuh/wazuh-virtual-machines/pull/73))
 - Add a new input for wazuh-virtual-machines reference to the OVA and AMI workflows ([#70](https://github.com/wazuh/wazuh-virtual-machines/pull/70))
 - Adapted repository selection in OVA generation ([#58](https://github.com/wazuh/wazuh-virtual-machines/pull/58))
