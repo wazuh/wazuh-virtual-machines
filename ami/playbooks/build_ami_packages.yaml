@@ -100,7 +100,7 @@
       with_items:
         - updateIndexerHeap
 
-    - name: Clone the wazuh-packages repository
+    - name: Clone the wazuh-installation-assistant repository
       git:
         repo: "https://github.com/wazuh/wazuh-installation-assistant.git"
         version: "{{ installation_assistant_reference }}"
@@ -314,6 +314,19 @@
         name: Change Passwords
         job: ". /etc/.changePasswords.sh"
         special_time: reboot
+
+    - name: Change SSH port to 22
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^Port 2200'
+        line: 'Port 22'
+        state: present
+
+    - name: Restart SSH service
+      systemd:
+        name: sshd
+        enabled: yes
+        state: restarted
 
     ###############################
     # Cleaning stage
