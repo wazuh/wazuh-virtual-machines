@@ -100,7 +100,7 @@
       with_items:
         - updateIndexerHeap
 
-    - name: Clone the wazuh-packages repository
+    - name: Clone the wazuh-installation-assistant repository
       git:
         repo: "https://github.com/wazuh/wazuh-installation-assistant.git"
         version: "{{ installation_assistant_reference }}"
