@@ -236,7 +236,7 @@ jobs:
       - name: Exporting OVA to final repository
         run: |
           aws s3 cp --quiet /tmp/${{ env.FILENAME_OVA }} s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_OVA }}
-          s3uri="s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_OVA }}" }}
+          s3uri="s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_OVA }}"
           echo "S3 OVA URI: ${s3uri}"
 
       - name: Generating sha512 file
