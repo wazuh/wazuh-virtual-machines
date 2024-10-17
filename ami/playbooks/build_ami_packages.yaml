@@ -12,12 +12,15 @@
     builder_script_name: 'builder.sh'
     installer_script_name: 'wazuh-install.sh'
     passwords_tool_script_name: 'wazuh-passwords-tool.sh'
+    certs_tool_script_name: 'wazuh-certs-tool.sh'
     passwords_file_name: 'wazuh-passwords.txt'
+    config_file_name: 'config.yml'
 
     ova_custom_path: 'ova/assets/'
     automatic_ram_script_path: 'ova/assets/custom'
 
     installation_assistant_directory: '{{ provision_path }}/wazuh-installation-assistant'
+    config_file_path: 'config/certificate/config_aio.yml'
 
     rpm_packages:
       - git
@@ -97,7 +100,7 @@
       with_items:
         - updateIndexerHeap
 
-    - name: Clone the wazuh-packages repository
+    - name: Clone the wazuh-installation-assistant repository
       git:
         repo: "https://github.com/wazuh/wazuh-installation-assistant.git"
         version: "{{ installation_assistant_reference }}"
@@ -120,10 +123,24 @@
         dest: "/etc/.{{ passwords_tool_script_name }}"
         remote_src: yes
 
+    - name: Build Wazuh certs tool script
+      shell: "bash {{ installation_assistant_directory }}/{{ builder_script_name }} -c"
 
-    ###############################
-    # Edit unattended script
-    ###############################
+    - name: Copy wazuh-certs-tool script
+      copy:
+        src: "{{ installation_assistant_directory }}/{{ certs_tool_script_name }}"
+        dest: "/etc/.{{ certs_tool_script_name }}"
+        remote_src: yes
+
+    - name: Copy config.yml file
+      copy:
+        src: "{{ installation_assistant_directory }}/{{ config_file_path }}"
+        dest: "/etc/{{ config_file_name }}"
+        remote_src: yes
+
+    ##########################################
+    # Edit Wazuh installation assistant script
+    ##########################################
 
     - name: Add full debug
       replace:
@@ -157,9 +174,6 @@
 
     - name: Modify install script
       shell: cat {{ installation_assistant_directory }}/{{ installer_script_name }}
-
-    - name: Modify install script
-      shell: sed -i "s/passwords_checkPassword .*/echo/g" /etc/.{{ passwords_tool_script_name }}
 
     ###############################
     # Install stage
@@ -196,7 +210,7 @@
           - wazuh-states-vulnerabilities
           - wazuh-statistics
           - wazuh-monitoring
-    
+
     - name: Set old password fact
       shell: >
         old_password=$(cat /etc/.wazuh-install-files/{{ passwords_file_name }} | grep -P "\\'admin\\'" -A 1 | grep indexer_password | awk -F"'" '{print $2}') && echo $old_password
@@ -247,9 +261,44 @@
             sleep 10
           done
 
-          new_password=$(ec2-metadata | grep "instance-id" | cut -d":" -f2 | tr -d " ")
+          bash /etc/.wazuh-certs-tool.sh -A
+          mv -f /etc/wazuh-certificates/wazuh-indexer.pem /etc/wazuh-indexer/certs/wazuh-indexer.pem
+          mv -f /etc/wazuh-certificates/wazuh-indexer-key.pem /etc/wazuh-indexer/certs/wazuh-indexer-key.pem
+          mv -f /etc/wazuh-certificates/admin.pem /etc/wazuh-indexer/certs/admin.pem
+          mv -f /etc/wazuh-certificates/admin-key.pem /etc/wazuh-indexer/certs/admin-key.pem
+          cp /etc/wazuh-certificates/root-ca.pem /etc/wazuh-indexer/certs/root-ca.pem
+          chmod 500 /etc/wazuh-indexer/certs
+          chmod 400 /etc/wazuh-indexer/certs/*
+          chown -R wazuh-indexer:wazuh-indexer /etc/wazuh-indexer/certs
+          systemctl restart wazuh-indexer
+          /usr/share/wazuh-indexer/bin/indexer-security-init.sh
+
+          mv -f /etc/wazuh-certificates/wazuh-server.pem /etc/filebeat/certs/wazuh-server.pem
+          mv -f /etc/wazuh-certificates/wazuh-server-key.pem /etc/filebeat/certs/wazuh-server-key.pem
+          cp /etc/wazuh-certificates/root-ca.pem /etc/filebeat/certs/root-ca.pem
+          chmod 500 /etc/filebeat/certs
+          chmod 400 /etc/filebeat/certs/*
+          chown -R root:root /etc/filebeat/certs
+          systemctl restart filebeat
+
+          rm -f /var/ossec/api/configuration/security/*_key.pem
+          rm -f /var/ossec/api/configuration/ssl/server.*
+          systemctl restart wazuh-manager
+
+          mv -f /etc/wazuh-certificates/wazuh-dashboard.pem /etc/wazuh-dashboard/certs/wazuh-dashboard.pem
+          mv -f /etc/wazuh-certificates/wazuh-dashboard-key.pem /etc/wazuh-dashboard/certs/wazuh-dashboard-key.pem
+          cp /etc/wazuh-certificates/root-ca.pem /etc/wazuh-dashboard/certs/root-ca.pem
+          chmod 500 /etc/wazuh-dashboard/certs
+          chmod 400 /etc/wazuh-dashboard/certs/*
+          chown -R wazuh-dashboard:wazuh-dashboard /etc/wazuh-dashboard/certs
+          systemctl restart wazuh-dashboard
+
+          rm -rf /etc/wazuh-certificates /etc/.wazuh-certs-tool.sh /etc/config.yml /etc/wazuh-certificates-tool.log
+
+          new_password=$(ec2-metadata | grep "instance-id" | cut -d":" -f2 | tr -d " "| awk '{print toupper(substr($0,1,1)) substr($0,2)}')
           sed -i "s/password:.*/password: ${new_password}/g" /etc/.wazuh-install-files/{{ passwords_file_name }}
-          bash /etc/.wazuh-passwords-tool.sh -f /etc/.wazuh-install-files/{{ passwords_file_name }}
+          bash /etc/.wazuh-passwords-tool.sh -a -A -au wazuh -ap wazuh -f /etc/.wazuh-install-files/{{ passwords_file_name }}
+          systemctl restart wazuh-dashboard
           rm -f /etc/.changePasswords.sh /etc/.wazuh-passwords-tool.sh /etc/.wazuh-install-files/{{ passwords_file_name }} /var/log/wazuh-passwords-tool.log
           rmdir /etc/.wazuh-install-files
 
@@ -265,6 +314,19 @@
         name: Change Passwords
         job: ". /etc/.changePasswords.sh"
         special_time: reboot
+
+    - name: Change SSH port to 22
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^Port 2200'
+        line: 'Port 22'
+        state: present
+
+    - name: Restart SSH service
+      systemd:
+        name: sshd
+        enabled: yes
+        state: restarted
 
     ###############################
     # Cleaning stage
