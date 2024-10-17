@@ -8,6 +8,10 @@ on:
         description: "ID used to identify the workflow uniquely."
         type: string
         required: false
+      WAZUH_VIRTUAL_MACHINES_REFERENCE:
+        description: 'Branch or tag of the wazuh-virtual-machines repository'
+        required: true
+        default: '4.10.2'
       WAZUH_INSTALLATION_ASSISTANT_REFERENCE:
         description: 'Branch or tag of the wazuh-installation-assistant repository'
         required: true
@@ -58,7 +62,7 @@ env:
     SECURITY_GROUP: "sg-005cff996b335d497"
     SUBNET: "subnet-0b6aea31fb32cffad"
     TEMPORAL_S3_BUCKET: "warehouse.wazuh.com"
-    S3_BUCKET: "packages-dev.wazuh.com"
+    S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
     S3_PATH: "development/wazuh/4.x/secondary/OVA"
     OVA_ENVIRONMENT: "vmware"
     CONTAINER_FORMAT: "ova"
@@ -78,13 +82,15 @@ permissions:
 
 jobs:
   build_and_run:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Install Ansible
         run: sudo apt-get update && sudo apt install -y python3 jq sshpass && python3 -m pip install --user ansible-core==2.16 && pip install pyyaml && ansible-galaxy collection install community.general
 
-      - name: Checkout code
+      - name: Checkout wazuh/wazuh-virtual-machines repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.WAZUH_VIRTUAL_MACHINES_REFERENCE }}
 
       - name: Setting FILENAME var
         run: |
@@ -96,7 +102,7 @@ jobs:
           if [ ${{ inputs.is_stage }} == false ]; then
             FILENAME="${FILENAME}-${COMMIT_SHA}"
           fi
-          
+
           echo "FILENAME=$FILENAME" >> $GITHUB_ENV
           FILENAME_OVA="${FILENAME}.ova"
           echo "FILENAME_OVA=$FILENAME_OVA" >> $GITHUB_ENV
@@ -229,13 +235,17 @@ jobs:
 
       - name: Exporting OVA to final repository
         run: |
-          aws s3 cp --quiet /tmp/${{ env.FILENAME_OVA }} s3://${{ secrets.AWS_S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_OVA }}
+          aws s3 cp --quiet /tmp/${{ env.FILENAME_OVA }} s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_OVA }}
+          s3uri="s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_OVA }}"
+          echo "S3 OVA URI: ${s3uri}"
 
       - name: Generating sha512 file
         if: ${{ inputs.checksum == true }}
         run: |
           sha512sum /tmp/${{ env.FILENAME_OVA }} > /tmp/${{ env.FILENAME_SHA }}
-          aws s3 cp --quiet /tmp/${{ env.FILENAME_SHA }} s3://${{ secrets.AWS_S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_SHA }}
+          aws s3 cp --quiet /tmp/${{ env.FILENAME_SHA }} s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_SHA }}
+          s3uri="s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_SHA }}"
+          echo "S3 sha512 OVA URI: ${s3uri}"
 
       - name: Removing temporal files
         run: |

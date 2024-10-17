@@ -8,6 +8,10 @@ on:
         description: "ID used to identify the workflow uniquely."
         type: string
         required: false
+      WAZUH_VIRTUAL_MACHINES_REFERENCE:
+        description: 'Branch or tag of the wazuh-virtual-machines repository'
+        required: true
+        default: '4.10.2'
       WAZUH_AUTOMATION_REFERENCE:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
@@ -54,20 +58,22 @@ permissions:
 
 jobs:
   Build_AMI:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: View parameters
         run: echo "${{ toJson(inputs) }}"
 
       - name: Checkout wazuh/wazuh-virtual-machines repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.WAZUH_VIRTUAL_MACHINES_REFERENCE }}
 
       - name: Configure aws credentials
         uses: aws-actions/configure-aws-credentials@v3
         with:
           role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
           aws-region: us-east-1
-      
+
       - name: Get Wazuh version
         run: |
             WAZUH_VERSION=$(cat VERSION)
@@ -75,7 +81,7 @@ jobs:
 
       - name: Install Ansible
         run: sudo apt-get update && sudo apt install -y python3 && python3 -m pip install --user ansible-core==2.16
-    
+
       - name: Ansible version
         run: ansible --version
 
@@ -107,7 +113,7 @@ jobs:
           echo "::add-mask::$ansible_ssh_common_args"
           echo "::add-mask::$identifier"
           cat "${{ env.ALLOCATOR_PATH }}/inventory_mod.yml" >> $GITHUB_ENV;
-      
+
       - name: Generate inventory
         run: |
           echo "[gha_instance]" > ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini
@@ -132,7 +138,7 @@ jobs:
           while [ $ELAPSED -lt $TIMEOUT ]; do
             STATUS=$(aws ec2 describe-instances --instance-ids ${{ env.identifier }} --query 'Reservations[*].Instances[*].State.Name' --output text)
             echo "Instance status: $STATUS"
-            
+
             if [ "$STATUS" == "stopped" ]; then
               echo "Instance is stopped."
               break
@@ -156,18 +162,18 @@ jobs:
           AMI_ID=$(aws ec2 describe-images --filters "Name=name,Values=$AMI_NAME" --query 'Images[*].ImageId' --output text)
           echo "AMI_ID=$AMI_ID" >> $GITHUB_ENV
           echo "AMI creation started with name $AMI_NAME"
-          
+
       - name: Check AMI status until available
         id: check_ami_status
         run: |
           TIMEOUT=1800
           INTERVAL=30
           ELAPSED=0
-          
+
           while [ $ELAPSED -lt $TIMEOUT ]; do
             STATUS=$(aws ec2 describe-images --image-ids ${{ env.AMI_ID }} --query 'Images[*].State' --output text)
             echo "AMI status: $STATUS"
-            
+
             if [ "$STATUS" == "available" ]; then
               echo "AMI is available."
               break
@@ -191,10 +197,10 @@ jobs:
       - name: Delete allocated VM
         if: always() && steps.alloc_vm_ami.outcome == 'success' && inputs.DESTROY == true
         run: python3 wazuh-automation/deployability/modules/allocation/main.py --action delete --track-output ${{ env.ALLOCATOR_PATH }}/track.yml
-      
+
       - name: Compress Allocator directory
         id: generate_artifacts
-        if: always() && steps.alloc_vm_ami.outcome == 'success' && inputs.DESTROY == false 
+        if: always() && steps.alloc_vm_ami.outcome == 'success' && inputs.DESTROY == false
         run: zip -P "${{ secrets.ZIP_ARTIFACTS_PASSWORD }}" -r ${{ env.ALLOCATOR_PATH }}.zip ${{ env.ALLOCATOR_PATH }}
         continue-on-error: true
 
