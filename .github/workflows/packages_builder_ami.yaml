@@ -1,11 +1,15 @@
-run-name: Build AMI - Wazuh virtual machines branch ${{ inputs.WAZUH_VIRTUAL_MACHINES_REFERENCE }} - Launched by @${{ github.actor }}
+run-name: Build AMI - Wazuh virtual machines ${{ inputs.id }} - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
 name: Build AMI
 
 on:
   workflow_dispatch:
     inputs:
+      id:
+        description: "ID used to identify the workflow uniquely."
+        type: string
+        required: false
       WAZUH_VIRTUAL_MACHINES_REFERENCE:
-        description: 'Branch or tag of the wazuh-virtual-machines repository where the workflow will be triggered'
+        description: 'Branch or tag of the wazuh-virtual-machines repository'
         required: true
         default: '4.10.2'
       WAZUH_AUTOMATION_REFERENCE:
@@ -26,8 +30,10 @@ on:
           - -vv
           - -vvv
           - -vvvv
-      SUFFIX_AMI:
-        description: 'Suffix to add to the AMI name, must begin with "_" without quotes. For pre-relase, use -1'
+      AMI_REVISION:
+        description: |
+          'For AMI candidates must be a number, e,g: -1.'
+          'To build a development AMI, use another revision format, e.g: -dev'
         required: false
         default: '-1'
       DESTROY:
@@ -35,10 +41,16 @@ on:
         description: 'Destroy the base instance after the AMI is created'
         required: false
         default: true
+  workflow_call:
+    inputs:
+      id:
+        type: string
+        required: false
 
 env:
     COMPOSITE_NAME: "linux-amazon-2-ami-amd64"
     ALLOCATOR_PATH: "/tmp/allocatorvm_ami"
+    PLAYBOOKS_PATH: "${{ github.workspace }}/ami/playbooks/"
 
 permissions:
   id-token: write
@@ -46,7 +58,7 @@ permissions:
 
 jobs:
   Build_AMI:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: View parameters
         run: echo "${{ toJson(inputs) }}"
@@ -110,7 +122,7 @@ jobs:
 
       - name: Run Ansible playbook to install Wazuh components
         run: |
-          ansible-playbook -i ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini ami/playbooks/build_ami_packages.yaml --extra-vars "installation_assistant_reference=${{ inputs.WAZUH_INSTALLATION_ASSISTANT_REFERENCE }}" ${{ inputs.VERBOSITY }}
+          ansible-playbook -i ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini ${{ env.PLAYBOOKS_PATH }}/build_ami_packages.yaml --extra-vars "installation_assistant_reference=${{ inputs.WAZUH_INSTALLATION_ASSISTANT_REFERENCE }}" ${{ inputs.VERBOSITY }}
 
       - name: Stop instance
         run: |
@@ -145,7 +157,7 @@ jobs:
       - name: Build AMI from instance
         if: success()
         run: |
-          AMI_NAME="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.SUFFIX_AMI }}"
+          AMI_NAME="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.AMI_REVISION }}"
           aws ec2 create-image --instance-id ${{ env.identifier }} --name "$AMI_NAME" --no-reboot
           AMI_ID=$(aws ec2 describe-images --filters "Name=name,Values=$AMI_NAME" --query 'Images[*].ImageId' --output text)
           echo "AMI_ID=$AMI_ID" >> $GITHUB_ENV
@@ -180,7 +192,7 @@ jobs:
       - name: Tag AMI
         if: success()
         run: |
-          aws ec2 create-tags --resources ${{ env.AMI_ID }} --tags Key=Name,Value="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.SUFFIX_AMI }}"
+          aws ec2 create-tags --resources ${{ env.AMI_ID }} --tags Key=Name,Value="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.AMI_REVISION }}"
 
       - name: Delete allocated VM
         if: always() && steps.alloc_vm_ami.outcome == 'success' && inputs.DESTROY == true

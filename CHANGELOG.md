@@ -41,18 +41,24 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Added echo of the OVA URI ([#84](https://github.com/wazuh/wazuh-virtual-machines/pull/84))
 - Added builder_OVA workflow ([#32](https://github.com/wazuh/wazuh-virtual-machines/pull/32))
-
 - Added packages_builder_ami workflow header ([#31](https://github.com/wazuh/wazuh-virtual-machines/pull/31))
-
 - Added the OVA to the wazuh-virtual-machines repository without changes ([#30](https://github.com/wazuh/wazuh-virtual-machines/pull/30)) - (OVA)
 
 ### Changed
 
+- Changed the SSH port of the AMI to 22 ([#83](https://github.com/wazuh/wazuh-virtual-machines/pull/83))
+- Migrated certificates and passwords changes for AMI. ([#73](https://github.com/wazuh/wazuh-virtual-machines/pull/73))
+- Add a new input for wazuh-virtual-machines reference to the OVA and AMI workflows ([#70](https://github.com/wazuh/wazuh-virtual-machines/pull/70))
+- Adapted repository selection in OVA generation ([#58](https://github.com/wazuh/wazuh-virtual-machines/pull/58))
+- Modify the AMI GHA workflow with the new Installation Assistant logic ([#55](https://github.com/wazuh/wazuh-virtual-machines/pull/55))
 - Migrated the OVA construction files to the wazuh-virtual-machines repository ([#29](https://github.com/wazuh/wazuh-virtual-machines/pull/29)) - (OVA)
 
 ### Fixed
 
+- Changed GitHub Runner version to fix Python error ([#82](https://github.com/wazuh/wazuh-virtual-machines/pull/82))
+- Deleted dashboard logs cleanup in OVA local build ([#57](https://github.com/wazuh/wazuh-virtual-machines/pull/57))
 - Fix typos and add news inputs in the AMI workflow header ([#35](https://github.com/wazuh/wazuh-virtual-machines/pull/35))
 
 ### Deleted
