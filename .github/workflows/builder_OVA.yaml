@@ -245,7 +245,7 @@ jobs:
           sha512sum /tmp/${{ env.FILENAME_OVA }} > /tmp/${{ env.FILENAME_SHA }}
           aws s3 cp --quiet /tmp/${{ env.FILENAME_SHA }} s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_SHA }}
           s3uri="s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_SHA }}"
-          echo "S3 OVA URI: ${s3uri}"
+          echo "S3 sha512 OVA URI: ${s3uri}"
 
       - name: Removing temporal files
         run: |
