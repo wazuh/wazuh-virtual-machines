@@ -248,7 +248,6 @@
       copy:
         src: "../wazuh-ami-customizer.sh"
         dest: "/etc/.wazuh-ami-customizer.sh"
-        remote_src: yes
 
     - name: Add change password to crontab
       cron:
