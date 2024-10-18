@@ -244,16 +244,16 @@
         - wazuh-indexer
         - wazuh-dashboard
 
-    - name: Copy wazuh-customizer.sh script
+    - name: Copy wazuh-ami-customizer.sh script
       copy:
-        src: "../wazuh-customizer.sh"
-        dest: "/etc/.wazuh-customizer.sh"
+        src: "../wazuh-ami-customizer.sh"
+        dest: "/etc/.wazuh-ami-customizer.sh"
         remote_src: yes
 
     - name: Add change password to crontab
       cron:
         name: Change Passwords
-        job: ". /etc/.wazuh-customizer.sh"
+        job: ". /etc/.wazuh-ami-customizer.sh"
         special_time: reboot
 
     - name: Change SSH port to 22

@@ -2,7 +2,7 @@
 # This script is used to configure the Wazuh environment after the installation
 
 # Variables
-logfile="/var/log/wazuh-customizer.log"
+logfile="/var/log/wazuh-ami-customizer.log"
 debug="| tee -a ${logfile}"
 function logger(){
   now=$(date +'%d/%m/%Y %H:%M:%S')
@@ -28,7 +28,7 @@ function logger(){
   printf "%s\n" "${now} ${mtype} ${message}" | tee -a "${logfile}"
 }
 
-logger "Starting Wazuh Customizer"
+logger "Starting Wazuh AMI Customizer"
 
 logger "Moving authorized_keys file to a temporary location"
 
@@ -89,7 +89,7 @@ function configure_dashboard(){
 
 function clean_configuration(){
   logger "Cleaning configuration files"
-  eval "rm -rf /etc/wazuh-certificates /etc/.wazuh-certs-tool.sh /etc/config.yml /etc/wazuh-certificates-tool.log /var/log/wazuh-customizer.log ${debug}"
+  eval "rm -rf /etc/wazuh-certificates /etc/.wazuh-certs-tool.sh /etc/config.yml /etc/wazuh-certificates-tool.log /var/log/wazuh-ami-customizer.log ${debug}"
   eval "rm -f /etc/.changePasswords.sh /etc/.wazuh-passwords-tool.sh /etc/.wazuh-install-files/wazuh-passwords.txt /var/log/wazuh-passwords-tool.log ${debug}"
   eval "rmdir /etc/.wazuh-install-files ${debug}"
   eval "sed -i '/#Ansible: Change Passwords/,//d' /var/spool/cron/root ${debug}"
