@@ -89,10 +89,10 @@ function configure_dashboard(){
 
 function clean_configuration(){
   logger "Cleaning configuration files"
-  eval "rm -rf /etc/wazuh-certificates /etc/.wazuh-certs-tool.sh /etc/config.yml /etc/wazuh-certificates-tool.log /var/log/wazuh-ami-customizer.log ${debug}"
-  eval "rm -f /etc/.changePasswords.sh /etc/.wazuh-passwords-tool.sh /etc/.wazuh-install-files/wazuh-passwords.txt /var/log/wazuh-passwords-tool.log ${debug}"
-  eval "rmdir /etc/.wazuh-install-files ${debug}"
-  eval "sed -i '/#Ansible: Change Passwords/,//d' /var/spool/cron/root ${debug}"
+  eval "rm -rf /etc/wazuh-certificates /etc/.wazuh-certs-tool.sh /etc/config.yml /etc/wazuh-certificates-tool.log /var/log/wazuh-ami-customizer.log"
+  eval "rm -f /etc/.changePasswords.sh /etc/.wazuh-passwords-tool.sh /etc/.wazuh-install-files/wazuh-passwords.txt /var/log/wazuh-passwords-tool.log"
+  eval "rmdir /etc/.wazuh-install-files"
+  eval "sed -i '/#Ansible: Change Passwords/,//d' /var/spool/cron/root"
 }
 
 function change_passwords(){
