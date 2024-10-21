@@ -249,9 +249,9 @@
         src: "../wazuh-ami-customizer.sh"
         dest: "/etc/.wazuh-ami-customizer.sh"
 
-    - name: Add change password to crontab
+    - name: Add Wazuh AMI Customizer to crontab
       cron:
-        name: Change Passwords
+        name: Wazuh AMI Customizer
         job: ". /etc/.wazuh-ami-customizer.sh"
         special_time: reboot
 

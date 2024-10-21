@@ -165,6 +165,6 @@ until $(sudo curl -XGET https://localhost:9200/ -uadmin:${new_password} -k --max
   sleep 10
 done
 
-clean_configuration
-
 restore_authorized_keys
+
+clean_configuration
