@@ -63,7 +63,7 @@ env:
     SUBNET: "subnet-0b6aea31fb32cffad"
     TEMPORAL_S3_BUCKET: "warehouse.wazuh.com"
     S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
-    S3_PATH: "development/wazuh/4.x/secondary/OVA"
+    S3_PATH: "development/wazuh/4.x/secondary/ova"
     OVA_ENVIRONMENT: "vmware"
     CONTAINER_FORMAT: "ova"
     TEMPORAL_S3_PATH: "trash/vm"
@@ -106,7 +106,7 @@ jobs:
           echo "FILENAME=$FILENAME" >> $GITHUB_ENV
           FILENAME_OVA="${FILENAME}.ova"
           echo "FILENAME_OVA=$FILENAME_OVA" >> $GITHUB_ENV
-          FILENAME_SHA="${FILENAME}.sha512"
+          FILENAME_SHA="${FILENAME}.ova.sha512"
           echo "FILENAME_SHA=$FILENAME_SHA" >> $GITHUB_ENV
 
       - name: View parameters
