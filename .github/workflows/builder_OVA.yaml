@@ -209,7 +209,7 @@ jobs:
 
       - name: Wait for export OVA
         run: |
-          MAX_RETRIES=40
+          MAX_RETRIES=67
           NUM_RETRIES=0
           while true; do
             STATUS=$(aws ec2 describe-export-tasks --export-task-ids "${{ env.EXPORT_ID }}" | jq -r '.ExportTasks[0].State')
