@@ -118,7 +118,7 @@ jobs:
           role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
           role-session-name: "OVA-Builder"
           aws-region: "${{ env.AWS_REGION }}"
-          role-duration-seconds: 10800 # Set the duration of the role session to 3 hours
+          role-duration-seconds: 18000 # Set the duration of the role session to 5 hours
 
       - name: Install and config OpenVPN
         run: |
