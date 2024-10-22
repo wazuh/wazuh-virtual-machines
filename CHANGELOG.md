@@ -24,6 +24,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Added # to the Port 22 configuration in the AMI instance ([#97](https://github.com/wazuh/wazuh-virtual-machines/pull/97))
 - Changed GitHub Runner version to fix Python error ([#82](https://github.com/wazuh/wazuh-virtual-machines/pull/82))
 - Deleted dashboard logs cleanup in OVA local build ([#57](https://github.com/wazuh/wazuh-virtual-machines/pull/57))
 - Fix typos and add news inputs in the AMI workflow header ([#35](https://github.com/wazuh/wazuh-virtual-machines/pull/35))
