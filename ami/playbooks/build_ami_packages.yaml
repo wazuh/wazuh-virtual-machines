@@ -319,7 +319,7 @@
       lineinfile:
         path: /etc/ssh/sshd_config
         regexp: '^Port 2200'
-        line: 'Port 22'
+        line: '#Port 22'
         state: present
 
     - name: Restart SSH service
