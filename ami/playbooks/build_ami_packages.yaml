@@ -180,7 +180,7 @@
     ###############################
 
     - name: Run {{ installer_script_name }} script
-      command: "bash {{ installation_assistant_directory }}/{{ installer_script_name }} -a -v -o -d"
+      command: "bash {{ installation_assistant_directory }}/{{ installer_script_name }} -a -v -o -d --install-dependencies"
 
     ###############################
     # Post-install stage
