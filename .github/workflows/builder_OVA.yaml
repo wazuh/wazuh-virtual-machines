@@ -96,6 +96,7 @@ jobs:
       - name: Install Ansible
         run: |
           source ova_env/bin/activate
+          which python
           sudo apt install -y jq sshpass
           python3 -m pip install ansible-core==2.16
           pip install pyyaml
@@ -203,6 +204,7 @@ jobs:
 
       - name: Verify the virtual environment interpreter
         run: |
+          which python
           source ova_env/bin/activate
           ls -l ${GITHUB_WORKSPACE}/
           pwd
