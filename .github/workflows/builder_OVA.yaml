@@ -201,6 +201,10 @@ jobs:
             fi
           done
 
+      - name: Verify the virtual environment interpreter
+        run: ls -l ${GITHUB_WORKSPACE}/ova_env/bin/python3
+          
+
       - name: Run Ansible playbook to generate the OVA
         run: |
           builder_args="-i"
@@ -212,7 +216,7 @@ jobs:
           wia_scripts=${{ env.WIA_DIR }} \
           wia_repository=${{ env.WIA_REPOSITORY }} \
           builder_args='$builder_args' \
-          ansible_python_interpreter='./ova_env/bin/python3' \
+          ansible_python_interpreter='${GITHUB_WORKSPACE}/ova_env/bin/python3' \
           debug=yes" ${{ inputs.DEBUG }}
 
       - name: Export Instance to create OVA
