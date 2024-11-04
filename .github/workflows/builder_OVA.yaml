@@ -96,7 +96,6 @@ jobs:
       - name: Install Ansible
         run: |
           source ova_env/bin/activate
-          which python
           sudo apt install -y jq sshpass
           python3 -m pip install ansible-core==2.16
           pip install pyyaml
@@ -201,17 +200,11 @@ jobs:
               exit 1
             fi
           done
-
-      - name: Verify the virtual environment interpreter
-        run: |
-          which python
-          source ova_env/bin/activate
-          ls -l ${GITHUB_WORKSPACE}/
-          pwd
-          pwd ova_env/bin/
           
       - name: Run Ansible playbook to generate the OVA
         run: |
+          source ova_env/bin/activate
+          which python
           builder_args="-i"
           ANSIBLE_STDOUT_CALLBACK=$ANSIBLE_CALLBACK ansible-playbook -i ${{ env.INVENTORY_PATH }}/inventory .github/workflows/ansible_playbooks/ova_generator.yaml \
           --extra-vars " \
