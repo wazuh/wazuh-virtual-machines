@@ -11,15 +11,15 @@ on:
       WAZUH_VIRTUAL_MACHINES_REFERENCE:
         description: 'Branch or tag of the wazuh-virtual-machines repository'
         required: true
-        default: '4.10.1'
+        default: '4.10.2'
       WAZUH_AUTOMATION_REFERENCE:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
-        default: '4.10.1'
+        default: '4.10.2'
       WAZUH_INSTALLATION_ASSISTANT_REFERENCE:
         description: 'Branch or tag of the wazuh-installation-assistant repository'
         required: true
-        default: '4.10.1'
+        default: '4.10.2'
       VERBOSITY:
         description: 'Verbosity level on playbooks execution'
         required: true
