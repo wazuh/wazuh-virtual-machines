@@ -219,6 +219,11 @@ main() {
 
     if [ -z "${INSTALLATION_ASSISTANT_BRANCH}" ]; then
         INSTALLATION_ASSISTANT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+        # If the reference is HEAD, get the tag name
+        if [ "${INSTALLATION_ASSISTANT_BRANCH}" == "HEAD" ]; then
+            INSTALLATION_ASSISTANT_BRANCH=$(git name-rev --tags --name-only $(git rev-parse HEAD))
+        fi
     fi
     if [ "${INSTALLATION_ASSISTANT_BRANCH:0:1}" == "v" ]; then
         REMOTE_TYPE="--tags"
