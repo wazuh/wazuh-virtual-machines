@@ -202,7 +202,11 @@ jobs:
           done
 
       - name: Verify the virtual environment interpreter
-        run: ls -l ${GITHUB_WORKSPACE}/
+        run: |
+          source ova_env/bin/activate
+          ls -l ${GITHUB_WORKSPACE}/
+          pwd
+          pwd ova_env/bin/
           
       - name: Run Ansible playbook to generate the OVA
         run: |
