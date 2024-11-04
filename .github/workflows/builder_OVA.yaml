@@ -63,7 +63,7 @@ env:
     SUBNET: "subnet-0b6aea31fb32cffad"
     TEMPORAL_S3_BUCKET: "warehouse.wazuh.com"
     S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
-    S3_PATH: "development/wazuh/4.x/secondary/OVA"
+    S3_PATH: "development/wazuh/4.x/secondary/ova"
     OVA_ENVIRONMENT: "vmware"
     CONTAINER_FORMAT: "ova"
     TEMPORAL_S3_PATH: "trash/vm"
@@ -106,7 +106,7 @@ jobs:
           echo "FILENAME=$FILENAME" >> $GITHUB_ENV
           FILENAME_OVA="${FILENAME}.ova"
           echo "FILENAME_OVA=$FILENAME_OVA" >> $GITHUB_ENV
-          FILENAME_SHA="${FILENAME}.sha512"
+          FILENAME_SHA="${FILENAME}.ova.sha512"
           echo "FILENAME_SHA=$FILENAME_SHA" >> $GITHUB_ENV
 
       - name: View parameters
@@ -118,7 +118,7 @@ jobs:
           role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
           role-session-name: "OVA-Builder"
           aws-region: "${{ env.AWS_REGION }}"
-          role-duration-seconds: 10800 # Set the duration of the role session to 3 hours
+          role-duration-seconds: 18000 # Set the duration of the role session to 5 hours
 
       - name: Install and config OpenVPN
         run: |
@@ -209,7 +209,7 @@ jobs:
 
       - name: Wait for export OVA
         run: |
-          MAX_RETRIES=40
+          MAX_RETRIES=67
           NUM_RETRIES=0
           while true; do
             STATUS=$(aws ec2 describe-export-tasks --export-task-ids "${{ env.EXPORT_ID }}" | jq -r '.ExportTasks[0].State')
