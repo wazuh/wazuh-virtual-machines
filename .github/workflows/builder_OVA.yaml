@@ -202,9 +202,8 @@ jobs:
           done
 
       - name: Verify the virtual environment interpreter
-        run: ls -l ${GITHUB_WORKSPACE}/ova_env/bin/python3
+        run: ls -l ${GITHUB_WORKSPACE}/
           
-
       - name: Run Ansible playbook to generate the OVA
         run: |
           builder_args="-i"
