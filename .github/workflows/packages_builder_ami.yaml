@@ -15,11 +15,11 @@ on:
       WAZUH_AUTOMATION_REFERENCE:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
-        default: '4.10.2'
+        default: '5.0.0'
       WAZUH_INSTALLATION_ASSISTANT_REFERENCE:
         description: 'Branch or tag of the wazuh-installation-assistant repository'
         required: true
-        default: '4.10.2'
+        default: '5.0.0'
       VERBOSITY:
         description: 'Verbosity level on playbooks execution'
         required: true
