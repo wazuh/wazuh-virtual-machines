@@ -244,82 +244,22 @@
         - wazuh-indexer
         - wazuh-dashboard
 
-    - name: Create changePassword script file
-      file:
-        dest: "/etc/.changePasswords.sh"
-        state: touch
-        mode: +x
+    - name: Copy wazuh-ami-customizer.sh script
+      copy:
+        src: "../wazuh-ami-customizer.sh"
+        dest: "/etc/.wazuh-ami-customizer.sh"
 
-    - name: Add script to change passwords on boot
-      blockinfile:
-        path: "/etc/.changePasswords.sh"
-        block: |
-          #!/bin/bash
-          mv /home/{{ username }}/.ssh/authorized_keys /home/{{ username }}/.ssh/.authorized_keys_ori
-
-          until $(sudo curl -XGET https://localhost:9200/ -uadmin:admin -k --max-time 120 --silent --output /dev/null); do
-            sleep 10
-          done
-
-          bash /etc/.wazuh-certs-tool.sh -A
-          mv -f /etc/wazuh-certificates/wazuh-indexer.pem /etc/wazuh-indexer/certs/wazuh-indexer.pem
-          mv -f /etc/wazuh-certificates/wazuh-indexer-key.pem /etc/wazuh-indexer/certs/wazuh-indexer-key.pem
-          mv -f /etc/wazuh-certificates/admin.pem /etc/wazuh-indexer/certs/admin.pem
-          mv -f /etc/wazuh-certificates/admin-key.pem /etc/wazuh-indexer/certs/admin-key.pem
-          cp /etc/wazuh-certificates/root-ca.pem /etc/wazuh-indexer/certs/root-ca.pem
-          chmod 500 /etc/wazuh-indexer/certs
-          chmod 400 /etc/wazuh-indexer/certs/*
-          chown -R wazuh-indexer:wazuh-indexer /etc/wazuh-indexer/certs
-          systemctl restart wazuh-indexer
-          /usr/share/wazuh-indexer/bin/indexer-security-init.sh
-
-          mv -f /etc/wazuh-certificates/wazuh-server.pem /etc/filebeat/certs/wazuh-server.pem
-          mv -f /etc/wazuh-certificates/wazuh-server-key.pem /etc/filebeat/certs/wazuh-server-key.pem
-          cp /etc/wazuh-certificates/root-ca.pem /etc/filebeat/certs/root-ca.pem
-          chmod 500 /etc/filebeat/certs
-          chmod 400 /etc/filebeat/certs/*
-          chown -R root:root /etc/filebeat/certs
-          systemctl restart filebeat
-
-          rm -f /var/ossec/api/configuration/security/*_key.pem
-          rm -f /var/ossec/api/configuration/ssl/server.*
-          systemctl restart wazuh-manager
-
-          mv -f /etc/wazuh-certificates/wazuh-dashboard.pem /etc/wazuh-dashboard/certs/wazuh-dashboard.pem
-          mv -f /etc/wazuh-certificates/wazuh-dashboard-key.pem /etc/wazuh-dashboard/certs/wazuh-dashboard-key.pem
-          cp /etc/wazuh-certificates/root-ca.pem /etc/wazuh-dashboard/certs/root-ca.pem
-          chmod 500 /etc/wazuh-dashboard/certs
-          chmod 400 /etc/wazuh-dashboard/certs/*
-          chown -R wazuh-dashboard:wazuh-dashboard /etc/wazuh-dashboard/certs
-          systemctl restart wazuh-dashboard
-
-          rm -rf /etc/wazuh-certificates /etc/.wazuh-certs-tool.sh /etc/config.yml /etc/wazuh-certificates-tool.log
-
-          new_password=$(ec2-metadata | grep "instance-id" | cut -d":" -f2 | tr -d " "| awk '{print toupper(substr($0,1,1)) substr($0,2)}')
-          sed -i "s/password:.*/password: ${new_password}/g" /etc/.wazuh-install-files/{{ passwords_file_name }}
-          bash /etc/.wazuh-passwords-tool.sh -a -A -au wazuh -ap wazuh -f /etc/.wazuh-install-files/{{ passwords_file_name }}
-          systemctl restart wazuh-dashboard
-          rm -f /etc/.changePasswords.sh /etc/.wazuh-passwords-tool.sh /etc/.wazuh-install-files/{{ passwords_file_name }} /var/log/wazuh-passwords-tool.log
-          rmdir /etc/.wazuh-install-files
-
-          until $(sudo curl -XGET https://localhost:9200/ -uadmin:${new_password} -k --max-time 120 --silent --output /dev/null); do
-            sleep 10
-          done
-
-          sed -i "/#Ansible: Change Passwords/,//d" /var/spool/cron/root
-          mv /home/{{ username }}/.ssh/.authorized_keys_ori /home/{{ username }}/.ssh/authorized_keys
-
-    - name: Add change password to crontab
+    - name: Add Wazuh AMI Customizer to crontab
       cron:
-        name: Change Passwords
-        job: ". /etc/.changePasswords.sh"
+        name: Wazuh AMI Customizer
+        job: ". /etc/.wazuh-ami-customizer.sh"
         special_time: reboot
 
     - name: Change SSH port to 22
       lineinfile:
         path: /etc/ssh/sshd_config
         regexp: '^Port 2200'
-        line: 'Port 22'
+        line: '#Port 22'
         state: present
 
     - name: Restart SSH service
@@ -386,6 +326,7 @@
 
     - name: Clean logs
       shell: |
+        rm -rf /var/log/wazuh-install.log
         find /var/log/ -type f -exec bash -c 'cat /dev/null > {}' \;
         find /var/ossec/logs -type f -execdir sh -c 'cat /dev/null > "$1"' _ {} \;
         find /var/log/wazuh-indexer -type f -execdir sh -c 'cat /dev/null > "$1"' _ {} \;
