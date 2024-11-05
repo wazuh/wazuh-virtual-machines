@@ -90,6 +90,8 @@ jobs:
           sudo apt install -y python3 && sudo apt-get install python3-venv
           which python
           which python3
+          python --version
+          python3 --version
           python3 -m venv ova_env
           source ova_env/bin/activate
           echo PATH=$PATH >> $GITHUB_ENV
@@ -212,6 +214,7 @@ jobs:
           wia_scripts=${{ env.WIA_DIR }} \
           wia_repository=${{ env.WIA_REPOSITORY }} \
           builder_args='$builder_args' \
+          ansible_python_interpreter=/usr/bin/python3 \
           debug=yes" ${{ inputs.DEBUG }}
 
       - name: Export Instance to create OVA
