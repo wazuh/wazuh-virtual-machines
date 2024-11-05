@@ -202,7 +202,7 @@ jobs:
       
       - name: Install Python3 in the instance
         run: |
-          sshpass -p ${{ env.OVA_USER_PASSWORD }} ssh -o 'StrictHostKeyChecking no' ${{ env.OVA_USER }}@$ansible_host "sudo apt-get update && sudo apt-get install -y python3"
+          sshpass -p ${{ env.OVA_USER_PASSWORD }} ssh -o 'StrictHostKeyChecking no' ${{ env.OVA_USER }}@${{ env.ANSIBLE_HOST }} "sudo apt-get update && sudo apt-get install -y python3"
           
       - name: Run Ansible playbook to generate the OVA
         run: |
