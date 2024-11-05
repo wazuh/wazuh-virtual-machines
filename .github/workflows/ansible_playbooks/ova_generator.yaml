@@ -3,11 +3,7 @@
 
   tasks:
     - name: Install git
-      yum:
-        name: git
-        state: present
-        use_backend: yum
-      become: true
+      shell: sudo yum install -y git
         
     - name: Make build directory
       file:
