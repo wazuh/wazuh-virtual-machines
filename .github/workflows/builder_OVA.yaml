@@ -213,7 +213,6 @@ jobs:
           wia_scripts=${{ env.WIA_DIR }} \
           wia_repository=${{ env.WIA_REPOSITORY }} \
           builder_args='$builder_args' \
-          ansible_python_interpreter=/home/runner/work/wazuh-virtual-machines/wazuh-virtual-machines/ova_env/bin/python3 \
           debug=yes" ${{ inputs.DEBUG }}
 
       - name: Export Instance to create OVA

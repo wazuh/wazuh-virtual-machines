@@ -7,6 +7,12 @@
         name: git
         state: present
 
+    - name: Install python
+      yum:
+        name: python3
+        state: present
+      become: yes
+
     - name: Make build directory
       file:
         path: "{{ ova_path }}"
