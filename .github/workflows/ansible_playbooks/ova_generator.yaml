@@ -8,10 +8,8 @@
         state: present
 
     - name: Install python
-      yum:
-        name: python3
-        state: present
-      become: yes
+      become: true
+      raw: sudo yum install -y python3
 
     - name: Make build directory
       file:
