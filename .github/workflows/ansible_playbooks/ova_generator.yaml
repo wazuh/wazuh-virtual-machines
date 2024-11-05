@@ -6,7 +6,7 @@
       yum:
         name: git
         state: present
-
+        
     - name: Make build directory
       file:
         path: "{{ ova_path }}"
