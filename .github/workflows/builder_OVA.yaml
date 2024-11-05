@@ -87,14 +87,7 @@ jobs:
       - name: Install Python and create virtual environment
         run: |
           sudo apt-get update
-          sudo apt install -y python3 && sudo apt-get install python3-venv
-          which python
-          which python3
-          python --version
-          python3 --version
-          python3 -m venv ova_env
-          source ova_env/bin/activate
-          echo PATH=$PATH >> $GITHUB_ENV
+          sudo apt install -y python3
 
       - name: Install Ansible
         run: |
