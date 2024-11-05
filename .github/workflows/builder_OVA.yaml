@@ -92,10 +92,10 @@ jobs:
           sudo apt-get update
           sudo apt install -y python3 && sudo apt-get install python3-venv
           python3 -m venv ova_env
+          echo PATH=$PATH >> $GITHUB_ENV
 
       - name: Install Ansible
         run: |
-          source ova_env/bin/activate
           sudo apt install -y jq sshpass
           python3 -m pip install ansible-core==2.16
           pip install pyyaml
@@ -203,8 +203,6 @@ jobs:
           
       - name: Run Ansible playbook to generate the OVA
         run: |
-          source ova_env/bin/activate
-          which python
           builder_args="-i"
           ANSIBLE_STDOUT_CALLBACK=$ANSIBLE_CALLBACK ansible-playbook -i ${{ env.INVENTORY_PATH }}/inventory .github/workflows/ansible_playbooks/ova_generator.yaml \
           --extra-vars " \
@@ -214,7 +212,6 @@ jobs:
           wia_scripts=${{ env.WIA_DIR }} \
           wia_repository=${{ env.WIA_REPOSITORY }} \
           builder_args='$builder_args' \
-          ansible_python_interpreter='${GITHUB_WORKSPACE}/ova_env/bin/python3' \
           debug=yes" ${{ inputs.DEBUG }}
 
       - name: Export Instance to create OVA
