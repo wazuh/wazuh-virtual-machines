@@ -3,10 +3,9 @@
 
   tasks:
     - name: Install git
-      yum:
+      ansible.builtin.package:
         name: git
         state: present
-        use_backend: "dnf4"
         
     - name: Make build directory
       file:
