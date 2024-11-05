@@ -92,6 +92,7 @@ jobs:
           sudo apt-get update
           sudo apt install -y python3 && sudo apt-get install python3-venv
           python3 -m venv ova_env
+          source ova_env/bin/activate
           echo PATH=$PATH >> $GITHUB_ENV
 
       - name: Install Ansible
