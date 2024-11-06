@@ -217,6 +217,10 @@ jobs:
           builder_args='$builder_args' \
           debug=yes" ${{ inputs.DEBUG }}
 
+      - name: Uninstall Python3 from the instance
+        run: |
+          sshpass -p ${{ env.OVA_USER_PASSWORD }} ssh -o 'StrictHostKeyChecking no' ${{ env.OVA_USER }}@${{ env.ANSIBLE_HOST }} "sudo yum remove -y python3"
+
       - name: Export Instance to create OVA
         run: |
           EXPORT=$(aws ec2 create-instance-export-task --instance-id "${{ env.INSTANCE_ID }}" --target-environment vmware \
