@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Added venv to AMI and OVA workflows. ([#112](https://github.com/wazuh/wazuh-virtual-machines/pull/112))
 - Improvements to AMI customization script. ([#98](https://github.com/wazuh/wazuh-virtual-machines/pull/98))
 
 ### Fixed
