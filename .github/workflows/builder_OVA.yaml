@@ -28,6 +28,11 @@ on:
         description: "Is stage?"
         type: boolean
         default: false
+      ova_revision:
+        type: string
+        description: 'Revision of the OVA file. Use "0" for development builds'
+        required: true
+        default: '0'
       checksum:
         type: boolean
         description: |
@@ -92,7 +97,7 @@ jobs:
           WAZUH_VERSION=$(cat VERSION)
           COMMIT_SHA=$(git rev-parse --short ${{ github.sha }})
           echo "WAZUH_VERSION=$WAZUH_VERSION" >> $GITHUB_ENV
-          FILENAME="wazuh-${WAZUH_VERSION}"
+          FILENAME="wazuh-${WAZUH_VERSION}-${{ inputs.OVA_REVISION }}"
 
           if [ ${{ inputs.is_stage }} == false ]; then
             FILENAME="${FILENAME}-${COMMIT_SHA}"
