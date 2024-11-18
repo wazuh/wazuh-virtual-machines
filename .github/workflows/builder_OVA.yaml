@@ -97,7 +97,7 @@ jobs:
           WAZUH_VERSION=$(cat VERSION)
           COMMIT_SHA=$(git rev-parse --short ${{ github.sha }})
           echo "WAZUH_VERSION=$WAZUH_VERSION" >> $GITHUB_ENV
-          FILENAME="wazuh-${WAZUH_VERSION}-${{ inputs.OVA_REVISION }}"
+          FILENAME="wazuh-${WAZUH_VERSION}-${{ inputs.ova_revision }}"
 
           if [ ${{ inputs.is_stage }} == false ]; then
             FILENAME="${FILENAME}-${COMMIT_SHA}"
