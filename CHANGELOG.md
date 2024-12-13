@@ -27,6 +27,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Added venv to AMI and OVA workflows. ([#112](https://github.com/wazuh/wazuh-virtual-machines/pull/112))
 - Improvements to AMI customization script. ([#98](https://github.com/wazuh/wazuh-virtual-machines/pull/98))
 
 ### Fixed
@@ -50,6 +51,8 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Change inputs parameters in AMI and OVA workflows ([#118](https://github.com/wazuh/wazuh-virtual-machines/pull/118))
+- Change ami and ova workflows input upper_case to lower_case ([#114](https://github.com/wazuh/wazuh-virtual-machines/pull/114))
 - Changed the SSH port of the AMI to 22 ([#83](https://github.com/wazuh/wazuh-virtual-machines/pull/83))
 - Migrated certificates and passwords changes for AMI. ([#73](https://github.com/wazuh/wazuh-virtual-machines/pull/73))
 - Add a new input for wazuh-virtual-machines reference to the OVA and AMI workflows ([#70](https://github.com/wazuh/wazuh-virtual-machines/pull/70))

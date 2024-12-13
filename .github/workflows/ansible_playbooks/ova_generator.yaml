@@ -3,9 +3,7 @@
 
   tasks:
     - name: Install git
-      yum:
-        name: git
-        state: present
+      shell: sudo yum install -y git
 
     - name: Make build directory
       file:
