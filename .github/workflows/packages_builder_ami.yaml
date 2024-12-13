@@ -8,7 +8,7 @@ on:
         description: "ID used to identify the workflow uniquely."
         type: string
         required: false
-      WAZUH_VIRTUAL_MACHINES_REFERENCE:
+      wazuh_virtual_machines_reference:
         description: 'Branch or tag of the wazuh-virtual-machines repository'
         required: true
         default: '4.10.1'
@@ -30,13 +30,13 @@ on:
           - -vv
           - -vvv
           - -vvvv
-      AMI_REVISION:
+      ami_revision:
         description: |
           'For AMI candidates must be a number, e,g: -1.'
           'To build a development AMI, use another revision format, e.g: -dev'
         required: false
         default: '-1'
-      DESTROY:
+      destroy:
         type: boolean
         description: 'Destroy the base instance after the AMI is created'
         required: false
@@ -66,7 +66,7 @@ jobs:
       - name: Checkout wazuh/wazuh-virtual-machines repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.WAZUH_VIRTUAL_MACHINES_REFERENCE }}
+          ref: ${{ inputs.wazuh_virtual_machines_reference }}
 
       - name: Configure aws credentials
         uses: aws-actions/configure-aws-credentials@v3
@@ -99,7 +99,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: wazuh/wazuh-automation
-          ref: ${{ inputs.WAZUH_AUTOMATION_REFERENCE }}
+          ref: ${{ inputs.wazuh_automation_reference }}
           token: ${{ secrets.GH_CLONE_TOKEN }}
           path: wazuh-automation
 
@@ -132,7 +132,7 @@ jobs:
 
       - name: Run Ansible playbook to install Wazuh components
         run: |
-          ansible-playbook -i ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini ${{ env.PLAYBOOKS_PATH }}/build_ami_packages.yaml --extra-vars "installation_assistant_reference=${{ inputs.WAZUH_INSTALLATION_ASSISTANT_REFERENCE }}" ${{ inputs.VERBOSITY }}
+          ansible-playbook -i ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini ${{ env.PLAYBOOKS_PATH }}/build_ami_packages.yaml --extra-vars "installation_assistant_reference=${{ inputs.wazuh_installation_assistant_reference }}" ${{ inputs.debug }}
 
       - name: Stop instance
         run: |
@@ -167,7 +167,7 @@ jobs:
       - name: Build AMI from instance
         if: success()
         run: |
-          AMI_NAME="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.AMI_REVISION }}"
+          AMI_NAME="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.ami_revision }}"
           aws ec2 create-image --instance-id ${{ env.identifier }} --name "$AMI_NAME" --no-reboot
           AMI_ID=$(aws ec2 describe-images --filters "Name=name,Values=$AMI_NAME" --query 'Images[*].ImageId' --output text)
           echo "AMI_ID=$AMI_ID" >> $GITHUB_ENV
@@ -202,15 +202,15 @@ jobs:
       - name: Tag AMI
         if: success()
         run: |
-          aws ec2 create-tags --resources ${{ env.AMI_ID }} --tags Key=Name,Value="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.AMI_REVISION }}"
+          aws ec2 create-tags --resources ${{ env.AMI_ID }} --tags Key=Name,Value="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.ami_revision }}"
 
       - name: Delete allocated VM
-        if: always() && steps.alloc_vm_ami.outcome == 'success' && inputs.DESTROY == true
+        if: always() && steps.alloc_vm_ami.outcome == 'success' && inputs.destroy == true
         run: python3 wazuh-automation/deployability/modules/allocation/main.py --action delete --track-output ${{ env.ALLOCATOR_PATH }}/track.yml
 
       - name: Compress Allocator directory
         id: generate_artifacts
-        if: always() && steps.alloc_vm_ami.outcome == 'success' && inputs.DESTROY == false
+        if: always() && steps.alloc_vm_ami.outcome == 'success' && inputs.destroy == false
         run: zip -P "${{ secrets.ZIP_ARTIFACTS_PASSWORD }}" -r ${{ env.ALLOCATOR_PATH }}.zip ${{ env.ALLOCATOR_PATH }}
         continue-on-error: true
 

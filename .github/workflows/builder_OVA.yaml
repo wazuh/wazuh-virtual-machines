@@ -8,7 +8,7 @@ on:
         description: "ID used to identify the workflow uniquely."
         type: string
         required: false
-      WAZUH_VIRTUAL_MACHINES_REFERENCE:
+      wazuh_virtual_machines_reference:
         description: 'Branch or tag of the wazuh-virtual-machines repository'
         required: true
         default: '4.10.1'
@@ -24,22 +24,22 @@ on:
           - prod
           - dev
           - staging
-      OVA_REVISION:
-        type: string
-        description: 'Revision of the OVA file. Use "0" for development builds'
-        required: true
-        default: '0'
       is_stage:
         description: "Is stage?"
         type: boolean
         default: false
+      ova_revision:
+        type: string
+        description: 'Revision of the OVA file. Use "0" for development builds'
+        required: true
+        default: '0'
       checksum:
         type: boolean
         description: |
           Generate package checksum.
           Default is 'false'.
         required: false
-      DEBUG:
+      debug:
         type: choice
         description: 'Debug mode'
         required: false
@@ -103,14 +103,14 @@ jobs:
       - name: Checkout wazuh/wazuh-virtual-machines repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.WAZUH_VIRTUAL_MACHINES_REFERENCE }}
+          ref: ${{ inputs.wazuh_virtual_machines_reference }}
 
       - name: Setting FILENAME var
         run: |
           WAZUH_VERSION=$(cat VERSION)
           COMMIT_SHA=$(git rev-parse --short ${{ github.sha }})
           echo "WAZUH_VERSION=$WAZUH_VERSION" >> $GITHUB_ENV
-          FILENAME="wazuh-${WAZUH_VERSION}-${{ inputs.OVA_REVISION }}"
+          FILENAME="wazuh-${WAZUH_VERSION}-${{ inputs.ova_revision }}"
 
           if [ ${{ inputs.is_stage }} == false ]; then
             FILENAME="${FILENAME}-${COMMIT_SHA}"
@@ -209,13 +209,13 @@ jobs:
           builder_args="-i"
           ANSIBLE_STDOUT_CALLBACK=$ANSIBLE_CALLBACK ansible-playbook -i ${{ env.INVENTORY_PATH }}/inventory .github/workflows/ansible_playbooks/ova_generator.yaml \
           --extra-vars " \
-          wia_branch=${{ inputs.WAZUH_INSTALLATION_ASSISTANT_REFERENCE }} \
-          repository=${{ inputs.WAZUH_PACKAGE_REPOSITORY }}  \
+          wia_branch=${{ inputs.wazuh_installation_assistant_reference }} \
+          repository=${{ inputs.wazuh_package_repository }}  \
           ova_path=${{ env.OVA_PATH }} \
           wia_scripts=${{ env.WIA_DIR }} \
           wia_repository=${{ env.WIA_REPOSITORY }} \
           builder_args='$builder_args' \
-          debug=yes" ${{ inputs.DEBUG }}
+          debug=yes" ${{ inputs.debug }}
 
       - name: Uninstall Python3 from the instance
         run: |
