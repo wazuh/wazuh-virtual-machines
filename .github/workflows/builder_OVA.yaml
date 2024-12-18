@@ -82,7 +82,7 @@ permissions:
 
 jobs:
   build_and_run:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Install Python and create virtual environment
         run: |
