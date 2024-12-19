@@ -58,7 +58,7 @@ permissions:
 
 jobs:
   Build_AMI:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: View parameters
         run: echo "${{ toJson(inputs) }}"
