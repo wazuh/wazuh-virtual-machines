@@ -1,7 +1,7 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
-## [4.10.3]
+## [4.12.0]
 
 ### Added
 
@@ -19,7 +19,7 @@ All notable changes to this project will be documented in this file.
 
 - None
 
-## [4.10.1]
+## [4.11.0]
 
 ### Added
 
@@ -29,6 +29,24 @@ All notable changes to this project will be documented in this file.
 
 - Added venv to AMI and OVA workflows. ([#112](https://github.com/wazuh/wazuh-virtual-machines/pull/112))
 - Improvements to AMI customization script. ([#98](https://github.com/wazuh/wazuh-virtual-machines/pull/98))
+
+### Fixed
+
+- None
+
+### Deleted
+
+- None
+
+## [4.10.1]
+
+### Added
+
+- None
+
+### Changed
+
+- None
 
 ### Fixed
 
