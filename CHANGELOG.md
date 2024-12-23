@@ -9,7 +9,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- None
+- Change runners in GHA workflows to Ubuntu 22.04 ([#145](https://github.com/wazuh/wazuh-virtual-machines/pull/145))
 
 ### Fixed
 
