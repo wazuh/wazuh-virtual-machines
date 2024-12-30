@@ -24,7 +24,7 @@
 
     rpm_packages:
       - git
-      - libnss3.so
+      - nss3
       - xorg-x11-fonts-100dpi
       - xorg-x11-fonts-75dpi
       - xorg-x11-utils
