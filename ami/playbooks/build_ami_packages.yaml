@@ -63,6 +63,9 @@
     - name: System update
       command: yum update -y
 
+    - name: Update Amazon Linux 2023
+      command: "dnf upgrade --assumeyes --releasever=latest"
+
     - name: Install dependencies
       ansible.builtin.package:
         name: "{{ rpm_packages }}"
