@@ -13,7 +13,7 @@ Requires=wazuh-ami-customizer.service
 
 [Timer]
 Unit=wazuh-ami-customizer.service
-OnBootSec=60s
+OnBootSec=1min
 
 [Install]
 WantedBy=timers.target

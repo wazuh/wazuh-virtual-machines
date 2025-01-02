@@ -251,11 +251,13 @@
       copy:
         src: "../wazuh-ami-customizer.sh"
         dest: "/etc/.wazuh-ami-customizer.sh"
+        mode: "755"
 
     - name: Copy wazuh-ami-customizer.service script
       copy:
         src: "../wazuh-ami-customizer.service"
         dest: "/etc/systemd/system/wazuh-ami-customizer.service"
+        mode: "755"
 
     - name: Copy wazuh-ami-customizer.timer script
       copy:
