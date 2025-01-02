@@ -1,0 +1,19 @@
+# Wazuh AMI Customizer Service - Used to customize the Wazuh AMI with custom certificates and passwords
+# Copyright (C) 2015, Wazuh Inc.
+#
+# This program is a free software; you can redistribute it
+# and/or modify it under the terms of the GNU General Public
+# License (version 2) as published by the FSF - Free Software
+# Foundation.
+#
+
+[Unit]
+Description=Creates custom certificates and passwords for Wazuh AMI
+Requires=wazuh-ami-customizer.service
+
+[Timer]
+Unit=wazuh-ami-customizer.service
+OnBootSec=60s
+
+[Install]
+WantedBy=timers.target

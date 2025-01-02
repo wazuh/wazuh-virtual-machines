@@ -252,11 +252,21 @@
         src: "../wazuh-ami-customizer.sh"
         dest: "/etc/.wazuh-ami-customizer.sh"
 
-    - name: Add Wazuh AMI Customizer to crontab
-      cron:
-        name: Wazuh AMI Customizer
-        job: ". /etc/.wazuh-ami-customizer.sh"
-        special_time: reboot
+    - name: Copy wazuh-ami-customizer.service script
+      copy:
+        src: "../wazuh-ami-customizer.service"
+        dest: "/etc/systemd/system/wazuh-ami-customizer.service"
+
+    - name: Copy wazuh-ami-customizer.timer script
+      copy:
+        src: "../wazuh-ami-customizer.timer"
+        dest: "/etc/systemd/system/wazuh-ami-customizer.timer"
+
+    - name: Enable wazuh-ami-customizer service
+      systemd:
+        name: wazuh-ami-customizer
+        enabled: yes
+        daemon_reload: yes
 
     - name: Change SSH port to 22
       lineinfile:

@@ -92,7 +92,7 @@ function clean_configuration(){
   eval "rm -rf /etc/wazuh-certificates /etc/.wazuh-certs-tool.sh /etc/config.yml /etc/wazuh-certificates-tool.log /var/log/wazuh-ami-customizer.log"
   eval "rm -f /etc/.changePasswords.sh /etc/.wazuh-passwords-tool.sh /etc/.wazuh-install-files/wazuh-passwords.txt /var/log/wazuh-passwords-tool.log"
   eval "rmdir /etc/.wazuh-install-files"
-  eval "sed -i '/#Ansible: Change Passwords/,//d' /var/spool/cron/root"
+  eval "rm -f /etc/.wazuh-ami-customizer.sh /etc/systemd/system/wazuh-ami-customizer.service /etc/systemd/system/wazuh-ami-customizer.timer"
 }
 
 function change_passwords(){
