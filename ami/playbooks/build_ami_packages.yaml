@@ -76,6 +76,41 @@
         path: "{{ provision_path }}"
         state: directory
 
+    - name: Set Wazuh log
+      shell:
+        "echo '#!/bin/sh
+        cat << EOF
+
+
+        wwwwww.           wwwwwww.          wwwwwww.
+        wwwwwww.          wwwwwww.          wwwwwww.
+        wwwwww.         wwwwwwwww.        wwwwwww.
+        wwwwwww.        wwwwwwwww.        wwwwwww.
+          wwwwww.       wwwwwwwwwww.      wwwwwww.
+          wwwwwww.      wwwwwwwwwww.      wwwwwww.
+          wwwwww.     wwwwww.wwwwww.    wwwwwww.
+          wwwwwww.    wwwww. wwwwww.    wwwwwww.
+            wwwwww.   wwwwww.  wwwwww.  wwwwwww.
+            wwwwwww.  wwwww.   wwwwww.  wwwwwww.
+            wwwwww. wwwwww.    wwwwww.wwwwwww.
+            wwwwwww.wwwww.     wwwwww.wwwwwww.
+              wwwwwwwwwwww.      wwwwwwwwwwww.
+              wwwwwwwwwww.       wwwwwwwwwwww.      oooooo
+              wwwwwwwwww.        wwwwwwwwww.      oooooooo
+              wwwwwwwww.         wwwwwwwwww.     oooooooooo
+                wwwwwwww.          wwwwwwww.      oooooooooo
+                wwwwwww.           wwwwwwww.       oooooooo
+                wwwwww.            wwwwww.         oooooo
+
+
+                WAZUH Open Source Security Platform
+                          https://wazuh.com
+
+
+        EOF
+        ' > /etc/update-motd.d/40-wazuh-banner"
+
+
     - name: Copy necessary directories from virtual-machine repository
       copy:
         src: "../../{{ automatic_ram_script_path }}"
@@ -193,8 +228,8 @@
         jid: "{{ install_result.ansible_job_id }}"
       register: job_result
       until: job_result.finished
-      retries: 60
-      delay: 10
+      retries: 30
+      delay: 60
 
     ###############################
     # Post-install stage
