@@ -184,7 +184,7 @@
 
     - name: Run {{ installer_script_name }} script
       command: "bash {{ installation_assistant_directory }}/{{ installer_script_name }} -a -v -o -d"
-      async: 300
+      async: 1800
       poll: 0
       register: install_result
 

@@ -132,7 +132,11 @@ jobs:
 
       - name: Run Ansible playbook to install Wazuh components
         run: |
-          ansible-playbook -i ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini ${{ env.PLAYBOOKS_PATH }}/build_ami_packages.yaml --extra-vars "installation_assistant_reference=${{ inputs.wazuh_installation_assistant_reference }}" ${{ inputs.debug }}
+          ansible-playbook -i ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini \
+          ${{ env.PLAYBOOKS_PATH }}/build_ami_packages.yaml \
+          --extra-vars "installation_assistant_reference=${{ inputs.wazuh_installation_assistant_reference }}" \
+          "${{ inputs.VERBOSITY }}"
+
 
       - name: Stop instance
         run: |
