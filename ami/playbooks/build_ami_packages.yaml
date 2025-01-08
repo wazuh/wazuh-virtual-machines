@@ -257,7 +257,6 @@
       copy:
         src: "../wazuh-ami-customizer.service"
         dest: "/etc/systemd/system/wazuh-ami-customizer.service"
-        mode: "755"
 
     - name: Copy wazuh-ami-customizer.timer script
       copy:
@@ -267,6 +266,12 @@
     - name: Enable wazuh-ami-customizer service
       systemd:
         name: wazuh-ami-customizer
+        enabled: yes
+        daemon_reload: yes
+
+    - name: Enable wazuh-ami-customizer timer
+      systemd:
+        name: wazuh-ami-customizer.timer
         enabled: yes
         daemon_reload: yes
 

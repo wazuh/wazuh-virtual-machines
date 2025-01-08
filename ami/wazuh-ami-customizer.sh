@@ -30,13 +30,13 @@ function logger(){
 
 logger "Starting Wazuh AMI Customizer"
 
-logger "Moving authorized_keys file to a temporary location"
+logger "Stopping SSH service to avoid connections during the configuration"
 
-mv /home/wazuh-user/.ssh/authorized_keys /home/wazuh-user/.ssh/.authorized_keys_ori
+eval "systemctl stop sshd.service"
 
 logger "Waiting for Wazuh indexer to be ready"
 
-until $(sudo curl -XGET https://localhost:9200/ -uadmin:admin -k --max-time 120 --silent --output /dev/null); do
+until $(curl -XGET https://localhost:9200/ -uadmin:admin -k --max-time 120 --silent --output /dev/null); do
   logger -w "Wazuh indexer is not ready yet, waiting 10 seconds"
   sleep 10
 done
@@ -99,13 +99,13 @@ function change_passwords(){
   logger "Changing passwords"
   new_password=$(ec2-metadata | grep "instance-id" | cut -d":" -f2 | tr -d " "| awk '{print toupper(substr($0,1,1)) substr($0,2)}')
   eval "sed -i 's/password:.*/password: ${new_password}/g' /etc/.wazuh-install-files/wazuh-passwords.txt ${debug}"
-  eval "bash /etc/.wazuh-passwords-tool.sh -a -A -au wazuh -ap wazuh -f /etc/.wazuh-install-files/wazuh-passwords.txt ${debug}"
+  eval "bash /etc/.wazuh-passwords-tool.sh -a -A -au wazuh -ap wazuh -f /etc/.wazuh-install-files/wazuh-passwords.txt >> /dev/null"
   eval "systemctl restart wazuh-dashboard ${debug}"
 }
 
-function restore_authorized_keys(){
-  logger "Restoring authorized_keys file"
-  eval "mv /home/wazuh-user/.ssh/.authorized_keys_ori /home/wazuh-user/.ssh/authorized_keys ${debug}"
+function restart_ssh_service(){
+  logger "Starting SSH service"
+  eval "systemctl start sshd.service"
 }
 
 logger "Creating certificates"
@@ -114,7 +114,7 @@ eval "bash /etc/.wazuh-certs-tool.sh -A ${debug}"
 configure_indexer
 
 logger "Waiting for Wazuh indexer to be ready"
-indexer_security_admin_comm="sudo curl -XGET https://localhost:9200/ -uadmin:admin -k --max-time 120 --silent -w \"%{http_code}\" --output /dev/null"
+indexer_security_admin_comm="curl -XGET https://localhost:9200/ -uadmin:admin -k --max-time 120 --silent -w \"%{http_code}\" --output /dev/null"
 http_status=$(eval "${indexer_security_admin_comm}")
 retries=0
 max_retries=5
@@ -161,10 +161,10 @@ done
 change_passwords
 
 logger "Waiting for Wazuh indexer to be ready with new password"
-until $(sudo curl -XGET https://localhost:9200/ -uadmin:${new_password} -k --max-time 120 --silent --output /dev/null); do
+until $(curl -XGET https://localhost:9200/ -uadmin:${new_password} -k --max-time 120 --silent --output /dev/null); do
   sleep 10
 done
 
-restore_authorized_keys
+restart_ssh_service
 
 clean_configuration
