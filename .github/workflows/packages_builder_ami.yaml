@@ -12,15 +12,15 @@ on:
         description: 'Branch or tag of the wazuh-virtual-machines repository'
         required: true
         default: '4.12.0'
-      WAZUH_AUTOMATION_REFERENCE:
+      wazuh_automation_reference:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
         default: '4.12.0'
-      WAZUH_INSTALLATION_ASSISTANT_REFERENCE:
+      wazuh_installation_assistant_reference:
         description: 'Branch or tag of the wazuh-installation-assistant repository'
         required: true
         default: '4.12.0'
-      VERBOSITY:
+      debug:
         description: 'Verbosity level on playbooks execution'
         required: true
         default: '-v'
@@ -48,7 +48,7 @@ on:
         required: false
 
 env:
-    COMPOSITE_NAME: "linux-amazon-2-ami-amd64"
+    COMPOSITE_NAME: "linux-amazon-2023ami-amd64"
     ALLOCATOR_PATH: "/tmp/allocatorvm_ami"
     PLAYBOOKS_PATH: "${{ github.workspace }}/ami/playbooks/"
 
@@ -132,7 +132,11 @@ jobs:
 
       - name: Run Ansible playbook to install Wazuh components
         run: |
-          ansible-playbook -i ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini ${{ env.PLAYBOOKS_PATH }}/build_ami_packages.yaml --extra-vars "installation_assistant_reference=${{ inputs.wazuh_installation_assistant_reference }}" ${{ inputs.debug }}
+          ansible-playbook -i ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini \
+          ${{ env.PLAYBOOKS_PATH }}/build_ami_packages.yaml \
+          --extra-vars "installation_assistant_reference=${{ inputs.wazuh_installation_assistant_reference }}" \
+          "${{ inputs.debug }}"
+
 
       - name: Stop instance
         run: |
