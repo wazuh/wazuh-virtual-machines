@@ -188,12 +188,13 @@ jobs:
           ova_path=${{ env.OVA_PATH }} \
           wia_scripts=${{ env.WIA_DIR }} \
           wia_repository=${{ env.WIA_REPOSITORY }} \
+          filename_ova=${{ env.FILENAME_OVA }} \
           builder_args='$builder_args' \
           debug=yes" ${{ inputs.debug }}
 
       - name: Getting OVA from AWS instance
         run: |
-          scp ${{ env.ansible_user }}@${{ env.ansible_host }}:/tmp/${{ env.FILENAME_OVA }} /tmp/${{ env.FILENAME_OVA }}
+          scp ${{ env.ansible_user }}@${{ env.ansible_host }}:/home/ec2-user/${{ env.FILENAME_OVA }} /tmp/${{ env.FILENAME_OVA }}
 
       - name: Standarizing OVA
         run: |

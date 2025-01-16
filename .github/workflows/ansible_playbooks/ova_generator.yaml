@@ -99,6 +99,28 @@
       args:
         chdir: "/tmp/wazuh-virtual-machines/ova/workflow_scripts"
     
+    - name: Execute Python script in the VM
+      shell: "vagrant ssh -c 'python3 /tmp/ova_directory/ova_configurer.py'"
+      args:
+        chdir: "/tmp/wazuh-virtual-machines/ova/workflow_scripts"
+
+    - name: Stop the VM
+      shell: "vagrant halt"
+      args:
+        chdir: "/tmp/wazuh-virtual-machines/ova/workflow_scripts"
+
+    # - name: Take the VM name
+    #   shell: VBoxManage list vms | grep -o '"[^"]*"' | tr -d '"'
+    #   register: vm_name_output
+
+    - name: Configure VM network in VirtualBox
+      shell: |
+        vboxmanage modifyvm ova_base --nic2 hostonly
+        vboxmanage modifyvm ova_base --cableconnected2 on
+
+    - name: Export the VM to OVA
+      shell: "vboxmanage export ova_base --output /home/ec2-user/{{ filename_ova }}"
+    
     # Migrate everything below to the Python script
 
     - name: Set custom hostname
