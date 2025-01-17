@@ -100,7 +100,7 @@
         chdir: "/tmp/wazuh-virtual-machines/ova/workflow_scripts"
     
     - name: Execute Python script in the VM
-      shell: "vagrant ssh -c 'python3 /tmp/ova_directory/ova_configurer.py'"
+      shell: "vagrant ssh -c 'python3 /tmp/ova_directory/ova_configurer.py --wia_branch {{ wia_branch }} --repository {{ repository }} --debug {{ debug}}'"
       args:
         chdir: "/tmp/wazuh-virtual-machines/ova/workflow_scripts"
 
