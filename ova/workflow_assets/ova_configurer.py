@@ -11,12 +11,9 @@ def set_hostname():
 
 def install_git():
     """"
-    Installs git if it's not installed
+    Installs git
     """
-    try:
-        subprocess.run("git --version", shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except subprocess.CalledProcessError:
-        subprocess.run("sudo yum install git -y", shell=True, check=True)
+    subprocess.run("sudo yum install git -y", shell=True, check=True)
     
 def clone_repositories():
     """
@@ -51,10 +48,68 @@ def build_wazuh_install(repo_path, wia_branch):
 def run_provision_script(repository, debug):
     """
     Runs the provision.sh script
+    
+    Args:
+        repository (str): Production or development repository
+        debug (str): Debug mode
     """
     os.chdir("/home/ec2-user/wazuh-virtual-machines/ova")
     subprocess.run(f"sudo bash provision.sh {repository} {debug}", shell=True, check=True)
+
+
+def create_network_config():
+    """
+    Creates the network configuration file and restarts the systemd-networkd service
+    """
+    config_content = """[Match]
+Name=eth1
+[Network]
+DHCP=ipv4
+"""
+
+    config_path = "/etc/systemd/network/20-eth1.network"
+    
+    with open(config_path, "w") as config_file:
+        config_file.write(config_content)
+        subprocess.run("sudo systemctl restart systemd-networkd", shell=True, check=True)
         
+
+def clean():
+    """
+    Cleans the VM after the installation
+    """
+    
+    os.remove("/tmp/wazuh-install.sh")
+    
+    subprocess.run("sudo rm -rf /home/ec2-user/wazuh-virtual-machines /home/ec2-user/wazuh-installation-assistant", shell=True, check=True)
+    
+    log_clean_commands = [
+        "find /var/log/ -type f -exec bash -c 'cat /dev/null > {}' \\;",
+        "find /var/ossec/logs -type f -execdir sh -c 'cat /dev/null > \"$1\"' _ {} \\;",
+        "find /var/log/wazuh-indexer -type f -execdir sh -c 'cat /dev/null > \"$1\"' _ {} \;",
+        "find /var/log/filebeat -type f -execdir sh -c 'cat /dev/null > \"$1\"' _ {} \;",
+        "rm -rf /var/log/wazuh-install.log"
+    ]
+    for command in log_clean_commands:
+        subprocess.run(command, shell=True, check=True)
+        
+    subprocess.run("cat /dev/null > ~/.bash_history && history -c", shell=True, check=True)
+    
+    yum_clean_commands = [
+        "sudo yum clean all",
+        "sudo rm -rf /var/cache/yum/*"
+    ]
+    for command in yum_clean_commands:
+        subprocess.run(command, shell=True, check=True)
+        
+    sshd_config_changes = [
+        (r'^#?AuthorizedKeysCommand.*', ''),
+        (r'^#?AuthorizedKeysCommandUser.*', ''),
+    ]
+    for pattern, replacement in sshd_config_changes:
+        subprocess.run(f"sudo sed -i '/{pattern}/d' /etc/ssh/sshd_config", shell=True, check=True)
+    subprocess.run("sudo systemctl restart sshd", shell=True, check=True)
+    
 
 def main():
     """
@@ -71,7 +126,8 @@ def main():
     clone_repositories()
     build_wazuh_install("/home/ec2-user/wazuh-installation-assistant", args.wia_branch)
     run_provision_script(args.repository, args.debug)
-    
+    create_network_config()
+    clean()
         
 if __name__ == "__main__":
     main()
