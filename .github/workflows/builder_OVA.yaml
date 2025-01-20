@@ -74,7 +74,7 @@ env:
     # OVA_USER: "wazuh-user"
     # OVA_USER_PASSWORD: "wazuh"
     COMPOSITE_NAME: "linux-amazon-2023-amd64"
-    INVENTORY_PATH: "/tmp/allocatorvm_ova"
+    ALLOCATOR_PATH: "/tmp/allocatorvm_ova"
     AWS_REGION: "us-east-1"
     OVA_PATH: "/var/provision/wazuh-virtual-machines"
     WIA_DIR: "wazuh-installation-assistant"
@@ -180,7 +180,7 @@ jobs:
       - name: Run Ansible playbook to generate the OVA
         run: |
           builder_args="-i"
-          ANSIBLE_STDOUT_CALLBACK=$ANSIBLE_CALLBACK ansible-playbook -i ${{ env.INVENTORY_PATH }}/inventory .github/workflows/ansible_playbooks/ova_generator.yaml \
+          ANSIBLE_STDOUT_CALLBACK=$ANSIBLE_CALLBACK ansible-playbook -i ${{ env.ALLOCATOR_PATH }}/inventory .github/workflows/ansible_playbooks/ova_generator.yaml \
           --extra-vars " \
           wia_branch=${{ inputs.wazuh_installation_assistant_reference }} \
           repository=${{ inputs.wazuh_package_repository }}  \
