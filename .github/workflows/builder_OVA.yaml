@@ -73,6 +73,7 @@ env:
     # TEMPORAL_S3_PATH: "trash/vm"
     # OVA_USER: "wazuh-user"
     # OVA_USER_PASSWORD: "wazuh"
+    COMPOSITE_NAME: "linux-amazon-2023-amd64"
     INVENTORY_PATH: "/tmp/allocatorvm_ova"
     AWS_REGION: "us-east-1"
     OVA_PATH: "/var/provision/wazuh-virtual-machines"
