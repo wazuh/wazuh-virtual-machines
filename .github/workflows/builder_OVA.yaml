@@ -175,7 +175,7 @@ jobs:
 
       - name: Install Python3 in the AWS instance
         run: |
-          ssh -o 'StrictHostKeyChecking no' ${{ env.ansible_user }}@${{ env.ansible_host }} "sudo yum install -y python3"
+          ssh -p ${{ env.ansible_port }} -o 'StrictHostKeyChecking no' ${{ env.ansible_user }}@${{ env.ansible_host }} "sudo yum install -y python3"
 
       - name: Run Ansible playbook to generate the OVA
         run: |
