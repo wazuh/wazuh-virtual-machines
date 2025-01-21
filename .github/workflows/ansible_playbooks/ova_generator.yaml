@@ -85,11 +85,21 @@
       args:
         chdir: "/tmp/wazuh-virtual-machines/ova/workflow_assets"
       register: base_box_creation_result
+      async: 1800
+      poll: 0
 
     - name: Show the creation output
       debug:
         msg: "{{ base_box_creation_result.stdout }}"
         msg: "{{ base_box_creation_result.stderr }}"
+
+    - name: Wait for the base box creation to finish
+      async_status:
+        jid: "{{ base_box_creation_result.ansible_job_id }}"
+      register: job_result
+      until: job_result.finished
+      retries: 30
+      delay: 60
 
     - name: Add the created box
       shell: "vagrant box add --name al2023 /tmp/wazuh-virtual-machines/ova/workflow_assets/al2023.box"
@@ -98,11 +108,24 @@
       shell: "vagrant up"
       args:
         chdir: "/tmp/wazuh-virtual-machines/ova/workflow_assets"
+      retries: 10
+      delay: 15
     
     - name: Execute Python script in the VM
       shell: "vagrant ssh -c 'sudo python3 /tmp/ova_directory/ova_configurer.py --wia_branch {{ wia_branch }} --repository {{ repository }} --debug {{ debug}}'"
       args:
         chdir: "/tmp/wazuh-virtual-machines/ova/workflow_assets"
+      register: python_script_result
+      async: 1800
+      poll: 0
+
+    - name: Wait for the Python script to finish
+      async_status:
+        jid: "{{ python_script_result.ansible_job_id }}"
+      register: job_result
+      until: job_result.finished
+      retries: 30
+      delay: 60
 
     - name: Stop the VM
       shell: "vagrant halt"
