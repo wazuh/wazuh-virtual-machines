@@ -84,6 +84,12 @@
       shell: "./generate_base_box.sh"
       args:
         chdir: "/tmp/wazuh-virtual-machines/ova/workflow_assets"
+      register: base_box_creation_result
+
+    - name: Show the creation output
+      debug:
+        msg: "{{ base_box_creation_result.stdout }}"
+        msg: "{{ base_box_creation_result.stderr }}"
 
     - name: Add the created box
       shell: "vagrant box add --name al2023 /tmp/wazuh-virtual-machines/ova/workflow_assets/al2023.box"

@@ -195,7 +195,7 @@ jobs:
 
       - name: Getting OVA from AWS instance
         run: |
-          scp ${{ env.ansible_user }}@${{ env.ansible_host }}:/home/ec2-user/${{ env.FILENAME_OVA }} /tmp/${{ env.FILENAME_OVA }}
+          scp -P ${{ env.ansible_port }} ${{ env.ansible_user }}@${{ env.ansible_host }}:/home/ec2-user/${{ env.FILENAME_OVA }} /tmp/${{ env.FILENAME_OVA }}
 
       - name: Standarizing OVA
         run: |
