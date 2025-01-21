@@ -23,7 +23,7 @@
         mode: '0755'
 
     - name: Run VirtualBox installer script
-      command: bash /tpm/VirtualBox.run
+      command: bash /tmp/VirtualBox.run
       become: true
 
     - name: Update all the packages
