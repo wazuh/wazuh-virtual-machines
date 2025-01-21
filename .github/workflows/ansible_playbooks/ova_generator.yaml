@@ -1,15 +1,7 @@
 - hosts: all
   become: true
 
-  tasks:
-    - name: Install AWS collection
-      command: ansible-galaxy collection install amazon.aws
-
-    - name: Enable Amazon Linux Extras repository
-      amazon.aws.amazon_linux_extras:
-        name: python3.8
-        state: present
-    
+  tasks:    
     - name: Install python3.8 and pip
       yum:
         name:
