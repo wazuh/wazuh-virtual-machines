@@ -24,8 +24,16 @@
 
     - name: Install required packages for building kernel modules
       yum:
-        name: kernel-devel kernel-headers dkms elfutils-libelf-devel gcc make perl
+        name:
+          - kernel-devel
+          - kernel-headers
+          - dkms
+          - elfutils-libelf-devel
+          - gcc
+          - make
+          - perl
         state: present
+      become: true
 
     - name: Run VirtualBox installer script
       command: bash /tmp/VirtualBox.run
