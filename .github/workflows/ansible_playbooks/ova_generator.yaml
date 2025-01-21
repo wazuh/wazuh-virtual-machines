@@ -3,8 +3,8 @@
 
   tasks:
     - name: Install AWS collection
-      run:  ansible-galaxy collection install amazon.aws
-      
+      command: ansible-galaxy collection install amazon.aws
+
     - name: Enable Amazon Linux Extras repository
       amazon.aws.amazon_linux_extras:
         name: python3.8
