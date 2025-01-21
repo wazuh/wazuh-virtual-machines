@@ -81,27 +81,35 @@
       until: clone_result is success
 
     - name: Create base box
-      shell: "./generate_base_box.sh"
-      args:
-        chdir: "/tmp/wazuh-virtual-machines/ova/workflow_scripts"
+      shell: |
+        cd /tmp/wazuh-virtual-machines && \
+        git checkout {{ wvm_branch }} && \
+        cd /tmp/wazuh-virtual-machines/ova/workflow_scripts && \
+        bash ./generate_base_box.sh
 
     - name: Add the created box
       shell: "vagrant box add --name al2023 /tmp/wazuh-virtual-machines/ova/workflow_scripts/al2023.box"
 
     - name: Deploy the VM using Vagrant
-      shell: "vagrant up"
-      args:
-        chdir: "/tmp/wazuh-virtual-machines/ova/workflow_scripts"
+      shell: |
+        cd /tmp/wazuh-virtual-machines && \
+        git checkout {{ wvm_branch }} && \
+        cd /tmp/wazuh-virtual-machines/ova/workflow_scripts && \
+        vagrant up
     
     - name: Execute Python script in the VM
-      shell: "vagrant ssh -c 'sudo python3 /tmp/ova_directory/ova_configurer.py --wia_branch {{ wia_branch }} --repository {{ repository }} --debug {{ debug}}'"
-      args:
-        chdir: "/tmp/wazuh-virtual-machines/ova/workflow_scripts"
+      shell: |
+        cd /tmp/wazuh-virtual-machines && \
+        git checkout {{ wvm_branch }} && \
+        cd /tmp/wazuh-virtual-machines/ova/workflow_scripts && \
+        "vagrant ssh -c 'sudo python3 /tmp/ova_directory/ova_configurer.py --wia_branch {{ wia_branch }} --repository {{ repository }} --debug {{ debug}}'"
 
     - name: Stop the VM
-      shell: "vagrant halt"
-      args:
-        chdir: "/tmp/wazuh-virtual-machines/ova/workflow_scripts"
+      shell: |
+        cd /tmp/wazuh-virtual-machines && \
+        git checkout {{ wvm_branch }} && \
+        cd /tmp/wazuh-virtual-machines/ova/workflow_scripts && \
+        vagrant halt
 
     # - name: Take the VM name
     #   shell: VBoxManage list vms | grep -o '"[^"]*"' | tr -d '"'
