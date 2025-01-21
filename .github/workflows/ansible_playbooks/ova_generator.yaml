@@ -22,6 +22,11 @@
         path: /tmp/VirtualBox.run
         mode: '0755'
 
+    - name: Install required packages for building kernel modules
+      yum:
+        name: kernel-devel kernel-headers dkms elfutils-libelf-devel gcc make perl
+        state: present
+
     - name: Run VirtualBox installer script
       command: bash /tmp/VirtualBox.run
       become: true
@@ -33,10 +38,6 @@
 
     - name: Install Development tools
       command: dnf groupinstall "Development Tools" -y
-      become: true
-
-    - name: Install kernel headers
-      command: dnf install -y kernel-devel kernel-headers dkms elfutils-libelf-devel
       become: true
 
     - name: Rebuild the VirtualBox kernel modules
