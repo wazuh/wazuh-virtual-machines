@@ -12,51 +12,48 @@
         name: python3-pip
         state: present
 
-    - name: Install required tools for VirtualBox
-      yum:
-        name:
-          - gcc
-          - make
-          - perl
-          - bzip2
-          - kernel-devel
-          - kernel-headers
-          - dkms
-        state: present
+    - name: Download VirtualBox installer script
+      get_url:
+        url: https://download.virtualbox.org/virtualbox/7.1.4/VirtualBox-7.1.4-165100-Linux_amd64.run
+        dest: /tmp/VirtualBox.run
 
-    - name: Add the VirtualBox repository
-      yum_repository:
-        name: virtualbox
-        description: "Oracle VirtualBox Repository"
-        baseurl: https://download.virtualbox.org/virtualbox/rpm/el/7/x86_64
-        gpgcheck: yes
-        gpgkey: https://www.virtualbox.org/download/oracle_vbox.asc
-        enabled: yes
+    - name: Make the installer script executable
+      file:
+        path: /tmp/VirtualBox.run
+        mode: '0755'
 
-    - name: Install VirtualBox
+    - name: Run VirtualBox installer script
+      command: bash /tpm/VirtualBox.run
+      become: true
+
+    - name: Update all the packages
       yum:
-        name: VirtualBox-7.0
-        state: present
+        name: '*'
+        state: latest
+
+    - name: Install Development tools
+      command: dnf groupinstall "Development Tools" -y
+      become: true
+
+    - name: Install kernel headers
+      command: dnf install -y kernel-devel kernel-headers dkms elfutils-libelf-devel
+      become: true
 
     - name: Rebuild the VirtualBox kernel modules
-      command: "/sbin/vboxconfig"
+      command: /sbin/vboxconfig
 
-    - name: Add Vagrant repository
-      yum_repository:
-        name: vagrant
-        description: "HashiCorp Vagrant"
-        baseurl: https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
-        gpgcheck: yes
-        gpgkey: https://rpm.releases.hashicorp.com/gpg
-        enabled: yes
+    - name: Install utilities for Vagrant
+      command: yum install -y yum-utils shadow-utils
+
+    - name: Add the Vagrant repository
+      command: yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
 
     - name: Install Vagrant
-      yum:
-        name: vagrant
-        state: present
+      command: yum -y install vagrant
 
     - name: Install git
-      shell: sudo yum install -y git
+      shell: yum install -y git
+      become: true
 
     - name: Create directory for the base VM
       file:
