@@ -83,16 +83,6 @@ create_virtualbox_vm() {
     vboxmanage storagectl al2023 --name SATA --add sata --portcount 1
     vboxmanage storageattach al2023 --storagectl IDE --port 1 --device 0 --type dvddrive --medium emptydrive
     vboxmanage storageattach al2023 --storagectl SATA --port 0 --device 0 --type hdd --medium "${VDI_DIR}/al2023.vdi"
-    if ! vboxmanage list hostonlyifs | grep -q "vboxnet0"; then
-        vboxmanage hostonlyif create
-        vboxmanage hostonlyif ipconfig vboxnet0 --ip 192.168.56.1 --netmask 255.255.255.0
-        vboxmanage dhcpserver add --netname HostInterfaceNetworking-vboxnet0 \
-            --ip 192.168.56.2 --netmask 255.255.255.0 \
-            --lowerip 192.168.56.100 --upperip 192.168.56.200 --enable
-    fi
-    vboxmanage modifyvm al2023 --nic2 hostonly
-    vboxmanage modifyvm al2023 --hostonlyadapter2 vboxnet0
-    vboxmanage modifyvm al2023 --cableconnected2 on
 }
 
 package_vagrant_box() {
