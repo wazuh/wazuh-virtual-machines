@@ -87,6 +87,7 @@
       register: base_box_creation_result
       async: 1800
       poll: 0
+      ignore_errors: yes
 
     - name: Wait for the base box creation to finish
       async_status:
