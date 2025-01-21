@@ -88,11 +88,6 @@
       async: 1800
       poll: 0
 
-    - name: Show the creation output
-      debug:
-        msg: "{{ base_box_creation_result.stdout }}"
-        msg: "{{ base_box_creation_result.stderr }}"
-
     - name: Wait for the base box creation to finish
       async_status:
         jid: "{{ base_box_creation_result.ansible_job_id }}"
