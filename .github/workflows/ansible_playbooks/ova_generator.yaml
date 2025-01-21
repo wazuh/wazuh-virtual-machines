@@ -104,8 +104,9 @@
       shell: "vagrant up"
       args:
         chdir: "/tmp/wazuh-virtual-machines/ova/workflow_assets"
-      retries: 10
-      delay: 15
+      retries: 20
+      delay: 30
+      until: result.rc == 0
     
     - name: Execute Python script in the VM
       shell: "vagrant ssh -c 'sudo python3 /tmp/ova_directory/ova_configurer.py --wia_branch {{ wia_branch }} --repository {{ repository }} --debug {{ debug}}'"
