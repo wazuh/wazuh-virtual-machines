@@ -126,11 +126,12 @@
     - name: Run vagrant up 
       shell: |
         #!/bin/bash
-        MAX_RETRIES=20
+        MAX_RETRIES=30
         attempts=0
         cd /tmp/wazuh-virtual-machines/ova/workflow_assets
         while true; do
           ((attempts++))
+          echo "Attempt $attempts"
           if vagrant up; then
             break
           else
