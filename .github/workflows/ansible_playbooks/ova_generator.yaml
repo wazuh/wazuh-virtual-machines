@@ -102,6 +102,7 @@
 
     - name: Destroy previous machines
       shell: |
+        #!/bin/bash
         cd /tmp/wazuh-virtual-machines/ova/workflow_assets
         machines=$(vagrant global-status --prune | awk '/running|saved|poweroff/ {print $1}')
         if [ -n "$machines" ]; then
@@ -109,6 +110,9 @@
             vagrant destroy -f $id
           done
         fi
+      args:
+        executable: /bin/bash
+      become: true
 
     - name: Deploy the VM using Vagrant
       shell: "vagrant up"
@@ -117,6 +121,7 @@
       retries: 20
       delay: 30
       until: result.rc == 0
+      become: true
     
     - name: Execute Python script in the VM
       shell: "vagrant ssh -c 'sudo python3 /tmp/ova_directory/ova_configurer.py --wia_branch {{ wia_branch }} --repository {{ repository }} --debug {{ debug}}'"
