@@ -158,7 +158,6 @@
       retries: 30
       delay: 60
 
-
     - name: Show the result of the vagrant up command
       debug:
         var: vagrant_up_result
@@ -166,8 +165,9 @@
 
     - name: Copy the Python script to the VM
       shell: |
+        cd /tmp/wazuh-virtual-machines/ova/workflow_assets
         vagrant plugin install vagrant-scp
-        vagrant scp ova_configurer.py ova_base:/tmp/ova_configurer.py
+        vagrant scp ova_configurer.py :/tmp/ova_configurer.py
       args:
         chdir: "/tmp/wazuh-virtual-machines/ova/workflow_assets"
       become: true
