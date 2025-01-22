@@ -131,6 +131,7 @@
         executable: /bin/bash
       register: vagrant_up_result
       become: true
+      ignore_errors: yes
 
     # - name: Deploy the VM using Vagrant
     #   shell: "vagrant up"
