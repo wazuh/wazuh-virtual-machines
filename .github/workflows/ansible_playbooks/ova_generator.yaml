@@ -151,8 +151,16 @@
         var: vagrant_up_result
         verbosity: 2
 
+    - name: Copy the Python script to the VM
+      shell: |
+        vagrant plugin install vagrant-scp
+        vagrant scp ova_configurer.py ova_base:/tmp/ova_configurer.py
+      args:
+        chdir: "/tmp/wazuh-virtual-machines/ova/workflow_assets"
+      become: true
+
     - name: Execute Python script in the VM
-      shell: "vagrant ssh -c 'sudo python3 /tmp/ova_directory/ova_configurer.py --wia_branch {{ wia_branch }} --repository {{ repository }} --debug {{ debug}}'"
+      shell: "vagrant ssh -c 'sudo python3 /tmp/ova_configurer.py --wia_branch {{ wia_branch }} --repository {{ repository }} --debug {{ debug}}'"
       args:
         chdir: "/tmp/wazuh-virtual-machines/ova/workflow_assets"
       register: python_script_result
