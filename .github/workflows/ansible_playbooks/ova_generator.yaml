@@ -110,28 +110,10 @@
             vagrant destroy -f $id
           done
         fi
-        MAX_RETRIES=30
-        attempts=0
-        cd /tmp/wazuh-virtual-machines/ova/workflow_assets
-        while true; do
-          ((attempts++))
-          echo "Attempt: $attempts" >&2
-          if vagrant up; then
-            echo "vagrant up complete in attempt: $attempts" >&2
-            break
-          else
-            if [ $attempts -eq $MAX_RETRIES ]; then
-              echo "Max attempts reached" >&2
-              exit 1
-            fi
-            vagrant destroy -f
-          fi
-        done
       args:
         executable: /bin/bash
       register: vagrant_up_result
       become: true
-      ignore_errors: yes
 
     # - name: Deploy the VM using Vagrant
     #   shell: "vagrant up"
@@ -142,31 +124,40 @@
     #   until: result.rc == 0
     #   become: true
 
-    # - name: Attempt to run vagrant up
-    #   block:
-    #     - name: Run vagrant up 
-    #       shell: |
-    #         #!/bin/bash
-    #         MAX_RETRIES=30
-    #         attempts=0
-    #         cd /tmp/wazuh-virtual-machines/ova/workflow_assets
-    #         while true; do
-    #           ((attempts++))
-    #           echo "Attempt $attempts"
-    #           if vagrant up; then
-    #             break
-    #           else
-    #             if [ $attempts -eq $MAX_RETRIES ]; then
-    #               echo "Max attempts reached"
-    #               exit 1
-    #             fi
-    #             vagrant destroy -f
-    #           fi
-    #         done
-    #       args:
-    #         executable: /bin/bash
-    #       register: vagrant_up_result
-    #       become: true
+    - name: Run vagrant up 
+      shell: |
+        #!/bin/bash
+        MAX_RETRIES=30
+        attempts=0
+        cd /tmp/wazuh-virtual-machines/ova/workflow_assets
+        while true; do
+          ((attempts++))
+          echo "Attempt $attempts"
+          if vagrant up; then
+            break
+          else
+            if [ $attempts -eq $MAX_RETRIES ]; then
+              echo "Max attempts reached"
+              exit 1
+            fi
+            vagrant destroy -f
+          fi
+        done
+      args:
+        executable: /bin/bash
+      async: 1800
+      poll: 0
+      register: vagrant_up_result
+      become: true
+
+    - name: Wait for vagrant up to finish
+      async_status:
+        jid: "{{ vagrant_up_result.ansible_job_id }}"
+      register: job_result
+      until: job_result.finished
+      retries: 30
+      delay: 60
+
 
     - name: Show the result of the vagrant up command
       debug:
