@@ -215,3 +215,8 @@
       until: job_result.finished
       retries: 30
       delay: 60
+    
+    - name: Change permissions to the OVA
+      file:
+        path: /home/ec2-user/{{ filename_ova }}
+        mode: '0755'
