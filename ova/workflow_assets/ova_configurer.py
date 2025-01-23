@@ -45,7 +45,7 @@ def build_wazuh_install(repo_path, wia_branch):
             subprocess.run("sudo mv wazuh-install.sh /tmp/wazuh-install.sh", shell=True, check=True)
         
 
-def run_provision_script(repository, debug):
+def run_provision_script(wvm_branch, repository, debug):
     """
     Runs the provision.sh script
     
@@ -54,6 +54,7 @@ def run_provision_script(repository, debug):
         debug (str): Debug mode
     """
     os.chdir("/home/ec2-user/wazuh-virtual-machines/ova")
+    subprocess.run(f"git checkout {wvm_branch}", shell=True, check=True)
     subprocess.run(f"sudo bash provision.sh {repository} {debug}", shell=True, check=True)
 
 
@@ -117,6 +118,7 @@ def main():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("--wia_branch", required=True, help="Branch of the wazuh-installation-assistant repository")
+    parser.add_argument("--wvm_branch", required=True, help="Branch of the wazuh-virtual-machines repository")
     parser.add_argument("--repository", required=True, help="Production or development repository")
     parser.add_argument("--debug", required=True, help="Debug mode")
     args = parser.parse_args()
@@ -125,7 +127,7 @@ def main():
     install_git()
     clone_repositories()
     build_wazuh_install("/home/ec2-user/wazuh-installation-assistant", args.wia_branch)
-    run_provision_script(args.repository, args.debug)
+    run_provision_script(args.wvm_branch, args.repository, args.debug)
     create_network_config()
     clean()
         

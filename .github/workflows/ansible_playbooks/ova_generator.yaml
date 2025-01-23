@@ -173,7 +173,7 @@
       become: true
 
     - name: Execute Python script in the VM
-      shell: "vagrant ssh -c 'sudo python3 /tmp/ova_configurer.py --wia_branch {{ wia_branch }} --repository {{ repository }} --debug {{ debug}}'"
+      shell: "vagrant ssh -c 'sudo python3 /tmp/ova_configurer.py --wia_branch {{ wia_branch }} --wvm_branch {{ wvm_branch }} --repository {{ repository }} --debug {{ debug}}'"
       args:
         chdir: "/tmp/wazuh-virtual-machines/ova/workflow_assets"
       register: python_script_result
