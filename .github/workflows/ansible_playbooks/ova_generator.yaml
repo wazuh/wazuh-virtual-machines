@@ -204,3 +204,14 @@
 
     - name: Export the VM to OVA
       shell: "vboxmanage export ova_base --output /home/ec2-user/{{ filename_ova }}"
+      register: export_result
+      async: 1800
+      poll: 0
+
+    - name: Wait for export the OVA
+      async_status:
+        jid: "{{ export_result.ansible_job_id }}"
+      register: job_result
+      until: job_result.finished
+      retries: 30
+      delay: 60
