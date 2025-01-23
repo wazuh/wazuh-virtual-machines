@@ -108,6 +108,7 @@ jobs:
       - name: Checkout wazuh/wazuh-installation-assistant repository
         uses: actions/checkout@v4
         with:
+          repository: wazuh/wazuh-installation-assistant
           ref: ${{ inputs.wazuh_installation_assistant_reference }}
 
       - name: Setting FILENAME var
