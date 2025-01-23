@@ -24,7 +24,7 @@
 
     rpm_packages:
       - git
-      - libnss3.so
+      - nss
       - xorg-x11-fonts-100dpi
       - xorg-x11-fonts-75dpi
       - xorg-x11-utils
@@ -63,6 +63,9 @@
     - name: System update
       command: yum update -y
 
+    - name: Update Amazon Linux 2023
+      command: "dnf upgrade --assumeyes --releasever=latest"
+
     - name: Install dependencies
       ansible.builtin.package:
         name: "{{ rpm_packages }}"
@@ -72,6 +75,16 @@
       file:
         path: "{{ provision_path }}"
         state: directory
+
+    - name: Set Wazuh logo
+      copy:
+        src: "../40-wazuh-banner"
+        dest: "/usr/lib/motd.d/40-wazuh-banner"
+
+    - name: Remove Amazon Linux 2023 motd
+      file:
+        path: /usr/lib/motd.d/30-banner
+        state: absent
 
     - name: Copy necessary directories from virtual-machine repository
       copy:
@@ -181,6 +194,17 @@
 
     - name: Run {{ installer_script_name }} script
       command: "bash {{ installation_assistant_directory }}/{{ installer_script_name }} -a -v -o -d"
+      async: 1800
+      poll: 0
+      register: install_result
+
+    - name: Wait for installation to finish
+      async_status:
+        jid: "{{ install_result.ansible_job_id }}"
+      register: job_result
+      until: job_result.finished
+      retries: 30
+      delay: 60
 
     ###############################
     # Post-install stage
@@ -248,12 +272,29 @@
       copy:
         src: "../wazuh-ami-customizer.sh"
         dest: "/etc/.wazuh-ami-customizer.sh"
+        mode: "755"
 
-    - name: Add Wazuh AMI Customizer to crontab
-      cron:
-        name: Wazuh AMI Customizer
-        job: ". /etc/.wazuh-ami-customizer.sh"
-        special_time: reboot
+    - name: Copy wazuh-ami-customizer.service script
+      copy:
+        src: "../wazuh-ami-customizer.service"
+        dest: "/etc/systemd/system/wazuh-ami-customizer.service"
+
+    - name: Copy wazuh-ami-customizer.timer script
+      copy:
+        src: "../wazuh-ami-customizer.timer"
+        dest: "/etc/systemd/system/wazuh-ami-customizer.timer"
+
+    - name: Enable wazuh-ami-customizer service
+      systemd:
+        name: wazuh-ami-customizer
+        enabled: yes
+        daemon_reload: yes
+
+    - name: Enable wazuh-ami-customizer timer
+      systemd:
+        name: wazuh-ami-customizer.timer
+        enabled: yes
+        daemon_reload: yes
 
     - name: Change SSH port to 22
       lineinfile:

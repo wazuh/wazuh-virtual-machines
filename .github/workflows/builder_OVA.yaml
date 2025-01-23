@@ -20,7 +20,7 @@ on:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
         default: '4.11.0'
-      WAZUH_PACKAGE_REPOSITORY:
+      wazuh_package_repository:
         type: choice
         description: 'Wazuh package repository from which to download the packages'
         required: true
