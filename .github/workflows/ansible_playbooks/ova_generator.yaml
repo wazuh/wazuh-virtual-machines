@@ -127,7 +127,7 @@
     - name: Run vagrant up 
       shell: |
         #!/bin/bash
-        MAX_RETRIES=30
+        MAX_RETRIES=100
         attempts=0
         cd /tmp/wazuh-virtual-machines/ova/workflow_assets
         while true; do
@@ -145,7 +145,7 @@
         done
       args:
         executable: /bin/bash
-      async: 1800
+      async: 7200
       poll: 0
       register: vagrant_up_result
       become: true
@@ -155,7 +155,7 @@
         jid: "{{ vagrant_up_result.ansible_job_id }}"
       register: job_result
       until: job_result.finished
-      retries: 30
+      retries: 120
       delay: 60
 
     - name: Show the result of the vagrant up command
