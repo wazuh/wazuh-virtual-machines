@@ -61,18 +61,9 @@ on:
         required: false
 
 env:
-    # OVA_AMI: "ami-0d4bd55523ee67aa4"
     INSTANCE_TYPE: "metal"
-    # SECURITY_GROUP: "sg-005cff996b335d497"
-    # SUBNET: "subnet-0b6aea31fb32cffad"
-    # TEMPORAL_S3_BUCKET: "warehouse.wazuh.com"
     S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
     S3_PATH: "development/wazuh/4.x/secondary/ova"
-    # OVA_ENVIRONMENT: "vmware"
-    # CONTAINER_FORMAT: "ova"
-    # TEMPORAL_S3_PATH: "trash/vm"
-    # OVA_USER: "wazuh-user"
-    # OVA_USER_PASSWORD: "wazuh"
     COMPOSITE_NAME: "linux-amazon-2023-amd64"
     ALLOCATOR_PATH: "/tmp/allocatorvm_ova"
     AWS_REGION: "us-east-1"
@@ -114,9 +105,14 @@ jobs:
         with:
           ref: ${{ inputs.wazuh_virtual_machines_reference }}
 
+      - name: Checkout wazuh/wazuh-installation-assistant repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.wazuh_installation_assistant_reference }}
+
       - name: Setting FILENAME var
         run: |
-          WAZUH_VERSION=$(cat VERSION)
+          WAZUH_VERSION=$(cat wazuh-installation-assistant/VERSION)
           COMMIT_SHA=$(git rev-parse --short ${{ github.sha }})
           echo "WAZUH_VERSION=$WAZUH_VERSION" >> $GITHUB_ENV
           FILENAME="wazuh-${WAZUH_VERSION}-${{ inputs.ova_revision }}"
@@ -173,17 +169,6 @@ jobs:
           echo "[gha_instance]" > ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini
           echo "${{ env.ansible_host }} ansible_port=${{ env.ansible_port }} ansible_user=${{ env.ansible_user }} ansible_ssh_private_key_file=${{ env.ansible_ssh_private_key_file }} ansible_ssh_common_args='${{ env.ansible_ssh_common_args }}'" >> ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini
 
-      - name: Compress Allocator directory
-        run: |
-          cd ${{ env.ALLOCATOR_PATH }}
-          zip -P "${{ secrets.ZIP_ARTIFACTS_PASSWORD }}" -r allocator_directory.zip .
-
-      - name: Upload Allocator directory as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: allocator_directory
-          path: ${{ env.ALLOCATOR_PATH }}/allocator_directory.zip
-
       - name: Install Python3 in the AWS instance
         run: |
           ssh -p ${{ env.ansible_port }} -i ${{ env.ansible_ssh_private_key_file }} -o 'StrictHostKeyChecking no' ${{ env.ansible_user }}@${{ env.ansible_host }} "sudo yum install -y python3"
@@ -227,6 +212,6 @@ jobs:
           s3uri="s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_SHA }}"
           echo "S3 sha512 OVA URI: ${s3uri}"
 
-      # - name: Delete allocated VM
-        # if: always() && steps.alloc_vm == 'success' && inputs.destroy == true
-        # run: python3 wazuh-automation/deployability/modules/allocation/main.py --action delete --track-output ${{ env.ALLOCATOR_PATH }}/track.yml
+      - name: Delete allocated VM
+        if: always() && steps.alloc_vm == 'success' && inputs.destroy == true
+        run: python3 wazuh-automation/deployability/modules/allocation/main.py --action delete --track-output ${{ env.ALLOCATOR_PATH }}/track.yml

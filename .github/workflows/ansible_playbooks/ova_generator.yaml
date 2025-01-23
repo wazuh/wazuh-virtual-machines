@@ -115,15 +115,6 @@
       register: vagrant_up_result
       become: true
 
-    # - name: Deploy the VM using Vagrant
-    #   shell: "vagrant up"
-    #   args:
-    #     chdir: "/tmp/wazuh-virtual-machines/ova/workflow_assets"
-    #   retries: 20
-    #   delay: 30
-    #   until: result.rc == 0
-    #   become: true
-
     - name: Run vagrant up 
       shell: |
         #!/bin/bash
@@ -193,10 +184,6 @@
       args:
         chdir: "/tmp/wazuh-virtual-machines/ova/workflow_assets"
 
-    # - name: Take the VM name
-    #   shell: VBoxManage list vms | grep -o '"[^"]*"' | tr -d '"'
-    #   register: vm_name_output
-
     - name: Configure VM network in VirtualBox
       shell: |
         vboxmanage modifyvm ova_base --nic2 hostonly
@@ -216,7 +203,7 @@
       retries: 30
       delay: 60
     
-    - name: Change permissions to the OVA
+    - name: Change permissions to the OVA file
       file:
         path: /home/ec2-user/{{ filename_ova }}
         mode: '0755'
