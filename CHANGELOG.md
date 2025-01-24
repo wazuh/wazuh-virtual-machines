@@ -9,13 +9,14 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Reworked the OVA workflow, creation process and upgraded base OS. ([#170](https://github.com/wazuh/wazuh-virtual-machines/pull/170))
 - Change OS base for Wazuh AMI to Amazon Linux 2023. ([#150](https://github.com/wazuh/wazuh-virtual-machines/pull/150))
 - Added venv to AMI and OVA workflows. ([#112](https://github.com/wazuh/wazuh-virtual-machines/pull/112))
 - Improvements to AMI customization script. ([#98](https://github.com/wazuh/wazuh-virtual-machines/pull/98))
 
 ### Fixed
 
-- None
+- Fixed the OVA workflow to add support in stages. ([#173](https://github.com/wazuh/wazuh-virtual-machines/pull/173))
 
 ### Deleted
 
