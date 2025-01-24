@@ -28,19 +28,23 @@ def clone_repositories():
         subprocess.run(f"git clone {repo['url']} {repo['dest']}", shell=True, check=True)
 
         
-def build_wazuh_install(repo_path, wia_branch):
+def build_wazuh_install(repo_path, wia_branch, repository):
     """
     Builds the wazuh-install.sh script and moves it to /tmp
 
     Args:
         repo_path (str): Local path of the repository
         wia_branch (str): Branch of the wazuh-installation-assistant repository (version of Wazuh to install)
+        repository (str): Production or development repository
     """
     
     if os.path.exists(repo_path):
         os.chdir(repo_path)
         subprocess.run(f"git checkout {wia_branch}", shell=True, check=True)
-        subprocess.run("sudo bash builder.sh -i", shell=True, check=True)
+        command = "sudo bash builder.sh -i"
+        if repository in ["dev", "staging"]:
+            command += " -d"
+        subprocess.run(command, shell=True, check=True)
         if os.path.exists("wazuh-install.sh"):
             subprocess.run("sudo mv wazuh-install.sh /tmp/wazuh-install.sh", shell=True, check=True)
         
@@ -126,7 +130,7 @@ def main():
     set_hostname()
     install_git()
     clone_repositories()
-    build_wazuh_install("/home/ec2-user/wazuh-installation-assistant", args.wia_branch)
+    build_wazuh_install("/home/ec2-user/wazuh-installation-assistant", args.wia_branch, args.repository)
     run_provision_script(args.wvm_branch, args.repository, args.debug)
     create_network_config()
     clean()
