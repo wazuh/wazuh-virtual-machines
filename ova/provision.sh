@@ -13,6 +13,12 @@ ASSETS_PATH="${CURRENT_PATH}/assets"
 CUSTOM_PATH="${ASSETS_PATH}/custom"
 INSTALL_ARGS="-a"
 
+if [[ "${PACKAGES_REPOSITORY}" == "dev" ]]; then
+  INSTALL_ARGS+=" -d pre-release"
+elif [[ "${PACKAGES_REPOSITORY}" == "staging" ]]; then
+  INSTALL_ARGS+=" -d staging"
+fi
+
 if [[ "${DEBUG}" = "yes" ]]; then
   INSTALL_ARGS+=" -v"
 fi
