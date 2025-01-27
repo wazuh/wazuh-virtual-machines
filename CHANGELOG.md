@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Fix the ova workflow for stages support and AWS instance deletion. ([#175](https://github.com/wazuh/wazuh-virtual-machines/pull/176))
 - Fixed the OVA workflow to add support in stages. ([#173](https://github.com/wazuh/wazuh-virtual-machines/pull/173))
 
 ### Deleted
