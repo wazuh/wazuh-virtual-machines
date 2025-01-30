@@ -76,6 +76,32 @@ DHCP=ipv4
         subprocess.run("sudo systemctl restart systemd-networkd", shell=True, check=True)
         
 
+def change_ssh_config():
+    """
+    Changes the /etc/crypto-policies/back-ends/opensshserver.config file to make the ssh compatible with FIPS
+    """
+    config_path = "/etc/crypto-policies/back-ends/opensshserver.config"
+    new_values = {
+        "Ciphers": "Ciphers aes256-gcm@openssh.com,aes128-gcm@openssh.com",
+        "MACs": "MACs hmac-sha2-256,hmac-sha2-512",
+        "GSSAPIKexAlgorithms": "GSSAPIKexAlgorithms gss-nistp256-sha256-,gss-group14-sha256-,gss-group16-sha512-",
+        "KexAlgorithms": "KexAlgorithms ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521"
+    }
+
+    with open(config_path, "r") as file:
+        lines = file.readlines()
+
+    with open(config_path, "w") as file:
+        for line in lines:
+            key = line.split()[0] if line.strip() else ""
+            if key in new_values:
+                file.write(new_values[key] + "\n")
+            else:
+                file.write(line)
+
+    subprocess.run("sudo systemctl restart sshd", shell=True, check=True)
+
+
 def clean():
     """
     Cleans the VM after the installation
@@ -130,6 +156,7 @@ def main():
     build_wazuh_install("/home/ec2-user/wazuh-installation-assistant", args.wia_branch)
     run_provision_script(args.wvm_branch, args.repository, args.debug)
     create_network_config()
+    change_ssh_config()
     clean()
         
 if __name__ == "__main__":
