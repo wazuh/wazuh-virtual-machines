@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Fixed video in grub configuration for the OVA. ([#190](https://github.com/wazuh/wazuh-virtual-machines/pull/190))
 - Changed ssh config file to allow ssh while FIPS is activated. ([#184](https://github.com/wazuh/wazuh-virtual-machines/pull/184))
 - Fixed Vagrant synced folder error in OVA. ([#183](https://github.com/wazuh/wazuh-virtual-machines/pull/183))
 - Fix the ova workflow for stages support and AWS instance deletion. ([#175](https://github.com/wazuh/wazuh-virtual-machines/pull/176))
