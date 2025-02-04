@@ -2,95 +2,208 @@
   become: true
 
   tasks:
-    - name: Install git
-      shell: sudo yum install -y git
+    - name: Update all the packages
+      yum:
+        name: '*'
+        state: latest
 
-    - name: Make build directory
+    - name: Install pip
+      yum:
+        name: python3-pip
+        state: present
+
+    - name: Download VirtualBox installer script
+      get_url:
+        url: https://download.virtualbox.org/virtualbox/7.1.4/VirtualBox-7.1.4-165100-Linux_amd64.run
+        dest: /tmp/VirtualBox.run
+
+    - name: Make the installer script executable
       file:
-        path: "{{ ova_path }}"
+        path: /tmp/VirtualBox.run
+        mode: '0755'
+
+    - name: Install required packages for building kernel modules
+      yum:
+        name:
+          - kernel-devel
+          - kernel-headers
+          - dkms
+          - elfutils-libelf-devel
+          - gcc
+          - make
+          - perl
+        state: present
+      become: true
+
+    - name: Run VirtualBox installer script
+      command: bash /tmp/VirtualBox.run
+      become: true
+
+    - name: Update all the packages
+      yum:
+        name: '*'
+        state: latest
+
+    - name: Install Development tools
+      command: dnf groupinstall "Development Tools" -y
+      become: true
+
+    - name: Rebuild the VirtualBox kernel modules
+      command: /sbin/vboxconfig
+
+    - name: Install utilities for Vagrant
+      command: yum install -y yum-utils shadow-utils
+
+    - name: Add the Vagrant repository
+      command: yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
+
+    - name: Install Vagrant
+      command: yum -y install vagrant
+
+    - name: Install git
+      shell: yum install -y git
+      become: true
+
+    - name: Create directory for the base VM
+      file:
+        path: "/tmp/ova_directory"
         state: directory
+        mode: '0755'
 
-    - name: Copy ova directory
-      copy:
-        src: "../../../ova"
-        dest: "{{ ova_path }}"
-
-    - name: Download the Wazuh installation assistant repository
+    - name: Download the Wazuh virtual machines repository
       git:
-        repo: "{{ wia_repository }}"
-        version: "{{ wia_branch }}"
-        dest: '/tmp/{{ wia_scripts }}'
-        depth: 1
+        repo: "{{ wvm_repository }}"
+        version: "{{ wvm_branch }}"
+        dest: "/tmp/wazuh-virtual-machines"
       register: clone_result
       retries: 6
       delay: 10
       until: clone_result is success
 
-    - name: Set custom hostname
-      command: "hostnamectl set-hostname wazuh-server"
-
-    - name: Build Wazuh installation assistant script
-      command: "bash /tmp/{{ wia_scripts }}/builder.sh {{ builder_args }}"
-
-    - name: Copy Wazuh installation assistant script to tmp dir
-      command: "cp /tmp/{{ wia_scripts }}/wazuh-install.sh /tmp/wazuh-install.sh"
-
-    - name: Run provision script
-      command: "bash provision.sh {{ repository }} {{ debug }}"
+    - name: Create base box
+      shell: "./generate_base_box.sh"
       args:
-        chdir: "{{ ova_path }}/ova"
-      async: 3600
-      poll: 10
+        chdir: "/tmp/wazuh-virtual-machines/ova/workflow_assets"
+      register: base_box_creation_result
+      async: 1800
+      poll: 0
+      ignore_errors: yes
 
-    - name: Clean provision files
-      file:
-        path: /var/provision/
-        state: absent
+    - name: Wait for the base box creation to finish
+      async_status:
+        jid: "{{ base_box_creation_result.ansible_job_id }}"
+      register: job_result
+      until: job_result.finished
+      retries: 30
+      delay: 60
 
-    - name: Clean Wazuh installation assistant resources
-      file:
-        path: /tmp/{{ wia_scripts }}
-        state: absent
+    - name: Add the created box
+      shell: "vagrant box add --name al2023 /tmp/wazuh-virtual-machines/ova/workflow_assets/al2023.box"
 
-    - name: Clean Wazuh installation assistant script
-      file:
-        path: /tmp/wazuh-install.sh
-        state: absent
-
-    - name: Clean Wazuh installation assistant files
-      file:
-        path: /tmp/wazuh-install-files.tar
-        state: absent
-
-    - name: Clean logs
+    - name: Destroy previous machines
       shell: |
-        find /var/log/ -type f -exec bash -c 'cat /dev/null > {}' \;
-        find /var/ossec/logs -type f -execdir sh -c 'cat /dev/null > "$1"' _ {} \;
-        find /var/log/wazuh-indexer -type f -execdir sh -c 'cat /dev/null > "$1"' _ {} \;
-        find /var/log/filebeat -type f -execdir sh -c 'cat /dev/null > "$1"' _ {} \;
-        rm -rf /var/log/wazuh-install.log
+        #!/bin/bash
+        cd /tmp/wazuh-virtual-machines/ova/workflow_assets
+        machines=$(vagrant global-status --prune | awk '/running|saved|poweroff/ {print $1}')
+        if [ -n "$machines" ]; then
+          for id in $machines; do
+            vagrant destroy -f $id
+          done
+        fi
+      args:
+        executable: /bin/bash
+      register: vagrant_up_result
+      become: true
 
-    - name: Clean history
-      shell: cat /dev/null > ~/.bash_history && history -c
-
-    - name: Clean YUM cache
+    - name: Run vagrant up 
       shell: |
-        yum clean all
-        rm -rf /var/cache/yum/*
+        #!/bin/bash
+        MAX_RETRIES=100
+        attempts=0
+        cd /tmp/wazuh-virtual-machines/ova/workflow_assets
+        while true; do
+          ((attempts++))
+          echo "Attempt $attempts"
+          if vagrant up; then
+            break
+          else
+            if [ $attempts -eq $MAX_RETRIES ]; then
+              echo "Max attempts reached"
+              exit 1
+            fi
+            vagrant destroy -f
+          fi
+        done
+      args:
+        executable: /bin/bash
+      async: 7200
+      poll: 0
+      register: vagrant_up_result
+      become: true
 
-    - name: Remove AuthorizedKeysCommand from sshd_config
-      lineinfile:
-        path: /etc/ssh/sshd_config
-        regexp: '^#?AuthorizedKeysCommand.*'
-        state: absent
+    - name: Wait for vagrant up to finish
+      async_status:
+        jid: "{{ vagrant_up_result.ansible_job_id }}"
+      register: job_result
+      until: job_result.finished
+      retries: 120
+      delay: 60
 
-    - name: Remove AuthorizedKeysCommandUser from sshd_config
-      lineinfile:
-        path: /etc/ssh/sshd_config
-        regexp: '^#?AuthorizedKeysCommandUser.*'
-        state: absent
+    - name: Show the result of the vagrant up command
+      debug:
+        var: vagrant_up_result
+        verbosity: 2
 
-    - name: Restart SSH service
-      service:
-        name: sshd
-        state: restarted
+    - name: Copy the Python script to the VM
+      shell: |
+        cd /tmp/wazuh-virtual-machines/ova/workflow_assets
+        vagrant plugin install vagrant-scp
+        vagrant scp ova_configurer.py :/tmp/ova_configurer.py
+      args:
+        chdir: "/tmp/wazuh-virtual-machines/ova/workflow_assets"
+      become: true
+
+    - name: Execute Python script in the VM
+      shell: "vagrant ssh -c 'sudo python3 /tmp/ova_configurer.py --wia_branch {{ wia_branch }} --wvm_branch {{ wvm_branch }} --repository {{ repository }} --debug {{ debug}}'"
+      args:
+        chdir: "/tmp/wazuh-virtual-machines/ova/workflow_assets"
+      register: python_script_result
+      async: 1800
+      poll: 0
+
+    - name: Wait for the Python script to finish
+      async_status:
+        jid: "{{ python_script_result.ansible_job_id }}"
+      register: job_result
+      until: job_result.finished
+      retries: 30
+      delay: 60
+
+    - name: Stop the VM
+      shell: "vagrant halt"
+      args:
+        chdir: "/tmp/wazuh-virtual-machines/ova/workflow_assets"
+
+    - name: Configure VM network in VirtualBox
+      shell: |
+        vboxmanage modifyvm ova_base --nic2 hostonly
+        vboxmanage modifyvm ova_base --cableconnected2 on
+
+    - name: Export the VM to OVA
+      shell: "vboxmanage export ova_base --output /home/ec2-user/{{ filename_ova }}"
+      register: export_result
+      async: 1800
+      poll: 0
+
+    - name: Wait for export the OVA
+      async_status:
+        jid: "{{ export_result.ansible_job_id }}"
+      register: job_result
+      until: job_result.finished
+      retries: 30
+      delay: 60
+    
+    - name: Change permissions to the OVA file
+      file:
+        path: /home/ec2-user/{{ filename_ova }}
+        mode: '0755'
