@@ -44,3 +44,6 @@ wwwwwww.          wwwwwww.          wwwwwww.
          WAZUH Open Source Security Platform
                   https://wazuh.com
 EOF
+
+# Show the Wazuh banner once in SSH
+echo -e "\nif [[ \"\$(tty)\" == /dev/tty* ]]; then\n    cat /usr/lib/motd.d/40-wazuh-banner\nfi" | sudo tee -a /etc/profile
