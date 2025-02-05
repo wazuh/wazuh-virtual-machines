@@ -18,10 +18,8 @@ Login credentials:
 EOF
 
 # User Welcome message
-cat > /etc/update-motd.d/30-banner <<EOF
-
-#!/bin/sh
-cat << EOF
+rm -f /usr/lib/motd.d/30-banner
+cat > /usr/lib/motd.d/40-wazuh-banner <<EOF
 wwwwww.           wwwwwww.          wwwwwww.
 wwwwwww.          wwwwwww.          wwwwwww.
  wwwwww.         wwwwwwwww.        wwwwwww.
@@ -45,6 +43,4 @@ wwwwwww.          wwwwwww.          wwwwwww.
 
          WAZUH Open Source Security Platform
                   https://wazuh.com
-
-
 EOF
