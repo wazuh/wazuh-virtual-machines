@@ -151,11 +151,9 @@ function clean_configuration(){
 
 function change_passwords(){
   logger "Changing passwords"
-  eval "systemctl stop wazuh-dashboard ${debug}"
   new_password=$(ec2-metadata | grep "instance-id" | cut -d":" -f2 | tr -d " "| awk '{print toupper(substr($0,1,1)) substr($0,2)}')
   eval "sed -i 's/password:.*/password: ${new_password}/g' /etc/.wazuh-install-files/wazuh-passwords.txt ${debug}"
   eval "bash /etc/.wazuh-passwords-tool.sh -a -A -au wazuh -ap wazuh -f /etc/.wazuh-install-files/wazuh-passwords.txt >> /dev/null"
-  eval "systemctl start wazuh-dashboard ${debug}"
 }
 
 function restart_ssh_service(){
@@ -191,12 +189,16 @@ configure_manager
 configure_dashboard
 verify_dashboard
 
+eval "systemctl stop wazuh-dashboard ${debug}"
+
 change_passwords
 
 logger "Waiting for Wazuh indexer to be ready with new password"
 until $(curl -XGET https://localhost:9200/ -uadmin:${new_password} -k --max-time 120 --silent --output /dev/null); do
   sleep 10
 done
+
+eval "systemctl start wazuh-dashboard ${debug}"
 
 restart_ssh_service
 
