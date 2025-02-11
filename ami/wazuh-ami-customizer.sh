@@ -217,3 +217,13 @@ eval "systemctl start wazuh-dashboard ${debug}"
 restart_ssh_service
 
 clean_configuration
+
+{
+  echo ""
+  echo "Wazuh Services Status after clean"
+  for service in wazuh-indexer wazuh-manager wazuh-dashboard filebeat; do
+    echo "=== Status of ${service} ==="
+    eval "systemctl status ${service} ${debug}"
+    echo ""
+  done
+} > "/home/wazuh-user/wazuh-services-status.log"
