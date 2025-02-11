@@ -18,6 +18,10 @@ Before=wazuh-dashboard.service
 [Service]
 Type=oneshot
 ExecStart=/etc/.wazuh-ami-customizer.sh
+ExecStartPost=/bin/systemctl restart wazuh-indexer.service
+ExecStartPost=/bin/systemctl restart wazuh-manager.service
+ExecStartPost=/bin/systemctl restart filebeat.service
+ExecStartPost=/bin/systemctl restart wazuh-dashboard.service
 
 [Install]
 WantedBy=multi-user.target
