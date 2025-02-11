@@ -10,6 +10,10 @@
 [Unit]
 Description=Creates custom certificates and passwords for Wazuh AMI
 Wants=wazuh-ami-customizer.timer
+Before=wazuh-indexer.service
+Before=wazuh-manager.service
+Before=filebeat.service
+Before=wazuh-dashboard.service
 
 [Service]
 Type=oneshot
