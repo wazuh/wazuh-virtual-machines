@@ -47,7 +47,7 @@ function configure_indexer(){
   eval "systemctl stop wazuh-dashboard ${debug}"
   eval "systemctl stop wazuh-manager ${debug}"
   eval "systemctl stop wazuh-indexer ${debug}"
-  eval "sleep 15"
+  eval "sleep 5"
   logger "Configuring Wazuh Indexer"
   eval "rm -f /etc/wazuh-indexer/certs/* ${debug}"
   eval "cp /etc/wazuh-certificates/wazuh-indexer.pem /etc/wazuh-indexer/certs/wazuh-indexer.pem ${debug}"
@@ -58,9 +58,9 @@ function configure_indexer(){
   eval "chmod 500 /etc/wazuh-indexer/certs ${debug}"
   eval "chmod 400 /etc/wazuh-indexer/certs/* ${debug}"
   eval "chown -R wazuh-indexer:wazuh-indexer /etc/wazuh-indexer/certs ${debug}"
-  echo "Before starting the wazuh-indexer inside configure_indexer function" >> /home/wazuh-user/wazuh-services-status.log
+  echo "Before starting the wazuh-indexer inside configure_indexer function - $(date '+%Y-%m-%d %H:%M:%S')" >> /home/wazuh-user/wazuh-services-status.log
   eval "systemctl start wazuh-indexer ${debug}"
-  echo "After starting the wazuh-indexer inside configure_indexer function" >> /home/wazuh-user/wazuh-services-status.log
+  echo "After starting the wazuh-indexer inside configure_indexer function - $(date '+%Y-%m-%d %H:%M:%S')" >> /home/wazuh-user/wazuh-services-status.log
   eval "/usr/share/wazuh-indexer/bin/indexer-security-init.sh ${debug}"
 }
 
@@ -178,7 +178,7 @@ eval "systemctl stop sshd.service"
   echo ""
 
   for service in wazuh-indexer wazuh-manager wazuh-dashboard filebeat; do
-    echo "=== Status of ${service} ==="
+    echo "=== Status of ${service} - $(date '+%Y-%m-%d %H:%M:%S') ==="
     eval "systemctl status ${service} ${debug}"
     echo ""
   done
@@ -205,7 +205,7 @@ verify_dashboard
 
 eval "systemctl stop wazuh-dashboard ${debug}"
 
-eval "sleep 15"
+eval "sleep 5"
 
 change_passwords
 
@@ -225,7 +225,7 @@ clean_configuration
   echo ""
   echo "Wazuh Services Status after clean"
   for service in wazuh-indexer wazuh-manager wazuh-dashboard filebeat; do
-    echo "=== Status of ${service} ==="
+    echo "=== Status of ${service} - $(date '+%Y-%m-%d %H:%M:%S') ==="
     eval "systemctl status ${service} ${debug}"
     echo ""
   done
