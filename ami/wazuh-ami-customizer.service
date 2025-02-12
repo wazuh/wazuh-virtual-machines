@@ -10,18 +10,10 @@
 [Unit]
 Description=Creates custom certificates and passwords for Wazuh AMI
 Wants=wazuh-ami-customizer.timer
-Before=wazuh-indexer.service
-Before=wazuh-manager.service
-Before=filebeat.service
-Before=wazuh-dashboard.service
 
 [Service]
 Type=oneshot
 ExecStart=/etc/.wazuh-ami-customizer.sh
-ExecStartPost=/bin/systemctl restart wazuh-indexer.service
-ExecStartPost=/bin/systemctl restart wazuh-manager.service
-ExecStartPost=/bin/systemctl restart filebeat.service
-ExecStartPost=/bin/systemctl restart wazuh-dashboard.service
 
 [Install]
 WantedBy=multi-user.target

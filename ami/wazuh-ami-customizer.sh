@@ -215,6 +215,7 @@ until $(curl -XGET https://localhost:9200/ -uadmin:${new_password} -k --max-time
 done
 
 eval "systemctl start wazuh-dashboard ${debug}"
+eval "systemctl enable wazuh-dashboard ${debug}"
 
 restart_ssh_service
 

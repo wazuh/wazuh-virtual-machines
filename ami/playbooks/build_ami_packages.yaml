@@ -296,6 +296,12 @@
         enabled: yes
         daemon_reload: yes
 
+    - name: Disable Wazuh Dashboard service
+      systemd:
+        name: wazuh-dashboard
+        enabled: no
+        state: stopped
+
     - name: Change SSH port to 22
       lineinfile:
         path: /etc/ssh/sshd_config
