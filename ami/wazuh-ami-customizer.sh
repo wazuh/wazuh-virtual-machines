@@ -175,17 +175,6 @@ logger "Starting Wazuh AMI Customizer"
 logger "Stopping SSH service to avoid connections during the configuration"
 eval "systemctl stop sshd.service"
 
-{
-  echo "Wazuh Services Status"
-  echo ""
-
-  for service in wazuh-indexer wazuh-manager wazuh-dashboard filebeat; do
-    echo "=== Status of ${service} - $(date '+%Y-%m-%d %H:%M:%S') ==="
-    eval "systemctl status ${service} ${debug}"
-    echo ""
-  done
-} >> "/home/wazuh-user/wazuh-services-status.log"
-
 logger "Waiting for Wazuh indexer to be ready"
 until $(curl -XGET https://localhost:9200/ -uadmin:admin -k --max-time 120 --silent --output /dev/null); do
   logger -w "Wazuh indexer is not ready yet, waiting 10 seconds"
@@ -221,13 +210,3 @@ systemctl_execution "enable" "wazuh-dashboard" "${debug}"
 restart_ssh_service
 
 clean_configuration
-
-{
-  echo ""
-  echo "Wazuh Services Status after clean"
-  for service in wazuh-indexer wazuh-manager wazuh-dashboard filebeat; do
-    echo "=== Status of ${service} - $(date '+%Y-%m-%d %H:%M:%S') ==="
-    eval "systemctl status ${service} ${debug}"
-    echo ""
-  done
-} >> "/home/wazuh-user/wazuh-services-status.log"
