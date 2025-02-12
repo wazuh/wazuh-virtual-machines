@@ -58,7 +58,9 @@ function configure_indexer(){
   eval "chmod 500 /etc/wazuh-indexer/certs ${debug}"
   eval "chmod 400 /etc/wazuh-indexer/certs/* ${debug}"
   eval "chown -R wazuh-indexer:wazuh-indexer /etc/wazuh-indexer/certs ${debug}"
+  echo "Before starting the wazuh-indexer inside configure_indexer function" >> /home/wazuh-user/wazuh-services-status.log
   eval "systemctl start wazuh-indexer ${debug}"
+  echo "After starting the wazuh-indexer inside configure_indexer function" >> /home/wazuh-user/wazuh-services-status.log
   eval "/usr/share/wazuh-indexer/bin/indexer-security-init.sh ${debug}"
 }
 
@@ -180,7 +182,7 @@ eval "systemctl stop sshd.service"
     eval "systemctl status ${service} ${debug}"
     echo ""
   done
-} > "/home/wazuh-user/wazuh-services-status.log"
+} >> "/home/wazuh-user/wazuh-services-status.log"
 
 logger "Waiting for Wazuh indexer to be ready"
 until $(curl -XGET https://localhost:9200/ -uadmin:admin -k --max-time 120 --silent --output /dev/null); do
@@ -226,4 +228,4 @@ clean_configuration
     eval "systemctl status ${service} ${debug}"
     echo ""
   done
-} > "/home/wazuh-user/wazuh-services-status.log"
+} >> "/home/wazuh-user/wazuh-services-status.log"
