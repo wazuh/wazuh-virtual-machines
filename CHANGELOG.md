@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Fixed local build for OVA. ([#208](https://github.com/wazuh/wazuh-virtual-machines/pull/208))
 - Fix Wazuh dashboard certificate verification failure ([#198](https://github.com/wazuh/wazuh-virtual-machines/pull/198))
 - Fixed Wazuh ASCII art logo display in OVA. ([#192](https://github.com/wazuh/wazuh-virtual-machines/pull/192))
 - Fixed video in grub configuration for the OVA. ([#190](https://github.com/wazuh/wazuh-virtual-machines/pull/190))
