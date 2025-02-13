@@ -37,16 +37,21 @@ function create_certificates() {
   eval "bash /etc/.wazuh-certs-tool.sh -A ${debug}"
 }
 
+function systemctl_execution(){
+  eval "systemctl $1 $2 $3"
+}
+
 ###########################################
 # Configuration Functions
 ###########################################
 
 function configure_indexer(){
   logger "Stopping all services"
-  eval "systemctl stop filebeat ${debug}"
-  eval "systemctl stop wazuh-dashboard ${debug}"
-  eval "systemctl stop wazuh-manager ${debug}"
-  eval "systemctl stop wazuh-indexer ${debug}"
+  systemctl_execution "stop" "filebeat" "${debug}"
+  systemctl_execution "stop" "wazuh-dashboard" "${debug}"
+  systemctl_execution "stop" "wazuh-manager" "${debug}"
+  systemctl_execution "stop" "wazuh-indexer" "${debug}"
+  eval "sleep 5"
   logger "Configuring Wazuh Indexer"
   eval "rm -f /etc/wazuh-indexer/certs/* ${debug}"
   eval "cp /etc/wazuh-certificates/wazuh-indexer.pem /etc/wazuh-indexer/certs/wazuh-indexer.pem ${debug}"
@@ -57,7 +62,7 @@ function configure_indexer(){
   eval "chmod 500 /etc/wazuh-indexer/certs ${debug}"
   eval "chmod 400 /etc/wazuh-indexer/certs/* ${debug}"
   eval "chown -R wazuh-indexer:wazuh-indexer /etc/wazuh-indexer/certs ${debug}"
-  eval "systemctl start wazuh-indexer ${debug}"
+  systemctl_execution "start" "wazuh-indexer" "${debug}"
   eval "/usr/share/wazuh-indexer/bin/indexer-security-init.sh ${debug}"
 }
 
@@ -88,7 +93,7 @@ function configure_filebeat(){
   eval "chmod 500 /etc/filebeat/certs ${debug}"
   eval "chmod 400 /etc/filebeat/certs/* ${debug}"
   eval "chown -R root:root /etc/filebeat/certs ${debug}"
-  eval "systemctl start filebeat ${debug}"
+  systemctl_execution "start" "filebeat" "${debug}"
 }
 
 function verify_filebeat() {
@@ -104,7 +109,7 @@ function configure_manager(){
   logger "Configuring Wazuh Manager"
   eval "rm /var/ossec/api/configuration/security/*_key.pem ${debug}"
   eval "rm /var/ossec/api/configuration/ssl/server.* ${debug}"
-  eval "systemctl start wazuh-manager ${debug}"
+  systemctl_execution "start" "wazuh-manager" "${debug}"
 }
 
 function configure_dashboard(){
@@ -116,7 +121,7 @@ function configure_dashboard(){
   eval "chmod 500 /etc/wazuh-dashboard/certs ${debug}"
   eval "chmod 400 /etc/wazuh-dashboard/certs/* ${debug}"
   eval "chown -R wazuh-dashboard:wazuh-dashboard /etc/wazuh-dashboard/certs ${debug}"
-  eval "systemctl start wazuh-dashboard ${debug}"
+  systemctl_execution "start" "wazuh-dashboard" "${debug}"
 }
 
 function verify_dashboard() {
@@ -154,7 +159,6 @@ function change_passwords(){
   new_password=$(ec2-metadata | grep "instance-id" | cut -d":" -f2 | tr -d " "| awk '{print toupper(substr($0,1,1)) substr($0,2)}')
   eval "sed -i 's/password:.*/password: ${new_password}/g' /etc/.wazuh-install-files/wazuh-passwords.txt ${debug}"
   eval "bash /etc/.wazuh-passwords-tool.sh -a -A -au wazuh -ap wazuh -f /etc/.wazuh-install-files/wazuh-passwords.txt >> /dev/null"
-  eval "systemctl restart wazuh-dashboard ${debug}"
 }
 
 function restart_ssh_service(){
@@ -190,12 +194,18 @@ configure_manager
 configure_dashboard
 verify_dashboard
 
+systemctl_execution "stop" "wazuh-dashboard" "${debug}"
+eval "sleep 5"
+
 change_passwords
 
 logger "Waiting for Wazuh indexer to be ready with new password"
 until $(curl -XGET https://localhost:9200/ -uadmin:${new_password} -k --max-time 120 --silent --output /dev/null); do
   sleep 10
 done
+
+systemctl_execution "start" "wazuh-dashboard" "${debug}"
+systemctl_execution "enable" "wazuh-dashboard" "${debug}"
 
 restart_ssh_service
 
