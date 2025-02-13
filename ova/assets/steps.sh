@@ -34,6 +34,14 @@ systemConfig() {
   systemctl daemon-reload
   systemctl enable updateIndexerHeap.service
 
+  # Add Wazuh starter service
+  mv ${CUSTOM_PATH}/wazuh-starter/wazuh-starter.service /etc/systemd/system/
+  mv ${CUSTOM_PATH}/wazuh-starter/wazuh-starter.timer /etc/systemd/system/
+  mv ${CUSTOM_PATH}/wazuh-starter/wazuh-starter.sh /etc/.wazuh-starter.sh
+  chmod 755 /etc/.wazuh-starter.sh
+  systemctl daemon-reload
+  systemctl enable wazuh-starter.timer
+  systemctl enable wazuh-starter.service
 
   # Change root password (root:wazuh)
   sed -i "s/root:.*:/root:\$1\$pNjjEA7K\$USjdNwjfh7A\.vHCf8suK41::0:99999:7:::/g" /etc/shadow
