@@ -39,6 +39,7 @@ systemConfig() {
   mv ${CUSTOM_PATH}/wazuh-starter/wazuh-starter.service /etc/systemd/system/
   mv ${CUSTOM_PATH}/wazuh-starter/wazuh-starter.timer /etc/systemd/system/
   mv ${CUSTOM_PATH}/wazuh-starter/wazuh-starter.sh /etc/.wazuh-starter.sh
+  chmod 755 /etc/.wazuh-starter.sh
   systemctl daemon-reload
   systemctl enable wazuh-starter.timer
   systemctl enable wazuh-starter.service
