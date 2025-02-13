@@ -3,8 +3,8 @@
 
 Vagrant.configure("2") do |config|
 
-  config.vm.box_url = "https://packages-dev.wazuh.com/vms/ova/amznlinux-2.box"
-  config.vm.box = "amznlinux-2"
+  config.vm.box_url = "https://packages-dev.wazuh.com/vms/ova/al2023.box"
+  config.vm.box = "al2023"
   config.vm.hostname = "wazuh-server"
   config.vm.provider "virtualbox" do |vb|
     vb.name = "vm_wazuh"
@@ -13,7 +13,7 @@ Vagrant.configure("2") do |config|
   end
 
   config.ssh.username = "wazuh-user"
-  config.ssh.password = "wazuh"
+  #config.ssh.password = "wazuh"
   config.ssh.insert_key = true
 
   # Synced folder configuration
@@ -21,7 +21,7 @@ Vagrant.configure("2") do |config|
   config.vm.synced_folder ".", "/tmp", type: "rsync", :rsync__exclude => ['output']
 
   # Provision stage
-  config.vm.provision :shell, path: "provision.sh", :args => "#{ENV['PACKAGES_REPOSITORY']} #{ENV['DEBUG']}"
+  config.vm.provision :shell, path: "ova_configurer_caller.sh", :args => "#{ENV['INSTALLATION_ASSISTANT_BRANCH']} #{ENV['WVM_BRANCH']} #{ENV['PACKAGES_REPOSITORY']} #{ENV['DEBUG']}"
 
   # Provision cleanup stage
   config.vm.provision :shell, path: "assets/postProvision.sh", :args => "#{ENV['DEBUG']}"
