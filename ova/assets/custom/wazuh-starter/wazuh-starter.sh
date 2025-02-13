@@ -111,5 +111,6 @@ verify_filebeat
 starter_service wazuh-dashboard
 verify_dashboard
 systemctl enable wazuh-dashboard
+systemctl enable wazuh-manager
 
 #clean_configuration
