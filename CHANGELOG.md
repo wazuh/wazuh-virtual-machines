@@ -9,7 +9,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- None
+- Updated VERSION file to the new standard. ([#213](https://github.com/wazuh/wazuh-virtual-machines/pull/213))
 
 ### Fixed
 
