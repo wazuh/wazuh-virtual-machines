@@ -94,7 +94,7 @@ jobs:
 
       - name: Setting FILENAME var
         run: |
-          WAZUH_VERSION=$(cat VERSION)
+          WAZUH_VERSION=$(jq -r '.version' wazuh-virtual-machines/VERSION.json)
           COMMIT_SHA=$(git rev-parse --short ${{ github.sha }})
           echo "WAZUH_VERSION=$WAZUH_VERSION" >> $GITHUB_ENV
           FILENAME="wazuh-${WAZUH_VERSION}-${{ inputs.OVA_REVISION }}"

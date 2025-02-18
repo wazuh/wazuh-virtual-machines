@@ -22,7 +22,7 @@ scriptpath=$(
 OUTPUT_DIR="${scriptpath}/output"
 CHECKSUM_DIR="${scriptpath}/checksum"
 
-VERSION_FILE="../VERSION"
+VERSION_FILE="../VERSION.json"
 
 PACKAGES_REPOSITORY="prod"
 CHECKSUM="no"
@@ -212,7 +212,7 @@ main() {
         CHECKSUM_DIR="${OUTPUT_DIR}"
     fi
 
-    OVA_VERSION=$(cat ${VERSION_FILE})
+    OVA_VERSION=$(grep -oP '"version":\s*"\K[^"]+' ${VERSION_FILE})
     if [ "${OVA_VERSION:0:1}" == "v" ]; then
         OVA_VERSION=${OVA_VERSION:1}
     fi
@@ -242,7 +242,7 @@ main() {
         git clone ${WAZUH_INSTALLATION_ASSISTANT_URL} -b ${INSTALLATION_ASSISTANT_BRANCH} >> /dev/null 2>&1
         echo "Using ${INSTALLATION_ASSISTANT_BRANCH} branch of ${WAZUH_INSTALLATION_ASSISTANT} repository"
         cd ${WAZUH_INSTALLATION_ASSISTANT}
-        WIA_VERSION=$(cat VERSION)
+        WIA_VERSION=$(grep -oP '"version":\s*"\K[^"]+' VERSION.json)
         if [ "${OVA_VERSION}" != "${WIA_VERSION}" ]; then
             echo "Wazuh installation assistant version ${WIA_VERSION} does not match with OVA version ${OVA_VERSION}"
             clean 1
