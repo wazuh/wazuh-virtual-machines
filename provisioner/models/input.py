@@ -5,7 +5,7 @@ from .components_dependencies import ComponentsDependencies
 from .inventory import Inventory
 from .package_info import PackageInfo
 from provisioner.utils import Component, Package_type, Component_arch
-
+from .utils import format_certificates_urls_file, format_component_urls_file
 import yaml
 
 class Input(BaseModel):
@@ -27,22 +27,18 @@ class Input(BaseModel):
     @property
     def packages_url_content(self) -> PackageInfo:
         try:
-            with open(self.packages_url_path, "r") as f:
-                data = yaml.safe_load(f) or {}
-                data.pop("certificates", None)
-                return PackageInfo(packages_url_content=data, package_type=self.package_type, arch=self.arch)
+            packages_data = format_component_urls_file(self.packages_url_path)
+            return PackageInfo(packages_url_content=packages_data, package_type=self.package_type, arch=self.arch)
         except FileNotFoundError:
-            raise FileNotFoundError(f"Dependencies file not found at {self.packages_url_path}")
+            raise FileNotFoundError(f"Packages file not found at {self.packages_url_path}")
     
     @property
     def certificates_content(self) -> CertsInfo:
-        """Retorna solo la sección 'certificates' del YAML"""
         try:
-            with open(self.packages_url_path, "r") as f:
-                data = yaml.safe_load(f) or {}
-                return CertsInfo(certs_url_content=data.get("certificates", {}))
+            certs_data = format_certificates_urls_file(self.packages_url_path)
+            return CertsInfo(certs_url_content=certs_data)
         except FileNotFoundError:
-            raise FileNotFoundError(f"Dependencies file not found at {self.packages_url_path}")
+            raise FileNotFoundError(f"Certificates file not found at {self.packages_url_path}")
     
     @property
     def inventory_content(self, host_name: str | None = None) -> Inventory:

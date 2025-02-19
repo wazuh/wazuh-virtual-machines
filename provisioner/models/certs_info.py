@@ -1,6 +1,6 @@
 from pydantic import AnyUrl, BaseModel
 import pydantic_core
-from provisioner.utils import AllowedUrlHost
+from provisioner.utils import AllowedUrlHost, CertificatesComponent
 from .utils import check_correct_url
 
 from utils import Logger
@@ -12,11 +12,11 @@ class CertsInfo(BaseModel):
     
     @property
     def certs_tool_url(self) -> AnyUrl:
-        return self._get_url_by_name("certs_tool")
+        return self._get_url_by_name(CertificatesComponent.CERTS_TOOL)
         
     @property
     def config_url(self) -> AnyUrl:
-        return self._get_url_by_name("config")
+        return self._get_url_by_name(CertificatesComponent.CONFIG)
         
     def _get_url_by_name(self, name: str) -> AnyUrl:
         logger.debug(f"Getting URL for {name}...")

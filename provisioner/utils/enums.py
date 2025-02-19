@@ -24,6 +24,10 @@ class Component_arch(StrEnum):
     X86_64 = auto()
     ARM64 = auto()
     AARCH64 = auto()
+    
+class CertificatesComponent(StrEnum):
+    CERTS_TOOL = auto()
+    CONFIG = auto()
 
 class RemoteDirectories(StrEnum):
     WAZUH_ROOT_DIR = "~/wazuh-ami-configure"

@@ -31,5 +31,5 @@ class Logger(logging.Logger):
         super().error(f"\33[31m✗ {message}\33[0m")
 
     def debug_title(self, message: str):
-        self.debug(f"---- \33[1m{message}\33[0m ----\n")
+        self.debug(f"---- \33[1m{message}\33[0m ----")
     
