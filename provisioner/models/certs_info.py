@@ -14,23 +14,36 @@ class CertsInfo(BaseModel):
 
     @property
     def certs_tool_url(self) -> AnyUrl:
+        """
+        Retrieve the URL for a certificates component (cert-tool or config).
+
+        Returns:
+            AnyUrl: The URL associated with the cert-tool.
+        """
         return self._get_url_by_name(CertificatesComponent.CERTS_TOOL)
 
     @property
     def config_url(self) -> AnyUrl:
+        """
+        Retrieve the configuration URL for the CertificatesComponent.
+
+        Returns:
+            AnyUrl: The URL associated with the CONFIG name in the CertificatesComponent.
+        """
         return self._get_url_by_name(CertificatesComponent.CONFIG)
 
     def _get_url_by_name(self, name: str) -> AnyUrl:
+        """
+        Retrieve the URL for a certificates component (cert-tool or config).
+
+        Returns:
+            AnyUrl: The URL associated with the component.
+        """
         logger.debug(f"Getting URL for {name}...")
         try:
             url = AnyUrl(self.certs_url_content.get(name, None))
         except pydantic_core._pydantic_core.ValidationError as err:
             raise ValueError(f"URL for {name} has an invalid format.") from err
-
-        if url is None:
-            raise TypeError(
-                f"{name} not found in certificates. Expected an URL but got None."
-            )
 
         if not check_correct_url(
             url,

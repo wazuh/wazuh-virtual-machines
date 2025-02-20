@@ -14,6 +14,10 @@ requires-python = ">= 3.8"
 description = "Wazuh - Virtual Machines (OVA and AMI)"
 license = {file = "LICENSE"}
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
 [tool.ruff]
 line-length = 90
 indent-width = 4
@@ -43,18 +47,19 @@ quote-style = "double"
 indent-style = "space"
 docstring-code-format = true
 
-[tool.hatch.envs.ami]
+[tool.hatch.envs.provisioner]
 description = """
-Enviroment to be used for ami execution testing
+Enviroment to be used for provisoner execution testing
 """
 dependencies = [
     "pytest~=8.0",
     "pytest-cov~=6.0",
+    "pytest-xdist",
     "ruff",
 ]
 
 [tool.hatch.envs.provisioner.scripts]
-test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=provisioner --cov-report term-missing:skip-covered tests/provisioner"
+test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=provisioner --cov-report term-missing:skip-covered tests/provisioner --cov-report=xml"
 ruff-format = "ruff format provisioner"
 ruff-format-check = "ruff format --diff --check provisioner"
 ruff-lint-check = "ruff check --diff --unsafe-fixes provisioner"
