@@ -1,5 +1,6 @@
 import logging
 
+
 class CustomFormatter(logging.Formatter):
     FMT = "[{levelname:^7}] {name}: {message}"
     FORMATS = {

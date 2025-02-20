@@ -1,9 +1,10 @@
-from pydantic import AnyUrl, BaseModel
 import pydantic_core
-from provisioner.utils import AllowedUrlHost, CertificatesComponent
-from .utils import check_correct_url
+from pydantic import AnyUrl, BaseModel
 
+from provisioner.utils import AllowedUrlHost, CertificatesComponent
 from utils import Logger
+
+from .utils import check_correct_url
 
 logger = Logger("Certificates provision")
 
@@ -22,8 +23,8 @@ class CertsInfo(BaseModel):
         logger.debug(f"Getting URL for {name}...")
         try:
             url = AnyUrl(self.certs_url_content.get(name, None))
-        except pydantic_core._pydantic_core.ValidationError:
-            raise ValueError(f"URL for {name} has an invalid format.")
+        except pydantic_core._pydantic_core.ValidationError as err:
+            raise ValueError(f"URL for {name} has an invalid format.") from err
 
         if url is None:
             raise TypeError(f"{name} not found in certificates. Expected an URL but got None.")

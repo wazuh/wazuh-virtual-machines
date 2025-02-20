@@ -1,6 +1,8 @@
-from pydantic import BaseModel, SecretStr
 from pathlib import Path
+
 import yaml
+from pydantic import BaseModel, SecretStr
+
 
 class Inventory(BaseModel):
     ansible_host_name: str
@@ -14,12 +16,12 @@ class Inventory(BaseModel):
     
     def __init__(self, inventory_path: Path, host_name: str | None = None):
         try:
-            with open(inventory_path, "r") as f:
+            with open(inventory_path) as f:
                 data = yaml.safe_load(f)
                 host_data = self._check_inventory(data, host_name)
                 super().__init__(**host_data)
-        except FileNotFoundError:
-            raise FileNotFoundError(f"Inventory file not found at {inventory_path}")
+        except FileNotFoundError as err:
+            raise FileNotFoundError(f"Inventory file not found at {inventory_path}") from err
 
     def _check_inventory(self, inventory: dict, host_name: str | None = None) -> dict:
         if inventory.get("all") is None:

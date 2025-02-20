@@ -1,10 +1,10 @@
+import argparse
 from pathlib import Path
 from typing import List
 
-from .utils import Component
 from .models import ComponentInfo, Input
 from .provisioner import Provisioner
-import argparse
+from .utils import Component
 
 DEPENDENCIES_FILE_NAME = "wazuh_dependencies.yaml"
 DEPENDENCIES_FILE_PATH = Path(__file__).parent / "static" / DEPENDENCIES_FILE_NAME
@@ -18,7 +18,7 @@ def parse_arguments():
         "--packages-url-path", required=True, help="Path to the packages URL file"
     )
     parser.add_argument(
-        "--package-type", required=False, default="rpm", choices=["rpn", "deb"]
+        "--package-type", required=False, default="rpm", choices=["rpm", "deb"]
     )
     parser.add_argument(
         "--arch", required=False, default="x86_64", choices=["x86_64", "amd64", "arm64", "aarch64"]

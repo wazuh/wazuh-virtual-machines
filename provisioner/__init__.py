@@ -1,2 +1,2 @@
-from .models import Input, CertsInfo, ComponentInfo, Inventory
+from .models import CertsInfo, ComponentInfo, Input, Inventory
 from .provisioner import Provisioner

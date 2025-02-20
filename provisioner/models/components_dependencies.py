@@ -1,6 +1,8 @@
 from typing import List
+
 from pydantic import BaseModel
-from provisioner.utils import Package_type, Package_manager, Component
+
+from provisioner.utils import Component, Package_manager, Package_type
 
 
 class ComponentsDependencies(BaseModel):

@@ -1,10 +1,18 @@
 from pathlib import Path
 from typing import List
+
 import yaml
-from provisioner.utils import Component, Package_type, Component_arch, CertificatesComponent
+
+from provisioner.utils import (
+    CertificatesComponent,
+    Component,
+    Component_arch,
+    Package_type,
+)
+
 
 def file_to_dict(raw_urls_path: Path) -> dict:
-    with open(raw_urls_path, "r") as f:
+    with open(raw_urls_path) as f:
         raw_url_content = yaml.safe_load(f) or None
 
     if raw_url_content is None:
@@ -15,7 +23,7 @@ def file_to_dict(raw_urls_path: Path) -> dict:
 def get_component_packages(raw_urls_content: dict, component: Component) -> dict:
     component_packages: dict = {}
     
-    for component_key in raw_urls_content.keys():
+    for component_key in raw_urls_content:
 
         if component.name.lower() in component_key:
             if component not in component_packages:
@@ -39,7 +47,7 @@ def get_component_packages_by_type(component_packages: dict) -> dict:
     component_type = {package_type.name.lower(): {} for package_type in Package_type}
     
     for package_arch, package_url in component_packages.items():
-        for component_type_key in component_type.keys():
+        for component_type_key in component_type:
             if component_type_key in package_url:
                 component_type.get(component_type_key, {}).update({package_arch: package_url})
     

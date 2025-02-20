@@ -1,15 +1,17 @@
+import os
 from dataclasses import dataclass
 from typing import List
-from pydantic import AnyUrl
 from urllib.parse import urlparse
-import os
+
+import paramiko
+from pydantic import AnyUrl
+
 from generic import remote_connection
 from provisioner.utils.enums import Component
 from utils import Logger
-from .models import CertsInfo, ComponentInfo, Inventory
-from .utils import Component_arch, Package_type, Package_manager, RemoteDirectories
 
-import paramiko
+from .models import CertsInfo, ComponentInfo, Inventory
+from .utils import Component_arch, Package_manager, Package_type, RemoteDirectories
 
 logger = Logger("Provisioner")
 
@@ -28,7 +30,7 @@ class Provisioner:
         return Package_manager.APT
 
     @remote_connection
-    def provision(self, client: paramiko.SSHClient = paramiko.SSHClient()):
+    def provision(self, client: paramiko.SSHClient = paramiko.SSHClient()):  # noqa: B008
         logger.debug_title("Starting provisioning")
         logger.debug_title("Provisioning certificates files")
 

@@ -1,9 +1,10 @@
-from pydantic import AnyUrl, BaseModel
 import pydantic_core
-from provisioner.utils import Package_type, Component, Component_arch, AllowedUrlHost
+from pydantic import AnyUrl, BaseModel
+
+from provisioner.utils import AllowedUrlHost, Component, Component_arch, Package_type
+from utils import Logger
 
 from .utils import check_correct_url
-from utils import Logger
 
 logger = Logger("Package provision")
 
@@ -40,8 +41,8 @@ class PackageInfo(BaseModel):
         logger.debug(f"Getting URL for {component} with {component_arch} architecture...")
         try:
             package_url = AnyUrl(self.get_component_packages(component, package_type=package_type).get(component_arch, None))
-        except pydantic_core._pydantic_core.ValidationError:
-            raise ValueError(f"URL for {component} with {component_arch} architecture has an invalid format.")
+        except pydantic_core._pydantic_core.ValidationError as err:
+            raise ValueError(f"URL for {component} with {component_arch} architecture has an invalid format.") from err
 
         if package_url is None:
             raise TypeError(f"Arch {component_arch} not found in {component} packages. Expected an URL but got None.")

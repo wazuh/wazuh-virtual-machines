@@ -1,5 +1,6 @@
 from enum import StrEnum, auto
 
+
 class AllowedUrlHost(StrEnum):
     RELEASE = "packages.wazuh.com"
     PRE_RELEASE = "packages-dev.wazuh.com"
