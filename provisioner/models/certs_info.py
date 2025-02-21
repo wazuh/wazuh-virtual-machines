@@ -10,26 +10,24 @@ logger = Logger("Certificates provision")
 
 
 class CertsInfo(BaseModel):
+    """
+    CertsInfo is a model that holds information about certificate URLs.
+
+    Attributes:
+        certs_url_content (dict): A dictionary containing URLs for the cert-tool and config components.
+
+    Properties:
+        certs_tool_url (AnyUrl): Retrieves the URL for the cert-tool component.
+        config_url (AnyUrl): Retrieves the configuration URL for the config file.
+    """
     certs_url_content: dict
 
     @property
     def certs_tool_url(self) -> AnyUrl:
-        """
-        Retrieve the URL for a certificates component (cert-tool or config).
-
-        Returns:
-            AnyUrl: The URL associated with the cert-tool.
-        """
         return self._get_url_by_name(CertificatesComponent.CERTS_TOOL)
 
     @property
     def config_url(self) -> AnyUrl:
-        """
-        Retrieve the configuration URL for the CertificatesComponent.
-
-        Returns:
-            AnyUrl: The URL associated with the CONFIG name in the CertificatesComponent.
-        """
         return self._get_url_by_name(CertificatesComponent.CONFIG)
 
     def _get_url_by_name(self, name: str) -> AnyUrl:
