@@ -34,6 +34,10 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Fix Wazuh dashboard errors in OVA. ([#209](https://github.com/wazuh/wazuh-virtual-machines/pull/209))
+- Fixed local build for OVA. ([#208](https://github.com/wazuh/wazuh-virtual-machines/pull/208))
+- Fixed Wazuh Dashboard issues when the AMI boots up. ([#205](https://github.com/wazuh/wazuh-virtual-machines/pull/205))
+- Fix Wazuh dashboard certificate verification failure ([#198](https://github.com/wazuh/wazuh-virtual-machines/pull/198))
 - Fixed Wazuh ASCII art logo display in OVA. ([#192](https://github.com/wazuh/wazuh-virtual-machines/pull/192))
 - Fixed video in grub configuration for the OVA. ([#190](https://github.com/wazuh/wazuh-virtual-machines/pull/190))
 - Changed ssh config file to allow ssh while FIPS is activated. ([#184](https://github.com/wazuh/wazuh-virtual-machines/pull/184))
