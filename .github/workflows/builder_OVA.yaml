@@ -196,28 +196,28 @@ jobs:
           builder_args='$builder_args' \
           debug=yes" ${{ inputs.debug }}
 
-      - name: Getting OVA from AWS instance
-        run: |
-          scp -P ${{ env.ansible_port }} -i ${{ env.ansible_ssh_private_key_file }} ${{ env.ansible_user }}@${{ env.ansible_host }}:/home/ec2-user/${{ env.FILENAME_OVA }} /tmp/${{ env.FILENAME_OVA }}
-
-      - name: Standarizing OVA
-        run: |
-          sed -i "s|ovf:capacity=\"40\"|ovf:capacity=\"50\"|g" ova/wazuh_ovf_template
-          bash ova/setOVADefault.sh "ova/" "/tmp/${{ env.FILENAME_OVA }}" "/tmp/${{ env.FILENAME_OVA }}" "ova/wazuh_ovf_template" "${{ env.WAZUH_VERSION }}"
-
-      - name: Exporting OVA to final repository
-        run: |
-          aws s3 cp --quiet /tmp/${{ env.FILENAME_OVA }} s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_OVA }}
-          s3uri="s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_OVA }}"
-          echo "S3 OVA URI: ${s3uri}"
-
-      - name: Generating sha512 file
-        if: ${{ inputs.checksum == true }}
-        run: |
-          sha512sum /tmp/${{ env.FILENAME_OVA }} > /tmp/${{ env.FILENAME_SHA }}
-          aws s3 cp --quiet /tmp/${{ env.FILENAME_SHA }} s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_SHA }}
-          s3uri="s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_SHA }}"
-          echo "S3 sha512 OVA URI: ${s3uri}"
+      #- name: Getting OVA from AWS instance
+      #  run: |
+      #    scp -P ${{ env.ansible_port }} -i ${{ env.ansible_ssh_private_key_file }} ${{ env.ansible_user }}@${{ env.ansible_host }}:/home/ec2-user/${{ env.FILENAME_OVA }} /tmp/${{ env.FILENAME_OVA }}
+#
+      #- name: Standarizing OVA
+      #  run: |
+      #    sed -i "s|ovf:capacity=\"40\"|ovf:capacity=\"50\"|g" ova/wazuh_ovf_template
+      #    bash ova/setOVADefault.sh "ova/" "/tmp/${{ env.FILENAME_OVA }}" "/tmp/${{ env.FILENAME_OVA }}" "ova/wazuh_ovf_template" "${{ env.WAZUH_VERSION }}"
+#
+      #- name: Exporting OVA to final repository
+      #  run: |
+      #    aws s3 cp --quiet /tmp/${{ env.FILENAME_OVA }} s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_OVA }}
+      #    s3uri="s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_OVA }}"
+      #    echo "S3 OVA URI: ${s3uri}"
+#
+      #- name: Generating sha512 file
+      #  if: ${{ inputs.checksum == true }}
+      #  run: |
+      #    sha512sum /tmp/${{ env.FILENAME_OVA }} > /tmp/${{ env.FILENAME_SHA }}
+      #    aws s3 cp --quiet /tmp/${{ env.FILENAME_SHA }} s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_SHA }}
+      #    s3uri="s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_SHA }}"
+      #    echo "S3 sha512 OVA URI: ${s3uri}"
 
       - name: Delete allocated VM
         if: always() && steps.alloc_vm.outcome == 'success'

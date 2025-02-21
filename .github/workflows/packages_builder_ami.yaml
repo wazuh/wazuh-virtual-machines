@@ -141,89 +141,89 @@ jobs:
           "${{ inputs.debug }}"
 
 
-      - name: Stop instance
-        run: |
-          aws ec2 stop-instances --instance-ids ${{ env.identifier }}
-
-      - name: Check EC2 instance status until stopped
-        id: check_status
-        run: |
-          TIMEOUT=120
-          INTERVAL=2
-          ELAPSED=0
-
-          while [ $ELAPSED -lt $TIMEOUT ]; do
-            STATUS=$(aws ec2 describe-instances --instance-ids ${{ env.identifier }} --query 'Reservations[*].Instances[*].State.Name' --output text)
-            echo "Instance status: $STATUS"
-
-            if [ "$STATUS" == "stopped" ]; then
-              echo "Instance is stopped."
-              break
-            fi
-
-            echo "Waiting for instance to stop..."
-            sleep $INTERVAL
-            ELAPSED=$((ELAPSED + INTERVAL))
-          done
-
-          if [ $ELAPSED -ge $TIMEOUT ]; then
-            echo "Timeout reached. The instance is still not stopped."
-            exit 1
-          fi
-
-      - name: Build AMI from instance
-        if: success()
-        run: |
-          AMI_NAME="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.ami_revision }}"
-          aws ec2 create-image --instance-id ${{ env.identifier }} --name "$AMI_NAME" --no-reboot
-          AMI_ID=$(aws ec2 describe-images --filters "Name=name,Values=$AMI_NAME" --query 'Images[*].ImageId' --output text)
-          echo "AMI_ID=$AMI_ID" >> $GITHUB_ENV
-          echo "AMI creation started with name $AMI_NAME"
-
-      - name: Check AMI status until available
-        id: check_ami_status
-        run: |
-          TIMEOUT=1800
-          INTERVAL=30
-          ELAPSED=0
-
-          while [ $ELAPSED -lt $TIMEOUT ]; do
-            STATUS=$(aws ec2 describe-images --image-ids ${{ env.AMI_ID }} --query 'Images[*].State' --output text)
-            echo "AMI status: $STATUS"
-
-            if [ "$STATUS" == "available" ]; then
-              echo "AMI is available."
-              break
-            fi
-
-            echo "Waiting for AMI ${{ env.AMI_ID }} to be available..."
-            sleep $INTERVAL
-            ELAPSED=$((ELAPSED + INTERVAL))
-          done
-
-          if [ $ELAPSED -ge $TIMEOUT ]; then
-            echo "Timeout reached. The AMI ${{ env.AMI_ID }} is still not available."
-            exit 1
-          fi
-
-      - name: Tag AMI
-        if: success()
-        run: |
-          aws ec2 create-tags --resources ${{ env.AMI_ID }} --tags Key=Name,Value="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.ami_revision }}"
+      #- name: Stop instance
+      #  run: |
+      #    aws ec2 stop-instances --instance-ids ${{ env.identifier }}
+#
+      #- name: Check EC2 instance status until stopped
+      #  id: check_status
+      #  run: |
+      #    TIMEOUT=120
+      #    INTERVAL=2
+      #    ELAPSED=0
+#
+      #    while [ $ELAPSED -lt $TIMEOUT ]; do
+      #      STATUS=$(aws ec2 describe-instances --instance-ids ${{ env.identifier }} --query 'Reservations[*].Instances[*].State.Name' --output text)
+      #      echo "Instance status: $STATUS"
+#
+      #      if [ "$STATUS" == "stopped" ]; then
+      #        echo "Instance is stopped."
+      #        break
+      #      fi
+#
+      #      echo "Waiting for instance to stop..."
+      #      sleep $INTERVAL
+      #      ELAPSED=$((ELAPSED + INTERVAL))
+      #    done
+#
+      #    if [ $ELAPSED -ge $TIMEOUT ]; then
+      #      echo "Timeout reached. The instance is still not stopped."
+      #      exit 1
+      #    fi
+#
+      #- name: Build AMI from instance
+      #  if: success()
+      #  run: |
+      #    AMI_NAME="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.ami_revision }}"
+      #    aws ec2 create-image --instance-id ${{ env.identifier }} --name "$AMI_NAME" --no-reboot
+      #    AMI_ID=$(aws ec2 describe-images --filters "Name=name,Values=$AMI_NAME" --query 'Images[*].ImageId' --output text)
+      #    echo "AMI_ID=$AMI_ID" >> $GITHUB_ENV
+      #    echo "AMI creation started with name $AMI_NAME"
+#
+      #- name: Check AMI status until available
+      #  id: check_ami_status
+      #  run: |
+      #    TIMEOUT=1800
+      #    INTERVAL=30
+      #    ELAPSED=0
+#
+      #    while [ $ELAPSED -lt $TIMEOUT ]; do
+      #      STATUS=$(aws ec2 describe-images --image-ids ${{ env.AMI_ID }} --query 'Images[*].State' --output text)
+      #      echo "AMI status: $STATUS"
+#
+      #      if [ "$STATUS" == "available" ]; then
+      #        echo "AMI is available."
+      #        break
+      #      fi
+#
+      #      echo "Waiting for AMI ${{ env.AMI_ID }} to be available..."
+      #      sleep $INTERVAL
+      #      ELAPSED=$((ELAPSED + INTERVAL))
+      #    done
+#
+      #    if [ $ELAPSED -ge $TIMEOUT ]; then
+      #      echo "Timeout reached. The AMI ${{ env.AMI_ID }} is still not available."
+      #      exit 1
+      #    fi
+#
+      #- name: Tag AMI
+      #  if: success()
+      #  run: |
+      #    aws ec2 create-tags --resources ${{ env.AMI_ID }} --tags Key=Name,Value="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.ami_revision }}"
 
       - name: Delete allocated VM
         if: always() && steps.alloc_vm_ami.outcome == 'success' && inputs.destroy == true
         run: python3 wazuh-automation/deployability/modules/allocation/main.py --action delete --track-output ${{ env.ALLOCATOR_PATH }}/track.yml
 
-      - name: Compress Allocator directory
-        id: generate_artifacts
-        if: always() && steps.alloc_vm_ami.outcome == 'success' && inputs.destroy == false
-        run: zip -P "${{ secrets.ZIP_ARTIFACTS_PASSWORD }}" -r ${{ env.ALLOCATOR_PATH }}.zip ${{ env.ALLOCATOR_PATH }}
-        continue-on-error: true
-
-      - name: Upload Allocator directory as artifact
-        if: always() && steps.generate_artifacts.outcome == 'success'
-        uses: actions/upload-artifact@v4
-        with:
-          name: instance_info
-          path: ${{ env.ALLOCATOR_PATH }}.zip
+      #- name: Compress Allocator directory
+      #  id: generate_artifacts
+      #  if: always() && steps.alloc_vm_ami.outcome == 'success' && inputs.destroy == false
+      #  run: zip -P "${{ secrets.ZIP_ARTIFACTS_PASSWORD }}" -r ${{ env.ALLOCATOR_PATH }}.zip ${{ env.ALLOCATOR_PATH }}
+      #  continue-on-error: true
+#
+      #- name: Upload Allocator directory as artifact
+      #  if: always() && steps.generate_artifacts.outcome == 'success'
+      #  uses: actions/upload-artifact@v4
+      #  with:
+      #    name: instance_info
+      #    path: ${{ env.ALLOCATOR_PATH }}.zip
