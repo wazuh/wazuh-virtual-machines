@@ -1,6 +1,25 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [4.12.0]
+
+### Added
+
+- None
+
+### Changed
+
+- Updated VERSION file to the new standard. ([#212](https://github.com/wazuh/wazuh-virtual-machines/pull/212))
+- Change runners in GHA workflows to Ubuntu 22.04 ([#145](https://github.com/wazuh/wazuh-virtual-machines/pull/145))
+
+### Fixed
+
+- None
+
+### Deleted
+
+- None
+
 ## [4.11.1]
 
 ### Added

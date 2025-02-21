@@ -79,7 +79,7 @@ permissions:
 
 jobs:
   build_and_run:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: View parameters
         run: echo "${{ toJson(inputs) }}"
@@ -115,7 +115,7 @@ jobs:
 
       - name: Setting FILENAME var
         run: |
-          WAZUH_VERSION=$(cat wazuh-installation-assistant/VERSION)
+          WAZUH_VERSION=$(jq -r '.version' VERSION.json)
           COMMIT_SHA=$(git rev-parse --short ${{ github.sha }})
           echo "WAZUH_VERSION=$WAZUH_VERSION" >> $GITHUB_ENV
           FILENAME="wazuh-${WAZUH_VERSION}-${{ inputs.ova_revision }}"
