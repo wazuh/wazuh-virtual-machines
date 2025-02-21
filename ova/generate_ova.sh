@@ -19,6 +19,28 @@ scriptpath=$(
     pwd -P
 )
 
+vagrant_up() {
+    local retries=0
+    local max_retries=5
+    local success=false
+
+    while [ $retries -lt $max_retries ]; do
+        if vagrant up; then
+        success=true
+        break
+        else
+        echo "vagrant up failed, retrying in 10 seconds..."
+        retries=$((retries + 1))
+        sleep 10
+        fi
+    done
+
+    if [ "$success" = false ]; then
+        echo "vagrant up failed after $max_retries attempts."
+        exit 1
+    fi
+}
+
 OUTPUT_DIR="${scriptpath}/output"
 CHECKSUM_DIR="${scriptpath}/checksum"
 
@@ -81,6 +103,8 @@ build_ova() {
     OVF_VM="wazuh-${OVA_VERSION}.ovf"
     OVA_FIXED="wazuh-${OVA_VERSION}-fixed.ova"
 
+    export WVM_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+    export INSTALLATION_ASSISTANT_BRANCH
     export PACKAGES_REPOSITORY
     export DEBUG
 
@@ -94,12 +118,16 @@ build_ova() {
 
     # Vagrant will provision the VM with all the software. (See vagrantfile)
     vagrant destroy -f
-    vagrant up || clean 1
-    vagrant suspend
+    vagrant_up
+    vagrant halt
     echo "Exporting ova"
 
     # Get machine name
     VM_EXPORT=$(vboxmanage list vms | grep -i vm_wazuh | cut -d "\"" -f2)
+
+    #Configure VM network in VirtualBox
+    vboxmanage modifyvm "${VM_EXPORT}" --nic2 hostonly
+    vboxmanage modifyvm "${VM_EXPORT}" --cableconnected2 on
 
     # Create OVA with machine
     vboxmanage export "${VM_EXPORT}" -o "${OVA_VM}" \

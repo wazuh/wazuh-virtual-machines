@@ -20,6 +20,24 @@ All notable changes to this project will be documented in this file.
 
 - None
 
+## [4.11.1]
+
+### Added
+
+- None
+
+### Changed
+
+- None
+
+### Fixed
+
+- None
+
+### Deleted
+
+- None
+
 ## [4.11.0]
 
 ### Added
@@ -35,6 +53,12 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Fix Wazuh dashboard errors in OVA. ([#209](https://github.com/wazuh/wazuh-virtual-machines/pull/209))
+- Fixed local build for OVA. ([#208](https://github.com/wazuh/wazuh-virtual-machines/pull/208))
+- Fixed Wazuh Dashboard issues when the AMI boots up. ([#205](https://github.com/wazuh/wazuh-virtual-machines/pull/205))
+- Fix Wazuh dashboard certificate verification failure ([#198](https://github.com/wazuh/wazuh-virtual-machines/pull/198))
+- Fixed Wazuh ASCII art logo display in OVA. ([#192](https://github.com/wazuh/wazuh-virtual-machines/pull/192))
+- Fixed video in grub configuration for the OVA. ([#190](https://github.com/wazuh/wazuh-virtual-machines/pull/190))
 - Changed ssh config file to allow ssh while FIPS is activated. ([#184](https://github.com/wazuh/wazuh-virtual-machines/pull/184))
 - Fixed Vagrant synced folder error in OVA. ([#183](https://github.com/wazuh/wazuh-virtual-machines/pull/183))
 - Fix the ova workflow for stages support and AWS instance deletion. ([#175](https://github.com/wazuh/wazuh-virtual-machines/pull/176))

@@ -56,7 +56,8 @@ bash /usr/share/wazuh-indexer/bin/indexer-security-init.sh -ho 127.0.0.1
 
 echo "Stopping Wazuh indexer and Wazuh dashboard"
 systemctl stop wazuh-indexer wazuh-dashboard
-systemctl enable wazuh-manager
+systemctl disable wazuh-manager
+systemctl disable wazuh-dashboard
 
 echo "Cleaning system"
 clean
