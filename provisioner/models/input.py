@@ -13,6 +13,24 @@ from .utils import format_certificates_urls_file, format_component_urls_file
 
 
 class Input(BaseModel):
+    """
+    Input model representing the configuration for provisioning.
+
+    Attributes:
+        component (Component): The component to be provisioned.
+        inventory_path (Path): Path to the inventory file.
+        packages_url_path (Path): Path to the packages URL file.
+        package_type (Package_type): Type of the package (default is RPM).
+        arch (Component_arch): Architecture of the component (default is X86_64).
+        dependencies_path (Path): Path to the dependencies file.
+
+    Properties:
+        dependencies (ComponentsDependencies): Parsed dependencies from the dependencies file.
+        packages_url_content (PackageInfo): Parsed package information from the packages URL file.
+        certificates_content (CertsInfo): Parsed certificate information from the packages URL file.
+        inventory_content (Inventory): Inventory content for the given host name.
+    """
+
     component: Component
     inventory_path: Path
     packages_url_path: Path

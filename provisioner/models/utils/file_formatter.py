@@ -12,16 +12,46 @@ from provisioner.utils import (
 
 
 def file_to_dict(raw_urls_path: Path) -> dict:
-    with open(raw_urls_path) as f:
-        raw_url_content = yaml.safe_load(f) or None
+    """
+    Converts the contents of a YAML file into a dictionary.
+    Args:
+        raw_urls_path (Path): The path to the YAML file containing raw URLs.
+    Raises:
+        ValueError: If the file is empty or contains no valid content.
+    Returns:
+        dict: A dictionary representation of the YAML file content.
+    """
+    try:
+        with open(raw_urls_path) as f:
+            raw_url_content = yaml.safe_load(f) or {}
+    except FileNotFoundError as err:
+        raise FileNotFoundError(f"File not found in {raw_urls_path} path") from err
 
-    if raw_url_content is None:
+    if raw_url_content == {}:
         raise ValueError("No content found in raw URLs file")
 
     return raw_url_content
 
 
 def get_component_packages(raw_urls_content: dict, component: Component) -> dict:
+    """
+    Extracts and organizes package information for a specified component from raw URL content.
+    >>> raw_urls_content = {
+    ...     "wazuh_indexer_url_amd64_deb": "https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/",
+    ...     "wazuh_indexer_url_arm64_deb": "https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/",
+    ...     "wazuh_server_url_amd64_deb": "https://packages.wazuh.com/wazuh-server-example/amd64/deb/",
+    ... }
+    >>> component = Component.WAZUH_SERVER
+    >>> get_component_packages(raw_urls_content, component)
+    {'wazuh_indexer': ['https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/', 'https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/']}
+
+    Args:
+        raw_urls_content (dict): A dictionary containing raw URL content with component keys.
+        component (Component): The component object for which packages need to be extracted.
+
+    Returns:
+        dict: A dictionary where the key is the component name (in lowercase) and the value is a list of packages associated with that component.
+    """
     component_packages: dict = {}
 
     for component_key in raw_urls_content:
@@ -37,6 +67,25 @@ def get_component_packages(raw_urls_content: dict, component: Component) -> dict
 
 
 def get_component_packages_by_arch(component_packages: List[str]) -> dict:
+    """
+    Given a list of component package URLs, this function returns a dictionary
+    mapping each architecture type to its corresponding package URL.
+    >>> component_packages = [
+    ...     "https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/",
+    ...     "https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/",
+    ... ]
+    >>> get_component_packages_by_arch(component_packages)
+    {'amd64': 'https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/',
+    'arm64': 'https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/'
+    }
+
+    Args:
+        component_packages (List[str]): A list of URLs for component packages.
+
+    Returns:
+        dict: A dictionary where the keys are architecture types (as strings)
+              and the values are the corresponding package URLs.
+    """
     component_arch = {}
 
     for package_url in component_packages:
@@ -48,6 +97,30 @@ def get_component_packages_by_arch(component_packages: List[str]) -> dict:
 
 
 def get_component_packages_by_type(component_packages: dict) -> dict:
+    """
+    Organizes component packages by their type.
+
+    This function takes a dictionary of component packages, where the keys are package architectures
+    and the values are package URLs. It categorizes these packages based on their type, which is
+    determined by the presence of the type name in the package URL.
+    >>> component_packages = {
+    ...     "amd64": "https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/",
+    ...     "arm64": "https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/",
+    ...     "x86_64": "https://packages.wazuh.com/wazuh-indexer-example/x86_64/rpm/",
+    ... }
+    >>> get_component_packages_by_type(component_packages)
+    {'deb': {'amd64': 'https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/',
+            'arm64': 'https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/'},
+     'rpm': {'x86_64': 'https://packages.wazuh.com/wazuh-indexer-example/x86_64/rpm/'}
+    }
+    Args:
+        component_packages (dict): A dictionary where keys are package architectures (e.g., 'x86_64')
+                                   and values are package URLs (e.g., 'http://example.com/package_x86_64.deb').
+
+    Returns:
+        dict: A dictionary where keys are package types (e.g., 'deb', 'rpm') and values are dictionaries
+              mapping package architectures to package URLs.
+    """
     component_type = {package_type.name.lower(): {} for package_type in Package_type}
 
     for package_arch, package_url in component_packages.items():
@@ -61,6 +134,25 @@ def get_component_packages_by_type(component_packages: dict) -> dict:
 
 
 def format_certificates_urls_file(raw_urls_path: Path) -> dict:
+    """
+    Formats a file containing raw URLs into a dictionary of certificate URLs.
+
+    This function reads a file containing raw URLs and maps them to a dictionary
+    where the keys are the lowercase names of certificate components and the values
+    are the corresponding URLs.
+    >>> raw_urls_path = Path("certificates_urls.yaml")
+    >>> format_certificates_urls_file(raw_urls_path)
+    {'certs_tool': 'https://packages.wazuh.com/certificates-example/certs_tool',
+    'config': 'https://packages.wazuh.com/certificates-example/certs_config'
+    }
+
+    Args:
+        raw_urls_path (Path): The path to the file containing the raw URLs.
+
+    Returns:
+        dict: A dictionary where the keys are the lowercase names of certificate
+              components and the values are the corresponding URLs.
+    """
     certificates_urls = {
         certs_component.name.lower(): "" for certs_component in CertificatesComponent
     }
@@ -74,6 +166,31 @@ def format_certificates_urls_file(raw_urls_path: Path) -> dict:
 
 
 def format_component_urls_file(raw_urls_path: Path) -> dict:
+    """
+    Formats the component URLs file by processing raw URLs and organizing them by component, architecture, and type.
+
+    Args:
+        raw_urls_path (Path): The path to the raw URLs file.
+    >>> raw_urls_path = Path("component_urls.yaml")
+    ... raw_urls_content = {
+    ...     "wazuh_indexer_url_amd64_deb": "https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/",
+    ...     "wazuh_indexer_url_arm64_deb": "https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/",
+    ...     "wazuh_server_url_x86_64_rpm": "https://packages.wazuh.com/wazuh-server-example/x86_64/rpm/",
+    ... }
+    ... format_component_urls_file(raw_urls_path)
+    {'wazuh_indexer': {'deb': {'amd64': 'https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/',
+                               'arm64': 'https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/'},
+                       'rpm': {}
+                    },
+    'wazuh_server': {'deb': {},
+                     'rpm': {'x86_64': 'https://packages.wazuh.com/wazuh-server-example/x86_64/rpm/'}
+                    }
+    }
+
+    Returns:
+        dict: A dictionary where the keys are component names (in lowercase) and the values are dictionaries containing
+              the organized URLs by architecture and type.
+    """
     urls_file_content = {
         component.name.lower(): {}
         for component in Component

@@ -20,6 +20,7 @@ class ComponentsDependencies(BaseModel):
         server_dependencies (List[str]): Returns the dependencies for the Wazuh Server component.
         dashboard_dependencies (List[str]): Returns the dependencies for the Wazuh Dashboard component.
     """
+
     dependencies_content: dict
     package_type: Package_type = Package_type.RPM
 

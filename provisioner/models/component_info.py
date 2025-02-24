@@ -14,6 +14,7 @@ class ComponentInfo(BaseModel):
         package_url (AnyUrl): The URL to the package of the component.
         dependencies (List[str]): A list of dependencies required by the component.
     """
+
     name: Component
     package_url: AnyUrl
     dependencies: List[str]

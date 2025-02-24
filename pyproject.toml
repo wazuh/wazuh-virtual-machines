@@ -68,6 +68,6 @@ fix = ["ruff-format", "ruff-lint"] # The aim of this is to fix the code before p
 validate = [ # The aim of this is to validate the code before pushing it to the repository. Useful for when running workflows.
     "- ruff-format-check",
     "- ruff-lint-check",
-    # "- test-cov",
+     "- test-cov",
 ]
 run = "python -m provisioner.main {args:}"

@@ -20,6 +20,7 @@ class CertsInfo(BaseModel):
         certs_tool_url (AnyUrl): Retrieves the URL for the cert-tool component.
         config_url (AnyUrl): Retrieves the configuration URL for the config file.
     """
+
     certs_url_content: dict
 
     @property

@@ -19,6 +19,7 @@ class Inventory(BaseModel):
         ansible_ssh_private_key_file (Path | None): The path to the SSH private key file, if any.
         ansible_ssh_common_args (str | None): Additional SSH arguments, if any.
     """
+
     ansible_host_name: str
     ansible_user: str
     ansible_password: SecretStr | None = None
@@ -49,7 +50,9 @@ class Inventory(BaseModel):
                 f"Inventory file not found at {inventory_path}"
             ) from err
         except pydantic_core._pydantic_core.ValidationError as err:
-            raise ValueError("Invalid inventory host parameters. Use the correct ones") from err
+            raise ValueError(
+                "Invalid inventory host parameters. Use the correct ones"
+            ) from err
 
     def _check_inventory(self, inventory: dict, host_name: str | None = None) -> dict:
         """
@@ -83,7 +86,7 @@ class Inventory(BaseModel):
         host_data = hosts.get(host_name, None)
         if host_data is None:
             raise KeyError(f"Host {host_name} not found in inventory file")
-        
+
         host_data["ansible_host_name"] = host_name
 
         return host_data
