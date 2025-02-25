@@ -192,7 +192,7 @@ class Provisioner:
             path=f"{RemoteDirectories.CERTS}/{filename}",
             filename=certs_file_url,
         )
-        output, error_output = self.exec_command(command=command)
+        output, error_output = self.exec_command(command=command, client=client)
 
         if error_output:
             logger.error(f"Error downloading {filename}: {error_output}")
@@ -258,7 +258,7 @@ class Provisioner:
         package_name = f"{component_name}.{self.package_type}"
         command = f"mkdir -p {RemoteDirectories.PACKAGES} && curl -s -o {RemoteDirectories.PACKAGES}/{package_name} '{package}'"
 
-        output, error_output = self.exec_command(command=command)
+        output, error_output = self.exec_command(command=command, client=client)
 
         if error_output:
             logger.error(f"Error getting package: {error_output}")
@@ -293,7 +293,8 @@ class Provisioner:
         logger.debug(f"Installing {package_alias}")
 
         output, error_output = self.exec_command(
-            command_template.format(package_name=package_name)
+            command=command_template.format(package_name=package_name),
+            client=client
         )
 
         if not output:

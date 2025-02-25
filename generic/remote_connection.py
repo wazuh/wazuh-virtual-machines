@@ -13,13 +13,13 @@ logger = Logger("Instance connection")
 
 @contextmanager
 def get_client(inventory: "Inventory"):
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    
     if not inventory:
+        logger.warning("No inventory provided. Using local connection")
         yield None
     else:
         try:
+            client = paramiko.SSHClient()
+            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             client.connect(hostname=inventory.ansible_host,
                             username=inventory.ansible_user,
                             port=inventory.ansible_port,
