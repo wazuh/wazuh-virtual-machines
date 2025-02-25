@@ -32,6 +32,7 @@ class Provisioner:
     Properties:
         package_manager (Package_manager): The package manager to be used based on the package type.
     """
+
     inventory: Inventory | None
     certs: CertsInfo
     components: List[ComponentInfo]
@@ -68,9 +69,7 @@ class Provisioner:
         self.certs_config_provision(client)
 
         for component in self.components:
-            logger.debug_title(
-                f"Starting provisioning for {component.name.replace('_', ' ')}"
-            )
+            logger.debug_title(f"Starting provisioning for {component.name.replace('_', ' ')}")
             self.dependencies_provision(component, client)
             self.packages_provision(component, client)
 
@@ -105,9 +104,7 @@ class Provisioner:
         logger.debug("Provisioning certs-config")
         self.certificates_provision(self.certs.config_url, client)
 
-    def dependencies_provision(
-        self, component: ComponentInfo, client: paramiko.SSHClient | None = None
-    ) -> None:
+    def dependencies_provision(self, component: ComponentInfo, client: paramiko.SSHClient | None = None) -> None:
         """
         Provisions the dependencies for a given component by installing each dependency on the specified SSH client.
 
@@ -118,9 +115,7 @@ class Provisioner:
         Returns:
             None
         """
-        logger.debug_title(
-            f"Provisioning dependencies for {component.name.replace('_', ' ')}"
-        )
+        logger.debug_title(f"Provisioning dependencies for {component.name.replace('_', ' ')}")
 
         self.list_dependencies(component.dependencies, component.name)
 
@@ -128,13 +123,9 @@ class Provisioner:
             self.install_dependency(dependency, client)
 
         if component.dependencies:
-            logger.info_success(
-                f"Dependencies for {component.name.replace('_', ' ')} installed successfully"
-            )
+            logger.info_success(f"Dependencies for {component.name.replace('_', ' ')} installed successfully")
         else:
-            logger.info_success(
-                f"There are no dependencies to install for {component.name.replace('_', ' ')}"
-            )
+            logger.info_success(f"There are no dependencies to install for {component.name.replace('_', ' ')}")
 
     def packages_provision(self, component: ComponentInfo, client: paramiko.SSHClient | None = None) -> None:
         """
@@ -150,10 +141,8 @@ class Provisioner:
         logger.debug_title("Provisioning packages")
         logger.debug(f"Downloading {component.name.replace('_', ' ')} package")
 
-        package_name = self.get_package_by_url(
-            component.name, component.package_url, client
-        )
-        
+        package_name = self.get_package_by_url(component.name, component.package_url, client)
+
         command_template = (
             "sudo dnf install -y {package_name}"
             if self.package_manager == Package_manager.YUM
@@ -239,7 +228,10 @@ class Provisioner:
         self.install_package(dependency, command_template, client)
 
     def get_package_by_url(
-        self, component_name: Component, package: AnyUrl, client: paramiko.SSHClient | None = None
+        self,
+        component_name: Component,
+        package: AnyUrl,
+        client: paramiko.SSHClient | None = None,
     ) -> str:
         """
         Downloads a package from a given URL to a remote directory using an SSH client.
@@ -293,8 +285,7 @@ class Provisioner:
         logger.debug(f"Installing {package_alias}")
 
         output, error_output = self.exec_command(
-            command=command_template.format(package_name=package_name),
-            client=client
+            command=command_template.format(package_name=package_name), client=client
         )
 
         if not output:
@@ -317,6 +308,5 @@ class Provisioner:
             stdin, stdout, stderr = client.exec_command(command=command)
             output = stdout.read().decode()
             error_output = stderr.read().decode()
-        
+
         return output, error_output
-        

@@ -46,13 +46,9 @@ class Inventory(BaseModel):
                 host_data = self._check_inventory(data, host_name)
                 super().__init__(**host_data)
         except FileNotFoundError as err:
-            raise FileNotFoundError(
-                f"Inventory file not found at {inventory_path}"
-            ) from err
+            raise FileNotFoundError(f"Inventory file not found at {inventory_path}") from err
         except pydantic_core._pydantic_core.ValidationError as err:
-            raise ValueError(
-                "Invalid inventory host parameters. Use the correct ones"
-            ) from err
+            raise ValueError("Invalid inventory host parameters. Use the correct ones") from err
 
     def _check_inventory(self, inventory: dict, host_name: str | None = None) -> dict:
         """

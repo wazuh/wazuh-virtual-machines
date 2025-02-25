@@ -40,9 +40,7 @@ class PackageInfo(BaseModel):
     def dashboard_packages(self) -> dict:
         return self.get_component_packages(Component.WAZUH_DASHBOARD, self.package_type)
 
-    def get_component_packages(
-        self, component: Component, package_type: Package_type = package_type
-    ) -> dict:
+    def get_component_packages(self, component: Component, package_type: Package_type = package_type) -> dict:
         """
         Retrieve packages for a specific component and package type.
 
@@ -62,9 +60,7 @@ class PackageInfo(BaseModel):
 
         component_packages_by_type = component_packages.get(package_type)
         if component_packages_by_type is None:
-            raise KeyError(
-                f"Packages for {component} with {package_type} type not found."
-            )
+            raise KeyError(f"Packages for {component} with {package_type} type not found.")
 
         return component_packages_by_type
 
@@ -91,27 +87,19 @@ class PackageInfo(BaseModel):
         """
         logger.debug(f"Getting URL for {component} with {component_arch} architecture...")
 
-        package_url = self.get_component_packages(
-            component, package_type=package_type
-        ).get(component_arch, None)
+        package_url = self.get_component_packages(component, package_type=package_type).get(component_arch, None)
         if package_url is None:
-            raise ValueError(
-                f"Arch {component_arch} not found in {component} packages. Expected an URL but got None."
-            )
+            raise ValueError(f"Arch {component_arch} not found in {component} packages. Expected an URL but got None.")
 
         try:
             package_url = AnyUrl(package_url)
         except pydantic_core._pydantic_core.ValidationError as err:
-            raise ValueError(
-                f"URL for {component} with {component_arch} architecture has an invalid format."
-            ) from err
+            raise ValueError(f"URL for {component} with {component_arch} architecture has an invalid format.") from err
 
         if not check_correct_url(
             package_url,
             [allowed_url.value for allowed_url in AllowedUrlHost],
         ):
-            raise ValueError(
-                f"URL for {component} with {component_arch} architecture is not for Wazuh packages."
-            )
+            raise ValueError(f"URL for {component} with {component_arch} architecture is not for Wazuh packages.")
 
         return package_url

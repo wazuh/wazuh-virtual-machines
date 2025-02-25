@@ -19,7 +19,7 @@ testpaths = ["tests"]
 pythonpath = ["."]
 
 [tool.ruff]
-line-length = 90
+line-length = 120
 indent-width = 4
 
 [project.urls]
@@ -60,10 +60,10 @@ dependencies = [
 
 [tool.hatch.envs.provisioner.scripts]
 test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=provisioner --cov-report term-missing:skip-covered tests/provisioner --cov-report=xml"
-ruff-format = "ruff format provisioner"
-ruff-format-check = "ruff format --diff --check provisioner"
-ruff-lint-check = "ruff check --diff --unsafe-fixes provisioner"
-ruff-lint = "ruff check --fix --unsafe-fixes provisioner"
+ruff-format = "ruff format provisioner tests/provisioner"
+ruff-format-check = "ruff format --diff --check provisioner tests/provisioner"
+ruff-lint-check = "ruff check --diff --unsafe-fixes provisioner tests/provisioner"
+ruff-lint = "ruff check --fix --unsafe-fixes provisioner tests/provisioner"
 fix = ["ruff-format", "ruff-lint"] # The aim of this is to fix the code before pushing it to the repository. useful for local executions.
 validate = [ # The aim of this is to validate the code before pushing it to the repository. Useful for when running workflows.
     "- ruff-format-check",

@@ -59,9 +59,7 @@ def get_component_packages(raw_urls_content: dict, component: Component) -> dict
             if component not in component_packages:
                 component_packages[component.name.lower()] = []
 
-            component_packages[component.name.lower()].append(
-                raw_urls_content.get(component_key)
-            )
+            component_packages[component.name.lower()].append(raw_urls_content.get(component_key))
 
     return component_packages
 
@@ -126,9 +124,7 @@ def get_component_packages_by_type(component_packages: dict) -> dict:
     for package_arch, package_url in component_packages.items():
         for component_type_key in component_type:
             if component_type_key in package_url:
-                component_type.get(component_type_key, {}).update(
-                    {package_arch: package_url}
-                )
+                component_type.get(component_type_key, {}).update({package_arch: package_url})
 
     return component_type
 
@@ -153,9 +149,7 @@ def format_certificates_urls_file(raw_urls_path: Path) -> dict:
         dict: A dictionary where the keys are the lowercase names of certificate
               components and the values are the corresponding URLs.
     """
-    certificates_urls = {
-        certs_component.name.lower(): "" for certs_component in CertificatesComponent
-    }
+    certificates_urls = {certs_component.name.lower(): "" for certs_component in CertificatesComponent}
     raw_urls_content = file_to_dict(raw_urls_path)
 
     for component_name, url in raw_urls_content.items():
@@ -191,19 +185,13 @@ def format_component_urls_file(raw_urls_path: Path) -> dict:
         dict: A dictionary where the keys are component names (in lowercase) and the values are dictionaries containing
               the organized URLs by architecture and type.
     """
-    urls_file_content = {
-        component.name.lower(): {}
-        for component in Component
-        if component.name.lower() != "all"
-    }
+    urls_file_content = {component.name.lower(): {} for component in Component if component.name.lower() != "all"}
     raw_urls_content = file_to_dict(raw_urls_path)
 
     for component in Component:
         if component.name.lower() != "all":
             component_packages = get_component_packages(raw_urls_content, component)
-            component_arch = get_component_packages_by_arch(
-                component_packages.get(component.name.lower(), {})
-            )
+            component_arch = get_component_packages_by_arch(component_packages.get(component.name.lower(), {}))
             component_type = get_component_packages_by_type(component_arch)
             urls_file_content.get(component.name.lower(), {}).update(component_type)
 

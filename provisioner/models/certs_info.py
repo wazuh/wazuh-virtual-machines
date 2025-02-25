@@ -42,7 +42,7 @@ class CertsInfo(BaseModel):
         try:
             url = AnyUrl(self.certs_url_content.get(name, None))
         except pydantic_core._pydantic_core.ValidationError as err:
-            raise ValueError(f"URL for {name} has an invalid format.") from err
+            raise ValueError(f"URL for {name} has an invalid format: {err}") from err
 
         if not check_correct_url(
             url,

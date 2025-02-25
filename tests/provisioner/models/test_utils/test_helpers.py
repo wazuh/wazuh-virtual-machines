@@ -19,7 +19,8 @@ from provisioner.utils import AllowedUrlHost
 def test_check_correct_url_with_correct_url(url: str):
     allowed_hosts = [allowed.value for allowed in AllowedUrlHost]
     assert check_correct_url(AnyUrl(url), allowed_hosts)
-    
+
+
 @pytest.mark.parametrize(
     "url",
     [

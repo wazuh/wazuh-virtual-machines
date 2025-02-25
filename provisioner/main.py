@@ -27,12 +27,8 @@ def parse_arguments():
     """
     parser = argparse.ArgumentParser(description="Component Provisioner")
     parser.add_argument("--inventory", required=False, help="Path to the inventory file")
-    parser.add_argument(
-        "--packages-url-path", required=True, help="Path to the packages URL file"
-    )
-    parser.add_argument(
-        "--package-type", required=False, default="rpm", choices=["rpm", "deb"]
-    )
+    parser.add_argument("--packages-url-path", required=True, help="Path to the packages URL file")
+    parser.add_argument("--package-type", required=False, default="rpm", choices=["rpm", "deb"])
     parser.add_argument(
         "--arch",
         required=False,
@@ -93,11 +89,7 @@ def parse_componets(input: Input) -> List[ComponentInfo]:
                              the specified component.
     """
     if input.component == Component.ALL:
-        return [
-            get_component_info(input, component)
-            for component in Component
-            if component != Component.ALL
-        ]
+        return [get_component_info(input, component) for component in Component if component != Component.ALL]
 
     return [get_component_info(input, input.component)]
 
