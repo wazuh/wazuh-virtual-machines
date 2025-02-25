@@ -32,7 +32,7 @@ class Input(BaseModel):
     """
 
     component: Component
-    inventory_path: Path
+    inventory_path: Path | None
     packages_url_path: Path
     package_type: Package_type = Package_type.RPM
     arch: Component_arch = Component_arch.X86_64
@@ -73,5 +73,5 @@ class Input(BaseModel):
             ) from err
 
     @property
-    def inventory_content(self, host_name: str | None = None) -> Inventory:
-        return Inventory(self.inventory_path, host_name)
+    def inventory_content(self, host_name: str | None = None) -> Inventory | None:
+        return Inventory(self.inventory_path, host_name) if self.inventory_path else None

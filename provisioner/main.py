@@ -26,7 +26,7 @@ def parse_arguments():
         --component (str): Component to provision (optional, default: "all", choices: ["wazuh_indexer", "wazuh_server", "wazuh_dashboard", "all"]).
     """
     parser = argparse.ArgumentParser(description="Component Provisioner")
-    parser.add_argument("--inventory", required=True, help="Path to the inventory file")
+    parser.add_argument("--inventory", required=False, help="Path to the inventory file")
     parser.add_argument(
         "--packages-url-path", required=True, help="Path to the packages URL file"
     )
