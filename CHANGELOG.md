@@ -17,7 +17,7 @@ All notable changes to this project will be documented in this file.
 
 ### Deleted
 
-- None
+- Removed VERSION file from main branch. ([#221](https://github.com/wazuh/wazuh-virtual-machines/pull/221))
 
 ## [4.10.2]
 
