@@ -84,7 +84,6 @@ class Provisioner:
         Args:
             client (paramiko.SSHClient): The SSH client used to connect to the remote machine.
         """
-        logger.debug("Provisioning certs-tool")
         self.certificates_provision(self.certs.certs_tool_url, client)
 
     def certs_config_provision(self, client: paramiko.SSHClient | None = None) -> None:
@@ -101,7 +100,6 @@ class Provisioner:
         Returns:
             None
         """
-        logger.debug("Provisioning certs-config")
         self.certificates_provision(self.certs.config_url, client)
 
     def dependencies_provision(self, component: ComponentInfo, client: paramiko.SSHClient | None = None) -> None:
@@ -172,8 +170,9 @@ class Provisioner:
             Error message if the download fails.
             Success message if the download is successful.
         """
-        parsed_url = urlparse(str(certs_file_url))
-        filename = os.path.basename(parsed_url.path)
+        filename = os.path.basename(urlparse(str(certs_file_url)).path)
+        logger.debug(f"Provisioning {filename}")
+
         command_template = "mkdir -p {dir} && curl -s -o {path} '{filename}'"
 
         command = command_template.format(
@@ -185,7 +184,7 @@ class Provisioner:
 
         if error_output:
             logger.error(f"Error downloading {filename}: {error_output}")
-            raise Exception(f"Error downloading {filename}")
+            raise RuntimeError(f"Error downloading {filename}")
 
         logger.info_success(f"{filename} downloaded successfully")
 
@@ -254,7 +253,7 @@ class Provisioner:
 
         if error_output:
             logger.error(f"Error getting package: {error_output}")
-            raise Exception("Error getting package")
+            raise RuntimeError("Error getting package")
 
         logger.info_success("Package downloaded successfully")
         return package_name
@@ -288,8 +287,8 @@ class Provisioner:
             command=command_template.format(package_name=package_name), client=client
         )
 
-        if not output:
-            logger.info_success(f"{package_alias} package installed successfully")
+        if not output and not error_output:
+            logger.info_success(f"{package_alias} installed successfully")
         elif "is already installed" in output:
             logger.debug(f"{package_alias} is already installed")
         elif "WARNING" in error_output:
@@ -297,7 +296,7 @@ class Provisioner:
             logger.info_success(f"{package_alias} installed successfully")
         else:
             logger.error(f"Error installing {package_alias}: {error_output}")
-            raise Exception(f"Error installing {package_alias}")
+            raise RuntimeError(f"Error installing {package_alias}")
 
     def exec_command(self, command: str, client: paramiko.SSHClient | None = None) -> tuple[str, str]:
         if not client:
