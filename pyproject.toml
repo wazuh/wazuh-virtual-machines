@@ -1,0 +1,73 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "wazuh-virtual-machines"
+dynamic = ["version"]
+dependencies = [
+    "pydantic",
+    "paramiko",
+    "pyyaml",
+]
+requires-python = ">= 3.8"
+description = "Wazuh - Virtual Machines (OVA and AMI)"
+license = {file = "LICENSE"}
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 120
+indent-width = 4
+
+[project.urls]
+Homepage = "https://wazuh.com/"
+Documentation = "https://documentation.wazuh.com/current/index.html"
+Repository = "https://github.com/wazuh/wazuh-virtual-machines"
+
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # Pyflakes
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "I",    # isort
+]
+ignore = ["E501"]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+
+[tool.hatch.envs.provisioner]
+description = """
+Enviroment to be used for provisoner execution testing
+"""
+dependencies = [
+    "pytest~=8.0",
+    "pytest-cov~=6.0",
+    "pytest-xdist",
+    "ruff",
+]
+
+[tool.hatch.envs.provisioner.scripts]
+test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=provisioner --cov-report term-missing:skip-covered tests/provisioner --cov-report=xml"
+ruff-format = "ruff format provisioner tests/provisioner"
+ruff-format-check = "ruff format --diff --check provisioner tests/provisioner"
+ruff-lint-check = "ruff check --diff --unsafe-fixes provisioner tests/provisioner"
+ruff-lint = "ruff check --fix --unsafe-fixes provisioner tests/provisioner"
+fix = ["ruff-format", "ruff-lint"] # The aim of this is to fix the code before pushing it to the repository. useful for local executions.
+validate = [ # The aim of this is to validate the code before pushing it to the repository. Useful for when running workflows.
+    "- ruff-format-check",
+    "- ruff-lint-check",
+     "- test-cov",
+]
+run = "python -m provisioner.main {args:}"
