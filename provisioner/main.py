@@ -18,7 +18,7 @@ def parse_arguments():
         argparse.Namespace: Parsed command-line arguments.
 
     Arguments:
-        --inventory (str): Path to the inventory file (required).
+        --inventory (str): Path to the inventory file (optional).
         --packages-url-path (str): Path to the packages URL file (required).
         --package-type (str): Type of package to provision (optional, default: "rpm", choices: ["rpm", "deb"]).
         --arch (str): Architecture type (optional, default: "x86_64", choices: ["x86_64", "amd64", "arm64", "aarch64"]).
