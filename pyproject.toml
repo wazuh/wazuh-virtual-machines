@@ -58,6 +58,17 @@ dependencies = [
     "ruff",
 ]
 
+[tool.hatch.envs.ova]
+description = """
+Enviroment to be used for provisoner execution testing
+"""
+dependencies = [
+    "pytest~=8.0",
+    "pytest-cov~=6.0",
+    "pytest-xdist",
+    "ruff",
+]
+
 [tool.hatch.envs.provisioner.scripts]
 test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=provisioner --cov-report term-missing:skip-covered tests/provisioner --cov-report=xml"
 ruff-format = "ruff format provisioner tests/provisioner"
@@ -71,3 +82,6 @@ validate = [ # The aim of this is to validate the code before pushing it to the 
      "- test-cov",
 ]
 run = "python -m provisioner.main {args:}"
+
+[tool.hatch.envs.ova.scripts]
+run = "python -m ova.ova_pre_configurer.generate_base_box.main"

@@ -1,0 +1,6 @@
+pycache/
+*.pyc
+*.pyo
+*coverage.xml
+.coverage
+.vscode/
