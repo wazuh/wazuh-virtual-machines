@@ -12,7 +12,7 @@ from provisioner.main import (
     parse_componets,
 )
 from provisioner.models import ComponentInfo, Input
-from provisioner.utils import Component
+from utils import Component
 
 
 def test_parse_arguments_required():

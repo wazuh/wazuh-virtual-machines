@@ -2,7 +2,7 @@ import pytest
 from pydantic import AnyUrl
 
 from provisioner.models import CertsInfo
-from provisioner.utils import CertificatesComponent
+from utils import CertificatesComponent
 
 
 @pytest.mark.parametrize(

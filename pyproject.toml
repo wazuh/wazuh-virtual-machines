@@ -58,6 +58,17 @@ dependencies = [
     "ruff",
 ]
 
+[tool.hatch.envs.configurer]
+description = """
+Enviroment to be used for configurer execution testing
+"""
+dependencies = [
+    "pytest~=8.0",
+    "pytest-cov~=6.0",
+    "pytest-xdist",
+    "ruff",
+]
+
 [tool.hatch.envs.provisioner.scripts]
 test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=provisioner --cov-report term-missing:skip-covered tests/provisioner --cov-report=xml"
 ruff-format = "ruff format provisioner tests/provisioner"
@@ -70,4 +81,13 @@ validate = [ # The aim of this is to validate the code before pushing it to the 
     "- ruff-lint-check",
      "- test-cov",
 ]
-run = "python -m provisioner.main {args:}"
+run = "python -m main {args:}"
+
+[tool.hatch.envs.configurer.scripts]
+test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=core-configurer --cov-report term-missing:skip-covered tests/configurer/core--cov-report=xml"
+ruff-format = "ruff format configurer/core tests/configurer/core"
+ruff-format-check = "ruff format --diff --check configurer/core tests/configurer/core"
+ruff-lint-check = "ruff check --diff --unsafe-fixes configurer/core tests/configurer/core"
+ruff-lint = "ruff check --fix --unsafe-fixes configurer/core tests/configurer/core"
+fix = ["ruff-format", "ruff-lint"]
+run = "python -m main {args:}"

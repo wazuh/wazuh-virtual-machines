@@ -2,7 +2,8 @@ import pytest
 from pydantic import AnyUrl
 
 from provisioner.models.package_info import PackageInfo
-from provisioner.utils import Component, Component_arch, Package_type
+from provisioner.utils import Component_arch, Package_type
+from utils import Component
 
 
 @pytest.fixture
