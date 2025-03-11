@@ -18,6 +18,7 @@ def run_command(commands: Union[List[str], List[List[str]]], check=True) -> List
             logger.info(f"Executing: {' '.join(command)}")
         try:
             result = subprocess.run(command, check=check, capture_output=True, text=True, shell=True)
+            logger.info_success("Command executed successfully.")
             results.append(result.stdout)
         except subprocess.CalledProcessError as e:
             logger.error(f"Error executing command: {e}")
