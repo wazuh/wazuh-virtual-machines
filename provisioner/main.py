@@ -1,4 +1,3 @@
-import argparse
 from pathlib import Path
 from typing import List
 
@@ -10,48 +9,6 @@ from .provisioner import Provisioner
 
 DEPENDENCIES_FILE_NAME = "wazuh_dependencies.yaml"
 DEPENDENCIES_FILE_PATH = Path(__file__).parent / "static" / DEPENDENCIES_FILE_NAME
-
-
-# def parse_arguments():
-#     """
-#     Parse command-line arguments for the Component Provisioner.
-
-#     Returns:
-#         argparse.Namespace: Parsed command-line arguments.
-
-#     Arguments:
-#         --inventory (str): Path to the inventory file (optional).
-#         --packages-url-path (str): Path to the packages URL file (required).
-#         --package-type (str): Type of package to provision (optional, default: "rpm", choices: ["rpm", "deb"]).
-#         --arch (str): Architecture type (optional, default: "x86_64", choices: ["x86_64", "amd64", "arm64", "aarch64"]).
-#         --dependencies (str): Path to the dependencies file (optional, default: DEPENDENCIES_FILE_PATH).
-#         --component (str): Component to provision (optional, default: "all", choices: ["wazuh_indexer", "wazuh_server", "wazuh_dashboard", "all"]).
-#     """
-#     parser = argparse.ArgumentParser(description="Component Provisioner")
-#     parser.add_argument("--inventory", required=False, help="Path to the inventory file")
-#     parser.add_argument("--packages-url-path", required=True, help="Path to the packages URL file")
-#     parser.add_argument("--package-type", required=False, default="rpm", choices=["rpm", "deb"])
-#     parser.add_argument(
-#         "--arch",
-#         required=False,
-#         default="x86_64",
-#         choices=["x86_64", "amd64", "arm64", "aarch64"],
-#     )
-#     parser.add_argument(
-#         "--dependencies",
-#         required=False,
-#         default=DEPENDENCIES_FILE_PATH,
-#         help="Path to the dependencies file",
-#     )
-#     parser.add_argument(
-#         "--component",
-#         required=False,
-#         default="all",
-#         choices=["wazuh_indexer", "wazuh_server", "wazuh_dashboard", "all"],
-#         help="Component to provision",
-#     )
-
-#     return parser.parse_args()
 
 
 def get_component_info(input: Input, component: Component) -> ComponentInfo:

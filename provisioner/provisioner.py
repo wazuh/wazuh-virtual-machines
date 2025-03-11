@@ -1,7 +1,5 @@
-import os
 from dataclasses import dataclass
 from typing import List
-from urllib.parse import urlparse
 
 import paramiko
 from pydantic import AnyUrl
@@ -10,7 +8,7 @@ from generic import exec_command, remote_connection
 from models import Inventory
 from provisioner.models import CertsInfo, ComponentInfo
 from provisioner.utils import Component_arch, Package_manager, Package_type
-from utils import Component, Logger, RemoteDirectories, CertificatesComponent
+from utils import CertificatesComponent, Component, Logger, RemoteDirectories
 
 logger = Logger("Provisioner")
 
