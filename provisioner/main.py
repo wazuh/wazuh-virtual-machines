@@ -53,7 +53,14 @@ def parse_componets(input: Input) -> List[ComponentInfo]:
     return [get_component_info(input, input.component)]
 
 
-def main(packages_url_path: Path, component: Component, package_type: Package_type, arch: Component_arch, dependencies: Path, inventory: Path | None = None):
+def main(
+    packages_url_path: Path,
+    component: Component,
+    package_type: Package_type,
+    arch: Component_arch,
+    dependencies: Path,
+    inventory: Path | None = None,
+):
     """
     Main function to parse arguments, create an Input object, parse components, and provision the environment.
 

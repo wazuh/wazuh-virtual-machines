@@ -12,6 +12,7 @@ class ComponentCertsDirectory(StrEnum):
     WAZUH_INDEXER = "/etc/wazuh-indexer/certs"
     WAZUH_DASHBOARD = "/etc/wazuh-dashboard/certs"
 
+
 class ComponentCertsConfigParameter(StrEnum):
     # Wazuh Server
     WAZUH_SERVER_KEY = "server.node.ssl.key"
@@ -25,4 +26,3 @@ class ComponentCertsConfigParameter(StrEnum):
     WAZUH_DASHBOARD_KEY = "server.ssl.key"
     WAZUH_DASHBOARD_CERT = "server.ssl.certificate"
     WAZUH_DASHBOARD_CA = "opensearch.ssl.certificateAuthorities"
-

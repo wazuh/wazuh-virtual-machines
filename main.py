@@ -50,26 +50,28 @@ def parse_arguments():
 
     return parser.parse_args()
 
+
 def main():
     parsed_args = parse_arguments()
-    
+
     if parsed_args.execute in ["provisioner", "all"]:
         if not parsed_args.packages_url_path:
             raise ValueError("Missing required argument --packages-url-path")
-        
+
         provisioner_main(
             packages_url_path=Path(parsed_args.packages_url_path),
             package_type=parsed_args.package_type,
             arch=parsed_args.arch,
             dependencies=Path(parsed_args.dependencies),
             component=parsed_args.component,
-            inventory=parsed_args.inventory
+            inventory=parsed_args.inventory,
         )
     if parsed_args.execute in ["configurer", "all"]:
         core_configurer_main(inventory_path=parsed_args.inventory)
-        
+
     if parsed_args.execute not in ["provisioner", "configurer", "all"]:
         raise ValueError("Invalid value for --execute argument. Must be 'provisioner', 'configurer' or 'all'.")
-    
+
+
 if __name__ == "__main__":
     main()

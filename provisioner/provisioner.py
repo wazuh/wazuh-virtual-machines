@@ -63,9 +63,9 @@ class Provisioner:
 
         self.certs_tool_provision(client)
         self.certs_config_provision(client)
-        
+
         logger.debug_title("Provisioning special dependencies")
-        
+
         self.special_dependencies_provision(client)
 
         for component in self.components:
@@ -106,7 +106,7 @@ class Provisioner:
         """
         Provisions special dependencies on the specified client. These dependencies are installed
         in a special way different from apt-get or dnf install. They can be dependencies of a
-        component itself or necessary for the execution of a module. 
+        component itself or necessary for the execution of a module.
         For now the special dependencies are:
         - yq
         Args:
@@ -117,8 +117,8 @@ class Provisioner:
         """
 
         # Install yq
-        
-        yq_arch = "amd64" if self.arch in [Component_arch.X86_64, Component_arch.AMD64] else "arm64"    
+
+        yq_arch = "amd64" if self.arch in [Component_arch.X86_64, Component_arch.AMD64] else "arm64"
         command = f"""
             sudo wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_{yq_arch} -O /usr/bin/yq &&
             sudo chmod +x /usr/bin/yq
@@ -178,7 +178,9 @@ class Provisioner:
             component.name.replace("_", " ").capitalize(),
         )
 
-    def certificates_provision(self, certs_file_url: AnyUrl, filename: str, client: paramiko.SSHClient | None = None) -> None:
+    def certificates_provision(
+        self, certs_file_url: AnyUrl, filename: str, client: paramiko.SSHClient | None = None
+    ) -> None:
         """
         Downloads a certificate file (certs_tool or config) from a given URL and saves it to a remote directory on a server.
 
@@ -305,9 +307,7 @@ class Provisioner:
         package_alias = package_alias or package_name
         logger.debug(f"Installing {package_alias}")
 
-        output, error_output = exec_command(
-            command=command_template.format(package_name=package_name), client=client
-        )
+        output, error_output = exec_command(command=command_template.format(package_name=package_name), client=client)
 
         if "is already installed" in output:
             logger.debug(f"{package_alias} is already installed")

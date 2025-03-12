@@ -12,7 +12,6 @@ logger = Logger("ConfigManager")
 
 
 class WazuhComponentConfigManager:
-
     def __init__(self, files_configuration_path: Path) -> None:
         with open(files_configuration_path) as f:
             self.config_mappings_file = yaml.safe_load(f)
@@ -21,21 +20,21 @@ class WazuhComponentConfigManager:
     def indexer_mapping(self) -> WazuhIndexerConfigMapping | None:
         if self.config_mappings_file.get(Component.WAZUH_INDEXER, None):
             return WazuhIndexerConfigMapping(self.config_mappings_file[Component.WAZUH_INDEXER])
-        
+
         return None
 
     @property
     def server_mapping(self) -> WazuhServerConfigMapping | None:
         if self.config_mappings_file.get(Component.WAZUH_SERVER, None):
             return WazuhServerConfigMapping(self.config_mappings_file[Component.WAZUH_SERVER])
-        
+
         return None
 
     @property
     def dashboard_mapping(self) -> WazuhDashboardConfigMapping | None:
         if self.config_mappings_file.get(Component.WAZUH_DASHBOARD, None):
             return WazuhDashboardConfigMapping(self.config_mappings_file[Component.WAZUH_DASHBOARD])
-        
+
         return None
 
     def replace_file_entries(self, component: Component, client: paramiko.SSHClient | None = None):
