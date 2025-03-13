@@ -1,27 +1,33 @@
 import subprocess
-from typing import List, Union
+from typing import List, Tuple, Union
 
-from utils import Logger
+from utils.logger import Logger
 
-logger = Logger("log")
+logger = Logger("Configurer helpers")
 
-
-def run_command(commands: Union[List[str], List[List[str]]], check=True) -> List[subprocess.CompletedProcess[str]]:
-    if not isinstance(commands[0], list) or isinstance(commands[0], str):
+def run_command(commands: Union[str, List[str]], check=False, output=False) -> Union[Tuple[List[str], List[str], List[int]], None]:    
+    if isinstance(commands, str):
         commands = [commands]
     
-    results = []
-    for command in commands:
-        if not isinstance(commands[0], list) or isinstance(commands[0], str):
-            logger.info(f"Executing: {command}")
-        else:
-            logger.info(f"Executing: {' '.join(command)}")
-        try:
-            result = subprocess.run(command, check=check, capture_output=True, text=True, shell=True)
-            logger.info_success("Command executed successfully.")
-            results.append(result.stdout)
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Error executing command: {e}")
-            raise
+    stdout_list = []
+    stderr_list = []
+    returncode_list = []
     
-    return results
+    for command in commands:
+        logger.info(f"Executing: {command}")
+        result = subprocess.run(command, capture_output=True, text=True, shell=True)
+        if check and result.stderr:
+            logger.error(f"Error output: {result.stderr}")
+            raise RuntimeError(f"Error executing command: {result.stderr}")
+        elif not check and result.returncode != 0:
+            logger.warning(f"Command failed with return code {result.returncode}")
+            logger.warning(f"Error output: {result.stderr}")
+        else:
+            logger.info_success("Command executed successfully.")
+            
+        if output:
+            stdout_list.append(result.stdout.strip())
+            stderr_list.append(result.stderr.strip())
+            returncode_list.append(result.returncode)
+    
+    return (stdout_list, stderr_list, returncode_list) if output else None

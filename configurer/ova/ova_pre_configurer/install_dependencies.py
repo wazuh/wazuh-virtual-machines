@@ -1,13 +1,12 @@
 import os
 import re
-import subprocess
 
 import requests
 
 from configurer.utils import run_command
 from utils import Logger
 
-logger = Logger("log")
+logger = Logger("OVA PreConfigurer - Dependencies Installer")
 
 def update_packages():
     logger.info("Updating all system packages.")
@@ -59,7 +58,7 @@ def download_virtualbox_installer():
         logger.error(f"Error getting VirtualBox download page: {e}")
         raise
     
-def install_kernel_packages():
+def install_required_packages():
     packages = [
         "kernel-devel",
         "kernel-headers",
@@ -67,10 +66,15 @@ def install_kernel_packages():
         "elfutils-libelf-devel",
         "gcc",
         "make",
-        "perl"
+        "perl",
+        "python3-pip",
+        "git"
     ]
     logger.info(f"Installing required packages: {', '.join(packages)}")
     run_command("sudo yum install -y " +  " ".join(packages))
+    
+    logger.info("Installing Development tools.")
+    run_command("sudo yum groupinstall 'Development Tools' -y")
     
 def run_virtualbox_installer():
     logger.info("Running VirtualBox installer.")
@@ -93,3 +97,20 @@ def install_vagrant():
     ]
     run_command(commands)
     
+def install_git():
+    logger.info("Installing Git.")
+    run_command("sudo yum install git -y")
+    
+def main():
+    logger.info("Installing dependencies of the OVA PreConfigurer.")
+    
+    update_packages()
+    install_required_packages()
+    download_virtualbox_installer()
+    run_virtualbox_installer()
+    update_packages()
+    rebuild_virtualbox_kernel_modules()
+    install_vagrant()
+    
+if __name__ == "__main__":
+    main()

@@ -5,17 +5,14 @@ import tempfile
 from configurer.utils import run_command
 from utils import Logger
 
-logger = Logger("log")
+logger = Logger("OVA PreConfigurer - Generate Base Box")
 
 OS_URL = "https://cdn.amazonlinux.com/al2023/os-images/latest/"
 OS = "al2023"
 
 def get_os_version():
-    command = [
-        ["curl", "-I", OS_URL]
-    ]
-    result = run_command(command)
-    for line in result.stdout.split("\n"):
+    result, _, _ = run_command(f"curl -I {OS_URL}")
+    for line in result[0].split("\n"):
         if "Location" in line:
             return line.strip().split("/")[-2]
     return "latest"
@@ -30,65 +27,70 @@ def check_dependencies():
 def download_and_extract_ova(version, vmdk_filename, ova_filename):
     if not os.path.exists(vmdk_filename):
         commands = [
-            ["wget", f"https://cdn.amazonlinux.com/al2023/os-images/{version}/vmware/{ova_filename}"],
-            ["tar", "-xvf", ova_filename, vmdk_filename]
+            f"wget https://cdn.amazonlinux.com/al2023/os-images/{version}/vmware/{ova_filename}",
+            f"tar -xvf {ova_filename} {vmdk_filename}"
         ]
         run_command(commands)
 
 def convert_vmdk_to_raw(vmdk_filename, raw_file):
     commands = [
-        ["vboxmanage", "clonemedium", vmdk_filename, raw_file, "--format", "RAW"],
-        ["vboxmanage", "closemedium", vmdk_filename],
-        ["vboxmanage", "closemedium", raw_file]
+        f"vboxmanage clonemedium {vmdk_filename} {raw_file} --format RAW",
+        f"vboxmanage closemedium {vmdk_filename}",
+        f"vboxmanage closemedium {raw_file}"
     ]
     run_command(commands)
     
 def mount_and_setup_image(raw_file, mount_dir):
+    run_command(f"mount -o loop,offset=12582912 {raw_file} {mount_dir}")
+    create_isolate_setup_configuration(mount_dir)
     commands = [
-        ["mount", "-o", "loop,offset=12582912", raw_file, mount_dir],
-        ["cp", "setup.py", os.path.join(mount_dir, ".")],
-        ["mount", "-o", "bind", "/dev", os.path.join(mount_dir, "dev")],
-        ["mount", "-o", "bind", "/proc", os.path.join(mount_dir, "proc")],
-        ["mount", "-o", "bind", "/sys", os.path.join(mount_dir, "sys")],
-        ["chroot", mount_dir, "python3", "setup.py"],
-        ["umount", os.path.join(mount_dir, "sys")],
-        ["umount", os.path.join(mount_dir, "proc")],
-        ["umount", os.path.join(mount_dir, "dev")],
-        ["umount", mount_dir]
-    ]
-    run_command(commands)
-
-def convert_raw_to_vdi(raw_file, vdi_file):
-    commands = [
-        ["vboxmanage", "convertfromraw", raw_file, vdi_file, "--format", "VDI"],
+        f"mount -o bind /dev {os.path.join(mount_dir, 'dev')}",
+        f"mount -o bind /proc {os.path.join(mount_dir, 'proc')}",
+        f"mount -o bind /sys {os.path.join(mount_dir, 'sys')}",
+        f"chroot {mount_dir} python3 -m configurer.ova.ova_pre_configurer.setup",
+        f"umount {os.path.join(mount_dir, 'sys')}",
+        f"umount {os.path.join(mount_dir, 'proc')}",
+        f"umount {os.path.join(mount_dir, 'dev')}",
+        f"umount {mount_dir}"
     ]
     run_command(commands)
     
+def create_isolate_setup_configuration(dir_name: str = "isolate_setup"):
+    commands = [
+        f"mkdir -p {dir_name}/configurer/ova/ova_pre_configurer",
+        f"mkdir -p {dir_name}/configurer/utils",
+        f"mkdir -p {dir_name}/utils",
+        f"cp configurer/ova/ova_pre_configurer/setup.py {dir_name}/configurer/ova/ova_pre_configurer/",
+        f"cp utils/logger.py {dir_name}/utils/",
+        f"cp configurer/utils/helpers.py {dir_name}/configurer/utils/"
+    ]
+    run_command(commands, check=True)
+
+def convert_raw_to_vdi(raw_file, vdi_file):
+    run_command(f"vboxmanage convertfromraw {raw_file} {vdi_file} --format VDI")
+    
 def create_virtualbox_vm(vdi_file):
     commands = [
-        ["vboxmanage", "createvm", "--name", OS, "--ostype", "Linux26_64", "--register"],
-        ["vboxmanage", "modifyvm", OS, "--memory", "1024", "--vram", "16", "audio", "none"],
-        ["vboxmanage", "storagectl", OS, "--name", "IDE", "--add", "ide"],
-        ["vboxmanage", "storagectl", OS, "--name", "SATA", "--add", "sata", "--portcount", "1"],
-        ["vboxmanage", "storageattach", OS, "--storagectl", "IDE", "--port", "1", "--device", "0", "--type", "dvddrive", "--medium", "emptydrive"],
-        ["vboxmanage", "storageattach", OS, "--storagectl", "SATA", "--port", "0", "--device", "0", "--type", "hdd", "--medium", vdi_file]
+        f"vboxmanage createvm --name {OS} --ostype Linux26_64 --register",
+        f"vboxmanage modifyvm {OS} --memory 1024 --vram 16 audio none",
+        f"vboxmanage storagectl {OS} --name IDE --add ide",
+        f"vboxmanage storagectl {OS} --name SATA --add sata --portcount 1",
+        f"vboxmanage storageattach {OS} --storagectl IDE --port 1 --device 0 --type dvddrive --medium emptydrive",
+        f"vboxmanage storageattach {OS} --storagectl SATA --port 0 --device 0 --type hdd --medium {vdi_file}"
     ]
     run_command(commands)
     
 def package_vagrant_box():
     commands = [
-        ["vagrant", "package", "--base", OS, "--output", f"{OS}.box"],
-        ["vboxmanage", "export", OS, "-o", f"{OS}.ova"]
+        f"vagrant package --base {OS} --output {OS}.box",
+        f"vboxmanage export {OS} -o {OS}.ova"
     ]
     run_command(commands)
     
 def cleanup(temp_dirs):
     for temp_dir in temp_dirs:
         shutil.rmtree(temp_dir)
-    commands = [
-        ["vboxmanage", "unregistervm", OS, "--delete"]
-    ]
-    run_command(commands)
+    run_command(f"vboxmanage unregistervm {OS} --delete")
     
 def main():
     check_dependencies()
@@ -113,4 +115,4 @@ def main():
         
 if __name__ == "__main__":
     main()
-
+    

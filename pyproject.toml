@@ -84,4 +84,4 @@ validate = [ # The aim of this is to validate the code before pushing it to the 
 run = "python -m provisioner.main {args:}"
 
 [tool.hatch.envs.ova.scripts]
-run = "python -m ova.ova_pre_configurer.generate_base_box.main"
+run = "python -m ova.ova_pre_configurer.ova_pre_configurer.main"
