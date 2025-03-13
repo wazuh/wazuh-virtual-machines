@@ -1,17 +1,13 @@
-from pathlib import Path
 from unittest import mock
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-import yaml
 from pydantic import AnyUrl
 
-from models.inventory import Inventory
 from provisioner.models.certs_info import CertsInfo
 from provisioner.models.component_info import ComponentInfo
 from provisioner.provisioner import Provisioner
 from provisioner.utils import Package_manager, Package_type
-from tests.provisioner.models.test_inventory import CORRECT_INVENTORY
 from utils.enums import Component
 
 
@@ -31,10 +27,7 @@ def mock_logger():
 
 
 @pytest.fixture
-@patch("builtins.open", new_callable=mock_open, read_data=yaml.dump(CORRECT_INVENTORY))
-def component_info_valid(mock_open):
-    inventory = Inventory(inventory_path=Path("testing"), host_name="test_host")
-
+def component_info_valid(valid_inventory):
     dependencies = ["dependency1", "dependency2"]
     component_server = ComponentInfo(
         name=Component.WAZUH_SERVER,
@@ -49,7 +42,7 @@ def component_info_valid(mock_open):
     )
     package_type = Package_type.RPM
     return Provisioner(
-        inventory=inventory,
+        inventory=valid_inventory,
         certs=certs,
         components=[component_server],
         package_type=package_type,
