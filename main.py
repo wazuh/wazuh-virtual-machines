@@ -27,7 +27,7 @@ def parse_arguments():
     parser.add_argument("--inventory", required=False, help="Path to the inventory file")
     parser.add_argument("--packages-url-path", required=False, help="Path to the packages URL file")
     parser.add_argument("--package-type", required=False, default="rpm", choices=["rpm", "deb"])
-    parser.add_argument("--execute", required=False, default="all", choices=["provisioner", "configurer"])
+    parser.add_argument("--execute", required=False, default="all", choices=["provisioner", "configurer", "all"])
     parser.add_argument(
         "--arch",
         required=False,
@@ -68,9 +68,6 @@ def main():
         )
     if parsed_args.execute in ["configurer", "all"]:
         core_configurer_main(inventory_path=parsed_args.inventory)
-
-    if parsed_args.execute not in ["provisioner", "configurer", "all"]:
-        raise ValueError("Invalid value for --execute argument. Must be 'provisioner', 'configurer' or 'all'.")
 
 
 if __name__ == "__main__":

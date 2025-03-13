@@ -85,7 +85,6 @@ def main(
     - arch: Architecture type.
     - package_type: Type of the package.
     """
-    # parsed_args = parse_arguments()
     input = Input(
         component=component,
         inventory_path=inventory,

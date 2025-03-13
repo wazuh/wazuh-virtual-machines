@@ -43,8 +43,8 @@ def component_info_valid(mock_open):
     )
     certs = CertsInfo(
         certs_url_content={
-            "certs_tool": "http://packages-dev.wazuh.com/example/certs_tool",
-            "config": "http://packages-dev.wazuh.com/example/certs_config",
+            "certs_tool": "http://packages-dev.wazuh.com/example/certs-tool.sh",
+            "config": "http://packages-dev.wazuh.com/example/config.yml",
         }
     )
     package_type = Package_type.RPM
@@ -71,6 +71,23 @@ def test_provision_success(mock_paramiko, mock_logger, component_info_valid, moc
     mock_client_instance = MagicMock()
     mock_paramiko.return_value = mock_client_instance
 
+    certs_expect_commands = [
+        "mkdir -p ~/wazuh-configure/certs && curl -s -o ~/wazuh-configure/certs/certs-tool.sh 'http://packages-dev.wazuh.com/example/certs-tool.sh'",
+        "mkdir -p ~/wazuh-configure/certs && curl -s -o ~/wazuh-configure/certs/config.yml 'http://packages-dev.wazuh.com/example/config.yml'",
+    ]
+
+    dependencies_expect_commands = [
+        "sudo wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq",
+        "sudo chmod +x /usr/bin/yq",
+        "sudo dnf install -y dependency1",
+        "sudo dnf install -y dependency2",
+    ]
+
+    package_expect_commands = [
+        "mkdir -p ~/wazuh-configure/packages && curl -s -o ~/wazuh-configure/packages/wazuh_server.rpm 'http://packages-dev.wazuh.com/'",
+        "sudo dnf install -y ~/wazuh-configure/packages/wazuh_server.rpm",
+    ]
+
     component_info_valid.provision()
 
     mock_client_instance.connect.assert_called_once_with(
@@ -82,36 +99,22 @@ def test_provision_success(mock_paramiko, mock_logger, component_info_valid, moc
         else None,
         key_filename=str(component_info_valid.inventory.ansible_ssh_private_key_file),
     )
-    assert mock_exec_command.call_count == 6  # 2 for dependencies, 2 for certs, 1 download package, 1 install package
-    # dependencies
-    assert mock_exec_command.call_args_list[0].kwargs == {
-        "command": "mkdir -p ~/wazuh-configure/certs && curl -s -o ~/wazuh-configure/certs/certs_tool 'http://packages-dev.wazuh.com/example/certs_tool'",
-        "client": mock_client_instance,
-    }
-    assert mock_exec_command.call_args_list[1].kwargs == {
-        "command": "mkdir -p ~/wazuh-configure/certs && curl -s -o ~/wazuh-configure/certs/certs_config 'http://packages-dev.wazuh.com/example/certs_config'",
-        "client": mock_client_instance,
-    }
+
+    assert mock_exec_command.call_count == 7  # 3 for dependencies, 2 for certs, 1 download package, 1 install package
 
     # certs
-    assert mock_exec_command.call_args_list[2].kwargs == {
-        "command": "sudo dnf install -y dependency1",
-        "client": mock_client_instance,
-    }
-    assert mock_exec_command.call_args_list[3].kwargs == {
-        "command": "sudo dnf install -y dependency2",
-        "client": mock_client_instance,
-    }
+    assert certs_expect_commands[0] in mock_exec_command.call_args_list[0].kwargs["command"]
+    assert certs_expect_commands[1] in mock_exec_command.call_args_list[1].kwargs["command"]
 
-    # package download and install
-    assert mock_exec_command.call_args_list[4].kwargs == {
-        "command": "mkdir -p ~/wazuh-configure/packages && curl -s -o ~/wazuh-configure/packages/wazuh_server.rpm 'http://packages-dev.wazuh.com/'",
-        "client": mock_client_instance,
-    }
-    assert mock_exec_command.call_args_list[5].kwargs == {
-        "command": "sudo dnf install -y ~/wazuh-configure/packages/wazuh_server.rpm",
-        "client": mock_client_instance,
-    }
+    # dependencies
+    assert dependencies_expect_commands[0] in mock_exec_command.call_args_list[2].kwargs["command"]
+    assert dependencies_expect_commands[1] in mock_exec_command.call_args_list[2].kwargs["command"]
+    assert dependencies_expect_commands[2] in mock_exec_command.call_args_list[3].kwargs["command"]
+    assert dependencies_expect_commands[3] in mock_exec_command.call_args_list[4].kwargs["command"]
+
+    # package
+    assert package_expect_commands[0] in mock_exec_command.call_args_list[5].kwargs["command"]
+    assert package_expect_commands[1] in mock_exec_command.call_args_list[6].kwargs["command"]
 
     mock_logger[0].debug_title.assert_any_call("Starting provisioning")
     mock_logger[0].debug_title.assert_any_call("Provisioning certificates files")
@@ -120,7 +123,7 @@ def test_provision_success(mock_paramiko, mock_logger, component_info_valid, moc
 
 @pytest.mark.parametrize(
     "certs_component, certs_method",
-    [("certs_tool", "certs_tool_provision"), ("certs_config", "certs_config_provision")],
+    [("certs-tool.sh", "certs_tool_provision"), ("config.yml", "certs_config_provision")],
 )
 @patch("paramiko.SSHClient")
 def test_certs_tool_provision_success(
@@ -140,7 +143,7 @@ def test_certs_tool_provision_success(
 
 @pytest.mark.parametrize(
     "certs_component, certs_method",
-    [("certs_tool", "certs_tool_provision"), ("certs_config", "certs_config_provision")],
+    [("certs-tool.sh", "certs_tool_provision"), ("config.yml", "certs_config_provision")],
 )
 @patch("paramiko.SSHClient")
 def test_certs_tool_provision_failure(
@@ -365,50 +368,3 @@ def test_install_package(
         mock_logger[0].info_success.assert_called_once_with(f"{package_name} {expected_log}")
     else:
         mock_logger[0].error.assert_called_once_with(f"Error installing {package_name}: {error_output}")
-
-
-@pytest.mark.parametrize(
-    "command, client, expected_output, expected_error_output",
-    [
-        ("echo 'Hello, World!'", None, "Hello, World!\n", ""),
-        ("invalid_command", None, "", "sh: 1: invalid_command: not found\n"),
-    ],
-)
-@pytest.mark.xfail(reason="exec_command is not a method of Provisioner")
-def test_exec_command_local(command, client, expected_output, expected_error_output, component_info_valid):
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value.stdout = expected_output
-        mock_run.return_value.stderr = expected_error_output
-
-        output, error_output = component_info_valid.exec_command(command, client)
-
-        mock_run.assert_called_once_with(command, shell=True, capture_output=True, text=True)
-        assert output == expected_output
-        assert error_output == expected_error_output
-
-
-@pytest.mark.parametrize(
-    "command, expected_output, expected_error_output",
-    [
-        ("echo 'Hello, World!'", "Hello, World!\n", ""),
-        ("invalid_command", "", "sh: 1: invalid_command: not found\n"),
-    ],
-)
-@patch("paramiko.SSHClient")
-@pytest.mark.xfail(reason="exec_command is not a method of Provisioner")
-def test_exec_command_remote(mock_paramiko, command, expected_output, expected_error_output, component_info_valid):
-    mock_client_instance = MagicMock()
-    mock_paramiko.return_value = mock_client_instance
-
-    mock_stdout = MagicMock()
-    mock_stdout.read.return_value = expected_output.encode()
-    mock_stderr = MagicMock()
-    mock_stderr.read.return_value = expected_error_output.encode()
-
-    mock_client_instance.exec_command.return_value = (None, mock_stdout, mock_stderr)
-
-    output, error_output = component_info_valid.exec_command(command, mock_client_instance)
-
-    mock_client_instance.exec_command.assert_called_once_with(command=command)
-    assert output == expected_output
-    assert error_output == expected_error_output

@@ -13,8 +13,9 @@ from utils import CertificatesComponent
     ],
 )
 def test_valid_urls(component, url):
-    certs_info = CertsInfo(certs_url_content={component: url})
-    assert getattr(certs_info, f"{component.lower()}_url") == AnyUrl(url)
+    certs_info = CertsInfo(certs_url_content={component.name.lower(): url})
+    print(f"{certs_info}\n\n\n")
+    assert getattr(certs_info, f"{component.name.lower()}_url") == AnyUrl(url)
 
 
 @pytest.mark.parametrize(
@@ -44,4 +45,4 @@ def test_valid_urls(component, url):
 )
 def test_invalid_urls(component, url, error_msg):
     with pytest.raises(ValueError, match=error_msg):
-        getattr(CertsInfo(certs_url_content={component: url}), f"{component.lower()}_url")
+        getattr(CertsInfo(certs_url_content={component.name.lower(): url}), f"{component.name.lower()}_url")

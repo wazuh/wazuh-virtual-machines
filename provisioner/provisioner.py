@@ -120,7 +120,7 @@ class Provisioner:
 
         yq_arch = "amd64" if self.arch in [Component_arch.X86_64, Component_arch.AMD64] else "arm64"
         command = f"""
-            sudo wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_{yq_arch} -O /usr/bin/yq &&
+            sudo wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_{yq_arch} -O /usr/bin/yq
             sudo chmod +x /usr/bin/yq
         """
         self.install_package("yq", command, client)
