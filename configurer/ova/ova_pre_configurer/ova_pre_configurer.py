@@ -6,9 +6,12 @@ from .install_dependencies import main as install_dependencies_main
 
 logger = Logger("OVA PreConfigurer - Main module")
 
-def add_vagrant_box() -> None:
+VAGRANTFILE_PATH = "configurer/ova/ova_pre_configurer/static/Vagrantfile"
+VAGRANT_BOX_PATH = "al2023.box"
+
+def add_vagrant_box(box_path: str = VAGRANT_BOX_PATH) -> None:
     logger.info("Adding Vagrant box.")
-    run_command("vagrant box add --name al2023 /tmp/wazuh-virtual-machines/al2023.box")
+    run_command(f"vagrant box add --name al2023 {box_path}")
     
 def destroy_previous_vms():
     logger.info("Destroying previous VMs.")
@@ -23,7 +26,7 @@ def destroy_previous_vms():
     for machine_id in machines:
         run_command(f"vagrant destroy {machine_id} -f")
         
-def run_vagrant_up(max_retries=100) -> True | False:
+def run_vagrant_up(max_retries: int = 100) -> bool:
     attempts = 0
     while attempts < max_retries:
         attempts += 1
@@ -44,14 +47,14 @@ def run_vagrant_up(max_retries=100) -> True | False:
         
     return False
 
-def deploy_vm():
+def deploy_vm(vagrantfile_path: str = VAGRANTFILE_PATH) -> None:
     logger.info("Deploying VM.")
-    run_command("cp configuer/ova/ova_pre_configurer/Vagrantfile .", check=True)
+    run_command(f"cp {vagrantfile_path} .", check=True)
     add_vagrant_box()
     run_vagrant_up()
     
 
-def main():
+def main() -> None:
     logger.info("Starting OVA PreConfigurer.")
     logger.info("Installing dependencies.")
     install_dependencies_main()

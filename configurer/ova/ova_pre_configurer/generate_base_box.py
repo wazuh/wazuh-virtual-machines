@@ -10,21 +10,21 @@ logger = Logger("OVA PreConfigurer - Generate Base Box")
 OS_URL = "https://cdn.amazonlinux.com/al2023/os-images/latest/"
 OS = "al2023"
 
-def get_os_version():
-    result, _, _ = run_command(f"curl -I {OS_URL}")
+def get_os_version() -> str:
+    result, _, _ = run_command(f"curl -I {OS_URL}", output=True)
     for line in result[0].split("\n"):
-        if "Location" in line:
+        if "location" in line:
             return line.strip().split("/")[-2]
     return "latest"
 
-def check_dependencies():
+def check_dependencies() -> None:
     required_cmds = ["vboxmanage", "wget", "tar", "chroot"]
     for cmd in required_cmds:
         if not shutil.which(cmd):
             logger.error(f"Command {cmd} not found in PATH")
             raise Exception(f"Command {cmd} not found in PATH")
         
-def download_and_extract_ova(version, vmdk_filename, ova_filename):
+def download_and_extract_ova(version: str, vmdk_filename: str, ova_filename: str) -> None:
     if not os.path.exists(vmdk_filename):
         commands = [
             f"wget https://cdn.amazonlinux.com/al2023/os-images/{version}/vmware/{ova_filename}",
@@ -32,7 +32,7 @@ def download_and_extract_ova(version, vmdk_filename, ova_filename):
         ]
         run_command(commands)
 
-def convert_vmdk_to_raw(vmdk_filename, raw_file):
+def convert_vmdk_to_raw(vmdk_filename: str, raw_file: str) -> None:
     commands = [
         f"vboxmanage clonemedium {vmdk_filename} {raw_file} --format RAW",
         f"vboxmanage closemedium {vmdk_filename}",
@@ -72,7 +72,7 @@ def convert_raw_to_vdi(raw_file, vdi_file):
 def create_virtualbox_vm(vdi_file):
     commands = [
         f"vboxmanage createvm --name {OS} --ostype Linux26_64 --register",
-        f"vboxmanage modifyvm {OS} --memory 1024 --vram 16 audio none",
+        f"vboxmanage modifyvm {OS} --memory 1024 --vram 16 --audio-enabled off",
         f"vboxmanage storagectl {OS} --name IDE --add ide",
         f"vboxmanage storagectl {OS} --name SATA --add sata --portcount 1",
         f"vboxmanage storageattach {OS} --storagectl IDE --port 1 --device 0 --type dvddrive --medium emptydrive",
@@ -115,4 +115,3 @@ def main():
         
 if __name__ == "__main__":
     main()
-    
