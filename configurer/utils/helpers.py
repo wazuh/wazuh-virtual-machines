@@ -6,6 +6,15 @@ from utils.logger import Logger
 logger = Logger("Configurer helpers")
 
 def run_command(commands: Union[str, List[str]], check=False, output=False) -> Union[Tuple[List[str], List[str], List[int]], None]:    
+    """
+    Executes one or more shell commands.
+    Args:
+        commands (Union[str, List[str]]): A single command as a string or a list of commands to execute.
+        check (bool, optional): If True, raises a RuntimeError if any command produces an error output. Defaults to False.
+        output (bool, optional): If True, returns the stdout, stderr, and return codes of the executed commands in a list. Defaults to False.
+    Returns:
+        Union[Tuple[List[str], List[str], List[int]], None]: If output parameter is True, returns a tuple containing lists of stdout, stderr, and return codes for each command. Otherwise, returns None.
+    """
     if isinstance(commands, str):
         commands = [commands]
     

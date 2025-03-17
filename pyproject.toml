@@ -60,7 +60,7 @@ dependencies = [
 
 [tool.hatch.envs.ova]
 description = """
-Enviroment to be used for provisoner execution testing
+Enviroment to be used for OVA Preconfigurer execution testing
 """
 dependencies = [
     "pytest~=8.0",
@@ -85,4 +85,9 @@ validate = [ # The aim of this is to validate the code before pushing it to the 
 run = "python -m provisioner.main {args:}"
 
 [tool.hatch.envs.ova.scripts]
+ruff-format = "ruff format configurer/ova"
+ruff-format-check = "ruff format --diff --check configurer/ova"
+ruff-lint-check = "ruff check --diff --unsafe-fixes configurer/ova"
+ruff-lint = "ruff check --fix --unsafe-fixes configurer/ova"
+fix = ["ruff-format", "ruff-lint"]
 run = "python -m configurer.ova.ova_pre_configurer.ova_pre_configurer"

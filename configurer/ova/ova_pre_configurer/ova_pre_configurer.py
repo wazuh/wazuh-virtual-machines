@@ -9,24 +9,35 @@ logger = Logger("OVA PreConfigurer - Main module")
 VAGRANTFILE_PATH = "configurer/ova/ova_pre_configurer/static/Vagrantfile"
 VAGRANT_BOX_PATH = "al2023.box"
 
+
 def add_vagrant_box(box_path: str = VAGRANT_BOX_PATH) -> None:
+    """
+    This function adds the box with the name 'al2023' using the provided box path.
+
+    Args:
+        box_path (str): The path to the Vagrant box file. Defaults to VAGRANT_BOX_PATH.
+
+    Returns:
+        None
+    """
     logger.info("Adding Vagrant box.")
     run_command(f"vagrant box add --name al2023 {box_path}")
-    
-def destroy_previous_vms():
-    logger.info("Destroying previous VMs.")
-    result = run_command("vagrant global-status --prune | awk '/running|saved|poweroff/ {print $1}'", output=True)
-    machines = result[0].strip().split("\n")
-    machines = [m for m in machines if m]
-    
-    if not machines:
-        logger.info("No previous VMs found.")
-        return
 
-    for machine_id in machines:
-        run_command(f"vagrant destroy {machine_id} -f")
-        
+
 def run_vagrant_up(max_retries: int = 100) -> bool:
+    """
+    Attempts to start a Vagrant virtual machine by running the 'vagrant up' command.
+    If it fails, it destroys the Vagrant machine and retries the operation up to a specified number of times.
+
+    Args:
+        max_retries (int): The maximum number of attempts to start the Vagrant VM. Default is 100.
+
+    Returns:
+        bool: True if the Vagrant VM starts successfully, False otherwise.
+
+    Raises:
+        RuntimeError: If the Vagrant VM fails to start after the maximum number of retries.
+    """
     attempts = 0
     while attempts < max_retries:
         attempts += 1
@@ -35,35 +46,61 @@ def run_vagrant_up(max_retries: int = 100) -> bool:
         if returncode[0] == 0:
             logger.info_success("Vagrant VM started.")
             return True
-        
+
         logger.warning(f"Vagrant VM failed to start on attemtp {attempts}. Retrying...")
-        
+
         if attempts == max_retries:
             logger.error("Max attemps reached. Failed execution.")
             raise RuntimeError("Vagrant VM failed to start after maximum retries.")
-        
+
         logger.debug("Destroying Vagrant machine before retrying")
         run_command("vagrant destroy -f")
-        
+
     return False
 
+
 def deploy_vm(vagrantfile_path: str = VAGRANTFILE_PATH) -> None:
+    """
+    Deploys a virtual machine using Vagrant.
+
+    This function performs the following steps:
+    1. Copies the static Vagrantfile to the current directory.
+    2. Adds the Vagrant box.
+    3. Runs `vagrant up` to start the virtual machine.
+
+    Args:
+        vagrantfile_path (str): The path to the Vagrantfile. Defaults to the value of VAGRANTFILE_PATH.
+
+    Returns:
+        None
+    """
     logger.info("Deploying VM.")
     run_command(f"cp {vagrantfile_path} .", check=True)
     add_vagrant_box()
     run_vagrant_up()
-    
+
 
 def main() -> None:
+    """
+    Main function to run the OVA PreConfigurer process.
+    This function performs the following steps:
+    1. Runs Dependencies Installer module.
+    2. Generates the base box with Amazon Linux 2023.
+    3. Deploys the virtual machine using the previously generated Vagrant box.
+
+    Returns:
+        None
+    """
     logger.info("Starting OVA PreConfigurer.")
     logger.info("Installing dependencies.")
     install_dependencies_main()
-    
+
     logger.info("Generating base box.")
     generate_base_box_main()
-    
+
     deploy_vm()
     logger.info_success("OVA PreConfigurer completed.")
-    
+
+
 if __name__ == "__main__":
     main()
