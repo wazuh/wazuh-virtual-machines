@@ -18,6 +18,19 @@ class CoreConfigurer:
 
     @remote_connection
     def configure(self, client: paramiko.SSHClient | None = None):
+        """
+        Configures the core components and manages certificates.
+
+        This method performs the following steps:
+        1. Configures the Wazuh components (Indexer, Server, Dashboard) by replacing file entries
+        using the WazuhComponentConfigManager.
+        2. Generates certificates using the CertsManager and copy them to the current component certs directory.
+        3. Starts the Wazuh services.
+
+        Args:
+            client (paramiko.SSHClient | None): An optional SSH client to use for remote operations. Defaults to None.
+        """
+
         logger.debug_title("Starting core configuration process")
 
         logger.debug_title("Configuring components")

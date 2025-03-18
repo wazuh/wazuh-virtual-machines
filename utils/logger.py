@@ -9,6 +9,7 @@ class CustomFormatter(logging.Formatter):
         FMT (str): The default log message format.
         FORMATS (dict): A dictionary mapping log levels to their respective colored formats.
     """
+
     FMT = "{asctime} [{levelname:^7}] {name}: {message}"
     FORMATS = {
         logging.DEBUG: FMT,
@@ -23,7 +24,7 @@ class CustomFormatter(logging.Formatter):
         Format the specified log record as text with a colored output based on the log level.
         >>> DEBUG: gray
         >>> INFO: blue
-        >>> WARNING: yellow/orange
+        >>> WARNING: yellow / orange
         >>> ERROR: red
         >>> CRITICAL: bold red
 
@@ -43,6 +44,7 @@ class Logger(logging.Logger):
     Custom Logger class that extends the standard logging.Logger to provide additional functionality
     with colored output for different log levels.
     """
+
     def __init__(self, name: str):
         """
         Initialize the logger with the specified name.

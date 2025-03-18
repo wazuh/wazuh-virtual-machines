@@ -22,10 +22,12 @@ CORRECT_INVENTORY = {
     }
 }
 
+
 @pytest.fixture
 @patch("builtins.open", new_callable=mock_open, read_data=yaml.dump(CORRECT_INVENTORY))
 def valid_inventory(mock_open) -> Inventory:
     return Inventory(Path("mocked_path.yml"))
+
 
 @pytest.fixture()
 def mock_logger():
