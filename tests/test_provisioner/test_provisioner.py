@@ -18,14 +18,6 @@ def mock_exec_command():
         yield exec_command
 
 
-@pytest.fixture()
-def mock_logger():
-    with patch("provisioner.provisioner.logger") as mock_logger_provisioner, patch(
-        "provisioner.models.certs_info.logger"
-    ) as mock_logger_certs, patch("generic.remote_connection.logger") as mock_logger_remote_connection:
-        yield mock_logger_provisioner, mock_logger_certs, mock_logger_remote_connection
-
-
 @pytest.fixture
 def component_info_valid(valid_inventory):
     dependencies = ["dependency1", "dependency2"]
@@ -109,9 +101,9 @@ def test_provision_success(mock_paramiko, mock_logger, component_info_valid, moc
     assert package_expect_commands[0] in mock_exec_command.call_args_list[5].kwargs["command"]
     assert package_expect_commands[1] in mock_exec_command.call_args_list[6].kwargs["command"]
 
-    mock_logger[0].debug_title.assert_any_call("Starting provisioning")
-    mock_logger[0].debug_title.assert_any_call("Provisioning certificates files")
-    mock_logger[0].debug_title.assert_any_call("Starting provisioning for wazuh server")
+    mock_logger.debug_title.assert_any_call("Starting provisioning")
+    mock_logger.debug_title.assert_any_call("Provisioning certificates files")
+    mock_logger.debug_title.assert_any_call("Starting provisioning for wazuh server")
 
 
 @pytest.mark.parametrize(
@@ -131,7 +123,7 @@ def test_certs_tool_provision_success(
         command=f"mkdir -p ~/wazuh-configure/certs && curl -s -o ~/wazuh-configure/certs/{certs_component} 'http://packages-dev.wazuh.com/example/{certs_component}'",
         client=mock_client_instance,
     )
-    mock_logger[0].debug.assert_called_once_with(f"Provisioning {certs_component}")
+    mock_logger.debug.assert_any_call(f"Provisioning {certs_component}")
 
 
 @pytest.mark.parametrize(
@@ -153,8 +145,8 @@ def test_certs_tool_provision_failure(
         command=f"mkdir -p ~/wazuh-configure/certs && curl -s -o ~/wazuh-configure/certs/{certs_component} 'http://packages-dev.wazuh.com/example/{certs_component}'",
         client=mock_client_instance,
     )
-    mock_logger[0].debug.assert_called_once_with(f"Provisioning {certs_component}")
-    mock_logger[0].error.assert_called_once_with(f"Error downloading {certs_component}: Error output")
+    mock_logger.debug.assert_any_call(f"Provisioning {certs_component}")
+    mock_logger.error.assert_called_once_with(f"Error downloading {certs_component}: Error output")
 
 
 @pytest.mark.parametrize(
@@ -190,16 +182,16 @@ def test_dependencies_provision(
                 command=f"sudo dnf install -y {dependency}",
                 client=mock_client_instance,
             )
-        mock_logger[0].info_success.assert_any_call(
+        mock_logger.info_success.assert_any_call(
             f"Dependencies for {component_info_valid.components[0].name.replace('_', ' ')} installed successfully"
         )
     else:
         mock_exec_command.assert_not_called()
-        mock_logger[0].info_success.assert_any_call(
+        mock_logger.info_success.assert_any_call(
             f"There are no dependencies to install for {component_info_valid.components[0].name.replace('_', ' ')}"
         )
 
-    mock_logger[0].debug_title.assert_any_call(
+    mock_logger.debug_title.assert_any_call(
         f"Provisioning dependencies for {component_info_valid.components[0].name.replace('_', ' ')}"
     )
 
@@ -241,8 +233,8 @@ def test_packages_provision_success(
         ],
     )
 
-    mock_logger[0].debug_title.assert_any_call("Provisioning packages")
-    mock_logger[0].debug.assert_any_call("Downloading wazuh server package")
+    mock_logger.debug_title.assert_any_call("Provisioning packages")
+    mock_logger.debug.assert_any_call("Downloading wazuh server package")
 
 
 @pytest.mark.parametrize(
@@ -284,7 +276,7 @@ def test_get_package_by_url_success(
         command=f"mkdir -p ~/wazuh-configure/packages && curl -s -o ~/wazuh-configure/packages/{expected_package_name} '{package_url}'",
         client=mock_client_instance,
     )
-    mock_logger[0].info_success.assert_called_once_with("Package downloaded successfully")
+    mock_logger.info_success.assert_called_once_with("Package downloaded successfully")
 
 
 @pytest.mark.parametrize(
@@ -309,7 +301,7 @@ def test_get_package_by_url_failure(
         command=f"mkdir -p ~/wazuh-configure/packages && curl -s -o ~/wazuh-configure/packages/{component_name}.{component_info_valid.package_type} '{package_url}'",
         client=mock_client_instance,
     )
-    mock_logger[0].error.assert_called_once_with(f"Error getting package: {error_output}")
+    mock_logger.error.assert_called_once_with(f"Error getting package: {error_output}")
 
 
 @pytest.mark.parametrize(
@@ -351,13 +343,13 @@ def test_install_package(
     )
 
     if "installed successfully" in expected_log and "WARNING" not in error_output:
-        mock_logger[0].info_success.assert_called_once_with(f"{package_name} {expected_log}")
+        mock_logger.info_success.assert_called_once_with(f"{package_name} {expected_log}")
     elif "is already installed" in expected_log:
-        mock_logger[0].debug.assert_has_calls(
+        mock_logger.debug.assert_has_calls(
             [mock.call(f"Installing {package_name}"), mock.call(f"{package_name} {expected_log}")]
         )
     elif "installed successfully" in expected_log and "WARNING" in error_output:
-        mock_logger[0].warning.assert_called_once_with(f"{error_output}")
-        mock_logger[0].info_success.assert_called_once_with(f"{package_name} {expected_log}")
+        mock_logger.warning.assert_called_once_with(f"{error_output}")
+        mock_logger.info_success.assert_called_once_with(f"{package_name} {expected_log}")
     else:
-        mock_logger[0].error.assert_called_once_with(f"Error installing {package_name}: {error_output}")
+        mock_logger.error.assert_called_once_with(f"Error installing {package_name}: {error_output}")

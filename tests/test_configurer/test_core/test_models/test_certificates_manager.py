@@ -1,4 +1,3 @@
-import logging
 from enum import StrEnum
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -10,7 +9,6 @@ from configurer.core.utils import ComponentCertsConfigParameter, ComponentCertsD
 from configurer.core.utils.enums import ComponentConfigFile
 from utils import Component
 from utils.enums import RemoteDirectories
-from utils.logger import CustomFormatter, Logger
 
 RAW_CONFIG_PATH = Path("/path/to/config.yml")
 CERTS_TOOL_PATH = Path("/path/to/certs-tool.sh")
@@ -29,26 +27,6 @@ class MockConfigParameters(StrEnum):
     WAZUH_DASHBOARD_KEY = "dashboard.test.key"
     WAZUH_DASHBOARD_CERT = "dashboard.test.cert"
     WAZUH_DASHBOARD_CA = "dashboard.test.ca"
-
-
-@pytest.fixture
-def mock_logger():
-    with patch.object(logging.Logger, "error") as mock_error, patch.object(
-        logging.Logger, "info"
-    ) as mock_info, patch.object(logging.Logger, "debug") as mock_debug:
-        logger = Logger("test_logger")
-
-        handler = MagicMock(spec=logging.StreamHandler)
-        handler.level = logging.DEBUG
-        handler.formatter = MagicMock(spec=CustomFormatter)
-        handler.setFormatter = MagicMock(return_value=CustomFormatter())
-        logger.handlers.append(handler)
-
-        logger.mock_error = mock_error  # type: ignore
-        logger.mock_info = mock_info  # type: ignore
-        logger.mock_debug = mock_debug  # type: ignore
-
-        yield logger
 
 
 @pytest.fixture
@@ -114,8 +92,7 @@ def test_set_config_file_values_success(mock_exec_command, mock_logger, expected
     mock_exec_command.assert_called_once()
     assert response == expected_config_query
 
-    mock_logger.mock_debug.assert_called_once()
-    assert "Setting config file values" in mock_logger.mock_debug.call_args.args[0]
+    mock_logger.debug.assert_called_once_with("Setting config file values")
 
 
 def test_set_config_file_values_error(mock_exec_command, mock_logger, expected_config_query):
@@ -128,7 +105,7 @@ def test_set_config_file_values_error(mock_exec_command, mock_logger, expected_c
     mock_exec_command.assert_called_once()
     assert response == expected_config_query
 
-    assert "Error while setting config file values" in mock_logger.mock_error.call_args.args[0]
+    mock_logger.error.assert_called_once_with("Error while setting config file values")
 
 
 @pytest.mark.parametrize(
@@ -175,7 +152,7 @@ def test_get_name_cert_from_key_error(mock_exec_command, mock_logger):
     mock_exec_command.assert_called()
     assert command_response == expected_command
 
-    assert "Error while executing yq query" in mock_logger.mock_error.call_args.args[0]
+    mock_logger.error.assert_called_once_with("Error while executing yq query")
 
 
 @pytest.mark.parametrize(
@@ -354,7 +331,7 @@ def test_generate_certificates_success(
     )
     mock_copy_certs.assert_any_call(component=component, certs_name=mock_get_certs_name.return_value, client=None)
 
-    assert "Certificates generated successfully" in mock_logger.mock_info.call_args.args[0]
+    mock_logger.info_success.assert_any_call("Certificates generated successfully")
 
 
 def test_generate_certificates_error_during_generation(mock_exec_command):
@@ -404,7 +381,7 @@ def test_generate_certificates_error_during_copy(mock_get_certs_name, mock_copy_
 
     mock_copy_certs.assert_called()
 
-    assert "Error while copying certificates to wazuh server directory" in mock_logger.mock_error.call_args.args[0]
+    mock_logger.error.assert_any_call("Error while copying certificates to wazuh server directory")
 
 
 @pytest.mark.parametrize(

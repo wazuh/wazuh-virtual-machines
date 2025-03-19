@@ -1,5 +1,5 @@
 from pathlib import Path
-from unittest.mock import mock_open, patch
+from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 import yaml
@@ -29,9 +29,18 @@ def valid_inventory(mock_open) -> Inventory:
     return Inventory(Path("mocked_path.yml"))
 
 
-@pytest.fixture()
+@pytest.fixture
+def mock_open_file():
+    with patch("builtins.open", mock_open(read_data='{"test_key": "test_value"}')) as mocked_file:
+        yield mocked_file
+
+
+@pytest.fixture
 def mock_logger():
-    with patch("provisioner.provisioner.logger") as mock_logger_provisioner, patch(
-        "provisioner.models.certs_info.logger"
-    ) as mock_logger_certs, patch("generic.remote_connection.logger") as mock_logger_remote_connection:
-        yield mock_logger_provisioner, mock_logger_certs, mock_logger_remote_connection
+    mock = MagicMock()
+    with patch("provisioner.provisioner.logger", mock), patch("provisioner.models.certs_info.logger", mock), patch(
+        "generic.remote_connection.logger", mock
+    ), patch("configurer.core.models.wazuh_components_config_manager.logger", mock), patch(
+        "configurer.core.models.certificates_manager.logger", mock
+    ):
+        yield mock
