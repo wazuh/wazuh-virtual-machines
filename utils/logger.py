@@ -2,7 +2,7 @@ import logging
 
 
 class CustomFormatter(logging.Formatter):
-    FMT = "[{asctime}] [{levelname:^7}] {name}: {message}"
+    FMT = "{asctime} [{levelname:^7}] {name}: {message}"
     FORMATS = {
         logging.DEBUG: FMT,
         logging.INFO: f"\33[36m{FMT}\33[0m",
@@ -13,7 +13,7 @@ class CustomFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         log_fmt = self.FORMATS.get(record.levelno, self.FMT)
-        formatter = logging.Formatter(log_fmt, style="{", datefmt="%Y-%m-%d %H:%M:%S")
+        formatter = logging.Formatter(log_fmt, datefmt="%Y-%m-%d %H:%M:%S", style="{")
         return formatter.format(record)
 
 

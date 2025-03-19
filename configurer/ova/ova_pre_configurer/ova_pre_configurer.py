@@ -20,7 +20,7 @@ def add_vagrant_box(box_path: str = VAGRANT_BOX_PATH) -> None:
     Returns:
         None
     """
-    logger.info("Adding Vagrant box.")
+    logger.debug("Adding Vagrant box.")
     run_command(f"vagrant box add --name al2023 {box_path}")
 
 
@@ -74,7 +74,7 @@ def deploy_vm(vagrantfile_path: str = VAGRANTFILE_PATH) -> None:
     Returns:
         None
     """
-    logger.info("Deploying VM.")
+    logger.debug("Deploying VM.")
     run_command(f"cp {vagrantfile_path} .", check=True)
     add_vagrant_box()
     run_vagrant_up()
@@ -91,7 +91,7 @@ def main() -> None:
     Returns:
         None
     """
-    logger.info("Starting OVA PreConfigurer.")
+    logger.info("--- Starting OVA PreConfigurer ---")
     logger.info("Installing dependencies.")
     install_dependencies_main()
 

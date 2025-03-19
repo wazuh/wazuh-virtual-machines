@@ -1,6 +1,7 @@
 import os
 import shutil
 import tempfile
+from pathlib import Path
 from typing import List
 
 from configurer.utils import run_command
@@ -83,7 +84,7 @@ def convert_vmdk_to_raw(vmdk_filename: str, raw_file: str) -> None:
     run_command(commands)
 
 
-def mount_and_setup_image(raw_file, mount_dir) -> None:
+def mount_and_setup_image(raw_file: str, mount_dir: str) -> None:
     """
     Mounts a raw disk image to a specified directory, sets up the environment for the setup script,
     runs a configuration script in a chroot environment, and then unmounts everything.
@@ -98,13 +99,13 @@ def mount_and_setup_image(raw_file, mount_dir) -> None:
     run_command(f"mount -o loop,offset=12582912 {raw_file} {mount_dir}")
     create_isolate_setup_configuration(mount_dir)
     commands = [
-        f"mount -o bind /dev {os.path.join(mount_dir, 'dev')}",
-        f"mount -o bind /proc {os.path.join(mount_dir, 'proc')}",
-        f"mount -o bind /sys {os.path.join(mount_dir, 'sys')}",
+        f"mount -o bind /dev {Path(mount_dir) / 'dev'}",
+        f"mount -o bind /proc {Path(mount_dir) / 'proc'}",
+        f"mount -o bind /sys {Path(mount_dir) / 'sys'}",
         f"chroot {mount_dir} python3 -m configurer.ova.ova_pre_configurer.setup",
-        f"umount {os.path.join(mount_dir, 'sys')}",
-        f"umount {os.path.join(mount_dir, 'proc')}",
-        f"umount {os.path.join(mount_dir, 'dev')}",
+        f"umount {Path(mount_dir) / 'sys'}",
+        f"umount {Path(mount_dir) / 'proc'}",
+        f"umount {Path(mount_dir) / 'dev'}",
         f"umount {mount_dir}",
     ]
     run_command(commands)
@@ -123,9 +124,7 @@ def create_isolate_setup_configuration(dir_name: str = "isolate_setup") -> None:
     commands = [
         f"mkdir -p {dir_name}/configurer/ova/ova_pre_configurer",
         f"mkdir -p {dir_name}/configurer/utils",
-        f"mkdir -p {dir_name}/utils",
         f"cp configurer/ova/ova_pre_configurer/setup.py {dir_name}/configurer/ova/ova_pre_configurer/",
-        f"cp utils/logger.py {dir_name}/utils/",
         f"cp configurer/utils/helpers.py {dir_name}/configurer/utils/",
     ]
     run_command(commands, check=True)
@@ -217,6 +216,8 @@ def main() -> None:
     Raises:
         Any exceptions that occur during the process will be handled in the cleanup step.
     """
+    logger.info("--- Generating Base Box ---")
+    
     check_dependencies()
     version = get_os_version()
     ova_filename = f"{OS}-vmware_esx-{version}-kernel-6.1-x86_64.xfs.gpt.ova"
@@ -236,6 +237,8 @@ def main() -> None:
         package_vagrant_box()
     finally:
         cleanup(temp_dirs)
+    
+    logger.info_success("Base box generation completed.")
 
 
 if __name__ == "__main__":

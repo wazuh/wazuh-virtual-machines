@@ -3,9 +3,6 @@ import shutil
 import subprocess
 
 from configurer.utils.helpers import run_command
-from utils.logger import Logger
-
-logger = Logger("OVA PreConfigurer - Setup")
 
 VAGRANT_KEY_URL = "https://raw.githubusercontent.com/hashicorp/vagrant/main/keys/vagrant.pub"
 

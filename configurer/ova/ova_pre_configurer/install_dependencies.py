@@ -30,7 +30,7 @@ def update_packages() -> None:
     Returns:
         None
     """
-    logger.info("Updating all system packages.")
+    logger.debug("Updating all system packages.")
     run_command("sudo yum update -y")
 
 
@@ -59,7 +59,7 @@ def download_virtualbox_installer() -> None:
         response = requests.get(version_url)
         response.raise_for_status()
         latest_version = response.text.strip()
-        logger.info(f"Latest VirtualBox version: {latest_version}")
+        logger.debug(f"Latest VirtualBox version: {latest_version}")
     except requests.exceptions.RequestException as e:
         logger.error(f"Error getting latest VirtualBox version: {e}")
         raise RuntimeError("Error getting latest VirtualBox version.") from e
@@ -81,9 +81,9 @@ def download_virtualbox_installer() -> None:
             with open(dest, "wb") as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
-            logger.info(f"VirtualBox installer version {latest_version} downloaded to {dest}")
+            logger.debug(f"VirtualBox installer version {latest_version} downloaded to {dest}")
 
-            logger.info("Making installer executable.")
+            logger.debug("Making installer executable.")
             os.chmod(dest, 0o755)
 
         else:
@@ -102,10 +102,10 @@ def install_required_packages() -> None:
     Returns:
         None
     """
-    logger.info(f"Installing required packages: {', '.join(REQUIRED_PACKAGES)}")
+    logger.debug(f"Installing required packages: {', '.join(REQUIRED_PACKAGES)}")
     run_command("sudo yum install -y " + " ".join(REQUIRED_PACKAGES))
 
-    logger.info("Installing Development tools.")
+    logger.debug("Installing Development tools.")
     run_command("sudo yum groupinstall 'Development Tools' -y")
 
 
@@ -116,7 +116,7 @@ def run_virtualbox_installer() -> None:
     Returns:
         None
     """
-    logger.info("Running VirtualBox installer.")
+    logger.debug("Running VirtualBox installer.")
     run_command("sudo bash /tmp/VirtualBox-*.run")
 
 
@@ -127,7 +127,7 @@ def rebuild_virtualbox_kernel_modules() -> None:
     Returns:
         None
     """
-    logger.info("Rebuilding VirtualBox kernel modules.")
+    logger.debug("Rebuilding VirtualBox kernel modules.")
     run_command("sudo /sbin/vboxconfig")
 
 
@@ -138,7 +138,7 @@ def install_vagrant() -> None:
     Returns:
         None
     """
-    logger.info("Installing Vagrant.")
+    logger.debug("Installing Vagrant.")
     commands = [
         "sudo yum install -y yum-utils shadow-utils",
         f"sudo yum-config-manager --add-repo {VAGRANT_REPO_URL}",
@@ -171,6 +171,8 @@ def main() -> None:
     update_packages()
     rebuild_virtualbox_kernel_modules()
     install_vagrant()
+    
+    logger.info_success("Dependencies installed successfully.")
 
 
 if __name__ == "__main__":
