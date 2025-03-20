@@ -93,6 +93,7 @@ class WazuhComponentConfigManager:
                     command = f"sudo yq -i '{key} = \"{value}\" {addon}' {filepath}"
                     output, error_output = exec_command(command=command, client=client)
                     if error_output:
+                        logger.error(f"Error while replacing key:{key} with value:{value} in {filepath}")
                         raise ValueError(
                             f"Error while replacing key:{key} with value:{value} in {filepath}: {error_output}"
                         )
