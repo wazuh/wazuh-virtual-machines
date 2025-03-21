@@ -1,8 +1,8 @@
 import pydantic_core
 from pydantic import AnyUrl, BaseModel
 
-from provisioner.utils import AllowedUrlHost, Component, Component_arch, Package_type
-from utils import Logger
+from provisioner.utils import AllowedUrlHost, Component_arch, Package_type
+from utils import Component, Logger
 
 from .utils import check_correct_url
 

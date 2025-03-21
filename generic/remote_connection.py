@@ -1,9 +1,10 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from provisioner import Inventory
+    from models import Inventory
 
 from contextlib import contextmanager
+from typing import Union
 
 import paramiko
 
@@ -13,7 +14,18 @@ logger = Logger("Instance connection")
 
 
 @contextmanager
-def get_client(inventory: "Inventory"):
+def get_client(inventory: Union["Inventory", None] = None):
+    """
+    Establishes an SSH connection to a remote host using the provided inventory details.
+
+    Args:
+        inventory (Inventory): An object containing the connection details such as hostname, username, port,
+                               password, and private key file.
+
+    Yields:
+        paramiko.SSHClient: An active SSH client connection if the inventory is provided.
+        None: If no inventory is provided, indicating a local connection.
+    """
     if not inventory:
         logger.warning("No inventory provided. Using local connection")
         yield None
@@ -31,8 +43,6 @@ def get_client(inventory: "Inventory"):
             logger.info_success(f"Connected to host {inventory.ansible_host}")
 
             yield client
-        except Exception as e:
-            logger.error(f"Error connecting to host: {e}")
         finally:
             logger.info_success(f"Closing connection to host {inventory.ansible_host}")
             client.close()

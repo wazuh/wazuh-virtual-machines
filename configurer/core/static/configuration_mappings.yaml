@@ -1,0 +1,7 @@
+wazuh_indexer:
+  - path: /etc/wazuh-indexer/opensearch.yml 
+    replace:
+      keys:
+        - .["network.host"]
+      values:
+        - \"127.0.0.1\"

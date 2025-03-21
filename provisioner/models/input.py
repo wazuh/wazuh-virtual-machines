@@ -3,11 +3,12 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel
 
-from provisioner.utils import Component, Component_arch, Package_type
+from models import Inventory
+from provisioner.utils import Component_arch, Package_type
+from utils import Component
 
 from .certs_info import CertsInfo
 from .components_dependencies import ComponentsDependencies
-from .inventory import Inventory
 from .package_info import PackageInfo
 from .utils import format_certificates_urls_file, format_component_urls_file
 

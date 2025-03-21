@@ -1,7 +1,8 @@
 import pytest
 
 from provisioner.models.components_dependencies import ComponentsDependencies
-from provisioner.utils import Component, Package_manager, Package_type
+from provisioner.utils import Package_manager, Package_type
+from utils import Component
 
 
 def test_get_component_dependencies_success():

@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Create the Core Configurer Module for OVA and AMI ([#236](https://github.com/wazuh/wazuh-virtual-machines/pull/236))
 - Create the Provisioner Module for OVA and AMI ([#224](https://github.com/wazuh/wazuh-virtual-machines/pull/224))
 
 ### Changed

@@ -5,12 +5,13 @@ import pytest
 import yaml
 from pydantic import SecretStr
 
+from models import Inventory
 from provisioner.models.certs_info import CertsInfo
 from provisioner.models.components_dependencies import ComponentsDependencies
 from provisioner.models.input import Input
-from provisioner.models.inventory import Inventory
 from provisioner.models.package_info import PackageInfo
-from provisioner.utils import Component, Component_arch, Package_type
+from provisioner.utils import Component_arch, Package_type
+from utils import Component
 
 INPUT_EXAMPLE = Input(
     component=Component.WAZUH_INDEXER,

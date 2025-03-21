@@ -4,11 +4,10 @@ from typing import List
 import yaml
 
 from provisioner.utils import (
-    CertificatesComponent,
-    Component,
     Component_arch,
     Package_type,
 )
+from utils import CertificatesComponent, Component
 
 
 def file_to_dict(raw_urls_path: Path) -> dict:
