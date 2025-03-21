@@ -13,7 +13,7 @@ logger = Logger("CoreConfigurer")
 
 @dataclass
 class CoreConfigurer:
-    inventory: Inventory
+    inventory: Inventory | None
     files_configuration_path: Path
 
     @remote_connection

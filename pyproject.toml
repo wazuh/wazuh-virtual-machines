@@ -48,6 +48,12 @@ quote-style = "double"
 indent-style = "space"
 docstring-code-format = true
 
+[tool.coverage.run]
+omit = [
+    "*/tests/*",
+    "*/__init__.py",
+]
+
 [tool.hatch.envs.dev]
 description = """
 Enviroment to be used for testing all virtual-machines modules

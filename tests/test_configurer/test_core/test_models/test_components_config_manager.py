@@ -62,13 +62,13 @@ def test_component_mapping_with_valid_data(mapping_property, expected_mapping, m
 def test_component_mapping_without_data(mock_open_file, component_without_mapping):
     config_manager = WazuhComponentConfigManager(Path("test_path"))
     config_manager.config_mappings_file.pop(component_without_mapping)
-    
+
     for component in Component:
         if component != Component.ALL and component != component_without_mapping:
             assert getattr(config_manager, f"{component.split('_')[1]}_mapping") is not None
     assert getattr(config_manager, f"{component_without_mapping.split('_')[1]}_mapping") is None
-    
-    
+
+
 @pytest.mark.parametrize(
     "component, command_to_execute",
     [
@@ -112,4 +112,6 @@ def test_replace_file_fails_to_execute_command(mock_logger, mock_open_file, mock
     mock_exec_command.return_value = ("", "Error while replacing key:.key1 with value:value1 in /path/indexer/config")
     with pytest.raises(ValueError, match="Error while replacing key:.key1 with value:value1 in /path/indexer/config: "):
         config_manager.replace_file_entries(Component.WAZUH_INDEXER)
-        mock_logger.error.assert_called_once_with("Error while replacing key:.key1 with value:value1 in /path/indexer/config")
+        mock_logger.error.assert_called_once_with(
+            "Error while replacing key:.key1 with value:value1 in /path/indexer/config"
+        )

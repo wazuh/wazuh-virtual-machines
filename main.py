@@ -52,6 +52,22 @@ def parse_arguments():
 
 
 def main():
+    """
+    Main entry point for the script.
+
+    This function parses the command-line arguments and executes the appropriate
+    subcommands based on the `--execute` argument. It supports the following
+    subcommands:
+    - `provisioner`: Executes the provisioner logic, which requires the
+        `--packages-url-path` argument along with other optional arguments.
+    - `configurer`: Executes the core configurer logic.
+    - `all`: Executes both the provisioner and configurer logic.
+
+    Raises:
+            ValueError: If the `--packages-url-path` argument is missing when the
+            `provisioner` or `all` subcommand is executed.
+    """
+
     parsed_args = parse_arguments()
 
     if parsed_args.execute in ["provisioner", "all"]:

@@ -42,5 +42,5 @@ def mock_logger():
         "generic.remote_connection.logger", mock
     ), patch("configurer.core.models.wazuh_components_config_manager.logger", mock), patch(
         "configurer.core.models.certificates_manager.logger", mock
-    ):
+    ), patch("configurer.core.core_configurer.logger", mock):
         yield mock
