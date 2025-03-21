@@ -71,7 +71,7 @@ Enviroment to be used for testing and developing the provisioner module
 """
 template = "dev"
 
-[tool.hatch.envs.dev-configurer]
+[tool.hatch.envs.dev-core-configurer]
 description = """
 Enviroment to be used for testing and developing the configurer module
 """
@@ -92,7 +92,7 @@ validate = [ # The aim of this is to validate the code before pushing it to the 
 ]
 
 [tool.hatch.envs.dev-provisioner.scripts]
-test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=provisioner --cov-report term-missing:skip-covered tests/provisioner --cov-report=xml"
+test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=provisioner --cov-report term-missing:skip-covered tests/test_provisioner --cov-report=xml"
 ruff-format = "ruff format provisioner tests/provisioner"
 ruff-format-check = "ruff format --diff --check provisioner tests/provisioner"
 ruff-lint-check = "ruff check --diff --unsafe-fixes provisioner tests/provisioner"
@@ -101,7 +101,7 @@ run = "python -m main --execute provisioner {args:}"
 # fix and validate are not defined here because they are inherited from the dev environment.
 
 [tool.hatch.envs.dev-core-configurer.scripts]
-test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=core-configurer --cov-report term-missing:skip-covered tests/configurer/core--cov-report=xml"
+test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=configurer/core --cov-report term-missing:skip-covered tests/test_configurer/test_core --cov-report=xml"
 ruff-format = "ruff format configurer/core"
 ruff-format-check = "ruff format --diff --check configurer/core tests/configurer/core"
 ruff-lint-check = "ruff check --diff --unsafe-fixes configurer/core tests/configurer/core"

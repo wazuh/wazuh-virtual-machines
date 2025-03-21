@@ -10,18 +10,19 @@ DEPENDENCIES_FILE_PATH = Path("provisioner") / "static" / DEPENDENCIES_FILE_NAME
 
 def parse_arguments():
     """
-    Parse command-line arguments for the Component Provisioner.
+    Parse command-line arguments for the Provisioner and Configurer.
 
     Returns:
         argparse.Namespace: Parsed command-line arguments.
 
     Arguments:
         --inventory (str): Path to the inventory file (optional).
-        --packages-url-path (str): Path to the packages URL file (required).
+        --packages-url-path (str): Path to the packages URL file (required if the provisioner module will be executed).
         --package-type (str): Type of package to provision (optional, default: "rpm", choices: ["rpm", "deb"]).
         --arch (str): Architecture type (optional, default: "x86_64", choices: ["x86_64", "amd64", "arm64", "aarch64"]).
         --dependencies (str): Path to the dependencies file (optional, default: DEPENDENCIES_FILE_PATH).
         --component (str): Component to provision (optional, default: "all", choices: ["wazuh_indexer", "wazuh_server", "wazuh_dashboard", "all"]).
+        --execute (str): Module to execute (optional, default: "all", choices: ["provisioner", "configurer", "all"]).
     """
     parser = argparse.ArgumentParser(description="Component Provisioner")
     parser.add_argument("--inventory", required=False, help="Path to the inventory file")
