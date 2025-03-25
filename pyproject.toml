@@ -85,6 +85,7 @@ validate = [ # The aim of this is to validate the code before pushing it to the 
 run = "python -m provisioner.main {args:}"
 
 [tool.hatch.envs.ova.scripts]
+test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=configurer/ova --cov-report term-missing:skip-covered tests/test_configurer/test_ova --cov-report=xml"
 ruff-format = "ruff format configurer/ova"
 ruff-format-check = "ruff format --diff --check configurer/ova"
 ruff-lint-check = "ruff check --diff --unsafe-fixes configurer/ova"

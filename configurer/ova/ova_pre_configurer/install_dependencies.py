@@ -60,7 +60,7 @@ def download_virtualbox_installer() -> None:
         response.raise_for_status()
         latest_version = response.text.strip()
         logger.debug(f"Latest VirtualBox version: {latest_version}")
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
         logger.error(f"Error getting latest VirtualBox version: {e}")
         raise RuntimeError("Error getting latest VirtualBox version.") from e
 
@@ -69,7 +69,12 @@ def download_virtualbox_installer() -> None:
     try:
         response = requests.get(download_page_url)
         response.raise_for_status()
-
+        
+    except Exception as e:
+        logger.error(f"Error getting VirtualBox download page: {e}")
+        raise Exception("Error getting VirtualBox download page.") from e
+    
+    try: 
         match = re.search(rf"VirtualBox-{latest_version}-\d+-Linux_amd64.run", response.text)
         if match:
             installer_url = download_page_url + match.group(0)
@@ -88,11 +93,10 @@ def download_virtualbox_installer() -> None:
 
         else:
             logger.error("Could not find VirtualBox installer URL.")
-            raise Exception("Could not find VirtualBox installer URL.")
+            raise
 
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error getting VirtualBox download page: {e}")
-        raise RuntimeError("Error getting VirtualBox download page.") from e
+    except Exception as e:
+        raise Exception("Could not find VirtualBox installer URL.") from e
 
 
 def install_required_packages() -> None:
@@ -171,7 +175,7 @@ def main() -> None:
     update_packages()
     rebuild_virtualbox_kernel_modules()
     install_vagrant()
-    
+
     logger.info_success("Dependencies installed successfully.")
 
 

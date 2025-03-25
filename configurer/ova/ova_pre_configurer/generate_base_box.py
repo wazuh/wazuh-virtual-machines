@@ -24,9 +24,10 @@ def get_os_version() -> str:
         RuntimeError: If the OS version cannot be determined from the response.
     """
     result, _, _ = run_command(f"curl -I {OS_URL}", output=True)
-    for line in result[0].split("\n"):
-        if "location" in line:
-            return line.strip().split("/")[-2]
+    if result:
+        for line in result[0].split("\n"):
+            if "location" in line:
+                return line.strip().split("/")[-2]
     raise RuntimeError("Error getting OS version")
 
 
@@ -39,10 +40,15 @@ def check_dependencies() -> None:
         Exception: If any of the required commands are not found in the system's PATH.
     """
     required_cmds = ["vboxmanage", "wget", "tar", "chroot"]
+    missing_cmds = []
+    
     for cmd in required_cmds:
         if not shutil.which(cmd):
             logger.error(f"Command {cmd} not found in PATH")
-            raise Exception(f"Command {cmd} not found in PATH")
+            missing_cmds.append(cmd)
+            
+    if missing_cmds:
+        raise Exception(f"Commands {', '.join(missing_cmds)} not found in PATH")
 
 
 def download_and_extract_ova(version: str, vmdk_filename: str, ova_filename: str) -> None:
@@ -217,7 +223,7 @@ def main() -> None:
         Any exceptions that occur during the process will be handled in the cleanup step.
     """
     logger.info("--- Generating Base Box ---")
-    
+
     check_dependencies()
     version = get_os_version()
     ova_filename = f"{OS}-vmware_esx-{version}-kernel-6.1-x86_64.xfs.gpt.ova"
@@ -237,7 +243,7 @@ def main() -> None:
         package_vagrant_box()
     finally:
         cleanup(temp_dirs)
-    
+
     logger.info_success("Base box generation completed.")
 
 
