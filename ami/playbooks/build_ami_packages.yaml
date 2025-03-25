@@ -231,7 +231,7 @@
         indexer_indices:
           - wazuh-alerts
           - wazuh-archives
-          - wazuh-states-vulnerabilities
+          - wazuh-states
           - wazuh-statistics
           - wazuh-monitoring
 
