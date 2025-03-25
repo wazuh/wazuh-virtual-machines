@@ -1,55 +1,14 @@
-import argparse
 from pathlib import Path
 from typing import List
 
+from provisioner.utils.enums import Component_arch, Package_type
+from utils import Component
+
 from .models import ComponentInfo, Input
 from .provisioner import Provisioner
-from .utils import Component
 
 DEPENDENCIES_FILE_NAME = "wazuh_dependencies.yaml"
 DEPENDENCIES_FILE_PATH = Path(__file__).parent / "static" / DEPENDENCIES_FILE_NAME
-
-
-def parse_arguments():
-    """
-    Parse command-line arguments for the Component Provisioner.
-
-    Returns:
-        argparse.Namespace: Parsed command-line arguments.
-
-    Arguments:
-        --inventory (str): Path to the inventory file (optional).
-        --packages-url-path (str): Path to the packages URL file (required).
-        --package-type (str): Type of package to provision (optional, default: "rpm", choices: ["rpm", "deb"]).
-        --arch (str): Architecture type (optional, default: "x86_64", choices: ["x86_64", "amd64", "arm64", "aarch64"]).
-        --dependencies (str): Path to the dependencies file (optional, default: DEPENDENCIES_FILE_PATH).
-        --component (str): Component to provision (optional, default: "all", choices: ["wazuh_indexer", "wazuh_server", "wazuh_dashboard", "all"]).
-    """
-    parser = argparse.ArgumentParser(description="Component Provisioner")
-    parser.add_argument("--inventory", required=False, help="Path to the inventory file")
-    parser.add_argument("--packages-url-path", required=True, help="Path to the packages URL file")
-    parser.add_argument("--package-type", required=False, default="rpm", choices=["rpm", "deb"])
-    parser.add_argument(
-        "--arch",
-        required=False,
-        default="x86_64",
-        choices=["x86_64", "amd64", "arm64", "aarch64"],
-    )
-    parser.add_argument(
-        "--dependencies",
-        required=False,
-        default=DEPENDENCIES_FILE_PATH,
-        help="Path to the dependencies file",
-    )
-    parser.add_argument(
-        "--component",
-        required=False,
-        default="all",
-        choices=["wazuh_indexer", "wazuh_server", "wazuh_dashboard", "all"],
-        help="Component to provision",
-    )
-
-    return parser.parse_args()
 
 
 def get_component_info(input: Input, component: Component) -> ComponentInfo:
@@ -94,7 +53,14 @@ def parse_componets(input: Input) -> List[ComponentInfo]:
     return [get_component_info(input, input.component)]
 
 
-def main():
+def main(
+    packages_url_path: Path,
+    component: Component,
+    package_type: Package_type,
+    arch: Component_arch,
+    dependencies: Path,
+    inventory: Path | None = None,
+):
     """
     Main function to parse arguments, create an Input object, parse components, and provision the environment.
 
@@ -119,14 +85,13 @@ def main():
     - arch: Architecture type.
     - package_type: Type of the package.
     """
-    parsed_args = parse_arguments()
     input = Input(
-        component=parsed_args.component,
-        inventory_path=parsed_args.inventory,
-        packages_url_path=parsed_args.packages_url_path,
-        package_type=parsed_args.package_type,
-        arch=parsed_args.arch,
-        dependencies_path=parsed_args.dependencies,
+        component=component,
+        inventory_path=inventory,
+        packages_url_path=packages_url_path,
+        package_type=package_type,
+        arch=arch,
+        dependencies_path=dependencies,
     )
 
     components = parse_componets(input)
@@ -138,7 +103,3 @@ def main():
         arch=input.arch,
         package_type=input.package_type,
     ).provision()
-
-
-if __name__ == "__main__":
-    main()

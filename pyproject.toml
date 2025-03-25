@@ -21,6 +21,7 @@ pythonpath = ["."]
 [tool.ruff]
 line-length = 120
 indent-width = 4
+exclude = ["ova/"]
 
 [project.urls]
 Homepage = "https://wazuh.com/"
@@ -47,27 +48,21 @@ quote-style = "double"
 indent-style = "space"
 docstring-code-format = true
 
-[tool.hatch.envs.provisioner]
-description = """
-Enviroment to be used for provisoner execution testing
-"""
-dependencies = [
-    "pytest~=8.0",
-    "pytest-cov~=6.0",
-    "pytest-xdist",
-    "ruff",
+[tool.coverage.run]
+omit = [
+    "*/tests/*",
+    "*/__init__.py",
 ]
 
-[tool.hatch.envs.ova]
+[tool.hatch.envs.dev]
 description = """
-Enviroment to be used for OVA Preconfigurer execution testing
+Enviroment to be used for testing all virtual-machines modules
 """
 dependencies = [
     "pytest~=8.0",
     "pytest-cov~=6.0",
     "pytest-xdist",
     "ruff",
-    "requests"
 ]
 
 [tool.hatch.envs.provisioner.scripts]
@@ -76,15 +71,58 @@ ruff-format = "ruff format provisioner tests/provisioner"
 ruff-format-check = "ruff format --diff --check provisioner tests/provisioner"
 ruff-lint-check = "ruff check --diff --unsafe-fixes provisioner tests/provisioner"
 ruff-lint = "ruff check --fix --unsafe-fixes provisioner tests/provisioner"
+
+[tool.hatch.envs.dev-provisioner]
+description = """
+Enviroment to be used for testing and developing the provisioner module
+"""
+template = "dev"
+
+[tool.hatch.envs.dev-core-configurer]
+description = """
+Enviroment to be used for testing and developing the configurer module
+"""
+template = "dev"
+
+[tool.hatch.envs.dev-ova-configurer]
+description = """
+Enviroment to be used for OVA Preconfigurer execution testing
+"""
+template = "dev"
+
+[tool.hatch.envs.dev.scripts]
+test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=. --cov-report term-missing:skip-covered tests/ --cov-report=xml"
+ruff-format = "ruff format ."
+ruff-format-check = "ruff format --diff --check ."
+ruff-lint-check = "ruff check --diff --unsafe-fixes ."
+ruff-lint = "ruff check --fix --unsafe-fixes ."
+run = "python -m main {args:}"
 fix = ["ruff-format", "ruff-lint"] # The aim of this is to fix the code before pushing it to the repository. useful for local executions.
 validate = [ # The aim of this is to validate the code before pushing it to the repository. Useful for when running workflows.
     "- ruff-format-check",
     "- ruff-lint-check",
-     "- test-cov",
+    "- test-cov",
 ]
-run = "python -m provisioner.main {args:}"
 
-[tool.hatch.envs.ova.scripts]
+[tool.hatch.envs.dev-provisioner.scripts]
+test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=provisioner --cov-report term-missing:skip-covered tests/test_provisioner --cov-report=xml"
+ruff-format = "ruff format provisioner tests/provisioner"
+ruff-format-check = "ruff format --diff --check provisioner tests/provisioner"
+ruff-lint-check = "ruff check --diff --unsafe-fixes provisioner tests/provisioner"
+ruff-lint = "ruff check --fix --unsafe-fixes provisioner tests/provisioner"
+run = "python -m main --execute provisioner {args:}"
+# fix and validate are not defined here because they are inherited from the dev environment.
+
+[tool.hatch.envs.dev-core-configurer.scripts]
+test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=configurer/core --cov-report term-missing:skip-covered tests/test_configurer/test_core --cov-report=xml"
+ruff-format = "ruff format configurer/core"
+ruff-format-check = "ruff format --diff --check configurer/core tests/configurer/core"
+ruff-lint-check = "ruff check --diff --unsafe-fixes configurer/core tests/configurer/core"
+ruff-lint = "ruff check --fix --unsafe-fixes configurer/core"
+run = "python -m main --execute configurer {args:}"
+# fix and validate are not defined here because they are inherited from the dev environment.
+
+[tool.hatch.envs.dev-ova-configurer.scripts]
 test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=configurer/ova --cov-report term-missing:skip-covered tests/test_configurer/test_ova --cov-report=xml"
 ruff-format = "ruff format configurer/ova"
 ruff-format-check = "ruff format --diff --check configurer/ova"

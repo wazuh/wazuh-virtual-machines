@@ -5,7 +5,7 @@ import pytest
 import yaml
 from pydantic import SecretStr
 
-from provisioner.models.inventory import Inventory
+from models import Inventory
 
 CORRECT_INVENTORY = {
     "all": {

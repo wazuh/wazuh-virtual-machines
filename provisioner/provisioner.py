@@ -1,18 +1,14 @@
-import os
-import subprocess
 from dataclasses import dataclass
 from typing import List
-from urllib.parse import urlparse
 
 import paramiko
 from pydantic import AnyUrl
 
-from generic import remote_connection
-from provisioner.utils.enums import Component
-from utils import Logger
-
-from .models import CertsInfo, ComponentInfo, Inventory
-from .utils import Component_arch, Package_manager, Package_type, RemoteDirectories
+from generic import exec_command, remote_connection
+from models import Inventory
+from provisioner.models import CertsInfo, ComponentInfo
+from provisioner.utils import Component_arch, Package_manager, Package_type
+from utils import CertificatesComponent, Component, Logger, RemoteDirectories
 
 logger = Logger("Provisioner")
 
@@ -68,6 +64,10 @@ class Provisioner:
         self.certs_tool_provision(client)
         self.certs_config_provision(client)
 
+        logger.debug_title("Provisioning special dependencies")
+
+        self.special_dependencies_provision(client)
+
         for component in self.components:
             logger.debug_title(f"Starting provisioning for {component.name.replace('_', ' ')}")
             self.dependencies_provision(component, client)
@@ -84,7 +84,7 @@ class Provisioner:
         Args:
             client (paramiko.SSHClient): The SSH client used to connect to the remote machine.
         """
-        self.certificates_provision(self.certs.certs_tool_url, client)
+        self.certificates_provision(self.certs.certs_tool_url, CertificatesComponent.CERTS_TOOL, client)
 
     def certs_config_provision(self, client: paramiko.SSHClient | None = None) -> None:
         """
@@ -100,7 +100,30 @@ class Provisioner:
         Returns:
             None
         """
-        self.certificates_provision(self.certs.config_url, client)
+        self.certificates_provision(self.certs.config_url, CertificatesComponent.CONFIG, client)
+
+    def special_dependencies_provision(self, client: paramiko.SSHClient | None = None) -> None:
+        """
+        Provisions special dependencies on the specified client. These dependencies are installed
+        in a special way different from apt-get or dnf install. They can be dependencies of a
+        component itself or necessary for the execution of a module.
+        For now the special dependencies are:
+        - yq
+        Args:
+            client (paramiko.SSHClient): The SSH client used to connect to the remote machine.
+
+        Returns:
+            None
+        """
+
+        # Install yq
+
+        yq_arch = "amd64" if self.arch in [Component_arch.X86_64, Component_arch.AMD64] else "arm64"
+        command = f"""
+            sudo wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_{yq_arch} -O /usr/bin/yq
+            sudo chmod +x /usr/bin/yq
+        """
+        self.install_package("yq", command, client)
 
     def dependencies_provision(self, component: ComponentInfo, client: paramiko.SSHClient | None = None) -> None:
         """
@@ -155,7 +178,9 @@ class Provisioner:
             component.name.replace("_", " ").capitalize(),
         )
 
-    def certificates_provision(self, certs_file_url: AnyUrl, client: paramiko.SSHClient | None = None) -> None:
+    def certificates_provision(
+        self, certs_file_url: AnyUrl, filename: str, client: paramiko.SSHClient | None = None
+    ) -> None:
         """
         Downloads a certificate file (certs_tool or config) from a given URL and saves it to a remote directory on a server.
 
@@ -170,17 +195,16 @@ class Provisioner:
             Error message if the download fails.
             Success message if the download is successful.
         """
-        filename = os.path.basename(urlparse(str(certs_file_url)).path)
         logger.debug(f"Provisioning {filename}")
 
-        command_template = "mkdir -p {dir} && curl -s -o {path} '{filename}'"
+        command_template = "mkdir -p {dir} && curl -s -o {path} '{certs_file_url}'"
 
         command = command_template.format(
             dir=f"{RemoteDirectories.CERTS}",
             path=f"{RemoteDirectories.CERTS}/{filename}",
-            filename=certs_file_url,
+            certs_file_url=certs_file_url,
         )
-        output, error_output = self.exec_command(command=command, client=client)
+        output, error_output = exec_command(command=command, client=client)
 
         if error_output:
             logger.error(f"Error downloading {filename}: {error_output}")
@@ -249,7 +273,7 @@ class Provisioner:
         package_name = f"{component_name}.{self.package_type}"
         command = f"mkdir -p {RemoteDirectories.PACKAGES} && curl -s -o {RemoteDirectories.PACKAGES}/{package_name} '{package}'"
 
-        output, error_output = self.exec_command(command=command, client=client)
+        output, error_output = exec_command(command=command, client=client)
 
         if error_output:
             logger.error(f"Error getting package: {error_output}")
@@ -283,29 +307,15 @@ class Provisioner:
         package_alias = package_alias or package_name
         logger.debug(f"Installing {package_alias}")
 
-        output, error_output = self.exec_command(
-            command=command_template.format(package_name=package_name), client=client
-        )
+        output, error_output = exec_command(command=command_template.format(package_name=package_name), client=client)
 
-        if not output and not error_output:
-            logger.info_success(f"{package_alias} installed successfully")
-        elif "is already installed" in output:
+        if "is already installed" in output:
             logger.debug(f"{package_alias} is already installed")
         elif "WARNING" in error_output:
             logger.warning(f"{error_output}")
             logger.info_success(f"{package_alias} installed successfully")
+        elif not error_output:
+            logger.info_success(f"{package_alias} installed successfully")
         else:
             logger.error(f"Error installing {package_alias}: {error_output}")
             raise RuntimeError(f"Error installing {package_alias}")
-
-    def exec_command(self, command: str, client: paramiko.SSHClient | None = None) -> tuple[str, str]:
-        if not client:
-            result = subprocess.run(command, shell=True, capture_output=True, text=True)
-            output = result.stdout
-            error_output = result.stderr
-        else:
-            stdin, stdout, stderr = client.exec_command(command=command)
-            output = stdout.read().decode()
-            error_output = stderr.read().decode()
-
-        return output, error_output
