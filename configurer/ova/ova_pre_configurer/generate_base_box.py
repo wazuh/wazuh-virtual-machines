@@ -41,12 +41,12 @@ def check_dependencies() -> None:
     """
     required_cmds = ["vboxmanage", "wget", "tar", "chroot"]
     missing_cmds = []
-    
+
     for cmd in required_cmds:
         if not shutil.which(cmd):
             logger.error(f"Command {cmd} not found in PATH")
             missing_cmds.append(cmd)
-            
+
     if missing_cmds:
         raise Exception(f"Commands {', '.join(missing_cmds)} not found in PATH")
 
@@ -228,10 +228,12 @@ def main() -> None:
     version = get_os_version()
     ova_filename = f"{OS}-vmware_esx-{version}-kernel-6.1-x86_64.xfs.gpt.ova"
     vmdk_filename = f"{OS}-vmware_esx-{version}-kernel-6.1-x86_64.xfs.gpt-disk1.vmdk"
-    raw_file = os.path.join(tempfile.mkdtemp(), f"{OS}.raw")
-    vdi_file = os.path.join(tempfile.mkdtemp(), f"{OS}.vdi")
 
-    mount_dir = tempfile.mkdtemp()
+    current_dir = os.getcwd()
+    raw_file = os.path.join(current_dir, f"{OS}.raw")
+    vdi_file = os.path.join(current_dir, f"{OS}.vdi")
+    mount_dir = os.path.join(current_dir, "mount_dir")
+
     temp_dirs = [os.path.dirname(raw_file), os.path.dirname(vdi_file), mount_dir]
 
     try:

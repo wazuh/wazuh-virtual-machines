@@ -10,7 +10,7 @@ dependencies = [
     "paramiko",
     "pyyaml",
 ]
-requires-python = ">= 3.8"
+requires-python = ">= 3.12"
 description = "Wazuh - Virtual Machines (OVA and AMI)"
 license = {file = "LICENSE"}
 
