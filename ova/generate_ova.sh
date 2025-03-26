@@ -250,7 +250,7 @@ main() {
 
         # If the reference is HEAD, get the tag name
         if [ "${INSTALLATION_ASSISTANT_BRANCH}" == "HEAD" ]; then
-            INSTALLATION_ASSISTANT_BRANCH=$(git name-rev --tags --name-only $(git rev-parse HEAD))
+            INSTALLATION_ASSISTANT_BRANCH=$(git describe --tags --exact-match)
         fi
     fi
     if [ "${INSTALLATION_ASSISTANT_BRANCH:0:1}" == "v" ]; then
