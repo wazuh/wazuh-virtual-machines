@@ -9,7 +9,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- None
+- Updated the regular expression for the new indexes ([#240](https://github.com/wazuh/wazuh-virtual-machines/pull/240))
 
 ### Fixed
 
