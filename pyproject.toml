@@ -63,14 +63,8 @@ dependencies = [
     "pytest-cov~=6.0",
     "pytest-xdist",
     "ruff",
+    "requests",
 ]
-
-[tool.hatch.envs.provisioner.scripts]
-test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=provisioner --cov-report term-missing:skip-covered tests/provisioner --cov-report=xml"
-ruff-format = "ruff format provisioner tests/provisioner"
-ruff-format-check = "ruff format --diff --check provisioner tests/provisioner"
-ruff-lint-check = "ruff check --diff --unsafe-fixes provisioner tests/provisioner"
-ruff-lint = "ruff check --fix --unsafe-fixes provisioner tests/provisioner"
 
 [tool.hatch.envs.dev-provisioner]
 description = """

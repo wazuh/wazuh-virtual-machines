@@ -128,10 +128,8 @@ def test_cleanup_success(mock_run_command, mock_shutil_rmtree):
 
     cleanup(temp_dirs)
 
-    # Assert that shutil.rmtree was called for each directory
     mock_shutil_rmtree.assert_has_calls([call(temp_dir) for temp_dir in temp_dirs], any_order=True)
 
-    # Assert that run_command was called to unregister the VM
     mock_run_command.assert_called_once_with(f"vboxmanage unregistervm {OS} --delete")
 
 
@@ -171,7 +169,6 @@ def test_get_os_version_empty_response(mock_run_command):
 def test_check_dependencies_all_present():
     with patch("configurer.ova.ova_pre_configurer.generate_base_box.shutil.which", return_value=True) as mock_which:
         check_dependencies()
-        # Assert that shutil.which was called for each required command
         mock_which.assert_has_calls([call(cmd) for cmd in ["vboxmanage", "wget", "tar", "chroot"]], any_order=True)
 
 
@@ -186,9 +183,7 @@ def test_check_dependencies_missing_command():
             check_dependencies()
 
         print(mock_which.mock_calls)
-        # Assert that shutil.which was called for each required command
         mock_which.assert_has_calls([call(cmd) for cmd in ["vboxmanage", "wget", "tar", "chroot"]], any_order=True)
-        # Assert that the logger logged the missing command
         mock_logger_error.assert_called_once_with("Command wget not found in PATH")
 
 
@@ -197,12 +192,10 @@ def test_download_and_extract_ova_vmdk_exists(mock_os_path_exists, mock_run_comm
     vmdk_filename = "/path/to/existing.vmdk"
     ova_filename = "al2023-vmware_esx-2023.6.20250303.0-kernel-6.1-x86_64.xfs.gpt.ova"
 
-    # Simulate that the VMDK file already exists
     mock_os_path_exists.return_value = True
 
     download_and_extract_ova(version, vmdk_filename, ova_filename)
 
-    # Assert that run_command was not called since the VMDK file exists
     mock_run_command.assert_not_called()
     mock_os_path_exists.assert_called_once_with(vmdk_filename)
 
@@ -212,7 +205,6 @@ def test_download_and_extract_ova_vmdk_not_exists(mock_os_path_exists, mock_run_
     vmdk_filename = "/path/to/nonexistent.vmdk"
     ova_filename = "al2023-vmware_esx-2023.6.20250303.0-kernel-6.1-x86_64.xfs.gpt.ova"
 
-    # Simulate that the VMDK file does not exist
     mock_os_path_exists.return_value = False
 
     expected_commands = [
@@ -222,7 +214,6 @@ def test_download_and_extract_ova_vmdk_not_exists(mock_os_path_exists, mock_run_
 
     download_and_extract_ova(version, vmdk_filename, ova_filename)
 
-    # Assert that run_command was called with the correct commands
     mock_run_command.assert_called_once_with(expected_commands)
     mock_os_path_exists.assert_called_once_with(vmdk_filename)
 
@@ -253,49 +244,36 @@ def test_main_success(
     mock_logger_info,
     mock_logger_info_success,
 ):
-    # Mock the temporary directories
     mock_mkdtemp.side_effect = ["/tmp/raw_dir", "/tmp/vdi_dir", "/tmp/mount_dir"]
 
-    # Mock the OS version
     mock_get_os_version.return_value = "2023.6.20250303.0"
 
-    # Call the main function
     main()
 
-    # Assert that dependencies were checked
     mock_check_dependencies.assert_called_once()
 
-    # Assert that the OS version was retrieved
     mock_get_os_version.assert_called_once()
 
-    # Assert that the OVA file was downloaded and extracted
     mock_download_and_extract_ova.assert_called_once_with(
         "2023.6.20250303.0",
         "al2023-vmware_esx-2023.6.20250303.0-kernel-6.1-x86_64.xfs.gpt-disk1.vmdk",
         "al2023-vmware_esx-2023.6.20250303.0-kernel-6.1-x86_64.xfs.gpt.ova",
     )
 
-    # Assert that the VMDK file was converted to RAW
     mock_convert_vmdk_to_raw.assert_called_once_with(
         "al2023-vmware_esx-2023.6.20250303.0-kernel-6.1-x86_64.xfs.gpt-disk1.vmdk",
         "/tmp/raw_dir/al2023.raw",
     )
 
-    # Assert that the RAW file was mounted and set up
     mock_mount_and_setup_image.assert_called_once_with("/tmp/raw_dir/al2023.raw", "/tmp/mount_dir")
 
-    # Assert that the RAW file was converted to VDI
     mock_convert_raw_to_vdi.assert_called_once_with("/tmp/raw_dir/al2023.raw", "/tmp/vdi_dir/al2023.vdi")
 
-    # Assert that the VirtualBox VM was created
     mock_create_virtualbox_vm.assert_called_once_with("/tmp/vdi_dir/al2023.vdi")
 
-    # Assert that the Vagrant box was packaged
     mock_package_vagrant_box.assert_called_once()
 
-    # Assert that cleanup was called with the correct directories
     mock_cleanup.assert_called_once_with(["/tmp/raw_dir", "/tmp/vdi_dir", "/tmp/mount_dir"])
 
-    # Assert that the logger logged the start and success messages
     mock_logger_info.assert_called_once_with("--- Generating Base Box ---")
     mock_logger_info_success.assert_called_once_with("Base box generation completed.")
