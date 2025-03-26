@@ -197,8 +197,10 @@ def cleanup(temp_dirs: List[str]) -> None:
     Returns:
         None
     """
+    base_dir = "/home/ec2-user/wazuh-virtual-machines"
     for temp_dir in temp_dirs:
-        shutil.rmtree(temp_dir)
+        if os.path.abspath(temp_dir) != os.path.abspath(base_dir) and os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
     run_command(f"vboxmanage unregistervm {OS} --delete")
 
 
@@ -233,6 +235,7 @@ def main() -> None:
     raw_file = os.path.join(current_dir, f"{OS}.raw")
     vdi_file = os.path.join(current_dir, f"{OS}.vdi")
     mount_dir = os.path.join(current_dir, "mount_dir")
+    os.makedirs(mount_dir, exist_ok=True)
 
     temp_dirs = [os.path.dirname(raw_file), os.path.dirname(vdi_file), mount_dir]
 
