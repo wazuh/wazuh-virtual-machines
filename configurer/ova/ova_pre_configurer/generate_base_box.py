@@ -1,5 +1,6 @@
 import os
 import shutil
+import tempfile
 from pathlib import Path
 
 from configurer.utils import run_command
@@ -128,8 +129,10 @@ def create_isolate_setup_configuration(dir_name: str = "isolate_setup") -> None:
     commands = [
         f"mkdir -p {dir_name}/configurer/ova/ova_pre_configurer",
         f"mkdir -p {dir_name}/configurer/utils",
+        f"mkdir -p {dir_name}/utils",
         f"cp configurer/ova/ova_pre_configurer/setup.py {dir_name}/configurer/ova/ova_pre_configurer/",
         f"cp configurer/utils/helpers.py {dir_name}/configurer/utils/",
+        f"cp utils/logger.py {dir_name}/utils/",
     ]
     run_command(commands, check=True)
 
@@ -229,11 +232,10 @@ def main() -> None:
     ova_filename = f"{OS}-vmware_esx-{version}-kernel-6.1-x86_64.xfs.gpt.ova"
     vmdk_filename = f"{OS}-vmware_esx-{version}-kernel-6.1-x86_64.xfs.gpt-disk1.vmdk"
 
-    home_dir = Path.home()
-    raw_file = os.path.join(home_dir, f"{OS}.raw")
-    vdi_file = os.path.join(home_dir, f"{OS}.vdi")
-    mount_dir = os.path.join(home_dir, "mount_dir")
-    os.makedirs(mount_dir, exist_ok=True)
+    raw_file = os.path.join(tempfile.mkdtemp(), f"{OS}.raw")
+    vdi_file = os.path.join(tempfile.mkdtemp(), f"{OS}.vdi")
+
+    mount_dir = tempfile.mkdtemp()
 
     temp_dirs = [os.path.dirname(raw_file), os.path.dirname(vdi_file), mount_dir]
 
@@ -245,6 +247,7 @@ def main() -> None:
         create_virtualbox_vm(vdi_file)
         package_vagrant_box()
     finally:
+        logger.info("Executing cleanup.")
         cleanup(temp_dirs)
 
     logger.info_success("Base box generation completed.")
