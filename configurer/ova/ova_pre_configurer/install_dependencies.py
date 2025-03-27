@@ -69,12 +69,12 @@ def download_virtualbox_installer() -> None:
     try:
         response = requests.get(download_page_url)
         response.raise_for_status()
-        
+
     except Exception as e:
         logger.error(f"Error getting VirtualBox download page: {e}")
         raise Exception("Error getting VirtualBox download page.") from e
-    
-    try: 
+
+    try:
         match = re.search(rf"VirtualBox-{latest_version}-\d+-Linux_amd64.run", response.text)
         if match:
             installer_url = download_page_url + match.group(0)

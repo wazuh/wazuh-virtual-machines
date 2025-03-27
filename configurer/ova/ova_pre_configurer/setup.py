@@ -76,7 +76,7 @@ def install_guest_additions() -> None:
     run_command(commands)
 
     kernel_version = os.listdir("/lib/modules")[0]
-    vbox_version, _, _ = run_command("wget -q http://download.virtualbox.org/virtualbox/LATEST.TXT -O -",output=True)
+    vbox_version, _, _ = run_command("wget -q http://download.virtualbox.org/virtualbox/LATEST.TXT -O -", output=True)
 
     commands = [
         f"wget -nv https://download.virtualbox.org/virtualbox/{vbox_version[0]}/VBoxGuestAdditions_{vbox_version[0]}.iso -O /root/VBoxGuestAdditions.iso",

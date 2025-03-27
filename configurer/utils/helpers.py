@@ -1,11 +1,11 @@
 import subprocess
+from typing import Union, list, tuple
 
 from utils.logger import Logger
 
 logger = Logger("Configurer helpers")
 
-
-def run_command(commands: str | list[str], check=False, output=False) -> tuple[list[str], list[str], list[int]] | None:
+def run_command(commands: Union[str, list[str]], check=False, output=False) -> Union[tuple[list[str], list[str], list[int]], None]:  # noqa: UP007
     """
     Executes one or more shell commands.
     Args:
@@ -17,11 +17,11 @@ def run_command(commands: str | list[str], check=False, output=False) -> tuple[l
     """
     if isinstance(commands, str):
         commands = [commands]
-
+    
     stdout_list = []
     stderr_list = []
     returncode_list = []
-
+    
     for command in commands:
         logger.info(f"Executing: {command}")
         result = subprocess.run(command, capture_output=True, text=True, shell=True)
@@ -33,10 +33,10 @@ def run_command(commands: str | list[str], check=False, output=False) -> tuple[l
             logger.warning(f"Error output: {result.stderr}")
         else:
             logger.info_success("Command executed successfully.")
-
+            
         if output:
             stdout_list.append(result.stdout.strip())
             stderr_list.append(result.stderr.strip())
             returncode_list.append(result.returncode)
-
+    
     return (stdout_list, stderr_list, returncode_list) if output else None

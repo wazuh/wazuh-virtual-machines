@@ -107,9 +107,7 @@ def mount_and_setup_image(raw_file: str, mount_dir: str) -> None:
         f"mount -o bind /dev {Path(mount_dir) / 'dev'}",
         f"mount -o bind /proc {Path(mount_dir) / 'proc'}",
         f"mount -o bind /sys {Path(mount_dir) / 'sys'}",
-        f"cd {mount_dir}",
-        "hatch run dev-ova-configurer:run-setup",
-        f"cd {os.getcwd()}",
+        f"chroot {mount_dir} python3 -m configurer.ova.ova_pre_configurer.setup",
         f"umount {Path(mount_dir) / 'sys'}",
         f"umount {Path(mount_dir) / 'proc'}",
         f"umount {Path(mount_dir) / 'dev'}",
@@ -135,7 +133,6 @@ def create_isolate_setup_configuration(dir_name: str = "isolate_setup") -> None:
         f"cp configurer/ova/ova_pre_configurer/setup.py {dir_name}/configurer/ova/ova_pre_configurer/",
         f"cp configurer/utils/helpers.py {dir_name}/configurer/utils/",
         f"cp utils/logger.py {dir_name}/utils/",
-        f"cp pyproject.toml {dir_name}/",
     ]
     run_command(commands, check=True)
 
