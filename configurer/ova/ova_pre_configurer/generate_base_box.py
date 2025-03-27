@@ -1,8 +1,6 @@
 import os
 import shutil
-import tempfile
 from pathlib import Path
-from typing import List
 
 from configurer.utils import run_command
 from utils import Logger
@@ -187,7 +185,7 @@ def package_vagrant_box() -> None:
     run_command(commands)
 
 
-def cleanup(temp_dirs: List[str]) -> None:
+def cleanup(temp_dirs: list[str]) -> None:
     """
     Remove temporary directories and unregister the virtual machine in VirtualBox.
 
@@ -231,10 +229,10 @@ def main() -> None:
     ova_filename = f"{OS}-vmware_esx-{version}-kernel-6.1-x86_64.xfs.gpt.ova"
     vmdk_filename = f"{OS}-vmware_esx-{version}-kernel-6.1-x86_64.xfs.gpt-disk1.vmdk"
 
-    current_dir = os.getcwd()
-    raw_file = os.path.join(current_dir, f"{OS}.raw")
-    vdi_file = os.path.join(current_dir, f"{OS}.vdi")
-    mount_dir = os.path.join(current_dir, "mount_dir")
+    home_dir = Path.home()
+    raw_file = os.path.join(home_dir, f"{OS}.raw")
+    vdi_file = os.path.join(home_dir, f"{OS}.vdi")
+    mount_dir = os.path.join(home_dir, "mount_dir")
     os.makedirs(mount_dir, exist_ok=True)
 
     temp_dirs = [os.path.dirname(raw_file), os.path.dirname(vdi_file), mount_dir]
