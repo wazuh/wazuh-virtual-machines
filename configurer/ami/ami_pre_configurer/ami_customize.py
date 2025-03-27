@@ -16,6 +16,8 @@ class AmiCustomizer:
     wazuh_banner_path: Path
     cloud_config_path: Path = Path("/etc/cloud/cloud.cfg")
     ssh_config_path: Path = Path("/etc/ssh/sshd_config")
+    instance_update_logo_path: Path = Path("/etc/update-motd.d/70-available-updates")
+    motd_priority_file = Path("/etc/motd")
     instance_username: str = "ec2-user"
     wazuh_hostname: str = "wazuh-server"
     wazuh_user: str = "wazuh-user"
@@ -25,14 +27,13 @@ class AmiCustomizer:
     @remote_connection
     def customize(self, client: paramiko.SSHClient | None = None):
         if self.inventory.ansible_user != self.wazuh_user:
-            raise Exception(f"Before customizing the AMI, the Wazuh user  \"{self.wazuh_user}\" must be created")
-        
+            raise Exception(f'Before customizing the AMI, the Wazuh user  "{self.wazuh_user}" must be created')
+
         logger.debug_title("Starting AMI customization process")
         self.remove_default_instance_user(client=client)  # type: ignore
         self.configure_cloud_cfg(client=client)  # type: ignore
         self.update_hostname(client=client)  # type: ignore
-        self.set_wazuh_logo(client=client)  # type: ignore
-        
+        self.configure_motd_logo(client=client)  # type: ignore
 
         logger.info_success("AMI customization process finished")
 
@@ -54,35 +55,36 @@ class AmiCustomizer:
         output, error_output = exec_command(command=command, client=client)
 
         if error_output:
-            logger.error(f"Error creating wazuh user \"{self.wazuh_user}\"")
-            raise RuntimeError(f"Error creating wazuh user \"{self.wazuh_user}\": {error_output}")
-        
-        modify_file(filepath=Path("/etc/sudoers.d/90-cloud-init-users"), replacements=[(r"ec2-user", self.wazuh_user)], client=client)
-        
+            logger.error(f'Error creating wazuh user "{self.wazuh_user}"')
+            raise RuntimeError(f'Error creating wazuh user "{self.wazuh_user}": {error_output}')
+
+        modify_file(
+            filepath=Path("/etc/sudoers.d/90-cloud-init-users"),
+            replacements=[(r"ec2-user", self.wazuh_user)],
+            client=client,
+        )
+
         logger.debug(f"Changing inventory user to {self.wazuh_user}")
 
         self.inventory.ansible_user = self.wazuh_user
-        
-        logger.info_success(f"Wazuh user \"{self.wazuh_user}\" created successfully")
 
+        logger.info_success(f'Wazuh user "{self.wazuh_user}" created successfully')
 
     def remove_default_instance_user(self, client: paramiko.SSHClient):
         logger.debug(f"Removing default instance user: {self.instance_username}")
-        
+
         command = f"""
         sudo pkill -u {self.instance_username}
         sudo userdel -r {self.instance_username}
         """
-        
-        output, error_output = exec_command(command=command, client=client)
-        
-        if error_output:
-            logger.error(f"Error removing default instance user \"{self.instance_username}\"")
-            raise RuntimeError(f"Error removing default instance user \"{self.instance_username}\": {error_output}")
-        
-        logger.info_success(f"Default instance user \"{self.instance_username}\" removed successfully")
-        
 
+        output, error_output = exec_command(command=command, client=client)
+
+        if error_output:
+            logger.error(f'Error removing default instance user "{self.instance_username}"')
+            raise RuntimeError(f'Error removing default instance user "{self.instance_username}": {error_output}')
+
+        logger.info_success(f'Default instance user "{self.instance_username}" removed successfully')
 
     def configure_cloud_cfg(self, client: paramiko.SSHClient):
         logger.debug(f"Configuring cloud config file: {self.cloud_config_path}")
@@ -99,7 +101,7 @@ class AmiCustomizer:
         sudo cloud-init modules --mode=final
         """
         modify_file(filepath=self.cloud_config_path, replacements=replacements, client=client)
-        
+
         logger.debug("Executing cloud-init commands")
 
         output, error_output = exec_command(command=command, client=client)
@@ -108,7 +110,6 @@ class AmiCustomizer:
             raise RuntimeError(f"Error configuring cloud config {error_output}")
 
         logger.info_success("Cloud config file configured successfully")
-
 
     def update_hostname(self, client: paramiko.SSHClient):
         logger.debug("Updating hostname")
@@ -121,33 +122,81 @@ class AmiCustomizer:
             raise RuntimeError(f"Error updating hostname {error_output}")
         logger.info_success(f'Hostname updated successfully to "{self.wazuh_hostname}"')
 
+    def check_instance_updates(self, client: paramiko.SSHClient):
+        logger.debug("Checking for instance updates")
 
+        command = f"sudo cat {self.instance_update_logo_path}"
+        output, error_output = exec_command(command=command, client=client)
 
-    def set_wazuh_logo(self, client: paramiko.SSHClient):
+        if error_output and "No such file or directory" in error_output:
+            logger.error("Error checking for instance updates")
+            raise RuntimeError(f"Error checking for instance updates {error_output}")
+
+        if output:
+            logger.warning("Instance updates availables")
+            return True
+
+        logger.info("Instance is up to date")
+
+        return False
+
+    def update_instance(self, client: paramiko.SSHClient):
+        logger.debug("Updating instance")
+        command = """
+        sudo yum update -y
+        sudo dnf upgrade --assumeyes --releasever=latest
+        """
+
+        output, error_output = exec_command(command=command, client=client)
+        if error_output and "WARNING" not in error_output:
+            logger.error("Error updating instance")
+            raise RuntimeError(f"Error updating instance {error_output}")
+
+        logger.info_success("Instance updated successfully")
+
+    def configure_motd_logo(self, client: paramiko.SSHClient):
+        available_updates = self.check_instance_updates(client=client)
+        if available_updates:
+            self.update_instance(client=client)
+            self._remove_update_motd_logo(client=client)
+
+        self._set_wazuh_logo(client=client)
+
+    def _set_wazuh_logo(self, client: paramiko.SSHClient):
         logger.debug("Setting Wazuh logo")
 
-        default_instance_logo_path = Path("/usr/lib/motd.d/30-banner")
-        
-        banner_file_destination = f"/usr/lib/motd.d/{self.wazuh_banner_path.name}"
-        if client:
-            temporal_file_path = f"/tmp/{self.wazuh_banner_path.name}"
-            sftp = client.open_sftp()
-            try:
-                sftp.put(str(self.wazuh_banner_path), temporal_file_path)
-                command = f"sudo mv {temporal_file_path} {banner_file_destination}"
-            finally:
-                sftp.close()
-        else:
-            command = f"sudo cp {self.wazuh_banner_path} {banner_file_destination}"
+        wazuh_banner_file_destination = f"/usr/lib/motd.d/{self.wazuh_banner_path.name}"
 
-        command += f" && sudo rm {default_instance_logo_path}"
+        temporal_file_path = f"/tmp/{self.wazuh_banner_path.name}"
+        sftp = client.open_sftp()
+        try:
+            sftp.put(str(self.wazuh_banner_path), temporal_file_path)
+            command = f"""
+            sudo mv {temporal_file_path} {wazuh_banner_file_destination}
+            sudo chmod 755 {wazuh_banner_file_destination}
+            sudo chown root:root {wazuh_banner_file_destination}
+            sudo cat {wazuh_banner_file_destination} | sudo tee {self.motd_priority_file} > /dev/null
+            """
+        finally:
+            sftp.close()
 
         output, error_output = exec_command(command=command, client=client)
         if error_output:
-            logger.error("Error setting Wazuh MOTD banner")
-            raise RuntimeError(f"Error setting Wazuh MOTD banner {error_output}")
+            logger.error("Error setting Wazuh motd banner")
+            raise RuntimeError("Error setting Wazuh motd banner")
 
-        logger.info_success("Wazuh MOTD banner set successfully")
+        logger.info_success("Wazuh motd banner set successfully")
+
+    def _remove_update_motd_logo(self, client: paramiko.SSHClient):
+        logger.debug("Removing update motd logo")
+
+        output, error_output = exec_command(f"sudo rm -f {self.instance_update_logo_path}", client=client)
+
+        if error_output:
+            logger.error(f"Error removing update motd logo in path {self.instance_update_logo_path}")
+            raise RuntimeError(f"Error removing update motd logo {error_output}")
+
+        logger.info_success("Update motd logo removed successfully")
 
     def clean_up(self, client: paramiko.SSHClient | None = None):
         logger.debug("Cleaning up")
@@ -164,9 +213,11 @@ class AmiCustomizer:
         # """
         # logger.info_success("Clean up finished successfully")
 
+
 if __name__ == "__main__":
     inventory = Inventory(Path("/home/henry/work-wazuh/wazuh-repos/wazuh-virtual-machines/provisioner/inventory.yaml"))
-    # logger.debug(f"actual path: {Path(__file__).parent / "static" / "40-wazuh-banner"}")  
-    ami_customizer = AmiCustomizer(inventory=inventory, wazuh_banner_path=Path(__file__).parent / "static" / "40-wazuh-banner")
+    ami_customizer = AmiCustomizer(
+        inventory=inventory, wazuh_banner_path=Path(__file__).parent / "static" / "20-wazuh-banner"
+    )
     ami_customizer.create_wazuh_user()
     ami_customizer.customize()
