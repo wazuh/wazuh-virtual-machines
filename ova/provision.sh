@@ -6,7 +6,7 @@ DEBUG=$2
 INSTALLER="/tmp/wazuh-install.sh"
 SYSTEM_USER="wazuh-user"
 HOSTNAME="wazuh-server"
-INDEXES=("wazuh-alerts-*" "wazuh-archives-*" "wazuh-states-vulnerabilities-*" "wazuh-statistics-*" "wazuh-monitoring-*")
+INDEXES=("wazuh-alerts-*" "wazuh-archives-*" "wazuh-states-*" "wazuh-statistics-*" "wazuh-monitoring-*")
 
 CURRENT_PATH="$( cd $(dirname $0) ; pwd -P )"
 ASSETS_PATH="${CURRENT_PATH}/assets"
