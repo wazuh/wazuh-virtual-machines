@@ -108,7 +108,7 @@ def mount_and_setup_image(raw_file: str, mount_dir: str) -> None:
         f"mount -o bind /proc {Path(mount_dir) / 'proc'}",
         f"mount -o bind /sys {Path(mount_dir) / 'sys'}",
         f"cd {mount_dir}",
-        "hatch run dev-ova-configurer-setup:run-setup",
+        "hatch run dev-ova-configurer:run-setup",
         f"cd {os.getcwd()}",
         f"umount {Path(mount_dir) / 'sys'}",
         f"umount {Path(mount_dir) / 'proc'}",
