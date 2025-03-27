@@ -3,6 +3,7 @@ from pathlib import Path
 
 import paramiko
 
+from configurer.ami.ami_pre_configurer.utils import AmiLocalFilePath
 from generic import exec_command, modify_file, remote_connection
 from models import Inventory
 from utils import Logger
@@ -14,10 +15,15 @@ logger = Logger("AmiCustomizer")
 class AmiCustomizer:
     inventory: Inventory
     wazuh_banner_path: Path
+    local_set_ram_script_path: Path
+    local_update_indexer_heap_service_path: Path
     cloud_config_path: Path = Path("/etc/cloud/cloud.cfg")
     ssh_config_path: Path = Path("/etc/ssh/sshd_config")
     instance_update_logo_path: Path = Path("/etc/update-motd.d/70-available-updates")
     motd_priority_file = Path("/etc/motd")
+    journald_file_path = Path("/etc/systemd/journald.conf")
+    systemd_services_path = Path("/etc/systemd/system/")
+    ram_service_destination_script_path = Path("/etc")
     instance_username: str = "ec2-user"
     wazuh_hostname: str = "wazuh-server"
     wazuh_user: str = "wazuh-user"
@@ -34,6 +40,7 @@ class AmiCustomizer:
         self.configure_cloud_cfg(client=client)  # type: ignore
         self.update_hostname(client=client)  # type: ignore
         self.configure_motd_logo(client=client)  # type: ignore
+        self.stop_journald_log_storage(client=client)  # type: ignore
 
         logger.info_success("AMI customization process finished")
 
@@ -52,7 +59,7 @@ class AmiCustomizer:
         sudo chown {self.wazuh_user}:{self.wazuh_user} /home/{self.wazuh_user}/.ssh/authorized_keys
         """
 
-        output, error_output = exec_command(command=command, client=client)
+        _, error_output = exec_command(command=command, client=client)
 
         if error_output:
             logger.error(f'Error creating wazuh user "{self.wazuh_user}"')
@@ -78,7 +85,7 @@ class AmiCustomizer:
         sudo userdel -r {self.instance_username}
         """
 
-        output, error_output = exec_command(command=command, client=client)
+        _, error_output = exec_command(command=command, client=client)
 
         if error_output:
             logger.error(f'Error removing default instance user "{self.instance_username}"')
@@ -104,7 +111,7 @@ class AmiCustomizer:
 
         logger.debug("Executing cloud-init commands")
 
-        output, error_output = exec_command(command=command, client=client)
+        _, error_output = exec_command(command=command, client=client)
         if error_output:
             logger.error("Error configuring cloud config")
             raise RuntimeError(f"Error configuring cloud config {error_output}")
@@ -115,7 +122,7 @@ class AmiCustomizer:
         logger.debug("Updating hostname")
         command = f"sudo hostnamectl set-hostname {self.wazuh_hostname}"
 
-        output, error_output = exec_command(command=command, client=client)
+        _, error_output = exec_command(command=command, client=client)
 
         if error_output:
             logger.error("Error updating hostname")
@@ -147,7 +154,7 @@ class AmiCustomizer:
         sudo dnf upgrade --assumeyes --releasever=latest
         """
 
-        output, error_output = exec_command(command=command, client=client)
+        _, error_output = exec_command(command=command, client=client)
         if error_output and "WARNING" not in error_output:
             logger.error("Error updating instance")
             raise RuntimeError(f"Error updating instance {error_output}")
@@ -180,7 +187,7 @@ class AmiCustomizer:
         finally:
             sftp.close()
 
-        output, error_output = exec_command(command=command, client=client)
+        _, error_output = exec_command(command=command, client=client)
         if error_output:
             logger.error("Error setting Wazuh motd banner")
             raise RuntimeError("Error setting Wazuh motd banner")
@@ -190,7 +197,7 @@ class AmiCustomizer:
     def _remove_update_motd_logo(self, client: paramiko.SSHClient):
         logger.debug("Removing update motd logo")
 
-        output, error_output = exec_command(f"sudo rm -f {self.instance_update_logo_path}", client=client)
+        _, error_output = exec_command(f"sudo rm -f {self.instance_update_logo_path}", client=client)
 
         if error_output:
             logger.error(f"Error removing update motd logo in path {self.instance_update_logo_path}")
@@ -198,8 +205,28 @@ class AmiCustomizer:
 
         logger.info_success("Update motd logo removed successfully")
 
+    def stop_journald_log_storage(self, client: paramiko.SSHClient):
+        logger.debug("Stopping journald log storage")
+
+        parameters = [
+            ("#Storage=auto", "Storage=none"),
+            ("#ForwardToSyslog=yes", "ForwardToSyslog=yes"),
+        ]
+        modify_file(filepath=self.journald_file_path, replacements=parameters, client=client)
+
+        command = """
+        sudo systemctl restart systemd-journald
+        sudo journalctl --flush
+        """
+        _, error_output = exec_command(command=command, client=client)
+
+        if error_output:
+            logger.error("Error stopping journald log storage")
+            raise RuntimeError(f"Error stopping journald log storage: {error_output}")
+
     def clean_up(self, client: paramiko.SSHClient | None = None):
         logger.debug("Cleaning up")
+        # add ssh change port as well
         # command = """
         #     sudo yum clean all
         #     sudo rm -rf /var/log/*
@@ -217,7 +244,11 @@ class AmiCustomizer:
 if __name__ == "__main__":
     inventory = Inventory(Path("/home/henry/work-wazuh/wazuh-repos/wazuh-virtual-machines/provisioner/inventory.yaml"))
     ami_customizer = AmiCustomizer(
-        inventory=inventory, wazuh_banner_path=Path(__file__).parent / "static" / "20-wazuh-banner"
+        inventory=inventory,
+        wazuh_banner_path=Path(AmiLocalFilePath.WAZUH_BANNER_LOGO),
+        local_set_ram_script_path=Path(AmiLocalFilePath.SET_RAM_SCRIPT),
+        local_update_indexer_heap_service_path=Path(AmiLocalFilePath.UPDATE_INDEXER_HEAP_SERVICE),
     )
+
     ami_customizer.create_wazuh_user()
     ami_customizer.customize()
