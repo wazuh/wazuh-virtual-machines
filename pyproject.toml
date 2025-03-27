@@ -124,3 +124,4 @@ ruff-lint-check = "ruff check --diff --unsafe-fixes configurer/ova"
 ruff-lint = "ruff check --fix --unsafe-fixes configurer/ova"
 fix = ["ruff-format", "ruff-lint"]
 run = "python -m configurer.ova.ova_pre_configurer.ova_pre_configurer"
+run-setup = "python -m configurer.ova.ova_pre_configurer.setup"
