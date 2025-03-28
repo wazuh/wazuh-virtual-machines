@@ -177,7 +177,3 @@ def main() -> None:
     install_vagrant()
 
     logger.info_success("Dependencies installed successfully.")
-
-
-if __name__ == "__main__":
-    main()

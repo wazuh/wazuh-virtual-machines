@@ -251,7 +251,3 @@ def main() -> None:
         cleanup(temp_dirs)
 
     logger.info_success("Base box generation completed.")
-
-
-if __name__ == "__main__":
-    main()
