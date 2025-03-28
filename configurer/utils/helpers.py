@@ -1,5 +1,5 @@
 import subprocess
-from typing import Union, list, tuple
+from typing import Union
 
 from utils.logger import Logger
 

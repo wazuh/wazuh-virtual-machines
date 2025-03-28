@@ -77,8 +77,10 @@ def test_create_isolate_setup_configuration_success(mock_run_command):
     commands = [
         f"mkdir -p {dir_name}/configurer/ova/ova_pre_configurer",
         f"mkdir -p {dir_name}/configurer/utils",
+        f"mkdir -p {dir_name}/utils",
         f"cp configurer/ova/ova_pre_configurer/setup.py {dir_name}/configurer/ova/ova_pre_configurer/",
         f"cp configurer/utils/helpers.py {dir_name}/configurer/utils/",
+        f"cp utils/logger.py {dir_name}/utils/",
     ]
 
     create_isolate_setup_configuration(dir_name)
@@ -125,8 +127,9 @@ def test_package_vagrant_box_success(mock_run_command):
 
 def test_cleanup_success(mock_run_command, mock_shutil_rmtree):
     temp_dirs = ["/path/to/temp1", "/path/to/temp2", "/path/to/temp3"]
-
-    cleanup(temp_dirs)
+    
+    with patch("os.path.abspath", side_effect=lambda x: x), patch("os.path.exists", return_value=True):
+        cleanup(temp_dirs)
 
     mock_shutil_rmtree.assert_has_calls([call(temp_dir) for temp_dir in temp_dirs], any_order=True)
 
@@ -275,5 +278,6 @@ def test_main_success(
 
     mock_cleanup.assert_called_once_with(["/tmp/raw_dir", "/tmp/vdi_dir", "/tmp/mount_dir"])
 
-    mock_logger_info.assert_called_once_with("--- Generating Base Box ---")
+    mock_logger_info.assert_any_call("--- Generating Base Box ---")
+    mock_logger_info.assert_any_call("Executing cleanup.")
     mock_logger_info_success.assert_called_once_with("Base box generation completed.")
