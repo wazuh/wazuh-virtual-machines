@@ -3,7 +3,6 @@ from pathlib import Path
 
 import paramiko
 
-from configurer.ami.ami_pre_configurer.utils import AmiLocalFilePath
 from generic import exec_command, modify_file, remote_connection
 from models import Inventory
 from utils import Logger
@@ -23,7 +22,7 @@ class AmiCustomizer:
     motd_priority_file = Path("/etc/motd")
     journald_file_path = Path("/etc/systemd/journald.conf")
     systemd_services_path = Path("/etc/systemd/system/")
-    ram_service_destination_script_path = Path("/etc")
+    ram_service_script_destination_path = Path("/etc")
     instance_username: str = "ec2-user"
     wazuh_hostname: str = "wazuh-server"
     wazuh_user: str = "wazuh-user"
@@ -35,17 +34,18 @@ class AmiCustomizer:
         if self.inventory.ansible_user != self.wazuh_user:
             raise Exception(f'Before customizing the AMI, the Wazuh user  "{self.wazuh_user}" must be created')
 
-        logger.debug_title("Starting AMI customization process")
         self.remove_default_instance_user(client=client)  # type: ignore
         self.configure_cloud_cfg(client=client)  # type: ignore
         self.update_hostname(client=client)  # type: ignore
         self.configure_motd_logo(client=client)  # type: ignore
         self.stop_journald_log_storage(client=client)  # type: ignore
+        self.create_service_to_set_ram(client=client)  # type: ignore
 
         logger.info_success("AMI customization process finished")
 
     @remote_connection
-    def create_wazuh_user(self, client: paramiko.SSHClient | None = None):
+    def create_wazuh_user(self, client: paramiko.SSHClient | None = None) -> str:
+        logger.debug_title("Starting AMI customization process")
         logger.debug(f"Creating Wazuh user: {self.wazuh_user}")
 
         command = f"""
@@ -76,6 +76,8 @@ class AmiCustomizer:
         self.inventory.ansible_user = self.wazuh_user
 
         logger.info_success(f'Wazuh user "{self.wazuh_user}" created successfully')
+
+        return self.wazuh_user
 
     def remove_default_instance_user(self, client: paramiko.SSHClient):
         logger.debug(f"Removing default instance user: {self.instance_username}")
@@ -178,14 +180,18 @@ class AmiCustomizer:
         sftp = client.open_sftp()
         try:
             sftp.put(str(self.wazuh_banner_path), temporal_file_path)
-            command = f"""
+        except Exception as e:
+            logger.error("Error uploading Wazuh banner to the remote host")
+            raise RuntimeError(f"Error uploading Wazuh banner to the remote host: {str(e)}") from e
+        finally:
+            sftp.close()
+
+        command = f"""
             sudo mv {temporal_file_path} {wazuh_banner_file_destination}
             sudo chmod 755 {wazuh_banner_file_destination}
             sudo chown root:root {wazuh_banner_file_destination}
             sudo cat {wazuh_banner_file_destination} | sudo tee {self.motd_priority_file} > /dev/null
             """
-        finally:
-            sftp.close()
 
         _, error_output = exec_command(command=command, client=client)
         if error_output:
@@ -224,31 +230,33 @@ class AmiCustomizer:
             logger.error("Error stopping journald log storage")
             raise RuntimeError(f"Error stopping journald log storage: {error_output}")
 
-    def clean_up(self, client: paramiko.SSHClient | None = None):
-        logger.debug("Cleaning up")
-        # add ssh change port as well
-        # command = """
-        #     sudo yum clean all
-        #     sudo rm -rf /var/log/*
-        #     sudo rm -rf /tmp/*"
-        #     sudo rm -rf /var/cache/yum/*
-        #     sudo rm ~/.ssh/*"
-        #     sudo yum autoremove -y
-        #     sudo rm -rf /root/.ssh/*
-        #     cat /dev/null > /root/.bash_history && history -c
-        #     cat /dev/null > ~/.bash_history && history -c
-        # """
-        # logger.info_success("Clean up finished successfully")
+    def create_service_to_set_ram(self, client: paramiko.SSHClient):
+        logger.debug(f'Creating "{self.local_update_indexer_heap_service_path.name}" service')
 
+        sftp = client.open_sftp()
+        tmp_service_path = f"/tmp/{self.local_update_indexer_heap_service_path.name}"
+        tmp_ram_script_path = f"/tmp/{self.local_set_ram_script_path.name}"
+        try:
+            sftp.put(str(self.local_update_indexer_heap_service_path), tmp_service_path)
+            sftp.put(str(self.local_set_ram_script_path), tmp_ram_script_path)
 
-if __name__ == "__main__":
-    inventory = Inventory(Path("/home/henry/work-wazuh/wazuh-repos/wazuh-virtual-machines/provisioner/inventory.yaml"))
-    ami_customizer = AmiCustomizer(
-        inventory=inventory,
-        wazuh_banner_path=Path(AmiLocalFilePath.WAZUH_BANNER_LOGO),
-        local_set_ram_script_path=Path(AmiLocalFilePath.SET_RAM_SCRIPT),
-        local_update_indexer_heap_service_path=Path(AmiLocalFilePath.UPDATE_INDEXER_HEAP_SERVICE),
-    )
+        except Exception as e:
+            logger.error("Error uploading files to the remote host")
+            raise RuntimeError(f"Error uploading files to the remote host: {str(e)}") from e
+        finally:
+            sftp.close()
 
-    ami_customizer.create_wazuh_user()
-    ami_customizer.customize()
+        command = f"""
+        sudo mv {tmp_service_path} {self.systemd_services_path}/{self.local_update_indexer_heap_service_path.name}
+        sudo mv {tmp_ram_script_path} {self.ram_service_script_destination_path}/{self.local_set_ram_script_path.name}
+        sudo chmod 755 {self.ram_service_script_destination_path}/{self.local_set_ram_script_path.name}
+        sudo chmod 755 {self.systemd_services_path}/{self.local_update_indexer_heap_service_path.name}
+        sudo chown root:root {self.systemd_services_path}/{self.local_update_indexer_heap_service_path.name}
+        sudo systemctl --quiet enable {self.local_update_indexer_heap_service_path.name}
+        """
+        _, error_output = exec_command(command=command, client=client)
+        if error_output:
+            logger.error("Error creating service to set RAM")
+            raise RuntimeError(f"Error creating service to set RAM: {error_output}")
+
+        logger.info_success('"updateIndexerHeap" service created successfully')

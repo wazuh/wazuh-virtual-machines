@@ -73,7 +73,13 @@ template = "dev"
 
 [tool.hatch.envs.dev-core-configurer]
 description = """
-Enviroment to be used for testing and developing the configurer module
+Enviroment to be used for testing and developing the core configurer module
+"""
+template = "dev"
+
+[tool.hatch.envs.dev-ami-configurer]
+description = """
+Enviroment to be used for testing and developing the ami configurer module
 """
 template = "dev"
 
@@ -106,5 +112,14 @@ ruff-format = "ruff format configurer/core"
 ruff-format-check = "ruff format --diff --check configurer/core tests/configurer/core"
 ruff-lint-check = "ruff check --diff --unsafe-fixes configurer/core tests/configurer/core"
 ruff-lint = "ruff check --fix --unsafe-fixes configurer/core"
-run = "python -m main --execute configurer {args:}"
+run = "python -m main --execute core-configurer {args:}"
+# fix and validate are not defined here because they are inherited from the dev environment.
+
+[tool.hatch.envs.dev-ami-configurer.scripts]
+test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=configurer/ami --cov-report term-missing:skip-covered tests/test_configurer/test_ami --cov-report=xml"
+ruff-format = "ruff format configurer/ami"
+ruff-format-check = "ruff format --diff --check configurer/ami tests/configurer/ami"
+ruff-lint-check = "ruff check --diff --unsafe-fixes configurer/ami tests/configurer/ami"
+ruff-lint = "ruff check --fix --unsafe-fixes configurer/ami"
+run = "python -m main --execute ami-configurer {args:}"
 # fix and validate are not defined here because they are inherited from the dev environment.

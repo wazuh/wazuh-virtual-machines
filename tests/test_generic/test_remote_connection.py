@@ -30,7 +30,7 @@ def test_remote_connection_with_inventory(mock_paramiko, mock_logger, valid_inve
     assert result == mock_client
 
     # Verificar que se llamaron los logs correctamente
-    mock_logger.info_success.assert_any_call("Connected to host 127.0.0.1")
+    mock_logger.info_success.assert_any_call("Connected to host 127.0.0.1 with user test_user")
     mock_logger.info_success.assert_any_call("Closing connection to host 127.0.0.1")
 
 

@@ -52,3 +52,13 @@ def modify_file_remote(filepath: Path, replacements: List[tuple[str, str]], clie
             raise RuntimeError(f"Error writing to {filepath}: {error_output}")
     except Exception as e:
         raise RuntimeError(f"Failed to modify {filepath}: {str(e)}") from e
+
+
+def change_inventory_user(inventory_path: Path, new_user: str) -> None:
+    with open(inventory_path) as file:
+        content = file.read()
+
+    new_content = re.sub(r"(?<=ansible_user:).+", f" {new_user}", content)
+
+    with open(inventory_path, "w") as file:
+        file.write(new_content)

@@ -126,11 +126,22 @@ def test_main(mock_configurer, mock_provisioner, mock_parse_componets, mock_inpu
     mock_configurer.assert_not_called()
 
 
-def test_main_without_required_args():
-    test_args = ["main.py"]
+@pytest.mark.parametrize(
+    "module, error_message",
+    [
+        ("ami-configurer", '--inventory is required for the "ami-configurer" and "all" --execute value'),
+        ("core-configurer", ""),
+        ("provisioner", '--packages-url-path is required for the "provisioner" and "all" --execute value'),
+        ("all", '--packages-url-path is required for the "provisioner" and "all" --execute value'),
+    ],
+)
+def test_main_without_required_args(module, error_message):
+    test_args = ["main.py", "--execute", module]
     sys.argv = test_args
-    with pytest.raises(ValueError, match="Missing required argument --packages-url-path"):
-        main()
+
+    if module != "core-configurer":
+        with pytest.raises(ValueError, match=error_message):
+            main()
 
 
 @patch("main.core_configurer_main")
@@ -155,7 +166,7 @@ def test_main_execute_configurer(mock_provisioner_main, mock_configurer_main):
     test_args = [
         "main.py",
         "--execute",
-        "configurer",
+        "core-configurer",
     ]
     sys.argv = test_args
     main()
@@ -165,9 +176,15 @@ def test_main_execute_configurer(mock_provisioner_main, mock_configurer_main):
 
 @patch("main.core_configurer_main")
 @patch("main.provisioner_main")
-def test_main_execute_all(mock_provisioner_main, mock_configurer_main):
+@patch("main.ami_configurer_main")
+@patch("main.change_inventory_user")
+def test_main_execute_all(
+    mock_change_inventory_user, mock_ami_configurer_main, mock_provisioner_main, mock_configurer_main
+):
     test_args = [
         "main.py",
+        "--inventory",
+        "inventory.yaml",
         "--packages-url-path",
         "packages_url.yaml",
         "--execute",
@@ -175,5 +192,7 @@ def test_main_execute_all(mock_provisioner_main, mock_configurer_main):
     ]
     sys.argv = test_args
     main()
+    mock_ami_configurer_main.assert_called_once()
     mock_provisioner_main.assert_called_once()
     mock_configurer_main.assert_called_once()
+    mock_change_inventory_user.assert_called_once()
