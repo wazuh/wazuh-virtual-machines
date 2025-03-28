@@ -11,6 +11,9 @@ def configure_dns() -> None:
     This function removes the existing /etc/resolv.conf file if it exists,
     and then creates a new one with a single nameserver entry pointing to
     Google's public DNS server (8.8.8.8).
+    
+    Returns:
+        None
     """
     resolv_conf = "/etc/resolv.conf"
     if os.path.exists(resolv_conf):
@@ -29,6 +32,9 @@ def setup_user() -> None:
     5. Sets appropriate permissions for the .ssh directory and authorized_keys file.
     6. Changes ownership of the user's home directory to 'wazuh-user'.
     7. Grants 'wazuh-user' passwordless sudo privileges by creating a sudoers file.
+    
+    Returns:
+        None
     """
     commands = ["useradd -m -s /bin/bash wazuh-user", "echo 'wazuh-user:wazuh' | chpasswd"]
     run_command(commands)
@@ -147,6 +153,9 @@ def main() -> None:
     4. Installs guest additions.
     5. Configures SSH.
     6. Cleans up temporary files and settings.
+    
+    Returns:
+        None
     """
     configure_dns()
     setup_user()
