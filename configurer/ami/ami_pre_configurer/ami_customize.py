@@ -36,7 +36,7 @@ class AmiCustomizer:
     ssh_default_port: int = 22
 
     @remote_connection
-    def customize(self, client: paramiko.SSHClient | None = None):
+    def customize(self, client: paramiko.SSHClient | None = None) -> None:
         """
         Customizes the Amazon Machine Image (AMI) by performing a series of configuration steps.
 
@@ -51,6 +51,9 @@ class AmiCustomizer:
         Args:
             client (paramiko.SSHClient | None, optional): An optional SSH client instance to execute
                 remote commands. If not provided, the method assumes local execution.
+                
+        Returns:
+            None
         """
         if self.inventory.ansible_user != self.wazuh_user:
             raise Exception(f'Before customizing the AMI, the Wazuh user  "{self.wazuh_user}" must be created')
@@ -74,6 +77,9 @@ class AmiCustomizer:
 
         Args:
             client (paramiko.SSHClient): An active SSH client used to execute commands on the remote system.
+            
+        Returns:
+            str: The name of the created Wazuh user.
         """
 
         logger.debug_title("Starting AMI customization process")
@@ -110,7 +116,7 @@ class AmiCustomizer:
 
         return self.wazuh_user
 
-    def remove_default_instance_user(self, client: paramiko.SSHClient):
+    def remove_default_instance_user(self, client: paramiko.SSHClient) -> None:
         """
         Removes the default instance user from the system.
 
@@ -119,6 +125,9 @@ class AmiCustomizer:
 
         Args:
             client (paramiko.SSHClient): An active SSH client used to execute commands on the remote system.
+            
+        Returns:
+            None
         """
 
         logger.debug(f"Removing default instance user: {self.instance_username}")
@@ -136,7 +145,7 @@ class AmiCustomizer:
 
         logger.info_success(f'Default instance user "{self.instance_username}" removed successfully')
 
-    def configure_cloud_cfg(self, client: paramiko.SSHClient):
+    def configure_cloud_cfg(self, client: paramiko.SSHClient) -> None:
         """
         Configures the cloud-init configuration file on a remote machine via SSH.
 
@@ -146,6 +155,9 @@ class AmiCustomizer:
 
         Args:
             client (paramiko.SSHClient): An active SSH client connection to the remote machine.
+            
+        Returns:
+            None
         """
 
         logger.debug(f"Configuring cloud config file: {self.cloud_config_path}")
@@ -172,12 +184,15 @@ class AmiCustomizer:
 
         logger.info_success("Cloud config file configured successfully")
 
-    def update_hostname(self, client: paramiko.SSHClient):
+    def update_hostname(self, client: paramiko.SSHClient) -> None:
         """
         Updates the hostname of a remote machine using the provided SSH client.
 
         Args:
             client (paramiko.SSHClient): An active SSH client connected to the target machine.
+            
+        Returns:
+            None
         """
 
         logger.debug("Updating hostname")
@@ -218,7 +233,7 @@ class AmiCustomizer:
 
         return False
 
-    def update_instance(self, client: paramiko.SSHClient):
+    def update_instance(self, client: paramiko.SSHClient) -> None:
         """
         Updates the instance by running system update commands via SSH.
 
@@ -227,6 +242,9 @@ class AmiCustomizer:
 
         Args:
             client (paramiko.SSHClient): An active SSH client connected to the instance.
+            
+        Returns:
+            None
         """
 
         logger.debug("Updating instance")
@@ -242,7 +260,7 @@ class AmiCustomizer:
 
         logger.info_success("Instance updated successfully")
 
-    def configure_motd_logo(self, client: paramiko.SSHClient):
+    def configure_motd_logo(self, client: paramiko.SSHClient) -> None:
         """
         Configures the Message of the Day (MOTD) logo on the instance.
 
@@ -252,6 +270,8 @@ class AmiCustomizer:
         Args:
             client (paramiko.SSHClient): An active SSH client connected to the instance.
 
+        Returns:
+            None
         """
 
         available_updates = self.check_instance_updates(client=client)
@@ -261,7 +281,7 @@ class AmiCustomizer:
 
         self._set_wazuh_logo(client=client)
 
-    def _set_wazuh_logo(self, client: paramiko.SSHClient):
+    def _set_wazuh_logo(self, client: paramiko.SSHClient) -> None:
         """
         Sets the Wazuh logo as the Message of the Day (MOTD) banner on a remote host.
 
@@ -270,6 +290,9 @@ class AmiCustomizer:
 
         Args:
             client (paramiko.SSHClient): An active SSH client connection to the remote host.
+            
+        Returns:
+            None
         """
 
         logger.debug("Setting Wazuh logo")
@@ -300,12 +323,15 @@ class AmiCustomizer:
 
         logger.info_success("Wazuh motd banner set successfully")
 
-    def _remove_update_motd_logo(self, client: paramiko.SSHClient):
+    def _remove_update_motd_logo(self, client: paramiko.SSHClient) -> None:
         """
         Removes the update MOTD (Message of the Day) logo from the specified path on the remote instance.
 
         Args:
             client (paramiko.SSHClient): The SSH client used to connect to the remote instance.
+            
+        Returns:
+            None
         """
 
         logger.debug("Removing update motd logo")
@@ -320,7 +346,7 @@ class AmiCustomizer:
 
         logger.info_success("Update motd logo removed successfully")
 
-    def stop_journald_log_storage(self, client: paramiko.SSHClient):
+    def stop_journald_log_storage(self, client: paramiko.SSHClient) -> None:
         """
         Stops journald log storage by modifying the journald configuration file and restarting the service.
 
@@ -330,6 +356,9 @@ class AmiCustomizer:
 
         Args:
             client (paramiko.SSHClient): An active SSH client used to execute commands on the remote system.
+            
+        Returns:
+            None
         """
 
         logger.debug("Stopping journald log storage")
@@ -350,7 +379,7 @@ class AmiCustomizer:
             logger.error("Error stopping journald log storage")
             raise RuntimeError(f"Error stopping journald log storage: {error_output}")
 
-    def create_service_to_set_ram(self, client: paramiko.SSHClient):
+    def create_service_to_set_ram(self, client: paramiko.SSHClient) -> None:
         """
         Creates and configures a systemd service to set the appropiate ram usage for the indexer's jvm
         on a remote host.
@@ -361,6 +390,9 @@ class AmiCustomizer:
 
         Args:
             client (paramiko.SSHClient): An active SSH client connected to the remote host.
+            
+        Returns:
+            None
         """
 
         logger.debug(f'Creating "{self.local_update_indexer_heap_service_path.name}" service')
