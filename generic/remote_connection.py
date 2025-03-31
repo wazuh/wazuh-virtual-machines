@@ -40,7 +40,7 @@ def get_client(inventory: Union["Inventory", None] = None):
                 password=inventory.ansible_password.get_secret_value() if inventory.ansible_password else None,
                 key_filename=str(inventory.ansible_ssh_private_key_file),
             )
-            logger.info_success(f"Connected to host {inventory.ansible_host}")
+            logger.info_success(f"Connected to host {inventory.ansible_host} with user {inventory.ansible_user}")
 
             yield client
         finally:

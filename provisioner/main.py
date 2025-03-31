@@ -7,9 +7,6 @@ from utils import Component
 from .models import ComponentInfo, Input
 from .provisioner import Provisioner
 
-DEPENDENCIES_FILE_NAME = "wazuh_dependencies.yaml"
-DEPENDENCIES_FILE_PATH = Path(__file__).parent / "static" / DEPENDENCIES_FILE_NAME
-
 
 def get_component_info(input: Input, component: Component) -> ComponentInfo:
     """

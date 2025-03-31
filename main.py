@@ -1,7 +1,9 @@
 import argparse
 from pathlib import Path
 
+from configurer.ami import ami_configurer_main
 from configurer.core import core_configurer_main
+from generic import change_inventory_user
 from provisioner import provisioner_main
 
 DEPENDENCIES_FILE_NAME = "wazuh_dependencies.yaml"
@@ -22,13 +24,15 @@ def parse_arguments():
         --arch (str): Architecture type (optional, default: "x86_64", choices: ["x86_64", "amd64", "arm64", "aarch64"]).
         --dependencies (str): Path to the dependencies file (optional, default: DEPENDENCIES_FILE_PATH).
         --component (str): Component to provision (optional, default: "all", choices: ["wazuh_indexer", "wazuh_server", "wazuh_dashboard", "all"]).
-        --execute (str): Module to execute (optional, default: "all", choices: ["provisioner", "configurer", "all"]).
+        --execute (str): Module to execute (optional, default: "all", choices: ["provisioner", "core-configurer", "ami-configurer", "all"]).
     """
     parser = argparse.ArgumentParser(description="Component Provisioner")
     parser.add_argument("--inventory", required=False, help="Path to the inventory file")
     parser.add_argument("--packages-url-path", required=False, help="Path to the packages URL file")
     parser.add_argument("--package-type", required=False, default="rpm", choices=["rpm", "deb"])
-    parser.add_argument("--execute", required=False, default="all", choices=["provisioner", "configurer", "all"])
+    parser.add_argument(
+        "--execute", required=False, default="all", choices=["provisioner", "core-configurer", "ami-configurer", "all"]
+    )
     parser.add_argument(
         "--arch",
         required=False,
@@ -52,6 +56,14 @@ def parse_arguments():
     return parser.parse_args()
 
 
+def check_required_arguments(parsed_args):
+    if parsed_args.execute in ["provisioner", "all"] and not parsed_args.packages_url_path:
+        raise ValueError('--packages-url-path is required for the "provisioner" and "all" --execute value')
+
+    if parsed_args.execute in ["ami-configurer", "all"] and not parsed_args.inventory:
+        raise ValueError('--inventory is required for the "ami-configurer" and "all" --execute value')
+
+
 def main():
     """
     Main entry point for the script.
@@ -70,11 +82,13 @@ def main():
     """
 
     parsed_args = parse_arguments()
+    check_required_arguments(parsed_args)
+
+    if parsed_args.execute in ["ami-configurer", "all"]:
+        ami_configurer_main(inventory_path=parsed_args.inventory)
+        change_inventory_user(inventory_path=parsed_args.inventory, new_user="wazuh-user")
 
     if parsed_args.execute in ["provisioner", "all"]:
-        if not parsed_args.packages_url_path:
-            raise ValueError("Missing required argument --packages-url-path")
-
         provisioner_main(
             packages_url_path=Path(parsed_args.packages_url_path),
             package_type=parsed_args.package_type,
@@ -83,7 +97,8 @@ def main():
             component=parsed_args.component,
             inventory=parsed_args.inventory,
         )
-    if parsed_args.execute in ["configurer", "all"]:
+
+    if parsed_args.execute in ["core-configurer", "all"]:
         core_configurer_main(inventory_path=parsed_args.inventory)
 
 
