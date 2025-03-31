@@ -99,27 +99,27 @@ validate = [ # The aim of this is to validate the code before pushing it to the 
 
 [tool.hatch.envs.dev-provisioner.scripts]
 test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=provisioner --cov-report term-missing:skip-covered tests/test_provisioner --cov-report=xml"
-ruff-format = "ruff format provisioner tests/provisioner"
-ruff-format-check = "ruff format --diff --check provisioner tests/provisioner"
-ruff-lint-check = "ruff check --diff --unsafe-fixes provisioner tests/provisioner"
-ruff-lint = "ruff check --fix --unsafe-fixes provisioner tests/provisioner"
+ruff-format = "ruff format provisioner tests/test_provisioner"
+ruff-format-check = "ruff format --diff --check provisioner tests/test_provisioner"
+ruff-lint-check = "ruff check --diff --unsafe-fixes provisioner tests/test_provisioner"
+ruff-lint = "ruff check --fix --unsafe-fixes provisioner tests/test_provisioner"
 run = "python -m main --execute provisioner {args:}"
 # fix and validate are not defined here because they are inherited from the dev environment.
 
 [tool.hatch.envs.dev-core-configurer.scripts]
 test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=configurer/core --cov-report term-missing:skip-covered tests/test_configurer/test_core --cov-report=xml"
-ruff-format = "ruff format configurer/core"
-ruff-format-check = "ruff format --diff --check configurer/core tests/configurer/core"
-ruff-lint-check = "ruff check --diff --unsafe-fixes configurer/core tests/configurer/core"
-ruff-lint = "ruff check --fix --unsafe-fixes configurer/core"
+ruff-format = "ruff format configurer/core tests/test_configurer/core"
+ruff-format-check = "ruff format --diff --check configurer/core tests/test_configurer/core"
+ruff-lint-check = "ruff check --diff --unsafe-fixes configurer/core tests/test_configurer/core"
+ruff-lint = "ruff check --fix --unsafe-fixes configurer/core tests/test_configurer/core"
 run = "python -m main --execute core-configurer {args:}"
 # fix and validate are not defined here because they are inherited from the dev environment.
 
 [tool.hatch.envs.dev-ami-configurer.scripts]
 test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=configurer/ami --cov-report term-missing:skip-covered tests/test_configurer/test_ami --cov-report=xml"
-ruff-format = "ruff format configurer/ami"
-ruff-format-check = "ruff format --diff --check configurer/ami tests/configurer/ami"
-ruff-lint-check = "ruff check --diff --unsafe-fixes configurer/ami tests/configurer/ami"
-ruff-lint = "ruff check --fix --unsafe-fixes configurer/ami"
+ruff-format = "ruff format configurer/ami tests/test_configurer/test_ami"
+ruff-format-check = "ruff format --diff --check configurer/ami tests/test_configurer/test_ami"
+ruff-lint-check = "ruff check --diff --unsafe-fixes configurer/ami tests/test_configurer/test_ami"
+ruff-lint = "ruff check --fix --unsafe-fixes configurer/ami tests/test_configurer/test_ami"
 run = "python -m main --execute ami-configurer {args:}"
 # fix and validate are not defined here because they are inherited from the dev environment.

@@ -56,7 +56,7 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def check_required_argunments(parsed_args):
+def check_required_arguments(parsed_args):
     if parsed_args.execute in ["provisioner", "all"] and not parsed_args.packages_url_path:
         raise ValueError('--packages-url-path is required for the "provisioner" and "all" --execute value')
 
@@ -82,7 +82,7 @@ def main():
     """
 
     parsed_args = parse_arguments()
-    check_required_argunments(parsed_args)
+    check_required_arguments(parsed_args)
 
     if parsed_args.execute in ["ami-configurer", "all"]:
         ami_configurer_main(inventory_path=parsed_args.inventory)

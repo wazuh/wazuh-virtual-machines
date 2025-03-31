@@ -12,6 +12,12 @@ logger = Logger("AmiCustomizer")
 
 @dataclass
 class AmiCustomizer:
+    """
+    AmiCustomizer is a class responsible for customizing an Amazon Machine Image (AMI) for Wazuh.
+    It provides methods to configure the AMI environment, including user management, hostname updates,
+    cloud configuration, and system services.
+    """
+
     inventory: Inventory
     wazuh_banner_path: Path
     local_set_ram_script_path: Path
@@ -31,6 +37,21 @@ class AmiCustomizer:
 
     @remote_connection
     def customize(self, client: paramiko.SSHClient | None = None):
+        """
+        Customizes the Amazon Machine Image (AMI) by performing a series of configuration steps.
+
+        This method ensures that the AMI is properly configured for use with Wazuh by:
+        - Removing the default instance user.
+        - Configuring the cloud-init configuration file.
+        - Updating the hostname.
+        - Customizing the Message of the Day (MOTD) logo.
+        - Stopping persistent storage of journald logs.
+        - Creating a service to set RAM-related configurations.
+
+        Args:
+            client (paramiko.SSHClient | None, optional): An optional SSH client instance to execute
+                remote commands. If not provided, the method assumes local execution.
+        """
         if self.inventory.ansible_user != self.wazuh_user:
             raise Exception(f'Before customizing the AMI, the Wazuh user  "{self.wazuh_user}" must be created')
 
@@ -45,6 +66,16 @@ class AmiCustomizer:
 
     @remote_connection
     def create_wazuh_user(self, client: paramiko.SSHClient | None = None) -> str:
+        """
+        Create the main Wazuh user on the Amazon Machine Image (AMI) and change
+        the inventory user to the new Wazuh user.
+        Also, modify the sudoers file to allow the new user to execute commands
+        as root without a password and add the user's SSH public key to the authorized_keys file.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client used to execute commands on the remote system.
+        """
+
         logger.debug_title("Starting AMI customization process")
         logger.debug(f"Creating Wazuh user: {self.wazuh_user}")
 
@@ -62,8 +93,8 @@ class AmiCustomizer:
         _, error_output = exec_command(command=command, client=client)
 
         if error_output:
-            logger.error(f'Error creating wazuh user "{self.wazuh_user}"')
-            raise RuntimeError(f'Error creating wazuh user "{self.wazuh_user}": {error_output}')
+            logger.error(f'Failed to create wazuh user "{self.wazuh_user}"')
+            raise RuntimeError(f'Failed to create Wazuh user "{self.wazuh_user}": {error_output}')
 
         modify_file(
             filepath=Path("/etc/sudoers.d/90-cloud-init-users"),
@@ -80,6 +111,16 @@ class AmiCustomizer:
         return self.wazuh_user
 
     def remove_default_instance_user(self, client: paramiko.SSHClient):
+        """
+        Removes the default instance user from the system.
+
+        This method terminates any processes associated with the default instance user
+        and deletes the user account along with its home directory.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client used to execute commands on the remote system.
+        """
+
         logger.debug(f"Removing default instance user: {self.instance_username}")
 
         command = f"""
@@ -90,12 +131,23 @@ class AmiCustomizer:
         _, error_output = exec_command(command=command, client=client)
 
         if error_output:
-            logger.error(f'Error removing default instance user "{self.instance_username}"')
-            raise RuntimeError(f'Error removing default instance user "{self.instance_username}": {error_output}')
+            logger.error(f'Failed to remove default instance user "{self.instance_username}"')
+            raise RuntimeError(f'Failed to remove default instance user "{self.instance_username}": {error_output}')
 
         logger.info_success(f'Default instance user "{self.instance_username}" removed successfully')
 
     def configure_cloud_cfg(self, client: paramiko.SSHClient):
+        """
+        Configures the cloud-init configuration file on a remote machine via SSH.
+
+        This method modifies the cloud-init configuration file to set specific user details
+        and disables hostname updates. It then executes a series of cloud-init commands
+        to apply the changes.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client connection to the remote machine.
+        """
+
         logger.debug(f"Configuring cloud config file: {self.cloud_config_path}")
         replacements = [
             (r"gecos: .*", "gecos: Wazuh AMI User"),
@@ -116,11 +168,18 @@ class AmiCustomizer:
         _, error_output = exec_command(command=command, client=client)
         if error_output:
             logger.error("Error configuring cloud config")
-            raise RuntimeError(f"Error configuring cloud config {error_output}")
+            raise RuntimeError(f"Error configuring cloud config: {error_output}")
 
         logger.info_success("Cloud config file configured successfully")
 
     def update_hostname(self, client: paramiko.SSHClient):
+        """
+        Updates the hostname of a remote machine using the provided SSH client.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client connected to the target machine.
+        """
+
         logger.debug("Updating hostname")
         command = f"sudo hostnamectl set-hostname {self.wazuh_hostname}"
 
@@ -128,21 +187,31 @@ class AmiCustomizer:
 
         if error_output:
             logger.error("Error updating hostname")
-            raise RuntimeError(f"Error updating hostname {error_output}")
+            raise RuntimeError(f"Error updating hostname: {error_output}")
         logger.info_success(f'Hostname updated successfully to "{self.wazuh_hostname}"')
 
-    def check_instance_updates(self, client: paramiko.SSHClient):
+    def check_instance_updates(self, client: paramiko.SSHClient) -> bool:
+        """
+        Checks for updates on the instance by verifying the presence of the update motd file.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client used to execute the command on the remote instance.
+
+        Returns:
+            bool: True if updates are available, False if the instance is up to date.
+        """
+
         logger.debug("Checking for instance updates")
 
         command = f"sudo cat {self.instance_update_logo_path}"
         output, error_output = exec_command(command=command, client=client)
 
         if error_output and "No such file or directory" in error_output:
-            logger.error("Error checking for instance updates")
-            raise RuntimeError(f"Error checking for instance updates {error_output}")
+            logger.error("Error checking instance updates")
+            raise RuntimeError(f"Error checking instance updates: {error_output}")
 
         if output:
-            logger.warning("Instance updates availables")
+            logger.warning("Instance has updates available")
             return True
 
         logger.info("Instance is up to date")
@@ -150,6 +219,16 @@ class AmiCustomizer:
         return False
 
     def update_instance(self, client: paramiko.SSHClient):
+        """
+        Updates the instance by running system update commands via SSH.
+
+        This method connects to a remote instance using the provided SSH client
+        and executes commands to update the system packages.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client connected to the instance.
+        """
+
         logger.debug("Updating instance")
         command = """
         sudo yum update -y
@@ -159,11 +238,22 @@ class AmiCustomizer:
         _, error_output = exec_command(command=command, client=client)
         if error_output and "WARNING" not in error_output:
             logger.error("Error updating instance")
-            raise RuntimeError(f"Error updating instance {error_output}")
+            raise RuntimeError(f"Error updating instance: {error_output}")
 
         logger.info_success("Instance updated successfully")
 
     def configure_motd_logo(self, client: paramiko.SSHClient):
+        """
+        Configures the Message of the Day (MOTD) logo on the instance.
+
+        This method checks for available updates on the instance, applies updates if necessary,
+        removes the update-related MOTD logo, and sets the Wazuh logo as the MOTD.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client connected to the instance.
+
+        """
+
         available_updates = self.check_instance_updates(client=client)
         if available_updates:
             self.update_instance(client=client)
@@ -172,6 +262,16 @@ class AmiCustomizer:
         self._set_wazuh_logo(client=client)
 
     def _set_wazuh_logo(self, client: paramiko.SSHClient):
+        """
+        Sets the Wazuh logo as the Message of the Day (MOTD) banner on a remote host.
+
+        This method uploads a Wazuh banner file to a remote host using SFTP, moves it to the appropriate
+        directory, sets the necessary permissions and ownership, and updates the MOTD priority file.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client connection to the remote host.
+        """
+
         logger.debug("Setting Wazuh logo")
 
         wazuh_banner_file_destination = f"/usr/lib/motd.d/{self.wazuh_banner_path.name}"
@@ -196,22 +296,42 @@ class AmiCustomizer:
         _, error_output = exec_command(command=command, client=client)
         if error_output:
             logger.error("Error setting Wazuh motd banner")
-            raise RuntimeError("Error setting Wazuh motd banner")
+            raise RuntimeError(f"Error setting Wazuh motd banner: {error_output}")
 
         logger.info_success("Wazuh motd banner set successfully")
 
     def _remove_update_motd_logo(self, client: paramiko.SSHClient):
-        logger.debug("Removing update motd logo")
+        """
+        Removes the update MOTD (Message of the Day) logo from the specified path on the remote instance.
 
-        _, error_output = exec_command(f"sudo rm -f {self.instance_update_logo_path}", client=client)
+        Args:
+            client (paramiko.SSHClient): The SSH client used to connect to the remote instance.
+        """
+
+        logger.debug("Removing update motd logo")
+        command = f"sudo rm -f {self.instance_update_logo_path}"
+        _, error_output = exec_command(command=command, client=client)
 
         if error_output:
             logger.error(f"Error removing update motd logo in path {self.instance_update_logo_path}")
-            raise RuntimeError(f"Error removing update motd logo {error_output}")
+            raise RuntimeError(
+                f"Error removing update motd logo in path {self.instance_update_logo_path}: {error_output}"
+            )
 
         logger.info_success("Update motd logo removed successfully")
 
     def stop_journald_log_storage(self, client: paramiko.SSHClient):
+        """
+        Stops journald log storage by modifying the journald configuration file and restarting the service.
+
+        This method updates the journald configuration to disable persistent log storage and ensures
+        that logs are forwarded to syslog. It then restarts the `systemd-journald` service and flushes
+        the journal logs to apply the changes.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client used to execute commands on the remote system.
+        """
+
         logger.debug("Stopping journald log storage")
 
         parameters = [
@@ -231,6 +351,18 @@ class AmiCustomizer:
             raise RuntimeError(f"Error stopping journald log storage: {error_output}")
 
     def create_service_to_set_ram(self, client: paramiko.SSHClient):
+        """
+        Creates and configures a systemd service to set the appropiate ram usage for the indexer's jvm
+        on a remote host.
+
+        This method uploads the necessary service and script files to the remote host,
+        moves them to their appropriate locations, sets the required permissions, and
+        enables the service using systemd.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client connected to the remote host.
+        """
+
         logger.debug(f'Creating "{self.local_update_indexer_heap_service_path.name}" service')
 
         sftp = client.open_sftp()
