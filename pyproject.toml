@@ -10,7 +10,7 @@ dependencies = [
     "paramiko",
     "pyyaml",
 ]
-requires-python = ">= 3.8"
+requires-python = ">= 3.12"
 description = "Wazuh - Virtual Machines (OVA and AMI)"
 license = {file = "LICENSE"}
 
@@ -63,6 +63,7 @@ dependencies = [
     "pytest-cov~=6.0",
     "pytest-xdist",
     "ruff",
+    "requests",
 ]
 
 [tool.hatch.envs.dev-provisioner]
@@ -74,6 +75,12 @@ template = "dev"
 [tool.hatch.envs.dev-core-configurer]
 description = """
 Enviroment to be used for testing and developing the configurer module
+"""
+template = "dev"
+
+[tool.hatch.envs.dev-ova-configurer]
+description = """
+Enviroment to be used for OVA Preconfigurer execution testing
 """
 template = "dev"
 
@@ -108,3 +115,12 @@ ruff-lint-check = "ruff check --diff --unsafe-fixes configurer/core tests/config
 ruff-lint = "ruff check --fix --unsafe-fixes configurer/core"
 run = "python -m main --execute configurer {args:}"
 # fix and validate are not defined here because they are inherited from the dev environment.
+
+[tool.hatch.envs.dev-ova-configurer.scripts]
+test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=configurer/ova --cov-report term-missing:skip-covered tests/test_configurer/test_ova --cov-report=xml"
+ruff-format = "ruff format configurer/ova"
+ruff-format-check = "ruff format --diff --check configurer/ova"
+ruff-lint-check = "ruff check --diff --unsafe-fixes configurer/ova"
+ruff-lint = "ruff check --fix --unsafe-fixes configurer/ova"
+fix = ["ruff-format", "ruff-lint"]
+run = "python -m configurer.ova.ova_pre_configurer.ova_pre_configurer"
