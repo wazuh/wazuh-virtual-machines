@@ -110,7 +110,7 @@ jobs:
         with:
           repository: wazuh/wazuh-installation-assistant
           ref: ${{ inputs.wazuh_installation_assistant_reference }}
-          token: ${{ secrets.GH_CLONE_TOKEN }}
+          token: ${{ secrets.TESTING_GH_CLONE_TOKEN }}
           path: wazuh-installation-assistant
 
       - name: Setting FILENAME var
@@ -143,7 +143,7 @@ jobs:
         with:
           repository: wazuh/wazuh-automation
           ref: ${{ inputs.wazuh_automation_reference }}
-          token: ${{ secrets.GH_CLONE_TOKEN }}
+          token: ${{ secrets.TESTING_GH_CLONE_TOKEN }}
           path: wazuh-automation
 
       - name: Install and set allocator requirements
