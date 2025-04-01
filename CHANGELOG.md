@@ -12,6 +12,23 @@ All notable changes to this project will be documented in this file.
 - Adapt existing workflows to new allocator YAML inventory ([#220](https://github.com/wazuh/wazuh-virtual-machines/pull/220))
 - Updated VERSION file to the new standard. ([#212](https://github.com/wazuh/wazuh-virtual-machines/pull/212))
 - Change runners in GHA workflows to Ubuntu 22.04 ([#145](https://github.com/wazuh/wazuh-virtual-machines/pull/145))
+- None
+
+### Fixed
+
+- None
+
+### Deleted
+
+## [4.11.2]
+
+### Added
+
+- None
+
+### Changed
+
+- None
 
 ### Fixed
 
