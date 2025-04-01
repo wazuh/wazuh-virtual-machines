@@ -20,6 +20,8 @@ All notable changes to this project will be documented in this file.
 
 ### Deleted
 
+- None
+
 ## [4.11.2]
 
 ### Added
