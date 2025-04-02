@@ -9,6 +9,7 @@ dependencies = [
     "pydantic",
     "paramiko",
     "pyyaml",
+    "jinja2",
 ]
 requires-python = ">= 3.12"
 description = "Wazuh - Virtual Machines (OVA and AMI)"

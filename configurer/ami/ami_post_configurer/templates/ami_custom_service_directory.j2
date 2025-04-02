@@ -1,0 +1,50 @@
+name: "wazuh-ami-certs-customize"
+files:
+  - path: "{{ remote_certs_path }}/{{ certs_tool }}"
+    local: false
+  - path: "{{ remote_certs_path }}/{{ certs_config }}"
+    local: false
+  - path: "configurer/ami/ami_post_configurer/scripts/wazuh-ami-certs-customizer.sh"
+    local: true
+directories:
+  - name: "custom_certificates"
+    files:
+      - path: "configurer/ami/ami_post_configurer/custom_certificates.py"
+        local: true
+    directories:
+      - name: "configurer"
+        directories:
+          - name: "core"
+            directories:
+              - name: "utils"
+                files:
+                  - path: "configurer/core/utils/__init__.py"
+                    local: true
+                  - path: "configurer/core/utils/enums.py"
+                    local: true 
+              - name: "models"
+                files:
+                  - path: "configurer/core/models/certificates_manager.py"
+                    local: true
+                  - path: "configurer/core/models/wazuh_components_config_manager.py"
+                    local: true
+                  - path: "configurer/core/models/wazuh_config_mapping.py"
+                    local: true
+                  - path: "configurer/core/models/__init__.py"
+                    local: true        
+      - name: "generic"
+        files:
+          - path: "generic/__init__.py"
+            local: true
+          - path: "generic/helpers.py"
+            local: true
+          - path: "generic/remote_connection.py"
+            local: true
+      - name: "utils"
+        files:
+          - path: "utils/__init__.py"
+            local: true
+          - path: "utils/enums.py"
+            local: true
+          - path: "utils/logger.py"
+            local: true
