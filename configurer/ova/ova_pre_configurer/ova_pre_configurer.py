@@ -78,6 +78,23 @@ def deploy_vm(vagrantfile_path: str = VAGRANTFILE_PATH) -> None:
     run_vagrant_up()
 
 
+def prepare_vm() -> None:
+    """
+    Prepares the deployed virtual machine by installing python3-pip, Hatch and copying the wazuh-virtual-machines repository.
+
+    Returns:
+        None
+    """
+    logger.debug("Installing python3-pip on the VM.")
+    run_command('vagrant ssh -c "sudo yum install -y python3-pip"')
+
+    logger.debug("Installing Hatch on the VM.")
+    run_command('vagrant ssh -c "pip3 install hatch"')
+    
+    logger.debug("Copying the wazuh-virtual-machines repository to the VM.")
+    run_command("vagrant scp ../wazuh-virtual-machines :/tmp/wazuh-virtual-machines", check=True)
+
+
 def main() -> None:
     """
     Main function to run the OVA PreConfigurer process.
@@ -97,6 +114,7 @@ def main() -> None:
     generate_base_box_main()
 
     deploy_vm()
+    prepare_vm()
     logger.info_success("OVA PreConfigurer completed.")
 
 
