@@ -100,14 +100,3 @@ def generate_yaml(context: dict, template_dir: str, template_file: str = "ami_cu
     yaml_dict = yaml.safe_load(rendered_yaml)
 
     return yaml_dict
-
-
-if __name__ == "__main__":
-    script_dir = Path(__file__).resolve().parent / "templates"
-    context = {
-        "remote_certs_path": RemoteDirectories.CERTS,
-        "certs_tool": CertificatesComponent.CERTS_TOOL,
-        "certs_config": CertificatesComponent.CONFIG,
-    }
-    yaml_content = generate_yaml(context=context, template_dir=str(script_dir))
-    print(yaml_content)
