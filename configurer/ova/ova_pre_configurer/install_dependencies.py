@@ -107,10 +107,10 @@ def install_required_packages() -> None:
         None
     """
     logger.debug(f"Installing required packages: {', '.join(REQUIRED_PACKAGES)}")
-    run_command("sudo yum install -y " + " ".join(REQUIRED_PACKAGES), check=True)
+    run_command("sudo yum install -y " + " ".join(REQUIRED_PACKAGES))
 
     logger.debug("Installing Development tools.")
-    run_command("sudo yum groupinstall 'Development Tools' -y", check=True)
+    run_command("sudo yum groupinstall 'Development Tools' -y")
 
 
 def run_virtualbox_installer() -> None:
