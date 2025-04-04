@@ -53,7 +53,7 @@ class AmiCustomizer:
         Args:
             client (paramiko.SSHClient | None, optional): An optional SSH client instance to execute
                 remote commands. If not provided, the method assumes local execution.
-                
+
         Returns:
             None
         """
@@ -80,7 +80,7 @@ class AmiCustomizer:
 
         Args:
             client (paramiko.SSHClient): An active SSH client used to execute commands on the remote system.
-            
+
         Returns:
             str: The name of the created Wazuh user.
         """
@@ -128,7 +128,7 @@ class AmiCustomizer:
 
         Args:
             client (paramiko.SSHClient): An active SSH client used to execute commands on the remote system.
-            
+
         Returns:
             None
         """
@@ -158,7 +158,7 @@ class AmiCustomizer:
 
         Args:
             client (paramiko.SSHClient): An active SSH client connection to the remote machine.
-            
+
         Returns:
             None
         """
@@ -193,7 +193,7 @@ class AmiCustomizer:
 
         Args:
             client (paramiko.SSHClient): An active SSH client connected to the target machine.
-            
+
         Returns:
             None
         """
@@ -245,7 +245,7 @@ class AmiCustomizer:
 
         Args:
             client (paramiko.SSHClient): An active SSH client connected to the instance.
-            
+
         Returns:
             None
         """
@@ -293,7 +293,7 @@ class AmiCustomizer:
 
         Args:
             client (paramiko.SSHClient): An active SSH client connection to the remote host.
-            
+
         Returns:
             None
         """
@@ -332,7 +332,7 @@ class AmiCustomizer:
 
         Args:
             client (paramiko.SSHClient): The SSH client used to connect to the remote instance.
-            
+
         Returns:
             None
         """
@@ -359,7 +359,7 @@ class AmiCustomizer:
 
         Args:
             client (paramiko.SSHClient): An active SSH client used to execute commands on the remote system.
-            
+
         Returns:
             None
         """
@@ -395,7 +395,7 @@ class AmiCustomizer:
         """
 
         logger.debug(f'Creating "{file_local_path.name}" service')
-        
+
         sftp = client.open_sftp()
         tmp_service_path = f"/tmp/{file_local_path.name}"
         try:
@@ -418,7 +418,7 @@ class AmiCustomizer:
             raise RuntimeError(f"Error creating service {file_local_path.name}: {error_output}")
 
         logger.info_success(f'"{file_local_path.name.split(".")[0]}" service created successfully')
-    
+
     def create_service_to_set_ram(self, client: paramiko.SSHClient) -> None:
         """
         Creates and configures a systemd service to set the appropiate ram usage for the indexer's jvm
@@ -430,7 +430,7 @@ class AmiCustomizer:
 
         Args:
             client (paramiko.SSHClient): An active SSH client connected to the remote host.
-            
+
         Returns:
             None
         """
@@ -459,7 +459,7 @@ class AmiCustomizer:
             file_local_path=self.local_update_indexer_heap_service_path,
             client=client,
         )
-        
+
     def create_customize_certs_service_files(self, client: paramiko.SSHClient) -> None:
         """
         Create the customize certificates service and timer files on the remote server.
@@ -467,7 +467,7 @@ class AmiCustomizer:
         Args:
             client (paramiko.SSHClient): The SSH client used for the connection.
         """
-        
+
         self.create_ami_custom_service(
             file_local_path=self.local_customize_certs_service_path,
             client=client,

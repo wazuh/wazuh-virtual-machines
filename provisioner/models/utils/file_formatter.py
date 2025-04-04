@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import List
 
 import yaml
 
@@ -63,7 +62,7 @@ def get_component_packages(raw_urls_content: dict, component: Component) -> dict
     return component_packages
 
 
-def get_component_packages_by_arch(component_packages: List[str]) -> dict:
+def get_component_packages_by_arch(component_packages: list[str]) -> dict:
     """
     Given a list of component package URLs, this function returns a dictionary
     mapping each architecture type to its corresponding package URL.

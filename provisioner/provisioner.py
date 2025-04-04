@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import List
 
 import paramiko
 from pydantic import AnyUrl
@@ -31,7 +30,7 @@ class Provisioner:
 
     inventory: Inventory | None
     certs: CertsInfo
-    components: List[ComponentInfo]
+    components: list[ComponentInfo]
     arch: Component_arch = Component_arch.X86_64
     package_type: Package_type = Package_type.RPM
 
@@ -212,7 +211,7 @@ class Provisioner:
 
         logger.info_success(f"{filename} downloaded successfully")
 
-    def list_dependencies(self, elements: List[str], component_name: str) -> None:
+    def list_dependencies(self, elements: list[str], component_name: str) -> None:
         """
         Logs the necessary dependencies for a given component.
 

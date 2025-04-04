@@ -25,7 +25,7 @@ class AmiPostCustomizer:
     custom_dir_name: str = "wazuh-ami-certs-customize"
     custom_dir_base_path: str = "/etc"
     systemd_services_path = Path("/etc/systemd/system/")
-    
+
     @remote_connection
     def post_customize(self, client: paramiko.SSHClient | None = None) -> None:
         if client is None:
@@ -37,7 +37,7 @@ class AmiPostCustomizer:
         self.stop_indexer(client=client)
         self.stop_dashboard(client=client)
         self.change_ssh_port_to_default(client=client)
-    
+
     def create_custom_dir(self, client: paramiko.SSHClient) -> None:
         script_dir = Path(__file__).resolve().parent / "templates"
         context = {
@@ -50,9 +50,14 @@ class AmiPostCustomizer:
             template_dir=str(script_dir),
             template_file="ami_custom_service_directory.j2",
         )
-        
-        create_directory_structure(base_path=self.custom_dir_base_path, directory_template=directory_template, remote_user=self.inventory.ansible_user, client=client)  # type: ignore
-        
+
+        create_directory_structure(
+            base_path=self.custom_dir_base_path,
+            directory_template=directory_template,
+            remote_user=self.inventory.ansible_user,
+            client=client,
+        )  # type: ignore
+
     def create_certs_env(self, client: paramiko.SSHClient) -> None:
         logger.debug("Creating custom environment")
 
@@ -60,19 +65,19 @@ class AmiPostCustomizer:
         sudo dnf install -y python{self.enviroment_python_version}
         sudo python{self.enviroment_python_version} -m venv {self.custom_dir_base_path}/{self.custom_dir_name}/{self.environment_name}
         sudo {self.custom_dir_base_path}/{self.custom_dir_name}/{self.environment_name}/bin/pip install --upgrade pip
-        sudo {self.custom_dir_base_path}/{self.custom_dir_name}/{self.environment_name}/bin/pip install {' '.join(self.custom_env_dependencies)}
+        sudo {self.custom_dir_base_path}/{self.custom_dir_name}/{self.environment_name}/bin/pip install {" ".join(self.custom_env_dependencies)}
         """
-        
+
         _, error_output = exec_command(command=command, client=client)
         if error_output:
             logger.error("Error creating the custom environment")
             raise RuntimeError(f"Error creating the custom environment: {error_output}")
         logger.info_success("Custom environment created successfully")
-    
+
     def stop_service(self, service_name: str, client: paramiko.SSHClient) -> None:
         """
         Stop a systemd service.
-        
+
         Args:
             service_name (str): The name of the service to stop.
         """
@@ -83,14 +88,14 @@ class AmiPostCustomizer:
         if error_output:
             logger.error(f"Error stopping {service_name} service")
             raise RuntimeError(f"Error stopping {service_name} service: {error_output}")
-        
+
     def stop_wazuh_server(self, client: paramiko.SSHClient) -> None:
         """
         Stop the Wazuh server service.
         """
         self.stop_service("wazuh-server", client=client)
         logger.info_success("Wazuh server service stopped successfully")
-    
+
     def remove_indexer_index_list(self, client: paramiko.SSHClient) -> None:
         """
         Remove the indexer index list.
@@ -108,17 +113,19 @@ class AmiPostCustomizer:
         base_url = "https://localhost:9200"
         commands = []
         for index in index_list:
-            commands.append(f"curl -s -o /dev/null -w \"%{{http_code}}\" -X DELETE -u \"admin:admin\" -k \"{base_url}/{index}-*\"")
-        
+            commands.append(
+                f'curl -s -o /dev/null -w "%{{http_code}}" -X DELETE -u "admin:admin" -k "{base_url}/{index}-*"'
+            )
+
         command = " && ".join(commands)
         command = f"sudo {command}"
         _, error_output = exec_command(command=command, client=client)
         if error_output:
             logger.error("Error removing indexer index list")
             raise RuntimeError(f"Error removing indexer index list: {error_output}")
-        
+
         logger.debug("Indexer index list removed successfully")
-        
+
     def run_security_init_script(self, client: paramiko.SSHClient) -> None:
         """
         Run the indexer security init script.
@@ -130,7 +137,7 @@ class AmiPostCustomizer:
         if error_output:
             logger.error("Error running indexer security init script")
             raise RuntimeError(f"Error running indexer security init script: {error_output}")
-        
+
         logger.debug("Indexer security init script executed successfully")
 
     def stop_indexer(self, client: paramiko.SSHClient) -> None:
@@ -142,12 +149,12 @@ class AmiPostCustomizer:
         self.run_security_init_script(client=client)
         self.stop_service("wazuh-indexer", client=client)
         logger.info_success("Wazuh indexer service stopped successfully")
-        
+
     def stop_dashboard(self, client: paramiko.SSHClient) -> None:
         """
         Stop and disable the Wazuh dashboard service.
         """
-        
+
         self.stop_service("wazuh-dashboard", client=client)
         command = "sudo systemctl disable wazuh-dashboard"
         _, error_output = exec_command(command=command, client=client)
@@ -156,12 +163,12 @@ class AmiPostCustomizer:
             raise RuntimeError(f"Error disabling Wazuh dashboard service: {error_output}")
 
         logger.info_success("Wazuh dashboard service stopped successfully")
-        
+
     def change_ssh_port_to_default(self, client: paramiko.SSHClient) -> None:
         """
         Change the SSH port to the default port (22).
         """
-        
+
         logger.debug("Changing SSH port to default (22)")
         replacements = [
             (r"Port \d+", "#Port 22"),
@@ -176,7 +183,5 @@ class AmiPostCustomizer:
         if error_output:
             logger.error("Error restarting SSH service")
             raise RuntimeError(f"Error restarting SSH service: {error_output}")
-        
+
         logger.info_success("SSH port changed to default successfully")
-        
-    

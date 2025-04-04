@@ -31,7 +31,7 @@ def stop_ssh_service():
     if error_output:
         logger.error("Error stopping SSH service")
         raise RuntimeError(f"Error stopping SSH service: {error_output}")
-    
+
     logger.debug("SSH service stopped")
 
 
@@ -39,7 +39,7 @@ def stop_components_services():
     """
     Stops all Wazuh components services.
     """
-    
+
     logger.debug("Stopping Wazuh components services...")
     command = """
     systemctl stop wazuh-indexer wazuh-server wazuh-dashboard
@@ -50,7 +50,7 @@ def stop_components_services():
         logger.error(f"Error stopping Wazuh components services: {error_output}")
         raise RuntimeError("Error stopping Wazuh components services")
     logger.debug("Wazuh components services stopped")
-    
+
 
 def remove_certificates():
     """
@@ -74,18 +74,18 @@ def create_certificates():
     """
     Creates new certificates using the CertsManager.
     """
-        
+
     logger.debug("Creating new certificates...")
     certs_manager = CertsManager(raw_config_path=CERTS_TOOL_CONFIG_PATH, certs_tool_path=CERTS_TOOL_PATH)
     certs_manager.generate_certificates()
     logger.debug("New certificates created")
-    
-    
+
+
 def start_services():
     """
     Starts the Wazuh components services.
     """
-    
+
     logger.debug("Starting Wazuh components services...")
     command = """
     systemctl enable wazuh-indexer wazuh-server wazuh-dashboard

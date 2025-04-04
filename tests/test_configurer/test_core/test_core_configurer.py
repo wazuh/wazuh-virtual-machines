@@ -27,9 +27,11 @@ def example_config_file():
 @pytest.fixture
 def mock_exec_command():
     mock_exec_command = MagicMock()
-    with patch("configurer.core.models.wazuh_components_config_manager.exec_command", mock_exec_command), patch(
-        "configurer.core.models.certificates_manager.exec_command", mock_exec_command
-    ), patch("configurer.core.core_configurer.exec_command", mock_exec_command):
+    with (
+        patch("configurer.core.models.wazuh_components_config_manager.exec_command", mock_exec_command),
+        patch("configurer.core.models.certificates_manager.exec_command", mock_exec_command),
+        patch("configurer.core.core_configurer.exec_command", mock_exec_command),
+    ):
         mock_exec_command.return_value = "", ""
         yield mock_exec_command
 

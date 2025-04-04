@@ -10,7 +10,9 @@ from utils import Logger
 logger = Logger("AmiPostCustomizer")
 
 
-def create_directory_structure(base_path: str, directory_template: dict, remote_user: str, client: paramiko.SSHClient) -> None:
+def create_directory_structure(
+    base_path: str, directory_template: dict, remote_user: str, client: paramiko.SSHClient
+) -> None:
     """
     Create a directory structure on the remote server using SFTP.
     Args:
@@ -28,8 +30,8 @@ def create_directory_structure(base_path: str, directory_template: dict, remote_
 
     for directory in directory_template.get("directories", []):
         create_directory_structure(base_path, directory, remote_user, client)
-    
-    
+
+
 def create_directory(path: str, client: paramiko.SSHClient) -> None:
     """
     Create a directory on the remote server using SFTP.
@@ -44,9 +46,11 @@ def create_directory(path: str, client: paramiko.SSHClient) -> None:
         logger.error(f"Error creating directory {path}: {error_output}")
         raise RuntimeError(f"Error creating directory {path}: {error_output}")
     logger.debug(f"Directory {path} created successfully")
-        
-        
-def copy_file_to_directory(file_path: str, directory_path: str, remote_user: str, client: paramiko.SSHClient, local: bool) -> None:
+
+
+def copy_file_to_directory(
+    file_path: str, directory_path: str, remote_user: str, client: paramiko.SSHClient, local: bool
+) -> None:
     """
     Copy a file to a directory on the remote server using SFTP.
 
@@ -63,13 +67,13 @@ def copy_file_to_directory(file_path: str, directory_path: str, remote_user: str
         except Exception as e:
             logger.error(f"Error copying file {file_path} to {directory_path}: {e}")
             raise RuntimeError(f"Error copying file {file_path} to {directory_path}: {e}") from e
-        
+
         command = f"sudo mv /home/{remote_user}/{os.path.basename(file_path)} {directory_path}"
         _, error_output = exec_command(command=command, client=client)
         if error_output:
             logger.error(f"Error copying file {file_path} to {directory_path}: {error_output}")
             raise RuntimeError(f"Error copying file {file_path} to {directory_path}: {error_output}")
-        
+
         logger.debug(f"Local file {file_path} copied to {directory_path} remote directory")
     else:
         command = f"sudo cp {file_path} {directory_path}"
@@ -79,7 +83,7 @@ def copy_file_to_directory(file_path: str, directory_path: str, remote_user: str
             raise RuntimeError(f"Error copying file {file_path} to {directory_path}: {error_output}")
 
         logger.debug(f"Remote file {file_path} copied to {directory_path} remote directory")
-        
+
 
 def generate_yaml(context: dict, template_dir: str, template_file: str = "ami_custom_service_directory.j2") -> dict:
     """

@@ -28,7 +28,7 @@ def ami_pre_configurer(inventory: Inventory) -> str:
     Returns:
         str: The name of the Wazuh user created on the AMI.
     """
-    
+
     ami_customizer = AmiCustomizer(
         inventory=inventory,
         wazuh_banner_path=Path(AmiLocalFilePath.WAZUH_BANNER_LOGO),
@@ -40,14 +40,14 @@ def ami_pre_configurer(inventory: Inventory) -> str:
 
     wazuh_user = ami_customizer.create_wazuh_user()
     ami_customizer.customize()
-    
+
     return wazuh_user
-    
+
 
 def ami_post_configurer(inventory: Inventory) -> None:
     ami_post_customizer = AmiPostCustomizer(inventory=inventory)
     ami_post_customizer.post_customize()
-    
+
     return None
 
 
