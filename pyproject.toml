@@ -129,7 +129,7 @@ ruff-format = "ruff format configurer/ami tests/test_configurer/test_ami"
 ruff-format-check = "ruff format --diff --check configurer/ami tests/test_configurer/test_ami"
 ruff-lint-check = "ruff check --diff --unsafe-fixes configurer/ami tests/test_configurer/test_ami"
 ruff-lint = "ruff check --fix --unsafe-fixes configurer/ami tests/test_configurer/test_ami"
-run = "python -m main --execute ami-configurer {args:}"
+run = "python -m main --execute all-ami {args:}"
 # fix and validate are not defined here because they are inherited from the dev environment.
 
 [tool.hatch.envs.dev-ova-configurer.scripts]

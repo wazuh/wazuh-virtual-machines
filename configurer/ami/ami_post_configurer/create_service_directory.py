@@ -1,17 +1,16 @@
 import os
-from pathlib import Path
 
 import paramiko
 import yaml
 from jinja2 import Environment, FileSystemLoader
 
 from generic.helpers import exec_command
-from utils import CertificatesComponent, Logger, RemoteDirectories
+from utils import Logger
 
-logger = Logger("Ami Post Customizer")
+logger = Logger("AmiPostCustomizer")
 
 
-def create_directory_structure(base_path: str, directory_template: dict, client: paramiko.SSHClient) -> None:
+def create_directory_structure(base_path: str, directory_template: dict, remote_user: str, client: paramiko.SSHClient) -> None:
     """
     Create a directory structure on the remote server using SFTP.
     Args:
@@ -25,10 +24,10 @@ def create_directory_structure(base_path: str, directory_template: dict, client:
     for file in directory_template.get("files", []):
         file_path = file["path"]
         local = file.get("local", False)
-        copy_file_to_directory(file_path, base_path, client, local)
+        copy_file_to_directory(file_path, base_path, remote_user, client, local)
 
     for directory in directory_template.get("directories", []):
-        create_directory_structure(base_path, directory, client)
+        create_directory_structure(base_path, directory, remote_user, client)
     
     
 def create_directory(path: str, client: paramiko.SSHClient) -> None:
@@ -47,7 +46,7 @@ def create_directory(path: str, client: paramiko.SSHClient) -> None:
     logger.debug(f"Directory {path} created successfully")
         
         
-def copy_file_to_directory(file_path: str, directory_path: str, client: paramiko.SSHClient, local: bool) -> None:
+def copy_file_to_directory(file_path: str, directory_path: str, remote_user: str, client: paramiko.SSHClient, local: bool) -> None:
     """
     Copy a file to a directory on the remote server using SFTP.
 
@@ -56,15 +55,16 @@ def copy_file_to_directory(file_path: str, directory_path: str, client: paramiko
         directory_path (Path): The destination directory path.
         client (paramiko.SSHClient): The SSH client used for the connection.
     """
+
     if local:
         sftp = client.open_sftp()
         try:
-            sftp.put(file_path, f"/home/ec2-user/{os.path.basename(file_path)}")
+            sftp.put(file_path, f"/home/{remote_user}/{os.path.basename(file_path)}")
         except Exception as e:
             logger.error(f"Error copying file {file_path} to {directory_path}: {e}")
             raise RuntimeError(f"Error copying file {file_path} to {directory_path}: {e}") from e
         
-        command = f"sudo mv /home/ec2-user/{os.path.basename(file_path)} {directory_path}"
+        command = f"sudo mv /home/{remote_user}/{os.path.basename(file_path)} {directory_path}"
         _, error_output = exec_command(command=command, client=client)
         if error_output:
             logger.error(f"Error copying file {file_path} to {directory_path}: {error_output}")

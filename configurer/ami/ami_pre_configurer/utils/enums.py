@@ -9,3 +9,9 @@ class AmiLocalFilePath(StrEnum):
     )
     SET_RAM_SCRIPT = str(Path(os.getcwd()) / "utils" / "scripts" / "automatic_set_ram.sh")
     UPDATE_INDEXER_HEAP_SERVICE = str(Path(os.getcwd()) / "utils" / "scripts" / "updateIndexerHeap.service")
+    CUSTOMIZE_CERTS_SERVICE = str(
+        Path(os.getcwd()) / "configurer" / "ami" / "ami_pre_configurer" / "scripts" / "wazuh-ami-customizer.service"
+    )
+    CUSTOMIZE_CERTS_TIMER = str(
+        Path(os.getcwd()) / "configurer" / "ami" / "ami_pre_configurer" / "scripts" / "wazuh-ami-customizer.timer"
+    )

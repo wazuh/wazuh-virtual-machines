@@ -22,6 +22,8 @@ class AmiCustomizer:
     wazuh_banner_path: Path
     local_set_ram_script_path: Path
     local_update_indexer_heap_service_path: Path
+    local_customize_certs_service_path: Path
+    local_customize_certs_timer_path: Path
     cloud_config_path: Path = Path("/etc/cloud/cloud.cfg")
     ssh_config_path: Path = Path("/etc/ssh/sshd_config")
     instance_update_logo_path: Path = Path("/etc/update-motd.d/70-available-updates")
@@ -64,6 +66,7 @@ class AmiCustomizer:
         self.configure_motd_logo(client=client)  # type: ignore
         self.stop_journald_log_storage(client=client)  # type: ignore
         self.create_service_to_set_ram(client=client)  # type: ignore
+        self.create_customize_certs_service_files(client=client)  # type: ignore
 
         logger.info_success("AMI customization process finished")
 
@@ -379,6 +382,43 @@ class AmiCustomizer:
             logger.error("Error stopping journald log storage")
             raise RuntimeError(f"Error stopping journald log storage: {error_output}")
 
+    def create_ami_custom_service(self, file_local_path: Path, client: paramiko.SSHClient) -> None:
+        """
+        Creates a systemd service on the remote host using the provided local service file.
+        This method uploads the service file to the remote host, moves it to the appropriate
+        systemd services directory, sets the necessary permissions and ownership, and enables the service.
+        Args:
+            file_local_path (Path): The local path of the service file to be uploaded.
+            client (paramiko.SSHClient): An active SSH client connected to the remote host.
+        Returns:
+            None
+        """
+
+        logger.debug(f'Creating "{file_local_path.name}" service')
+        
+        sftp = client.open_sftp()
+        tmp_service_path = f"/tmp/{file_local_path.name}"
+        try:
+            sftp.put(str(file_local_path), tmp_service_path)
+        except Exception as e:
+            logger.error("Error uploading files to the remote host")
+            raise RuntimeError(f"Error uploading files to the remote host: {str(e)}") from e
+        finally:
+            sftp.close()
+
+        command = f"""
+        sudo mv {tmp_service_path} {self.systemd_services_path}/{file_local_path.name}
+        sudo chmod 755 {self.systemd_services_path}/{file_local_path.name}
+        sudo chown root:root {self.systemd_services_path}/{file_local_path.name}
+        sudo systemctl --quiet enable {file_local_path.name}
+        """
+        _, error_output = exec_command(command=command, client=client)
+        if error_output:
+            logger.error(f"Error creating service {file_local_path.name}")
+            raise RuntimeError(f"Error creating service {file_local_path.name}: {error_output}")
+
+        logger.info_success(f'"{file_local_path.name.split(".")[0]}" service created successfully')
+    
     def create_service_to_set_ram(self, client: paramiko.SSHClient) -> None:
         """
         Creates and configures a systemd service to set the appropiate ram usage for the indexer's jvm
@@ -395,13 +435,9 @@ class AmiCustomizer:
             None
         """
 
-        logger.debug(f'Creating "{self.local_update_indexer_heap_service_path.name}" service')
-
         sftp = client.open_sftp()
-        tmp_service_path = f"/tmp/{self.local_update_indexer_heap_service_path.name}"
         tmp_ram_script_path = f"/tmp/{self.local_set_ram_script_path.name}"
         try:
-            sftp.put(str(self.local_update_indexer_heap_service_path), tmp_service_path)
             sftp.put(str(self.local_set_ram_script_path), tmp_ram_script_path)
 
         except Exception as e:
@@ -411,16 +447,32 @@ class AmiCustomizer:
             sftp.close()
 
         command = f"""
-        sudo mv {tmp_service_path} {self.systemd_services_path}/{self.local_update_indexer_heap_service_path.name}
         sudo mv {tmp_ram_script_path} {self.ram_service_script_destination_path}/{self.local_set_ram_script_path.name}
         sudo chmod 755 {self.ram_service_script_destination_path}/{self.local_set_ram_script_path.name}
-        sudo chmod 755 {self.systemd_services_path}/{self.local_update_indexer_heap_service_path.name}
-        sudo chown root:root {self.systemd_services_path}/{self.local_update_indexer_heap_service_path.name}
-        sudo systemctl --quiet enable {self.local_update_indexer_heap_service_path.name}
         """
         _, error_output = exec_command(command=command, client=client)
         if error_output:
-            logger.error("Error creating service to set RAM")
-            raise RuntimeError(f"Error creating service to set RAM: {error_output}")
+            logger.error("Error creating script for set RAM service")
+            raise RuntimeError(f"Error creating script for set RAM service: {error_output}")
 
-        logger.info_success('"updateIndexerHeap" service created successfully')
+        self.create_ami_custom_service(
+            file_local_path=self.local_update_indexer_heap_service_path,
+            client=client,
+        )
+        
+    def create_customize_certs_service_files(self, client: paramiko.SSHClient) -> None:
+        """
+        Create the customize certificates service and timer files on the remote server.
+        This method uploads the service and timer files to the remote server and enables them.
+        Args:
+            client (paramiko.SSHClient): The SSH client used for the connection.
+        """
+        
+        self.create_ami_custom_service(
+            file_local_path=self.local_customize_certs_service_path,
+            client=client,
+        )
+        self.create_ami_custom_service(
+            file_local_path=self.local_customize_certs_timer_path,
+            client=client,
+        )

@@ -1,5 +1,4 @@
 import logging
-import os
 from pathlib import Path
 
 from configurer.core.models import CertsManager
@@ -7,14 +6,18 @@ from configurer.core.utils import ComponentCertsDirectory
 from generic import exec_command
 from utils import Logger
 
+LOGFILE = Path("/var/log/wazuh-ami-custom-certificates.log")
+TEMP_DIR = Path("/etc/wazuh-ami-certs-customize")
+CERTS_TOOL_PATH = Path(f"{TEMP_DIR}/certs-tool.sh")
+CERTS_TOOL_CONFIG_PATH = Path(f"{TEMP_DIR}/config.yml")
+SERVICE_PATH = "/etc/systemd/system"
+SERVICE_NAME = f"{SERVICE_PATH}/wazuh-ami-customizer.service"
+SERVICE_TIMER_NAME = f"{SERVICE_PATH}/wazuh-ami-customizer.timer"
+
 logger = Logger("CustomCertificates")
-log_filename = "/var/log/wazuh-ami-custom-certificates.log"
-file_handler = logging.FileHandler(log_filename)
+file_handler = logging.FileHandler(LOGFILE)
 file_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
 logger.addHandler(file_handler)
-
-CERTS_TOOL_PATH = Path("/etc/wazuh-ami-certs-customize/certs-tool.sh")
-CERTS_TOOL_CONFIG_PATH = Path("/etc/wazuh-ami-certs-customize/config.yml")
 
 
 def stop_ssh_service():
@@ -85,6 +88,7 @@ def start_services():
     
     logger.debug("Starting Wazuh components services...")
     command = """
+    systemctl enable wazuh-indexer wazuh-server wazuh-dashboard
     systemctl start wazuh-indexer wazuh-server wazuh-dashboard
     eval /usr/share/wazuh-indexer/bin/indexer-security-init.sh
     """
@@ -111,6 +115,20 @@ def start_ssh_service():
     logger.debug("SSH service started")
 
 
+def clean_up():
+    command = f"""
+    rm -rf {TEMP_DIR}
+    rm -rf {LOGFILE}
+    rm -rf {SERVICE_NAME}
+    rm -rf {SERVICE_TIMER_NAME}
+    """
+    _, error_output = exec_command(command=command)
+    if error_output:
+        logger.error(f"Error cleaning up: {error_output}")
+        raise RuntimeError("Error cleaning up")
+    logger.debug("Clean up completed")
+
+
 if __name__ == "__main__":
     logger.info("Starting custom certificates configuration process")
 
@@ -120,6 +138,8 @@ if __name__ == "__main__":
         remove_certificates()
         create_certificates()
         start_services()
+        start_ssh_service()
+        clean_up()
     except Exception as e:
         logger.error(f"An error occurred during the custom certificates configuration process: {e}")
         start_ssh_service()
