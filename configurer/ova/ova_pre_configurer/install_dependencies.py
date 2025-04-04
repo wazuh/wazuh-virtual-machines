@@ -113,6 +113,33 @@ def install_required_packages() -> None:
     run_command("sudo yum groupinstall 'Development Tools' -y")
 
 
+def add_exclude_amazonlinux_repo(repo_path: str = "/etc/yum.repos.d/amazonlinux.repo") -> None:
+    """
+    This function reads the specified repository configuration file, searches for the
+    "[amazonlinux]" section, and adds an "exclude kernel-devel* kernel-headers*" to avoid
+    unwanted updates of these packages.
+
+    Args:
+        repo_path (str): The path to the Amazon Linux repository configuration file.
+                         Defaults to "/etc/yum.repos.d/amazonlinux.repo".
+
+    Returns:
+        None
+    """
+    with open(repo_path) as file:
+        lines = file.readlines()
+
+    exclude_line = "exclude=kernel-devel* kernel-headers*\n"
+
+    for i, line in enumerate(lines):
+        if line.strip() == "[amazonlinux]":
+            lines.insert(i + 1, exclude_line)
+            break
+
+    with open(repo_path, "w") as file:
+        file.writelines(lines)
+
+
 def run_virtualbox_installer() -> None:
     """
     Executes the VirtualBox installer script.
@@ -171,6 +198,7 @@ def main() -> None:
 
     update_packages()
     install_required_packages()
+    add_exclude_amazonlinux_repo()
     download_virtualbox_installer()
     run_virtualbox_installer()
     update_packages()
