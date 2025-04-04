@@ -31,7 +31,10 @@ def parse_arguments():
     parser.add_argument("--packages-url-path", required=False, help="Path to the packages URL file")
     parser.add_argument("--package-type", required=False, default="rpm", choices=["rpm", "deb"])
     parser.add_argument(
-        "--execute", required=False, default="all-ami", choices=["provisioner", "core-configurer", "ami-pre-configurer", "ami-post-configurer", "all-ami"]
+        "--execute",
+        required=False,
+        default="all-ami",
+        choices=["provisioner", "core-configurer", "ami-pre-configurer", "ami-post-configurer", "all-ami"],
     )
     parser.add_argument(
         "--arch",
@@ -61,7 +64,9 @@ def check_required_arguments(parsed_args):
         raise ValueError('--packages-url-path is required for the "provisioner" and "all-ami" --execute value')
 
     if parsed_args.execute in ["ami-pre-configurer", "ami-post-configurer", "all-ami"] and not parsed_args.inventory:
-        raise ValueError('--inventory is required for the "ami-pre-configurer", "ami-post-configurer" and "all-ami" --execute value')
+        raise ValueError(
+            '--inventory is required for the "ami-pre-configurer", "ami-post-configurer" and "all-ami" --execute value'
+        )
 
 
 def main():
@@ -102,7 +107,7 @@ def main():
 
     if parsed_args.execute in ["core-configurer", "all-ami"]:
         core_configurer_main(inventory_path=parsed_args.inventory)
-        
+
     if parsed_args.execute in ["ami-post-configurer", "all-ami"]:
         ami_configurer_main(inventory_path=parsed_args.inventory, type="ami-post-configurer")
 

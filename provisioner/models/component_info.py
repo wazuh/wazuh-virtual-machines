@@ -1,4 +1,3 @@
-
 from pydantic import AnyUrl, BaseModel
 
 from utils import Component

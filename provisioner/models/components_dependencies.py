@@ -1,4 +1,3 @@
-
 from pydantic import BaseModel
 
 from provisioner.utils import Package_manager, Package_type
