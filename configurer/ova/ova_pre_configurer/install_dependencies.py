@@ -10,8 +10,8 @@ logger = Logger("OVA PreConfigurer - Dependencies Installer")
 
 VIRTUALBOX_DOWNLOAD_BASE_URL = "https://download.virtualbox.org/virtualbox/"
 REQUIRED_PACKAGES = [
-    "kernel-devel",
-    "kernel-headers",
+    f"kernel-devel-{os.uname().release}",
+    f"kernel-headers-{os.uname().release}",
     "dkms",
     "elfutils-libelf-devel",
     "gcc",
@@ -107,10 +107,10 @@ def install_required_packages() -> None:
         None
     """
     logger.debug(f"Installing required packages: {', '.join(REQUIRED_PACKAGES)}")
-    run_command("sudo yum install -y " + " ".join(REQUIRED_PACKAGES))
+    run_command("sudo yum install -y " + " ".join(REQUIRED_PACKAGES), check=True)
 
     logger.debug("Installing Development tools.")
-    run_command("sudo yum groupinstall 'Development Tools' -y")
+    run_command("sudo yum groupinstall 'Development Tools' -y", check=True)
 
 
 def run_virtualbox_installer() -> None:

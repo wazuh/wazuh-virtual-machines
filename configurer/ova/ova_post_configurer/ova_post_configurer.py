@@ -284,7 +284,7 @@ def post_conf_clean() -> None:
     log_clean_commands = [
         "find /var/log/ -type f -exec bash -c 'cat /dev/null > {}' \\;",
         "find /var/ossec/logs -type f -execdir sh -c 'cat /dev/null > \"$1\"' _ {} \\;",
-        "find /var/log/wazuh-indexer -type f -execdir sh -c 'cat /dev/null > \"$1\"' _ {} \;",
+        r"find /var/log/wazuh-indexer -type f -execdir sh -c 'cat /dev/null > \"$1\"' _ {} \;",
         "rm -rf /var/log/wazuh-install.log",
     ]
     run_command(log_clean_commands)
