@@ -24,7 +24,13 @@ class AmiPostCustomizer:
     ]
     custom_dir_name: str = "wazuh-ami-certs-customize"
     custom_dir_base_path: str = "/etc"
-    systemd_services_path = Path("/etc/systemd/system/")
+    cloud_instances_path: Path = Path("/var/lib/cloud/instances")
+    journal_logs_path: Path = Path("/var/log/journal")
+    journald__config_file_path: Path = Path("/etc/systemd/journald.conf")
+    log_directory_path: Path  = Path("/var/log")
+    wazuh_indexer_log_path: Path = Path("/var/log/wazuh-indexer")
+    wazuh_server_log_path: Path = Path("/var/log/wazuh-indexer")
+    wazuh_dashboard_log_path: Path = Path("/var/log/wazuh-dashboard")
 
     @remote_connection
     def post_customize(self, client: paramiko.SSHClient | None = None) -> None:
@@ -185,3 +191,91 @@ class AmiPostCustomizer:
             raise RuntimeError(f"Error restarting SSH service: {error_output}")
 
         logger.info_success("SSH port changed to default successfully")
+    
+    def clean_cloud_instance_files(self, client: paramiko.SSHClient) -> None:
+        """
+        Clean up files and directories related to the cloud instance.
+        """
+
+        logger.debug("Cleaning up cloud instance files")
+        command = f"[ -d {self.cloud_instances_path} ] && rm -rf {self.cloud_instances_path}/*"
+        _, error_output = exec_command(command=command, client=client)
+        if error_output:
+            logger.error("Error cleaning up cloud instance files")
+            raise RuntimeError(f"Error cleaning up cloud instance files: {error_output}")
+
+        logger.info_success("Cloud instance files cleaned up successfully")
+        
+    def clean_journal_logs(self, client: paramiko.SSHClient) -> None:
+        """
+        Clean up journal logs.
+        """
+
+        logger.debug("Cleaning up journal logs")
+        command = f"[ -d {self.journal_logs_path} ] && sudo rm -rf {self.journal_logs_path}/*"
+        _, error_output = exec_command(command=command, client=client)
+        if error_output:
+            logger.error("Error cleaning up journal logs")
+            raise RuntimeError(f"Error cleaning up journal logs: {error_output}")
+
+        logger.info_success("Journal logs cleaned up successfully")
+        
+    def clean_yum_cache(self, client: paramiko.SSHClient) -> None:
+        """
+        Clean up the yum cache.
+        """
+
+        logger.debug("Cleaning up yum cache")
+        command = "sudo dnf clean all"
+        _, error_output = exec_command(command=command, client=client)
+        if error_output:
+            logger.error("Error cleaning up yum cache")
+            raise RuntimeError(f"Error cleaning up yum cache: {error_output}")
+
+        logger.info_success("Yum cache cleaned up successfully")
+        
+    def clean_logout_files(self, client: paramiko.SSHClient) -> None:
+        """
+        Clean up logout files.
+        """
+
+        logger.debug("Cleaning up logout files")
+        command = f"""
+        sudo cat /dev/null > /home/{self.inventory.ansible_user}/.bash_logout
+        sudo cat /dev/null > /root/.bash_logout
+        """
+        _, error_output = exec_command(command=command, client=client)
+        if error_output:
+            logger.error("Error cleaning up logout files")
+            raise RuntimeError(f"Error cleaning up logout files: {error_output}")
+
+        logger.info_success("Logout files cleaned up successfully")
+
+    def enable_journal_log_storage(self, client: paramiko.SSHClient) -> None:
+
+        logger.debug("Enabling journal log storage")
+        replacements = [
+            ("Storage=none", "#Storage=auto"),
+            ("ForwardToSyslog=yes", "#ForwardToSyslog=yes"),
+        ]
+        modify_file(
+            filepath=self.journald__config_file_path,
+            replacements=replacements,
+            client=client,
+        )
+
+        logger.info_success("Journal log storage enabled successfully")
+        
+    def clean_generated_logs(self, client: paramiko.SSHClient) -> None:
+        logger.debug(f'Cleaning up generated logs in "{self.log_directory_path}"')
+        
+        command = f"""
+        sudo find {self.log_directory_path} -type f -exec bash -c 'cat /dev/null > "$1"' _ {} \;
+        
+        """
+        _, error_output = exec_command(command=command, client=client)
+        if error_output:
+            logger.error("Error cleaning up generated logs")
+            raise RuntimeError(f"Error cleaning up generated logs: {error_output}")
+
+        logger.info_success("Generated logs cleaned up successfully")

@@ -60,13 +60,16 @@ class AmiCustomizer:
         if self.inventory.ansible_user != self.wazuh_user:
             raise Exception(f'Before customizing the AMI, the Wazuh user  "{self.wazuh_user}" must be created')
 
-        self.remove_default_instance_user(client=client)  # type: ignore
-        self.configure_cloud_cfg(client=client)  # type: ignore
-        self.update_hostname(client=client)  # type: ignore
-        self.configure_motd_logo(client=client)  # type: ignore
-        self.stop_journald_log_storage(client=client)  # type: ignore
-        self.create_service_to_set_ram(client=client)  # type: ignore
-        self.create_customize_certs_service_files(client=client)  # type: ignore
+        if client is None:
+            raise Exception("SSH client is not connected")
+
+        self.remove_default_instance_user(client=client)
+        self.configure_cloud_cfg(client=client)
+        self.update_hostname(client=client)
+        self.configure_motd_logo(client=client)
+        self.stop_journald_log_storage(client=client)
+        self.create_service_to_set_ram(client=client)
+        self.create_customize_certs_service_files(client=client)
 
         logger.info_success("AMI customization process finished")
 
