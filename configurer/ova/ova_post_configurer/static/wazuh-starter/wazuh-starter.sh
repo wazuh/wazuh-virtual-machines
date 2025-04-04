@@ -60,15 +60,6 @@ function verify_indexer() {
   done
 }
 
-# function verify_filebeat() {
-#   logger "Waiting for Filebeat to be ready"
-#   if  filebeat test output | grep -q -i -w "ERROR"; then
-#     logger -e "Filebeat is not ready yet, trying to configure it again"
-#     eval "filebeat test output x ${debug}"
-#     configure_filebeat
-#   fi
-# }
-
 function verify_dashboard() {
   logger "Waiting for Wazuh dashboard to be ready"
   dashboard_check_comm="curl -XGET https://localhost:443/status -uadmin:admin -k -w \"%{http_code}\" -s -o /dev/null"
@@ -105,8 +96,6 @@ starter_service wazuh-indexer
 verify_indexer
 
 starter_service wazuh-manager
-starter_service filebeat
-verify_filebeat
 
 starter_service wazuh-dashboard
 verify_dashboard
