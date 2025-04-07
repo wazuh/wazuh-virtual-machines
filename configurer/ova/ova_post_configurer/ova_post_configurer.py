@@ -25,8 +25,8 @@ def set_hostname() -> None:
 def config_grub() -> None:
     """
     Configures the GRUB bootloader by performing the following steps:
-    1. Moves the Wazuh GRUB image file from the static path to the GRUB directory.
-    2. Moves the GRUB configuration file from the static path to the default configuration directory.
+    1. Copies the Wazuh GRUB image file from the static path to the GRUB directory.
+    2. Copies the GRUB configuration file from the static path to the default configuration directory.
     3. Regenerates the GRUB configuration file using the `grub2-mkconfig` command.
 
     Returns:
@@ -39,8 +39,8 @@ def config_grub() -> None:
     for src, dst in files_to_move.items():
         if os.path.exists(dst):
             os.remove(dst)
-        shutil.move(src, dst)
-    run_command("grub2-mkconfig -o /boot/grub2/grub.cfg", check=True)
+        shutil.copy(src, dst)
+    run_command("grub2-mkconfig -o /boot/grub2/grub.cfg")
 
 
 def enable_fips() -> None:
@@ -71,9 +71,9 @@ def update_jvm_heap() -> None:
     This script sets the WAzuh Indexer heap to the half of the total VM RAM memory.
 
     Steps performed:
-    1. Moves the `automatic_set_ram.sh` script from the static path to `/etc/automatic_set_ram.sh`.
+    1. Copies the `automatic_set_ram.sh` script from the static path to `/etc/automatic_set_ram.sh`.
     2. Sets execution permissions (755) for the script.
-    3. Moves the `updateIndexerHeap.service` systemd service file to `/etc/systemd/system/updateIndexerHeap.service`.
+    3. Copies the `updateIndexerHeap.service` systemd service file to `/etc/systemd/system/updateIndexerHeap.service`.
     4. Reloads the systemd daemon and enables the `updateIndexerHeap.service` to run at startup.
 
     Returns:
@@ -87,7 +87,7 @@ def update_jvm_heap() -> None:
     for src, dst in files_to_move.items():
         if os.path.exists(dst):
             os.remove(dst)
-        shutil.move(src, dst)
+        shutil.copy(src, dst)
         if "automatic_set_ram.sh" in src:
             os.chmod(dst, 0o755)
 
@@ -96,15 +96,15 @@ def update_jvm_heap() -> None:
 
 def add_wazuh_starter_service() -> None:
     """
-    This function moves the Wazuh starter service, timer, and script files to the system locations.
+    This function copies the Wazuh starter service, timer, and script files to the system locations.
     It also sets the necessary permissions for the script file and enables the systemd service and timer.
 
     This results in the Wazuh services started one by one in the correct order.
 
     Steps performed:
-    1. Moves the Wazuh starter service file to `/etc/systemd/system/wazuh-starter.service`.
-    2. Moves the Wazuh starter timer file to `/etc/systemd/system/wazuh-starter.timer`.
-    3. Moves the Wazuh starter script file to `/etc/.wazuh-starter.sh`.
+    1. Copies the Wazuh starter service file to `/etc/systemd/system/wazuh-starter.service`.
+    2. Copies the Wazuh starter timer file to `/etc/systemd/system/wazuh-starter.timer`.
+    3. Copies the Wazuh starter script file to `/etc/.wazuh-starter.sh`.
     4. Sets executable permissions (755) on the script file.
     5. Reloads the systemd daemon and enables the Wazuh starter service and timer.
 
@@ -120,7 +120,7 @@ def add_wazuh_starter_service() -> None:
     for src, dst in files_to_move.items():
         if os.path.exists(dst):
             os.remove(dst)
-        shutil.move(src, dst)
+        shutil.copy(src, dst)
         if "wazuh-starter.sh" in src:
             os.chmod(dst, 0o755)
 
