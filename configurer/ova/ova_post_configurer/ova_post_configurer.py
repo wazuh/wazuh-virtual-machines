@@ -189,8 +189,8 @@ def steps_system_config() -> None:
         data = json.load(file)
     version = data.get("version")
     stage = data.get("stage")
-    wazuh_version = version + stage
-    run_command(f"{STATIC_PATH}/messages.sh no {wazuh_version} wazuh-user")
+    wazuh_version = version + "-" + stage
+    run_command(f"sudo {STATIC_PATH}/messages.sh no {wazuh_version} wazuh-user")
 
 
 def steps_clean() -> None:
@@ -291,7 +291,6 @@ def post_conf_clean() -> None:
 
     log_clean_commands = [
         "find /var/log/ -type f -exec bash -c 'cat /dev/null > {}' \\;",
-        "find /var/ossec/logs -type f -execdir sh -c 'cat /dev/null > \"$1\"' _ {} \\;",
         r"find /var/log/wazuh-indexer -type f -execdir sh -c 'cat /dev/null > \"$1\"' _ {} \;",
         "rm -rf /var/log/wazuh-install.log",
     ]
@@ -331,7 +330,7 @@ def main() -> None:
     """
     steps_system_config()
 
-    run_command("systemctl stop wazuh-manager")
+    run_command("systemctl stop wazuh-server")
     indexes = [
         "wazuh-alerts-*",
         "wazuh-archives-*",
@@ -346,7 +345,7 @@ def main() -> None:
 
     commands = [
         "systemctl stop wazuh-indexer wazuh-dashboard",
-        "systemctl disable wazuh-manager",
+        "systemctl disable wazuh-server",
         "systemctl disable wazuh-dashboard",
     ]
     run_command(commands)
