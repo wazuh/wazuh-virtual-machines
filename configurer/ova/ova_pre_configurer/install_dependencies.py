@@ -126,6 +126,7 @@ def add_exclude_amazonlinux_repo(repo_path: str = "/etc/yum.repos.d/amazonlinux.
     Returns:
         None
     """
+    logger.debug("Excluding kernel-devel and kernel-headers from Amazon Linux repo.")
     with open(repo_path) as file:
         lines = file.readlines()
 

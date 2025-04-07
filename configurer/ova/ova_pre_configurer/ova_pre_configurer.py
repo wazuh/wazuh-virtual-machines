@@ -89,10 +89,10 @@ def prepare_vm() -> None:
     run_command('vagrant ssh -c "sudo yum install -y python3-pip"')
 
     logger.debug("Installing Hatch on the VM.")
-    run_command('vagrant ssh -c "pip3 install hatch"')
+    run_command('vagrant ssh -c "sudo pip3 install hatch"')
     
     logger.debug("Copying the wazuh-virtual-machines repository to the VM.")
-    run_command("vagrant scp ../wazuh-virtual-machines :/tmp/wazuh-virtual-machines", check=True)
+    run_command("vagrant scp ../wazuh-virtual-machines :/tmp/wazuh-virtual-machines")
 
 
 def main() -> None:

@@ -32,8 +32,14 @@ def config_grub() -> None:
     Returns:
         None
     """
-    shutil.move(f"{STATIC_PATH}/grub/wazuh.png", "/boot/grub2/")
-    shutil.move(f"{STATIC_PATH}/grub/grub", "/etc/default/")
+    files_to_move = {
+        f"{STATIC_PATH}/grub/wazuh.png": "/boot/grub2/wazuh.png",
+        f"{STATIC_PATH}/grub/grub": "/etc/default/grub",
+    }
+    for src, dst in files_to_move.items():
+        if os.path.exists(dst):
+            os.remove(dst)
+        shutil.move(src, dst)
     run_command("grub2-mkconfig -o /boot/grub2/grub.cfg", check=True)
 
 
@@ -73,14 +79,18 @@ def update_jvm_heap() -> None:
     Returns:
         None
     """
-    script_src = f"{STATIC_PATH}/automatic_set_ram.sh"
-    script_dest = "/etc/automatic_set_ram.sh"
-    service_src = f"{STATIC_PATH}/updateIndexerHeap.service"
-    service_dest = "/etc/systemd/system/updateIndexerHeap.service"
+    files_to_move = {
+        f"{STATIC_PATH}/automatic_set_ram.sh": "/etc/automatic_set_ram.sh",
+        f"{STATIC_PATH}/updateIndexerHeap.service": "/etc/systemd/system/updateIndexerHeap.service",
+    }
 
-    shutil.move(script_src, script_dest)
-    os.chmod(script_dest, 0o755)
-    shutil.move(service_src, service_dest)
+    for src, dst in files_to_move.items():
+        if os.path.exists(dst):
+            os.remove(dst)
+        shutil.move(src, dst)
+        if "automatic_set_ram.sh" in src:
+            os.chmod(dst, 0o755)
+
     run_command(["systemctl daemon-reload", "systemctl enable updateIndexerHeap.service"])
 
 
@@ -101,20 +111,18 @@ def add_wazuh_starter_service() -> None:
     Returns:
         None
     """
-    service_src = f"{STATIC_PATH}/wazuh-starter/wazuh-starter.service"
-    service_dest = "/etc/systemd/system/wazuh-starter.service"
-
-    timer_src = f"{STATIC_PATH}/wazuh-starter/wazuh-starter.timer"
-    timer_dest = "/etc/systemd/system/wazuh-starter.timer"
-
-    script_src = f"{STATIC_PATH}/wazuh-starter/wazuh-starter.sh"
-    script_dest = "/etc/.wazuh-starter.sh"
-
-    shutil.move(service_src, service_dest)
-    shutil.move(timer_src, timer_dest)
-    shutil.move(script_src, script_dest)
-
-    os.chmod(script_dest, 0o755)
+    files_to_move = {
+        f"{STATIC_PATH}/wazuh-starter/wazuh-starter.service": "/etc/systemd/system/wazuh-starter.service",
+        f"{STATIC_PATH}/wazuh-starter/wazuh-starter.timer": "/etc/systemd/system/wazuh-starter.timer",
+        f"{STATIC_PATH}/wazuh-starter/wazuh-starter.sh": "/etc/.wazuh-starter.sh",
+    }
+    
+    for src, dst in files_to_move.items():
+        if os.path.exists(dst):
+            os.remove(dst)
+        shutil.move(src, dst)
+        if "wazuh-starter.sh" in src:
+            os.chmod(dst, 0o755)
 
     commands = [
         "systemctl daemon-reload",
@@ -317,7 +325,7 @@ def main() -> None:
         - Creating network configuration.
         - Changing SSH cryptographic policies.
         - Performing additional cleanup tasks.
-        
+
     Returns:
         None
     """
