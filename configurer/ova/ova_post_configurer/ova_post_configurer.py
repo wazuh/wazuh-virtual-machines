@@ -190,7 +190,7 @@ def steps_system_config() -> None:
     version = data.get("version")
     stage = data.get("stage")
     wazuh_version = version + "-" + stage
-    run_command(f"sudo {STATIC_PATH}/messages.sh no {wazuh_version} wazuh-user")
+    run_command(f"sudo bash {STATIC_PATH}/messages.sh no {wazuh_version} wazuh-user")
 
 
 def steps_clean() -> None:
