@@ -19,6 +19,7 @@ def set_hostname() -> None:
     Returns:
         None
     """
+    logger.debug("Setting hostname to 'wazuh-server'.")
     run_command("sudo hostnamectl set-hostname wazuh-server", check=True)
 
 
@@ -32,6 +33,7 @@ def config_grub() -> None:
     Returns:
         None
     """
+    logger.debug("Configuring GRUB bootloader.")
     files_to_move = {
         f"{STATIC_PATH}/grub/wazuh.png": "/boot/grub2/wazuh.png",
         f"{STATIC_PATH}/grub/grub": "/etc/default/grub",
@@ -56,6 +58,7 @@ def enable_fips() -> None:
     Returns:
         None
     """
+    logger.debug("Enabling FIPS mode.")
     commands = [
         "yum update -y",
         "yum install -y dracut-fips",
@@ -79,6 +82,7 @@ def update_jvm_heap() -> None:
     Returns:
         None
     """
+    logger.debug("Updating JVM heap configuration.")
     files_to_move = {
         f"{STATIC_PATH}/automatic_set_ram.sh": "/etc/automatic_set_ram.sh",
         f"{STATIC_PATH}/updateIndexerHeap.service": "/etc/systemd/system/updateIndexerHeap.service",
@@ -111,12 +115,13 @@ def add_wazuh_starter_service() -> None:
     Returns:
         None
     """
+    logger.debug("Adding Wazuh starter service.")
     files_to_move = {
         f"{STATIC_PATH}/wazuh-starter/wazuh-starter.service": "/etc/systemd/system/wazuh-starter.service",
         f"{STATIC_PATH}/wazuh-starter/wazuh-starter.timer": "/etc/systemd/system/wazuh-starter.timer",
         f"{STATIC_PATH}/wazuh-starter/wazuh-starter.sh": "/etc/.wazuh-starter.sh",
     }
-    
+
     for src, dst in files_to_move.items():
         if os.path.exists(dst):
             os.remove(dst)
@@ -189,6 +194,8 @@ def steps_system_config() -> None:
     version = data.get("version")
     stage = data.get("stage")
     wazuh_version = version + "-" + stage
+
+    logger.debug("Adding Wazuh welcome messages.")
     run_command(f"sudo bash {STATIC_PATH}/messages.sh no {wazuh_version} wazuh-user")
 
 
@@ -226,6 +233,7 @@ def post_conf_create_network_config(config_path: str = "/etc/systemd/network/20-
     Returns:
         None
     """
+    logger.debug("Creating network configuration.")
     config_content = """[Match]
 Name=eth1
 [Network]
@@ -251,7 +259,7 @@ def post_conf_change_ssh_crypto_policies(config_path: str = "/etc/crypto-policie
     Returns:
         None
     """
-
+    logger.debug("Changing SSH cryptographic policies.")
     new_values = {
         "Ciphers": "Ciphers aes256-gcm@openssh.com,aes128-gcm@openssh.com",
         "MACs": "MACs hmac-sha2-256,hmac-sha2-512",
@@ -287,7 +295,7 @@ def post_conf_clean() -> None:
     Returns:
         None
     """
-
+    logger.debug("Cleaning up system logs and command history.")
     log_clean_commands = [
         "find /var/log/ -type f -exec bash -c 'cat /dev/null > {}' \\;",
         r"find /var/log/wazuh-indexer -type f -execdir sh -c 'cat /dev/null > \"$1\"' _ {} \;",
@@ -327,6 +335,8 @@ def main() -> None:
     Returns:
         None
     """
+    logger.info("--- Starting OVA PostConfigurer ---")
+    logger.info("Running system configuration.")
     steps_system_config()
 
     run_command("systemctl stop wazuh-server")
@@ -351,9 +361,11 @@ def main() -> None:
 
     steps_clean()
 
+    logger.info("Applying post-configuration changes.")
     post_conf_create_network_config()
     post_conf_change_ssh_crypto_policies()
     post_conf_clean()
+    logger.info_success("OVA PostConfigurer completed.")
 
 
 if __name__ == "__main__":
