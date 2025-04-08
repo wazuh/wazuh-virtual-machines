@@ -225,9 +225,9 @@ class Provisioner:
         debug_message = f"Necessary dependencies for {component_name.replace('_', ' ')}:"
 
         if not elements:
-            debug_message += "\n\t\t\t(No dependencies found)"
+            debug_message += "\n\t\t\t\t\t(No dependencies found)"
         for element in elements:
-            debug_message += f"\n\t\t\t- {element}"
+            debug_message += f"\n\t\t\t\t\t- {element}"
 
         logger.debug(debug_message)
 

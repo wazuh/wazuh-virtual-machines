@@ -98,7 +98,7 @@ def modify_file_remote(filepath: Path, replacements: list[tuple[str, str]], clie
             raise RuntimeError(f"Error reading {filepath}: {error_output}")
 
         for pattern, replacement in replacements:
-            output = re.sub(pattern, replacement, output)
+            output = re.sub(pattern, replacement, output, flags=re.MULTILINE)
 
         command = f"sudo tee {filepath} > /dev/null <<EOF\n{output}\nEOF"
         output, error_output = exec_command(command, client)

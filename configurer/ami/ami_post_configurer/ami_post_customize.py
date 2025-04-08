@@ -27,9 +27,9 @@ class AmiPostCustomizer:
     cloud_instances_path: Path = Path("/var/lib/cloud/instances")
     journal_logs_path: Path = Path("/var/log/journal")
     journald__config_file_path: Path = Path("/etc/systemd/journald.conf")
-    log_directory_path: Path  = Path("/var/log")
+    log_directory_path: Path = Path("/var/log")
     wazuh_indexer_log_path: Path = Path("/var/log/wazuh-indexer")
-    wazuh_server_log_path: Path = Path("/var/log/wazuh-indexer")
+    wazuh_server_log_path: Path = Path("/var/log/wazuh-server")
     wazuh_dashboard_log_path: Path = Path("/var/log/wazuh-dashboard")
 
     @remote_connection
@@ -43,6 +43,17 @@ class AmiPostCustomizer:
         self.stop_indexer(client=client)
         self.stop_dashboard(client=client)
         self.change_ssh_port_to_default(client=client)
+        self.clean_cloud_instance_files(client=client)
+        self.clean_journal_logs(client=client)
+        self.clean_yum_cache(client=client)
+        self.clean_logout_files(client=client)
+        self.enable_journal_log_storage(client=client)
+        self.clean_generated_logs(client=client)
+        self.clean_history(client=client)
+        self.clean_authorized_keys(client=client)
+        self.clean_wazuh_configure_directory(client=client)
+
+        logger.info_success("AMI post customization completed successfully")
 
     def create_custom_dir(self, client: paramiko.SSHClient) -> None:
         script_dir = Path(__file__).resolve().parent / "templates"
@@ -62,7 +73,7 @@ class AmiPostCustomizer:
             directory_template=directory_template,
             remote_user=self.inventory.ansible_user,
             client=client,
-        )  # type: ignore
+        )
 
     def create_certs_env(self, client: paramiko.SSHClient) -> None:
         logger.debug("Creating custom environment")
@@ -162,7 +173,7 @@ class AmiPostCustomizer:
         """
 
         self.stop_service("wazuh-dashboard", client=client)
-        command = "sudo systemctl disable wazuh-dashboard"
+        command = "sudo systemctl --quiet disable wazuh-dashboard"
         _, error_output = exec_command(command=command, client=client)
         if error_output:
             logger.error("Error disabling Wazuh dashboard service")
@@ -198,7 +209,7 @@ class AmiPostCustomizer:
         """
 
         logger.debug("Cleaning up cloud instance files")
-        command = f"[ -d {self.cloud_instances_path} ] && rm -rf {self.cloud_instances_path}/*"
+        command = f"[ -d {self.cloud_instances_path} ] && sudo rm -rf {self.cloud_instances_path}/*"
         _, error_output = exec_command(command=command, client=client)
         if error_output:
             logger.error("Error cleaning up cloud instance files")
@@ -241,8 +252,8 @@ class AmiPostCustomizer:
 
         logger.debug("Cleaning up logout files")
         command = f"""
-        sudo cat /dev/null > /home/{self.inventory.ansible_user}/.bash_logout
-        sudo cat /dev/null > /root/.bash_logout
+        echo '' | sudo tee /home/{self.inventory.ansible_user}/.bash_logout > /dev/null
+        echo '' | sudo tee /root/.bash_logout > /dev/null
         """
         _, error_output = exec_command(command=command, client=client)
         if error_output:
@@ -270,12 +281,62 @@ class AmiPostCustomizer:
         logger.debug(f'Cleaning up generated logs in "{self.log_directory_path}"')
         
         command = f"""
-        sudo find {self.log_directory_path} -type f -exec bash -c 'cat /dev/null > "$1"' _ {} \;
-        
+            if [ -d {self.log_directory_path} ] && sudo find {self.log_directory_path} -type f | read; then
+                sudo find {self.log_directory_path} -type f -exec sudo bash -c 'cat /dev/null > "$1"' _ {{}} \\;
+            fi
+            if [ -d {self.wazuh_indexer_log_path} ] && sudo find {self.wazuh_indexer_log_path} -type f | read; then
+                sudo find {self.wazuh_indexer_log_path} -type f -exec sudo bash -c 'cat /dev/null > "$1"' _ {{}} \\;
+            fi
+            if [ -d {self.wazuh_server_log_path} ] && sudo find {self.wazuh_server_log_path} -type f | read; then
+                sudo find {self.wazuh_server_log_path} -type f -exec sudo bash -c 'cat /dev/null > "$1"' _ {{}} \\;
+            fi
+            if [ -d {self.wazuh_dashboard_log_path} ] && sudo find {self.wazuh_dashboard_log_path} -type f | read; then
+                sudo find {self.wazuh_dashboard_log_path} -type f -exec sudo bash -c 'cat /dev/null > "$1"' _ {{}} \\;
+            fi
         """
+
         _, error_output = exec_command(command=command, client=client)
         if error_output:
             logger.error("Error cleaning up generated logs")
             raise RuntimeError(f"Error cleaning up generated logs: {error_output}")
 
         logger.info_success("Generated logs cleaned up successfully")
+        
+    def clean_history(self, client: paramiko.SSHClient) -> None:
+        logger.debug("Cleaning up history files")
+
+        command = f"""
+            echo '' | sudo tee /home/{self.inventory.ansible_user}/.bash_history > /dev/null
+            echo '' | sudo tee /root/.bash_history > /dev/null
+        """
+        _, error_output = exec_command(command=command, client=client)
+        if error_output:
+            logger.error("Error cleaning up history files")
+            raise RuntimeError(f"Error cleaning up history files: {error_output}")
+
+        logger.info_success("History files cleaned up successfully")
+        
+    def clean_authorized_keys(self, client: paramiko.SSHClient) -> None:
+        logger.debug("Cleaning up authorized keys")
+
+        command = f"""
+            echo '' | sudo tee /home/{self.inventory.ansible_user}/.ssh/authorized_keys > /dev/null
+            echo '' | sudo tee /root/.ssh/authorized_keys > /dev/null
+        """
+        _, error_output = exec_command(command=command, client=client)
+        if error_output:
+            logger.error("Error cleaning up authorized keys")
+            raise RuntimeError(f"Error cleaning up authorized keys: {error_output}")
+
+        logger.info_success("Authorized keys cleaned up successfully")
+        
+    def clean_wazuh_configure_directory(self, client: paramiko.SSHClient) -> None:
+        logger.debug("Cleaning up Wazuh configure directory")
+
+        command = f"sudo rm -rf {RemoteDirectories.WAZUH_ROOT_DIR}"
+        _, error_output = exec_command(command=command, client=client)
+        if error_output:
+            logger.error(f"Error cleaning up Wazuh configure directory {RemoteDirectories.WAZUH_ROOT_DIR}")
+            raise RuntimeError(f"Error cleaning up Wazuh configure directory {RemoteDirectories.WAZUH_ROOT_DIR}: {error_output}")
+
+        logger.info_success("Wazuh configure directory cleaned up successfully")

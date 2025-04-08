@@ -1,4 +1,6 @@
-Welcome to the Wazuh AMI version
+#!/bin/sh
+cat << EOF
+
 
 wwwwww.           wwwwwww.          wwwwwww.
 wwwwwww.          wwwwwww.          wwwwwww.
@@ -21,5 +23,8 @@ wwwwwww.          wwwwwww.          wwwwwww.
          wwwwww.            wwwwww.         oooooo
 
 
-      WAZUH Open Source Security Platform
-               https://wazuh.com
+         WAZUH Open Source Security Platform
+                  https://wazuh.com
+
+
+EOF

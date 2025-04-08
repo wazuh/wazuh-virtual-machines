@@ -27,7 +27,8 @@ class AmiCustomizer:
     cloud_config_path: Path = Path("/etc/cloud/cloud.cfg")
     ssh_config_path: Path = Path("/etc/ssh/sshd_config")
     instance_update_logo_path: Path = Path("/etc/update-motd.d/70-available-updates")
-    motd_priority_file = Path("/etc/motd")
+    motd_scripts_directory = Path("/etc/update-motd.d")
+    default_motd_file_path = Path("/usr/lib/motd.d/30-banner")
     journald_file_path = Path("/etc/systemd/journald.conf")
     systemd_services_path = Path("/etc/systemd/system/")
     ram_service_script_destination_path = Path("/etc")
@@ -169,15 +170,14 @@ class AmiCustomizer:
         logger.debug(f"Configuring cloud config file: {self.cloud_config_path}")
         replacements = [
             (r"gecos: .*", "gecos: Wazuh AMI User"),
-            (r"name: .*", f"name: {self.wazuh_user}"),
+            (r"^[ \t]*name:\s*.*$", f"     name: {self.wazuh_user}"),
             (r"- set_hostname\n", ""),
-            (r"\s*- update_hostname", "\n - preserve_hostname: true"),
+            (r"\s*- update_hostname", ""),
+            (r"preserve_hostname: false", "preserve_hostname: true"),
         ]
         command = """
         sudo cloud-init clean
         sudo cloud-init init
-        sudo cloud-init modules --mode=config
-        sudo cloud-init modules --mode=final
         """
         modify_file(filepath=self.cloud_config_path, replacements=replacements, client=client)
 
@@ -283,7 +283,6 @@ class AmiCustomizer:
         available_updates = self.check_instance_updates(client=client)
         if available_updates:
             self.update_instance(client=client)
-            self._remove_update_motd_logo(client=client)
 
         self._set_wazuh_logo(client=client)
 
@@ -303,7 +302,7 @@ class AmiCustomizer:
 
         logger.debug("Setting Wazuh logo")
 
-        wazuh_banner_file_destination = f"/usr/lib/motd.d/{self.wazuh_banner_path.name}"
+        wazuh_banner_file_destination = f"{self.motd_scripts_directory}/{self.wazuh_banner_path.name}"
 
         temporal_file_path = f"/tmp/{self.wazuh_banner_path.name}"
         sftp = client.open_sftp()
@@ -319,7 +318,7 @@ class AmiCustomizer:
             sudo mv {temporal_file_path} {wazuh_banner_file_destination}
             sudo chmod 755 {wazuh_banner_file_destination}
             sudo chown root:root {wazuh_banner_file_destination}
-            sudo cat {wazuh_banner_file_destination} | sudo tee {self.motd_priority_file} > /dev/null
+            sudo rm -f {self.default_motd_file_path}
             """
 
         _, error_output = exec_command(command=command, client=client)
@@ -328,29 +327,6 @@ class AmiCustomizer:
             raise RuntimeError(f"Error setting Wazuh motd banner: {error_output}")
 
         logger.info_success("Wazuh motd banner set successfully")
-
-    def _remove_update_motd_logo(self, client: paramiko.SSHClient) -> None:
-        """
-        Removes the update MOTD (Message of the Day) logo from the specified path on the remote instance.
-
-        Args:
-            client (paramiko.SSHClient): The SSH client used to connect to the remote instance.
-
-        Returns:
-            None
-        """
-
-        logger.debug("Removing update motd logo")
-        command = f"sudo rm -f {self.instance_update_logo_path}"
-        _, error_output = exec_command(command=command, client=client)
-
-        if error_output:
-            logger.error(f"Error removing update motd logo in path {self.instance_update_logo_path}")
-            raise RuntimeError(
-                f"Error removing update motd logo in path {self.instance_update_logo_path}: {error_output}"
-            )
-
-        logger.info_success("Update motd logo removed successfully")
 
     def stop_journald_log_storage(self, client: paramiko.SSHClient) -> None:
         """
