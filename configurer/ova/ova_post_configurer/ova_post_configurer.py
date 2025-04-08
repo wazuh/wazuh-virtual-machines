@@ -164,7 +164,6 @@ def steps_system_config() -> None:
 
     add_wazuh_starter_service()
 
-    # Before it was: sed -i "s/root:.*:/root:\$1\$pNjjEA7K\$USjdNwjfh7A\.vHCf8suK41::0:99999:7:::/g" /etc/shadow
     run_command("echo 'root:wazuh' | chpasswd")
 
     set_hostname()
