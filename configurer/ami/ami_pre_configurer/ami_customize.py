@@ -51,7 +51,7 @@ class AmiCustomizer:
         Args:
             client (paramiko.SSHClient | None, optional): An optional SSH client instance to execute
                 remote commands. If not provided, the method assumes local execution.
-                
+
         Returns:
             None
         """
@@ -77,7 +77,7 @@ class AmiCustomizer:
 
         Args:
             client (paramiko.SSHClient): An active SSH client used to execute commands on the remote system.
-            
+
         Returns:
             str: The name of the created Wazuh user.
         """
@@ -125,7 +125,7 @@ class AmiCustomizer:
 
         Args:
             client (paramiko.SSHClient): An active SSH client used to execute commands on the remote system.
-            
+
         Returns:
             None
         """
@@ -155,7 +155,7 @@ class AmiCustomizer:
 
         Args:
             client (paramiko.SSHClient): An active SSH client connection to the remote machine.
-            
+
         Returns:
             None
         """
@@ -190,7 +190,7 @@ class AmiCustomizer:
 
         Args:
             client (paramiko.SSHClient): An active SSH client connected to the target machine.
-            
+
         Returns:
             None
         """
@@ -242,7 +242,7 @@ class AmiCustomizer:
 
         Args:
             client (paramiko.SSHClient): An active SSH client connected to the instance.
-            
+
         Returns:
             None
         """
@@ -290,7 +290,7 @@ class AmiCustomizer:
 
         Args:
             client (paramiko.SSHClient): An active SSH client connection to the remote host.
-            
+
         Returns:
             None
         """
@@ -329,7 +329,7 @@ class AmiCustomizer:
 
         Args:
             client (paramiko.SSHClient): The SSH client used to connect to the remote instance.
-            
+
         Returns:
             None
         """
@@ -356,7 +356,7 @@ class AmiCustomizer:
 
         Args:
             client (paramiko.SSHClient): An active SSH client used to execute commands on the remote system.
-            
+
         Returns:
             None
         """
@@ -390,7 +390,7 @@ class AmiCustomizer:
 
         Args:
             client (paramiko.SSHClient): An active SSH client connected to the remote host.
-            
+
         Returns:
             None
         """

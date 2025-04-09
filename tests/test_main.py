@@ -1,11 +1,9 @@
 import sys
-from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
 from main import DEPENDENCIES_FILE_PATH, main, parse_arguments
-from provisioner.models import Input
 
 
 def test_parse_arguments_required():
@@ -13,6 +11,8 @@ def test_parse_arguments_required():
         "main.py",
         "--packages-url-path",
         "packages_url.yaml",
+        "--execute",
+        "all-ami",
     ]
     sys.argv = test_args
     args = parse_arguments()
@@ -23,7 +23,7 @@ def test_parse_arguments_required():
     assert args.arch == "x86_64"
     assert args.dependencies == DEPENDENCIES_FILE_PATH
     assert args.component == "all"
-    assert args.execute == "all"
+    assert args.execute == "all-ami"
 
 
 def test_parse_arguments_optional():
@@ -35,6 +35,8 @@ def test_parse_arguments_optional():
         "packages_url.yaml",
         "--package-type",
         "deb",
+        "--execute",
+        "all-ami",
         "--arch",
         "arm64",
         "--dependencies",
@@ -47,6 +49,7 @@ def test_parse_arguments_optional():
     assert args.inventory == "inventory.yaml"
     assert args.packages_url_path == "packages_url.yaml"
     assert args.package_type == "deb"
+    assert args.execute == "all-ami"
     assert args.arch == "arm64"
     assert args.dependencies == "custom_dependencies.yaml"
     assert args.component == "wazuh_server"
@@ -76,63 +79,19 @@ def test_parse_arguments_invalid_values(arg_name, arg_value):
         parse_arguments()
 
 
-@patch("main.parse_arguments")
-@patch("provisioner.main.Input")
-@patch("provisioner.main.parse_componets")
-@patch("provisioner.main.Provisioner")
-@patch("configurer.core.main.CoreConfigurer")
-def test_main(mock_configurer, mock_provisioner, mock_parse_componets, mock_input, mock_parse_arguments):
-    mock_args = Mock()
-    mock_args.component = "wazuh_server"
-    mock_args.inventory = "inventory.yaml"
-    mock_args.packages_url_path = Path("path/to/packages_url")
-    mock_args.package_type = "rpm"
-    mock_args.arch = "x86_64"
-    mock_args.dependencies = Path("path/to/dependencies.yaml")
-    mock_args.execute = "provisioner"
-    mock_parse_arguments.return_value = mock_args
-
-    # Mock the Input object
-    mock_input_instance = Mock(spec=Input)
-    mock_input_instance.component = mock_args.component
-    mock_input_instance.arch = mock_args.arch
-    mock_input_instance.package_type = mock_args.package_type
-    mock_input.return_value = mock_input_instance
-
-    # Mock the parsed components
-    mock_components = [Mock()]
-    mock_parse_componets.return_value = mock_components
-
-    main()
-
-    mock_parse_arguments.assert_called_once()
-    mock_input.assert_called_once_with(
-        component=mock_args.component,
-        inventory_path=mock_args.inventory,
-        packages_url_path=mock_args.packages_url_path,
-        package_type=mock_args.package_type,
-        arch=mock_args.arch,
-        dependencies_path=mock_args.dependencies,
-    )
-    mock_parse_componets.assert_called_once_with(mock_input_instance)
-    mock_provisioner.assert_called_once_with(
-        inventory=mock_input_instance.inventory_content,
-        certs=mock_input_instance.certificates_content,
-        components=mock_components,
-        arch=mock_input_instance.arch,
-        package_type=mock_input_instance.package_type,
-    )
-    mock_provisioner.return_value.provision.assert_called_once()
-    mock_configurer.assert_not_called()
-
-
 @pytest.mark.parametrize(
     "module, error_message",
     [
-        ("ami-configurer", '--inventory is required for the "ami-configurer" and "all" --execute value'),
+        ("ami-configurer", '--inventory is required for the "ami-configurer" and "all-ami" --execute value'),
         ("core-configurer", ""),
-        ("provisioner", '--packages-url-path is required for the "provisioner" and "all" --execute value'),
-        ("all", '--packages-url-path is required for the "provisioner" and "all" --execute value'),
+        (
+            "provisioner",
+            '--packages-url-path is required for the "provisioner", "all-ami" and "ova-post-configurer" --execute value',
+        ),
+        (
+            "all-ami",
+            '--packages-url-path is required for the "provisioner", "all-ami" and "ova-post-configurer" --execute value',
+        ),
     ],
 )
 def test_main_without_required_args(module, error_message):
@@ -146,7 +105,7 @@ def test_main_without_required_args(module, error_message):
 
 @patch("main.core_configurer_main")
 @patch("main.provisioner_main")
-def test_main_execute_provisioner(mock_provisioner_main, mock_configurer_main):
+def test_main_execute_provisioner(mock_provisioner_main, mock_core_configurer_main):
     test_args = [
         "main.py",
         "--packages-url-path",
@@ -157,12 +116,12 @@ def test_main_execute_provisioner(mock_provisioner_main, mock_configurer_main):
     sys.argv = test_args
     main()
     mock_provisioner_main.assert_called_once()
-    mock_configurer_main.assert_not_called()
+    mock_core_configurer_main.assert_not_called()
 
 
 @patch("main.core_configurer_main")
 @patch("main.provisioner_main")
-def test_main_execute_configurer(mock_provisioner_main, mock_configurer_main):
+def test_main_execute_configurer(mock_provisioner_main, mock_core_configurer_main):
     test_args = [
         "main.py",
         "--execute",
@@ -170,7 +129,7 @@ def test_main_execute_configurer(mock_provisioner_main, mock_configurer_main):
     ]
     sys.argv = test_args
     main()
-    mock_configurer_main.assert_called_once()
+    mock_core_configurer_main.assert_called_once()
     mock_provisioner_main.assert_not_called()
 
 
@@ -178,8 +137,8 @@ def test_main_execute_configurer(mock_provisioner_main, mock_configurer_main):
 @patch("main.provisioner_main")
 @patch("main.ami_configurer_main")
 @patch("main.change_inventory_user")
-def test_main_execute_all(
-    mock_change_inventory_user, mock_ami_configurer_main, mock_provisioner_main, mock_configurer_main
+def test_main_execute_all_ami(
+    mock_change_inventory_user, mock_ami_configurer_main, mock_provisioner_main, mock_core_configurer_main
 ):
     test_args = [
         "main.py",
@@ -188,11 +147,43 @@ def test_main_execute_all(
         "--packages-url-path",
         "packages_url.yaml",
         "--execute",
-        "all",
+        "all-ami",
     ]
     sys.argv = test_args
     main()
     mock_ami_configurer_main.assert_called_once()
     mock_provisioner_main.assert_called_once()
-    mock_configurer_main.assert_called_once()
+    mock_core_configurer_main.assert_called_once()
     mock_change_inventory_user.assert_called_once()
+
+
+@patch("main.ova_pre_configurer_main")
+def test_main_execute_ova_pre_configurer(mock_ova_pre_configurer_main):
+    test_args = [
+        "main.py",
+        "--execute",
+        "ova-pre-configurer",
+    ]
+    sys.argv = test_args
+    main()
+    mock_ova_pre_configurer_main.assert_called_once()
+
+
+@patch("main.core_configurer_main")
+@patch("main.provisioner_main")
+@patch("main.ova_post_configurer_main")
+def test_main_execute_ova_post_configurer(
+    mock_ova_post_configurer_main, mock_provisioner_main, mock_core_configurer_main
+):
+    test_args = [
+        "main.py",
+        "--packages-url-path",
+        "packages_url.yaml",
+        "--execute",
+        "ova-post-configurer",
+    ]
+    sys.argv = test_args
+    main()
+    mock_ova_post_configurer_main.assert_called_once()
+    mock_provisioner_main.assert_called_once()
+    mock_core_configurer_main.assert_called_once()
