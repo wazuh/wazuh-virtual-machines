@@ -10,6 +10,9 @@ from utils import Logger
 logger = Logger("OVA PostConfigurer - Main module")
 
 STATIC_PATH = "configurer/ova/ova_post_configurer/static"
+SCRIPTS_PATH = "configurer/ova/ova_post_configurer/scripts"
+WAZUH_STARTER_PATH = f"{SCRIPTS_PATH}/wazuh-starter"
+UTILS_PATH = "utils"
 
 
 def set_hostname() -> None:
@@ -84,8 +87,8 @@ def update_jvm_heap() -> None:
     """
     logger.debug("Updating JVM heap configuration.")
     files_to_move = {
-        f"{STATIC_PATH}/automatic_set_ram.sh": "/etc/automatic_set_ram.sh",
-        f"{STATIC_PATH}/updateIndexerHeap.service": "/etc/systemd/system/updateIndexerHeap.service",
+        f"{UTILS_PATH}/scripts/automatic_set_ram.sh": "/etc/automatic_set_ram.sh",
+        f"{UTILS_PATH}/scripts/updateIndexerHeap.service": "/etc/systemd/system/updateIndexerHeap.service",
     }
 
     for src, dst in files_to_move.items():
@@ -117,9 +120,9 @@ def add_wazuh_starter_service() -> None:
     """
     logger.debug("Adding Wazuh starter service.")
     files_to_move = {
-        f"{STATIC_PATH}/wazuh-starter/wazuh-starter.service": "/etc/systemd/system/wazuh-starter.service",
-        f"{STATIC_PATH}/wazuh-starter/wazuh-starter.timer": "/etc/systemd/system/wazuh-starter.timer",
-        f"{STATIC_PATH}/wazuh-starter/wazuh-starter.sh": "/etc/.wazuh-starter.sh",
+        f"{WAZUH_STARTER_PATH}/wazuh-starter.service": "/etc/systemd/system/wazuh-starter.service",
+        f"{WAZUH_STARTER_PATH}/wazuh-starter.timer": "/etc/systemd/system/wazuh-starter.timer",
+        f"{WAZUH_STARTER_PATH}/wazuh-starter.sh": "/etc/.wazuh-starter.sh",
     }
 
     for src, dst in files_to_move.items():
@@ -196,7 +199,7 @@ def steps_system_config() -> None:
     wazuh_version = version + "-" + stage
 
     logger.debug("Adding Wazuh welcome messages.")
-    run_command(f"sudo bash {STATIC_PATH}/messages.sh no {wazuh_version} wazuh-user")
+    run_command(f"sudo bash {SCRIPTS_PATH}/messages.sh no {wazuh_version} wazuh-user")
 
 
 def steps_clean() -> None:
@@ -335,8 +338,8 @@ def main() -> None:
     Returns:
         None
     """
-    logger.info("--- Starting OVA PostConfigurer ---")
-    logger.info("Running system configuration.")
+    logger.debug_title("Starting OVA PostConfigurer")
+    logger.debug("Running system configuration.")
     steps_system_config()
 
     run_command("systemctl stop wazuh-server")
@@ -361,7 +364,7 @@ def main() -> None:
 
     steps_clean()
 
-    logger.info("Applying post-configuration changes.")
+    logger.debug("Applying post-configuration changes.")
     post_conf_create_network_config()
     post_conf_change_ssh_crypto_policies()
     post_conf_clean()
