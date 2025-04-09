@@ -7,11 +7,11 @@ from generic import exec_command, modify_file, remote_connection
 from models import Inventory
 from utils import Logger
 
-logger = Logger("AmiCustomizer")
+logger = Logger("AmiPreConfigurer")
 
 
 @dataclass
-class AmiCustomizer:
+class AmiPreConfigurer:
     """
     AmiCustomizer is a class responsible for customizing an Amazon Machine Image (AMI) for Wazuh.
     It provides methods to configure the AMI environment, including user management, hostname updates,
@@ -58,11 +58,12 @@ class AmiCustomizer:
         Returns:
             None
         """
-        if self.inventory.ansible_user != self.wazuh_user:
-            raise Exception(f'Before customizing the AMI, the Wazuh user  "{self.wazuh_user}" must be created')
 
         if client is None:
             raise Exception("SSH client is not connected")
+
+        if self.inventory.ansible_user != self.wazuh_user:
+            raise Exception(f'Before customizing the AMI, the Wazuh user  "{self.wazuh_user}" must be created')
 
         self.remove_default_instance_user(client=client)
         self.configure_cloud_cfg(client=client)

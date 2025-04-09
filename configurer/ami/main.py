@@ -1,8 +1,8 @@
 from pathlib import Path
 from typing import Literal
 
-from configurer.ami.ami_post_configurer import AmiPostCustomizer
-from configurer.ami.ami_pre_configurer import AmiCustomizer, AmiLocalFilePath
+from configurer.ami.ami_post_configurer import AmiPostConfigurer
+from configurer.ami.ami_pre_configurer import AmiLocalFilePath, AmiPreConfigurer
 from models import Inventory
 
 
@@ -29,7 +29,7 @@ def ami_pre_configurer(inventory: Inventory) -> str:
         str: The name of the Wazuh user created on the AMI.
     """
 
-    ami_customizer = AmiCustomizer(
+    ami_customizer = AmiPreConfigurer(
         inventory=inventory,
         wazuh_banner_path=Path(AmiLocalFilePath.WAZUH_BANNER_LOGO),
         local_set_ram_script_path=Path(AmiLocalFilePath.SET_RAM_SCRIPT),
@@ -45,7 +45,7 @@ def ami_pre_configurer(inventory: Inventory) -> str:
 
 
 def ami_post_configurer(inventory: Inventory) -> None:
-    ami_post_customizer = AmiPostCustomizer(inventory=inventory)
+    ami_post_customizer = AmiPostConfigurer(inventory=inventory)
     ami_post_customizer.post_customize()
 
     return None

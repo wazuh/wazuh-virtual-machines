@@ -9,11 +9,11 @@ from generic import exec_command, modify_file, remote_connection
 from models import Inventory
 from utils import CertificatesComponent, Logger, RemoteDirectories
 
-logger = Logger("AmiPostCustomizer")
+logger = Logger("AmiPostConfigurer")
 
 
 @dataclass
-class AmiPostCustomizer:
+class AmiPostConfigurer:
     inventory: Inventory
     environment_name: str = "certs-env"
     enviroment_python_version: str = "3.11"
@@ -34,14 +34,41 @@ class AmiPostCustomizer:
 
     @remote_connection
     def post_customize(self, client: paramiko.SSHClient | None = None) -> None:
+        """
+        Perform post-customization tasks on an AMI instance using an SSH client.
+
+        This method executes a series of operations to prepare the AMI instance
+        for deployment. It requires an active SSH client connection to perform
+        the tasks remotely.
+
+        Tasks performed:
+            - Creation of a custom directory to store the necessary files for the execution
+              of the service that will create the custom certs for each instance.
+            - Set up python environment located in the custom directory that will be used for the
+              certificates creation service.
+            - Stop Wazuh server, indexer, and dashboard services.
+            - Change SSH port to the default value.
+            - Clean up cloud instance files, journal logs, yum cache, and logout files.
+            - Enable journal log storage.
+            - Remove generated logs, command history, and authorized keys.
+            - Clean up the Wazuh configuration directory.
+
+        Args:
+            client (paramiko.SSHClient | None): The SSH client used to connect to
+                the AMI instance.
+
+        Returns:
+            None
+        """
+
         if client is None:
             raise Exception("SSH client is not connected")
 
         self.create_custom_dir(client=client)
         self.create_certs_env(client=client)
         self.stop_wazuh_server(client=client)
-        self.stop_indexer(client=client)
-        self.stop_dashboard(client=client)
+        self.stop_wazuh_indexer(client=client)
+        self.stop_wazuh_dashboard(client=client)
         self.change_ssh_port_to_default(client=client)
         self.clean_cloud_instance_files(client=client)
         self.clean_journal_logs(client=client)
@@ -56,6 +83,21 @@ class AmiPostCustomizer:
         logger.info_success("AMI post customization completed successfully")
 
     def create_custom_dir(self, client: paramiko.SSHClient) -> None:
+        """
+        Creates a custom directory structure on a remote machine using a predefined template.
+
+        This method generates a directory structure based on a YAML template file and
+        creates it on the remote machine using the provided SSH client.
+        Here will be stored the necessary files for the execution of the service that will
+        create the custom certs for each instance.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client used to connect to the remote machine.
+
+        Returns:
+            None
+        """
+
         script_dir = Path(__file__).resolve().parent / "templates"
         context = {
             "remote_certs_path": RemoteDirectories.CERTS,
@@ -76,6 +118,19 @@ class AmiPostCustomizer:
         )
 
     def create_certs_env(self, client: paramiko.SSHClient) -> None:
+        """
+        Creates a custom Python virtual environment on a remote machine via SSH.
+
+        This method installs the specified Python version, creates a virtual environment,
+        upgrades pip, and installs the required dependencies in the virtual environment.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client used to execute commands on the remote machine.
+
+        Returns:
+            None
+        '"""
+
         logger.debug("Creating custom environment")
 
         command = f"""
@@ -97,21 +152,34 @@ class AmiPostCustomizer:
 
         Args:
             service_name (str): The name of the service to stop.
+            client (paramiko.SSHClient): An active SSH client used to execute commands on the remote machine.
+
+        Returns:
+            None
         """
+
         logger.debug(f"Stopping {service_name} service")
 
         command = f"sudo systemctl stop {service_name}"
         _, error_output = exec_command(command=command, client=client)
         if error_output:
-            logger.error(f"Error stopping {service_name} service")
-            raise RuntimeError(f"Error stopping {service_name} service: {error_output}")
+            logger.error(f"Error stopping the {service_name} service")
+            raise RuntimeError(f"Error stopping the {service_name} service: {error_output}")
+
+        logger.info_success(f"{service_name} service stopped successfully")
 
     def stop_wazuh_server(self, client: paramiko.SSHClient) -> None:
         """
         Stop the Wazuh server service.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client used to execute commands on the remote machine.
+
+        Returns:
+            None
         """
+
         self.stop_service("wazuh-server", client=client)
-        logger.info_success("Wazuh server service stopped successfully")
 
     def remove_indexer_index_list(self, client: paramiko.SSHClient) -> None:
         """
@@ -134,7 +202,7 @@ class AmiPostCustomizer:
                 f'curl -s -o /dev/null -w "%{{http_code}}" -X DELETE -u "admin:admin" -k "{base_url}/{index}-*"'
             )
 
-        command = " && ".join(commands)
+        command = " && sudo ".join(commands)
         command = f"sudo {command}"
         _, error_output = exec_command(command=command, client=client)
         if error_output:
@@ -146,7 +214,14 @@ class AmiPostCustomizer:
     def run_security_init_script(self, client: paramiko.SSHClient) -> None:
         """
         Run the indexer security init script.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client used to execute commands on the remote machine.
+
+        Returns:
+            None
         """
+
         logger.debug("Running indexer security init script")
 
         command = "sudo /usr/share/wazuh-indexer/bin/indexer-security-init.sh"
@@ -157,17 +232,22 @@ class AmiPostCustomizer:
 
         logger.debug("Indexer security init script executed successfully")
 
-    def stop_indexer(self, client: paramiko.SSHClient) -> None:
+    def stop_wazuh_indexer(self, client: paramiko.SSHClient) -> None:
         """
         Stop the Wazuh indexer service. Before stopping, it removes the indexer index list and runs the security init script.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client used to execute commands on the remote machine.
+
+        Returns:
+            None
         """
 
         self.remove_indexer_index_list(client=client)
         self.run_security_init_script(client=client)
         self.stop_service("wazuh-indexer", client=client)
-        logger.info_success("Wazuh indexer service stopped successfully")
 
-    def stop_dashboard(self, client: paramiko.SSHClient) -> None:
+    def stop_wazuh_dashboard(self, client: paramiko.SSHClient) -> None:
         """
         Stop and disable the Wazuh dashboard service.
         """
@@ -202,7 +282,7 @@ class AmiPostCustomizer:
             raise RuntimeError(f"Error restarting SSH service: {error_output}")
 
         logger.info_success("SSH port changed to default successfully")
-    
+
     def clean_cloud_instance_files(self, client: paramiko.SSHClient) -> None:
         """
         Clean up files and directories related to the cloud instance.
@@ -216,7 +296,7 @@ class AmiPostCustomizer:
             raise RuntimeError(f"Error cleaning up cloud instance files: {error_output}")
 
         logger.info_success("Cloud instance files cleaned up successfully")
-        
+
     def clean_journal_logs(self, client: paramiko.SSHClient) -> None:
         """
         Clean up journal logs.
@@ -230,7 +310,7 @@ class AmiPostCustomizer:
             raise RuntimeError(f"Error cleaning up journal logs: {error_output}")
 
         logger.info_success("Journal logs cleaned up successfully")
-        
+
     def clean_yum_cache(self, client: paramiko.SSHClient) -> None:
         """
         Clean up the yum cache.
@@ -244,7 +324,7 @@ class AmiPostCustomizer:
             raise RuntimeError(f"Error cleaning up yum cache: {error_output}")
 
         logger.info_success("Yum cache cleaned up successfully")
-        
+
     def clean_logout_files(self, client: paramiko.SSHClient) -> None:
         """
         Clean up logout files.
@@ -263,7 +343,6 @@ class AmiPostCustomizer:
         logger.info_success("Logout files cleaned up successfully")
 
     def enable_journal_log_storage(self, client: paramiko.SSHClient) -> None:
-
         logger.debug("Enabling journal log storage")
         replacements = [
             ("Storage=none", "#Storage=auto"),
@@ -276,10 +355,10 @@ class AmiPostCustomizer:
         )
 
         logger.info_success("Journal log storage enabled successfully")
-        
+
     def clean_generated_logs(self, client: paramiko.SSHClient) -> None:
         logger.debug(f'Cleaning up generated logs in "{self.log_directory_path}"')
-        
+
         command = f"""
             if [ -d {self.log_directory_path} ] && sudo find {self.log_directory_path} -type f | read; then
                 sudo find {self.log_directory_path} -type f -exec sudo bash -c 'cat /dev/null > "$1"' _ {{}} \\;
@@ -301,7 +380,7 @@ class AmiPostCustomizer:
             raise RuntimeError(f"Error cleaning up generated logs: {error_output}")
 
         logger.info_success("Generated logs cleaned up successfully")
-        
+
     def clean_history(self, client: paramiko.SSHClient) -> None:
         logger.debug("Cleaning up history files")
 
@@ -315,7 +394,7 @@ class AmiPostCustomizer:
             raise RuntimeError(f"Error cleaning up history files: {error_output}")
 
         logger.info_success("History files cleaned up successfully")
-        
+
     def clean_authorized_keys(self, client: paramiko.SSHClient) -> None:
         logger.debug("Cleaning up authorized keys")
 
@@ -329,7 +408,7 @@ class AmiPostCustomizer:
             raise RuntimeError(f"Error cleaning up authorized keys: {error_output}")
 
         logger.info_success("Authorized keys cleaned up successfully")
-        
+
     def clean_wazuh_configure_directory(self, client: paramiko.SSHClient) -> None:
         logger.debug("Cleaning up Wazuh configure directory")
 
@@ -337,6 +416,8 @@ class AmiPostCustomizer:
         _, error_output = exec_command(command=command, client=client)
         if error_output:
             logger.error(f"Error cleaning up Wazuh configure directory {RemoteDirectories.WAZUH_ROOT_DIR}")
-            raise RuntimeError(f"Error cleaning up Wazuh configure directory {RemoteDirectories.WAZUH_ROOT_DIR}: {error_output}")
+            raise RuntimeError(
+                f"Error cleaning up Wazuh configure directory {RemoteDirectories.WAZUH_ROOT_DIR}: {error_output}"
+            )
 
         logger.info_success("Wazuh configure directory cleaned up successfully")

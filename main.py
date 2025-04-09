@@ -24,7 +24,7 @@ def parse_arguments():
         --arch (str): Architecture type (optional, default: "x86_64", choices: ["x86_64", "amd64", "arm64", "aarch64"]).
         --dependencies (str): Path to the dependencies file (optional, default: DEPENDENCIES_FILE_PATH).
         --component (str): Component to provision (optional, default: "all", choices: ["wazuh_indexer", "wazuh_server", "wazuh_dashboard", "all"]).
-        --execute (str): Module to execute (optional, default: "all", choices: ["provisioner", "core-configurer", "ami-configurer", "all"]).
+        --execute (str): Module to execute (required, choices: ["provisioner", "core-configurer", "ami-pre-configurer", "ami-post-configurer", "all-ami"]).
     """
     parser = argparse.ArgumentParser(description="Component Provisioner")
     parser.add_argument("--inventory", required=False, help="Path to the inventory file")
@@ -32,8 +32,7 @@ def parse_arguments():
     parser.add_argument("--package-type", required=False, default="rpm", choices=["rpm", "deb"])
     parser.add_argument(
         "--execute",
-        required=False,
-        default="all-ami",
+        required=True,
         choices=["provisioner", "core-configurer", "ami-pre-configurer", "ami-post-configurer", "all-ami"],
     )
     parser.add_argument(
@@ -79,11 +78,13 @@ def main():
     - `provisioner`: Executes the provisioner logic, which requires the
         `--packages-url-path` argument along with other optional arguments.
     - `configurer`: Executes the core configurer logic.
-    - `all`: Executes both the provisioner and configurer logic.
-
-    Raises:
-            ValueError: If the `--packages-url-path` argument is missing when the
-            `provisioner` or `all` subcommand is executed.
+    - `ami-pre-configurer`: Executes the AMI pre-configurer logic, which requires
+        the `--inventory` argument.
+    - `ami-post-configurer`: Executes the AMI post-configurer logic, which requires
+        the `--inventory` and `--packages-url-path` arguments
+    - `all-ami`: Executes both the AMI pre-configurer and post-configurer logic,
+        which requires the `--inventory` and `--packages-url-path` arguments.
+    The script also validates the required arguments based on the selected subcommand.
     """
 
     parsed_args = parse_arguments()

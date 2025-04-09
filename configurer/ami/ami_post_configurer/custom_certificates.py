@@ -74,13 +74,13 @@ def verify_component_connection(component: Component, command: str, retries: int
     Returns:
         None
     """
-    
-    logger.debug(f'Verifying {component.replace("_", " ")} connection...')
+
+    logger.debug(f"Verifying {component.replace('_', ' ')} connection...")
 
     for attempt in range(retries):
         output, _ = exec_command(command=command)
         if output == "200":
-            logger.debug(f'{component.replace("_", " ")} connection verified successfully')
+            logger.debug(f"{component.replace('_', ' ')} connection verified successfully")
             return
 
         if attempt < retries - 1:
@@ -128,7 +128,7 @@ def run_indexer_security_init() -> None:
         raise RuntimeError("Error running indexer security initialization")
 
     logger.debug("Indexer security initialization completed")
-    
+
 
 def remove_certificates() -> None:
     """
@@ -157,7 +157,7 @@ def remove_certificates() -> None:
 def create_certificates() -> None:
     """
     Creates new certificates using the CertsManager.
-    
+
     Returns:
         None
     """
@@ -166,7 +166,7 @@ def create_certificates() -> None:
     certs_manager = CertsManager(raw_config_path=CERTS_TOOL_CONFIG_PATH, certs_tool_path=CERTS_TOOL_PATH)
     certs_manager.generate_certificates()
     logger.debug("New certificates created")
-    
+
 
 def stop_ssh_service() -> None:
     """
@@ -210,7 +210,7 @@ def verify_indexer_connection() -> None:
         None
     """
 
-    command = "curl -XGET https://localhost:9200/ -uadmin:admin -k --max-time 120 --silent -w \"%{http_code}\" --output /dev/null"
+    command = 'curl -XGET https://localhost:9200/ -uadmin:admin -k --max-time 120 --silent -w "%{http_code}" --output /dev/null'
     verify_component_connection(Component.WAZUH_INDEXER, command)
 
 
@@ -224,17 +224,17 @@ def verify_dashboard_connection() -> None:
         None
     """
 
-    command = "curl -XGET https://localhost:443/status -uadmin:admin -k -w \"%{http_code}\" -s -o /dev/null"
+    command = 'curl -XGET https://localhost:443/status -uadmin:admin -k -w "%{http_code}" -s -o /dev/null'
     verify_component_connection(Component.WAZUH_DASHBOARD, command)
 
 
 def start_ssh_service() -> None:
     """
     Starts the SSH service on the system.
-    
+
     This function is used to start the SSH service after the custom certificates have been configured.
     It ensures that the SSH service is running and ready to accept connections.
-    
+
     Returns:
         None
     """
@@ -261,7 +261,7 @@ def start_components_services() -> None:
 
     enable_service("wazuh-server")
     start_service("wazuh-server")
-    
+
     enable_service("wazuh-dashboard")
     start_service("wazuh-dashboard")
     verify_dashboard_connection()
@@ -272,7 +272,7 @@ def start_components_services() -> None:
 def clean_up() -> None:
     """
     Cleans up temporary files and directories created during the process.
-    
+
     Returns:
         None
     """

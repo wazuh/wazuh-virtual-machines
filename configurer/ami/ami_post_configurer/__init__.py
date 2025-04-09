@@ -1,1 +1,1 @@
-from .ami_post_customize import AmiPostCustomizer
+from .ami_post_configurer import AmiPostConfigurer
