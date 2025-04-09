@@ -105,7 +105,7 @@ def test_main_without_required_args(module, error_message):
 
 @patch("main.core_configurer_main")
 @patch("main.provisioner_main")
-def test_main_execute_provisioner(mock_provisioner_main, mock_configurer_main):
+def test_main_execute_provisioner(mock_provisioner_main, mock_core_configurer_main):
     test_args = [
         "main.py",
         "--packages-url-path",
@@ -116,12 +116,12 @@ def test_main_execute_provisioner(mock_provisioner_main, mock_configurer_main):
     sys.argv = test_args
     main()
     mock_provisioner_main.assert_called_once()
-    mock_configurer_main.assert_not_called()
+    mock_core_configurer_main.assert_not_called()
 
 
 @patch("main.core_configurer_main")
 @patch("main.provisioner_main")
-def test_main_execute_configurer(mock_provisioner_main, mock_configurer_main):
+def test_main_execute_configurer(mock_provisioner_main, mock_core_configurer_main):
     test_args = [
         "main.py",
         "--execute",
@@ -129,7 +129,7 @@ def test_main_execute_configurer(mock_provisioner_main, mock_configurer_main):
     ]
     sys.argv = test_args
     main()
-    mock_configurer_main.assert_called_once()
+    mock_core_configurer_main.assert_called_once()
     mock_provisioner_main.assert_not_called()
 
 
@@ -137,8 +137,8 @@ def test_main_execute_configurer(mock_provisioner_main, mock_configurer_main):
 @patch("main.provisioner_main")
 @patch("main.ami_configurer_main")
 @patch("main.change_inventory_user")
-def test_main_execute_all(
-    mock_change_inventory_user, mock_ami_configurer_main, mock_provisioner_main, mock_configurer_main
+def test_main_execute_all_ami(
+    mock_change_inventory_user, mock_ami_configurer_main, mock_provisioner_main, mock_core_configurer_main
 ):
     test_args = [
         "main.py",
@@ -153,5 +153,37 @@ def test_main_execute_all(
     main()
     mock_ami_configurer_main.assert_called_once()
     mock_provisioner_main.assert_called_once()
-    mock_configurer_main.assert_called_once()
+    mock_core_configurer_main.assert_called_once()
     mock_change_inventory_user.assert_called_once()
+
+
+@patch("main.ova_pre_configurer_main")
+def test_main_execute_ova_pre_configurer(mock_ova_pre_configurer_main):
+    test_args = [
+        "main.py",
+        "--execute",
+        "ova-pre-configurer",
+    ]
+    sys.argv = test_args
+    main()
+    mock_ova_pre_configurer_main.assert_called_once()
+
+
+@patch("main.core_configurer_main")
+@patch("main.provisioner_main")
+@patch("main.ova_post_configurer_main")
+def test_main_execute_ova_post_configurer(
+    mock_ova_post_configurer_main, mock_provisioner_main, mock_core_configurer_main
+):
+    test_args = [
+        "main.py",
+        "--packages-url-path",
+        "packages_url.yaml",
+        "--execute",
+        "ova-post-configurer",
+    ]
+    sys.argv = test_args
+    main()
+    mock_ova_post_configurer_main.assert_called_once()
+    mock_provisioner_main.assert_called_once()
+    mock_core_configurer_main.assert_called_once()
