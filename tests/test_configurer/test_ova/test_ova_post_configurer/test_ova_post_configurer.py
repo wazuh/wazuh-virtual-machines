@@ -4,7 +4,10 @@ from unittest.mock import call, mock_open, patch
 import pytest
 
 from configurer.ova.ova_post_configurer.ova_post_configurer import (
+    SCRIPTS_PATH,
     STATIC_PATH,
+    UTILS_PATH,
+    WAZUH_STARTER_PATH,
     add_wazuh_starter_service,
     config_grub,
     enable_fips,
@@ -102,8 +105,8 @@ def test_update_jvm_heap(mock_chmod, mock_run_command, mock_os_path_exists, mock
 
     mock_shutil_copy.assert_has_calls(
         [
-            call(f"{STATIC_PATH}/automatic_set_ram.sh", "/etc/automatic_set_ram.sh"),
-            call(f"{STATIC_PATH}/updateIndexerHeap.service", "/etc/systemd/system/updateIndexerHeap.service"),
+            call(f"{UTILS_PATH}/scripts/automatic_set_ram.sh", "/etc/automatic_set_ram.sh"),
+            call(f"{UTILS_PATH}/scripts/updateIndexerHeap.service", "/etc/systemd/system/updateIndexerHeap.service"),
         ],
         any_order=True,
     )
@@ -135,14 +138,14 @@ def test_add_wazuh_starter_service(mock_chmod, mock_run_command, mock_os_path_ex
     mock_shutil_copy.assert_has_calls(
         [
             call(
-                f"{STATIC_PATH}/wazuh-starter/wazuh-starter.service",
+                f"{WAZUH_STARTER_PATH}/wazuh-starter.service",
                 "/etc/systemd/system/wazuh-starter.service",
             ),
             call(
-                f"{STATIC_PATH}/wazuh-starter/wazuh-starter.timer",
+                f"{WAZUH_STARTER_PATH}/wazuh-starter.timer",
                 "/etc/systemd/system/wazuh-starter.timer",
             ),
-            call(f"{STATIC_PATH}/wazuh-starter/wazuh-starter.sh", "/etc/.wazuh-starter.sh"),
+            call(f"{WAZUH_STARTER_PATH}/wazuh-starter.sh", "/etc/.wazuh-starter.sh"),
         ],
         any_order=True,
     )
@@ -210,7 +213,7 @@ def test_steps_system_config(
     mock_open.return_value.__enter__().write.assert_called_once_with("\nPermitRootLogin no\n")
 
     mock_open.assert_any_call("VERSION.json")
-    mock_run_command.assert_any_call(f"sudo bash {STATIC_PATH}/messages.sh no 5.0.0-alpha0 wazuh-user")
+    mock_run_command.assert_any_call(f"sudo bash {SCRIPTS_PATH}/messages.sh no 5.0.0-alpha0 wazuh-user")
 
 
 def test_steps_clean(mock_run_command):
