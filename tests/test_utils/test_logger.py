@@ -8,9 +8,11 @@ from utils.logger import CustomFormatter, Logger
 
 @pytest.fixture
 def mock_my_logger():
-    with patch.object(logging.Logger, "error") as mock_error, patch.object(
-        logging.Logger, "info"
-    ) as mock_info, patch.object(logging.Logger, "debug") as mock_debug:
+    with (
+        patch.object(logging.Logger, "error") as mock_error,
+        patch.object(logging.Logger, "info") as mock_info,
+        patch.object(logging.Logger, "debug") as mock_debug,
+    ):
         logger = Logger("test_logger")
 
         logger.mock_error = mock_error  # type: ignore

@@ -127,7 +127,7 @@ def test_package_vagrant_box_success(mock_run_command):
 
 def test_cleanup_success(mock_run_command, mock_shutil_rmtree):
     temp_dirs = ["/path/to/temp1", "/path/to/temp2", "/path/to/temp3"]
-    
+
     with patch("os.path.abspath", side_effect=lambda x: x), patch("os.path.exists", return_value=True):
         cleanup(temp_dirs)
 
@@ -179,9 +179,12 @@ def test_check_dependencies_missing_command():
     def mock_which_side_effect(cmd):
         return None if cmd == "wget" else f"/usr/bin/{cmd}"
 
-    with patch(
-        "configurer.ova.ova_pre_configurer.generate_base_box.shutil.which", side_effect=mock_which_side_effect
-    ) as mock_which, patch("configurer.ova.ova_pre_configurer.generate_base_box.logger.error") as mock_logger_error:
+    with (
+        patch(
+            "configurer.ova.ova_pre_configurer.generate_base_box.shutil.which", side_effect=mock_which_side_effect
+        ) as mock_which,
+        patch("configurer.ova.ova_pre_configurer.generate_base_box.logger.error") as mock_logger_error,
+    ):
         with pytest.raises(Exception, match="Commands wget not found in PATH"):
             check_dependencies()
 

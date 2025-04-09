@@ -1,11 +1,9 @@
 import sys
-from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
 from main import DEPENDENCIES_FILE_PATH, main, parse_arguments
-from provisioner.models import Input
 
 
 def test_parse_arguments_required():
