@@ -1,3 +1,4 @@
+# ruff: noqa: UP007
 import subprocess
 from typing import Union
 
