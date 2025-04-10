@@ -18,6 +18,9 @@ def create_directory_structure(
     Args:
         directory_template (dict): The directory structure template.
         client (paramiko.SSHClient): The SSH client used for the connection.
+
+    Returns:
+        None
     """
 
     base_path = os.path.join(base_path, directory_template["name"])
@@ -39,6 +42,9 @@ def create_directory(path: str, client: paramiko.SSHClient) -> None:
     Args:
         path (Path): The path of the directory to create.
         client (paramiko.SSHClient): The SSH client used for the connection.
+
+    Returns:
+        None
     """
     command = f"sudo mkdir -p {path}"
     _, error_output = exec_command(command=command, client=client)
@@ -58,6 +64,10 @@ def copy_file_to_directory(
         file_path (Path): The path of the file to copy.
         directory_path (Path): The destination directory path.
         client (paramiko.SSHClient): The SSH client used for the connection.
+        local (bool): Whether the file is local or remote.
+
+    Returns:
+        None
     """
 
     if local:
