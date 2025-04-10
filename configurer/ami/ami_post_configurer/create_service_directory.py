@@ -43,7 +43,7 @@ def create_directory(path: str, client: paramiko.SSHClient) -> None:
     command = f"sudo mkdir -p {path}"
     _, error_output = exec_command(command=command, client=client)
     if error_output:
-        logger.error(f"Error creating directory {path}: {error_output}")
+        logger.error(f"Error creating directory {path}")
         raise RuntimeError(f"Error creating directory {path}: {error_output}")
     logger.debug(f"Directory {path} created successfully")
 
@@ -65,13 +65,13 @@ def copy_file_to_directory(
         try:
             sftp.put(file_path, f"/home/{remote_user}/{os.path.basename(file_path)}")
         except Exception as e:
-            logger.error(f"Error copying file {file_path} to {directory_path}: {e}")
+            logger.error(f"Error copying file {file_path} to {directory_path}")
             raise RuntimeError(f"Error copying file {file_path} to {directory_path}: {e}") from e
 
         command = f"sudo mv /home/{remote_user}/{os.path.basename(file_path)} {directory_path}"
         _, error_output = exec_command(command=command, client=client)
         if error_output:
-            logger.error(f"Error copying file {file_path} to {directory_path}: {error_output}")
+            logger.error(f"Error copying file {file_path} to {directory_path}")
             raise RuntimeError(f"Error copying file {file_path} to {directory_path}: {error_output}")
 
         logger.debug(f"Local file {file_path} copied to {directory_path} remote directory")
@@ -79,7 +79,7 @@ def copy_file_to_directory(
         command = f"sudo cp {file_path} {directory_path}"
         _, error_output = exec_command(command=command, client=client)
         if error_output:
-            logger.error(f"Error copying file {file_path} to {directory_path}: {error_output}")
+            logger.error(f"Error copying file {file_path} to {directory_path}")
             raise RuntimeError(f"Error copying file {file_path} to {directory_path}: {error_output}")
 
         logger.debug(f"Remote file {file_path} copied to {directory_path} remote directory")

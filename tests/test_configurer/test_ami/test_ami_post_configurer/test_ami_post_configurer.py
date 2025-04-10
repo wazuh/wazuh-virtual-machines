@@ -51,13 +51,14 @@ def mock_modify_file():
 
 @pytest.fixture
 def mock_post_configurer_methods(main_methods):
-   
     mocks = {method: MagicMock() for method in main_methods}
     with patch.multiple("configurer.ami.ami_post_configurer.ami_post_configurer.AmiPostConfigurer", **mocks):
         yield mocks
 
 
-def test_post_customize(mock_ami_post_configurer, mock_post_configurer_methods, main_methods, mock_paramiko, mock_logger):
+def test_post_customize(
+    mock_ami_post_configurer, mock_post_configurer_methods, main_methods, mock_paramiko, mock_logger
+):
     mock_ami_post_configurer.post_customize()
 
     for method in main_methods:

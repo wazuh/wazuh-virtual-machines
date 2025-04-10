@@ -47,6 +47,7 @@ def mock_logger(autouse=True):
         "configurer.core.core_configurer.logger",
         "configurer.ami.ami_pre_configurer.ami_pre_configurer.logger",
         "configurer.ami.ami_post_configurer.ami_post_configurer.logger",
+        "configurer.ami.ami_post_configurer.create_service_directory.logger",
     ]
 
     patches = [patch(path, mock) for path in logger_paths]
