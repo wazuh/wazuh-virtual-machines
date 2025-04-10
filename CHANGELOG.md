@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Create the AMI PostConfigure submodule ([#255](https://github.com/wazuh/wazuh-virtual-machines/pull/255))
 - Create the OVA PostConfigurer module ([#249](https://github.com/wazuh/wazuh-virtual-machines/pull/249))
 - Add the AMI pre_configurer submodule ([#242](https://github.com/wazuh/wazuh-virtual-machines/pull/242))
 - Create the PreConfigurer for the OVA ([#241](https://github.com/wazuh/wazuh-virtual-machines/pull/241))
