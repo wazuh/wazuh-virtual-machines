@@ -18,8 +18,7 @@ on:
         required: true
         options:
           - prod
-          - dev
-          - staging
+          - pre-prod
       ova_revision:
         type: string
         description: 'Revision of the OVA file. Use "0" for development builds'
@@ -47,13 +46,16 @@ on:
 env:
     INSTANCE_TYPE: "metal"
     S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
-    S3_PATH: "development/wazuh/5.x/secondary/ova"  # TBD
+    S3_PATH: "development/wazuh/5.x/secondary/ova"
+    S3_ARTIFACTS_PROD: "s3://packages.wazuh.com"
+    S3_ARTIFACTS_PRE-PROD: "s3://packages-dev.wazuh.com"
     COMPOSITE_NAME: "linux-amazon-2023-amd64"
     ALLOCATOR_PATH: "/tmp/allocatorvm_ova"
     AWS_REGION: "us-east-1"
     WVM_PATH: "/home/ec2-user/wazuh-virtual-machines"
     WVM_REPOSITORY: "https://github.com/wazuh/wazuh-virtual-machines"
-    RAW_URLS_PATH: "/home/ec2-user/wazuh-virtual-machines/raw_urls.yaml"
+    S3_ARTIFACTS_NAME: "artifacts_urls.yml"
+    ARTIFACTS_URLS_PATH: "/home/ec2-user/wazuh-virtual-machines/artifacts_urls.yml"
 
 permissions:
   id-token: write   # This is required for requesting the JWT
@@ -145,10 +147,18 @@ jobs:
             sudo pip3 install hatch
           EOF
 
-      # Bucket and filename to be defined
       - name: Download URL file from AWS
         run: |
-          aws s3 cp s3://${{ env.S3_BUCKET }}/${{ env.S3_RAW_URLS_PATH }} ${{ env.RAW_URLS_PATH }} --quiet
+          # RAW_VERSION="${{ github.ref_name }}"
+          # CLEAN_VERSION=$(echo "$RAW_VERSION" | sed -E 's/^v?([0-9]+\.[0-9]+)\.[0-9]+$/\1/')
+          # echo "CLEAN_VERSION=$CLEAN_VERSION" >> "$GITHUB_ENV"
+
+          # if [ ${{ inputs.wazuh_package_repository }} == "prod" ]; then
+          # aws s3 cp ${{ env.S3_ARTIFACTS_PROD }}/${{ env.CLEAN_VERSION }}/${{ env.S3_ARTIFACTS_NAME }} ${{ env.ARTIFACTS_URLS_PATH }} --quiet
+          # else
+          #  aws s3 cp ${{ env.S3_ARTIFACTS_PRE-PROD }}/${{ env.CLEAN_VERSION }}/${{ env.S3_ARTIFACTS_NAME }} ${{ env.ARTIFACTS_URLS_PATH }} --quiet
+          # fi
+          aws s3 cp s3://xdrsiem-devops-wazuh-artifacts/deployment/5.0/artifacts_urls.yml ${{ env.ARTIFACTS_URLS_PATH }} --quiet
           
       - name: Copy wazuh-virtual-machines repo to the AWS metal instance
         run: |
