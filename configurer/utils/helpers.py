@@ -1,3 +1,4 @@
+# ruff: noqa: UP007
 import subprocess
 from typing import Union
 
@@ -7,7 +8,7 @@ logger = Logger("Configurer helpers")
 
 
 def run_command(
-    commands: str | list[str], check=False, output=False
+    commands: Union[str, list[str]], check=False, output=False
 ) -> Union[tuple[list[str], list[str], list[int]], None]:  # noqa: UP007
     """
     Executes one or more shell commands.

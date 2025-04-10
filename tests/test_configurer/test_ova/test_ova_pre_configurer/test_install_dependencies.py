@@ -5,6 +5,7 @@ import pytest
 from configurer.ova.ova_pre_configurer.install_dependencies import (
     REQUIRED_PACKAGES,
     VAGRANT_REPO_URL,
+    add_exclude_amazonlinux_repo,
     download_virtualbox_installer,
     install_required_packages,
     install_vagrant,
@@ -139,12 +140,39 @@ def test_install_vagrant_success(mock_run_command, mock_logger):
         "sudo yum install -y yum-utils shadow-utils",
         f"sudo yum-config-manager --add-repo {VAGRANT_REPO_URL}",
         "sudo yum -y install vagrant",
+        "vagrant plugin install vagrant-scp",
     ]
     mock_run_command.assert_called_once_with(commands)
 
     mock_logger.debug.assert_called_once_with("Installing Vagrant.")
 
 
+def test_add_exclude_amazonlinux_repo_success(mock_logger):
+    repo_content = "[amazonlinux]\nname=Amazon Linux\n"
+    expected_content = "[amazonlinux]\nexclude=kernel-devel* kernel-headers*\nname=Amazon Linux\n"
+
+    with patch("builtins.open", mock_open(read_data=repo_content)) as mock_file:
+        add_exclude_amazonlinux_repo()
+
+        mock_file.assert_called_with("/etc/yum.repos.d/amazonlinux.repo", "w")
+        mock_file().writelines.assert_called_once_with(expected_content.splitlines(keepends=True))
+
+    mock_logger.debug.assert_called_once_with("Excluding kernel-devel and kernel-headers from Amazon Linux repo.")
+
+
+def test_add_exclude_amazonlinux_repo_no_amazonlinux_section(mock_logger):
+    repo_content = "[otherrepo]\nname=Other Repo\n"
+
+    with patch("builtins.open", mock_open(read_data=repo_content)) as mock_file:
+        add_exclude_amazonlinux_repo()
+
+        mock_file.assert_called_with("/etc/yum.repos.d/amazonlinux.repo", "w")
+        mock_file().writelines.assert_called_once_with(repo_content.splitlines(keepends=True))
+
+    mock_logger.debug.assert_called_once_with("Excluding kernel-devel and kernel-headers from Amazon Linux repo.")
+
+
+@patch("configurer.ova.ova_pre_configurer.install_dependencies.add_exclude_amazonlinux_repo")
 @patch("configurer.ova.ova_pre_configurer.install_dependencies.install_vagrant")
 @patch("configurer.ova.ova_pre_configurer.install_dependencies.rebuild_virtualbox_kernel_modules")
 @patch("configurer.ova.ova_pre_configurer.install_dependencies.run_virtualbox_installer")
@@ -158,6 +186,7 @@ def test_main_success(
     mock_run_virtualbox_installer,
     mock_rebuild_virtualbox_kernel_modules,
     mock_install_vagrant,
+    mock_add_exclude_amazonlinux_repo,
     mock_run_command,
     mock_logger,
 ):
@@ -170,6 +199,7 @@ def test_main_success(
     assert mock_update_packages.call_count == 2
     mock_rebuild_virtualbox_kernel_modules.assert_called_once()
     mock_install_vagrant.assert_called_once()
+    mock_add_exclude_amazonlinux_repo.assert_called_once()
 
     mock_logger.info.assert_any_call("Installing dependencies of the OVA PreConfigurer.")
     mock_logger.info_success.assert_called_once_with("Dependencies installed successfully.")

@@ -85,9 +85,15 @@ Enviroment to be used for testing and developing the ami configurer module
 """
 template = "dev"
 
-[tool.hatch.envs.dev-ova-configurer]
+[tool.hatch.envs.dev-ova-pre-configurer]
 description = """
-Enviroment to be used for OVA Preconfigurer execution testing
+Enviroment to be used for OVA PreConfigurer execution testing
+"""
+template = "dev"
+
+[tool.hatch.envs.dev-ova-post-configurer]
+description = """
+Enviroment to be used for OVA PostConfigurer execution testing
 """
 template = "dev"
 
@@ -132,10 +138,18 @@ ruff-lint = "ruff check --fix --unsafe-fixes configurer/ami tests/test_configure
 run = "python -m main --execute all-ami {args:}"
 # fix and validate are not defined here because they are inherited from the dev environment.
 
-[tool.hatch.envs.dev-ova-configurer.scripts]
-test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=configurer/ova --cov-report term-missing:skip-covered tests/test_configurer/test_ova --cov-report=xml"
-ruff-format = "ruff format configurer/ova"
-ruff-format-check = "ruff format --diff --check configurer/ova"
-ruff-lint-check = "ruff check --diff --unsafe-fixes configurer/ova"
-ruff-lint = "ruff check --fix --unsafe-fixes configurer/ova"
-run = "python -m configurer.ova.ova_pre_configurer.ova_pre_configurer"
+[tool.hatch.envs.dev-ova-pre-configurer.scripts]
+test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=configurer/ova/ova_pre_configurer --cov-report term-missing:skip-covered tests/test_configurer/test_ova/test_ova_pre_configurer --cov-report=xml"
+ruff-format = "ruff format configurer/ova/ova_pre_configurer"
+ruff-format-check = "ruff format --diff --check configurer/ova/ova_pre_configurer"
+ruff-lint-check = "ruff check --diff --unsafe-fixes configurer/ova/ova_pre_configurer"
+ruff-lint = "ruff check --fix --unsafe-fixes configurer/ova/ova_pre_configurer"
+run = "python -m main --execute ova-pre-configurer {args:}"
+
+[tool.hatch.envs.dev-ova-post-configurer.scripts]
+test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=configurer/ova/ova_post_configurer --cov-report term-missing:skip-covered tests/test_configurer/test_ova/test_ova_post_configurer --cov-report=xml"
+ruff-format = "ruff format configurer/ova/ova_post_configurer"
+ruff-format-check = "ruff format --diff --check configurer/ova/ova_post_configurer"
+ruff-lint-check = "ruff check --diff --unsafe-fixes configurer/ova/ova_post_configurer"
+ruff-lint = "ruff check --fix --unsafe-fixes configurer/ova/ova_post_configurer"
+run = "python -m main --execute ova-post-configurer {args:}"

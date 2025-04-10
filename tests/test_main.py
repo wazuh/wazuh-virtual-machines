@@ -30,6 +30,8 @@ def test_parse_arguments_required():
         "inventory.yaml",
         "--packages-url-path",
         "packages_url.yaml",
+        "--execute",
+        "all-ami",
     ]
     sys.argv = test_args
     args = parse_arguments()
@@ -41,6 +43,7 @@ def test_parse_arguments_required():
     assert args.arch == "x86_64"
     assert args.dependencies == DEPENDENCIES_FILE_PATH
     assert args.component == "all"
+    assert args.execute == "all-ami"
 
 
 def test_parse_arguments_optional():
@@ -54,6 +57,8 @@ def test_parse_arguments_optional():
         "packages_url.yaml",
         "--package-type",
         "deb",
+        "--execute",
+        "all-ami",
         "--arch",
         "arm64",
         "--dependencies",
@@ -67,6 +72,7 @@ def test_parse_arguments_optional():
     assert args.inventory == "inventory.yaml"
     assert args.packages_url_path == "packages_url.yaml"
     assert args.package_type == "deb"
+    assert args.execute == "all-ami"
     assert args.arch == "arm64"
     assert args.dependencies == "custom_dependencies.yaml"
     assert args.component == "wazuh_server"
@@ -250,3 +256,35 @@ def test_ami_execute_ami_post_configurer(mock_execute_options):
     )
     mock_execute_options["provisioner_main"].assert_not_called()
     mock_execute_options["core_configurer_main"].assert_not_called()
+
+
+@patch("main.ova_pre_configurer_main")
+def test_main_execute_ova_pre_configurer(mock_ova_pre_configurer_main):
+    test_args = [
+        "main.py",
+        "--execute",
+        "ova-pre-configurer",
+    ]
+    sys.argv = test_args
+    main()
+    mock_ova_pre_configurer_main.assert_called_once()
+
+
+@patch("main.core_configurer_main")
+@patch("main.provisioner_main")
+@patch("main.ova_post_configurer_main")
+def test_main_execute_ova_post_configurer(
+    mock_ova_post_configurer_main, mock_provisioner_main, mock_core_configurer_main
+):
+    test_args = [
+        "main.py",
+        "--packages-url-path",
+        "packages_url.yaml",
+        "--execute",
+        "ova-post-configurer",
+    ]
+    sys.argv = test_args
+    main()
+    mock_ova_post_configurer_main.assert_called_once()
+    mock_provisioner_main.assert_called_once()
+    mock_core_configurer_main.assert_called_once()
