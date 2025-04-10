@@ -129,7 +129,7 @@ def main():
 
     if parsed_args.execute in ["ami-post-configurer", "all-ami"]:
         ami_configurer_main(inventory_path=parsed_args.inventory, type="ami-post-configurer")
-    
+
 
 if __name__ == "__main__":
     main()

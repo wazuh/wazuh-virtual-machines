@@ -30,8 +30,6 @@ def test_parse_arguments_required():
         "inventory.yaml",
         "--packages-url-path",
         "packages_url.yaml",
-        "--execute",
-        "all-ami",
     ]
     sys.argv = test_args
     args = parse_arguments()
@@ -43,7 +41,6 @@ def test_parse_arguments_required():
     assert args.arch == "x86_64"
     assert args.dependencies == DEPENDENCIES_FILE_PATH
     assert args.component == "all"
-    assert args.execute == "all-ami"
 
 
 def test_parse_arguments_optional():
@@ -57,8 +54,6 @@ def test_parse_arguments_optional():
         "packages_url.yaml",
         "--package-type",
         "deb",
-        "--execute",
-        "all-ami",
         "--arch",
         "arm64",
         "--dependencies",
@@ -72,7 +67,6 @@ def test_parse_arguments_optional():
     assert args.inventory == "inventory.yaml"
     assert args.packages_url_path == "packages_url.yaml"
     assert args.package_type == "deb"
-    assert args.execute == "all-ami"
     assert args.arch == "arm64"
     assert args.dependencies == "custom_dependencies.yaml"
     assert args.component == "wazuh_server"
@@ -110,12 +104,22 @@ def test_parse_arguments_invalid_values(arg_name, arg_value):
             '--inventory is required for the "ami-pre-configurer", "ami-post-configurer" and "all-ami" --execute value',
         ),
         ("core-configurer", ""),
-        ("provisioner", '--packages-url-path is required for the "provisioner" and "all-ami" --execute value'),
+        (
+            "provisioner",
+            '--packages-url-path is required for the "provisioner", "all-ami" and "ova-post-configurer" --execute value',
+        ),
         (
             "ami-post-configurer",
             '--inventory is required for the "ami-pre-configurer", "ami-post-configurer" and "all-ami" --execute value',
         ),
-        ("all-ami", '--packages-url-path is required for the "provisioner" and "all-ami" --execute value'),
+        (
+            "all-ami",
+            '--packages-url-path is required for the "provisioner", "all-ami" and "ova-post-configurer" --execute value',
+        ),
+        (
+            "ova-post-configurer",
+            '--packages-url-path is required for the "provisioner", "all-ami" and "ova-post-configurer" --execute value',
+        ),
     ],
 )
 def test_main_without_required_args(module, error_message):

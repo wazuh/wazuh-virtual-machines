@@ -64,6 +64,8 @@ class AmiPostConfigurer:
         if client is None:
             raise Exception("SSH client is not connected")
 
+        logger.debug_title("AMI post configuration")
+
         self.create_custom_dir(client=client)
         self.create_certs_env(client=client)
         self.stop_wazuh_server(client=client)
@@ -80,7 +82,7 @@ class AmiPostConfigurer:
         self.clean_authorized_keys(client=client)
         self.clean_wazuh_configure_directory(client=client)
 
-        logger.info_success("AMI post customization completed successfully")
+        logger.info_success("AMI post configuration completed successfully")
 
     def create_custom_dir(self, client: paramiko.SSHClient) -> None:
         """
@@ -206,8 +208,8 @@ class AmiPostConfigurer:
         command = f"sudo {command}"
         _, error_output = exec_command(command=command, client=client)
         if error_output:
-            logger.error("Error removing indexer index list")
-            raise RuntimeError(f"Error removing indexer index list: {error_output}")
+            logger.error("Error removing the indexer index list")
+            raise RuntimeError(f"Error removing the indexer index list: {error_output}")
 
         logger.debug("Indexer index list removed successfully")
 
@@ -227,8 +229,8 @@ class AmiPostConfigurer:
         command = "sudo /usr/share/wazuh-indexer/bin/indexer-security-init.sh"
         _, error_output = exec_command(command=command, client=client)
         if error_output:
-            logger.error("Error running indexer security init script")
-            raise RuntimeError(f"Error running indexer security init script: {error_output}")
+            logger.error("Error running the indexer security init script")
+            raise RuntimeError(f"Error running the indexer security init script: {error_output}")
 
         logger.debug("Indexer security init script executed successfully")
 
@@ -249,21 +251,36 @@ class AmiPostConfigurer:
 
     def stop_wazuh_dashboard(self, client: paramiko.SSHClient) -> None:
         """
-        Stop and disable the Wazuh dashboard service.
+        Stop and disable the Wazuh dashboard service and disable it from starting on boot.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client used to execute commands on the remote machine.
+
+        Returns:
+            None
         """
 
         self.stop_service("wazuh-dashboard", client=client)
+
+        logger.debug("Disabling wazuh-dashboard service")
+
         command = "sudo systemctl --quiet disable wazuh-dashboard"
         _, error_output = exec_command(command=command, client=client)
         if error_output:
-            logger.error("Error disabling Wazuh dashboard service")
-            raise RuntimeError(f"Error disabling Wazuh dashboard service: {error_output}")
+            logger.error("Error disabling the wazuh-dashboard service")
+            raise RuntimeError(f"Error disabling the wazuh-dashboard service: {error_output}")
 
-        logger.info_success("Wazuh dashboard service stopped successfully")
+        logger.info_success("wazuh-dashboard service disabled successfully")
 
     def change_ssh_port_to_default(self, client: paramiko.SSHClient) -> None:
         """
         Change the SSH port to the default port (22).
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client used to execute commands on the remote machine.
+
+        Returns:
+            None
         """
 
         logger.debug("Changing SSH port to default (22)")
@@ -278,14 +295,20 @@ class AmiPostConfigurer:
         command = "sudo systemctl restart sshd.service"
         _, error_output = exec_command(command=command, client=client)
         if error_output:
-            logger.error("Error restarting SSH service")
-            raise RuntimeError(f"Error restarting SSH service: {error_output}")
+            logger.error("Error restarting the SSH service")
+            raise RuntimeError(f"Error restarting the SSH service: {error_output}")
 
         logger.info_success("SSH port changed to default successfully")
 
     def clean_cloud_instance_files(self, client: paramiko.SSHClient) -> None:
         """
         Clean up files and directories related to the cloud instance.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client used to execute commands on the remote machine.
+
+        Returns:
+            None
         """
 
         logger.debug("Cleaning up cloud instance files")
@@ -299,7 +322,13 @@ class AmiPostConfigurer:
 
     def clean_journal_logs(self, client: paramiko.SSHClient) -> None:
         """
-        Clean up journal logs.
+        Clean up journal logs. This method removes all files in the journal logs directory.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client used to execute commands on the remote machine.
+
+        Returns:
+            None
         """
 
         logger.debug("Cleaning up journal logs")
@@ -314,6 +343,12 @@ class AmiPostConfigurer:
     def clean_yum_cache(self, client: paramiko.SSHClient) -> None:
         """
         Clean up the yum cache.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client used to execute commands on the remote machine.
+
+        Returns:
+            None
         """
 
         logger.debug("Cleaning up yum cache")
@@ -327,7 +362,13 @@ class AmiPostConfigurer:
 
     def clean_logout_files(self, client: paramiko.SSHClient) -> None:
         """
-        Clean up logout files.
+        Clean up logout files from the root and wazuh users.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client used to execute commands on the remote machine.
+
+        Returns:
+            None
         """
 
         logger.debug("Cleaning up logout files")
@@ -343,6 +384,20 @@ class AmiPostConfigurer:
         logger.info_success("Logout files cleaned up successfully")
 
     def enable_journal_log_storage(self, client: paramiko.SSHClient) -> None:
+        """
+        Enables journal log storage by modifying the journald configuration file.
+
+        This method updates the journald configuration file to enable log storage
+        by replacing specific configuration lines.
+
+        Args:
+            client (paramiko.SSHClient): An SSH client instance used to connect to
+                the remote system and modify the configuration file.
+
+        Returns:
+            None
+        """
+
         logger.debug("Enabling journal log storage")
         replacements = [
             ("Storage=none", "#Storage=auto"),
@@ -357,6 +412,20 @@ class AmiPostConfigurer:
         logger.info_success("Journal log storage enabled successfully")
 
     def clean_generated_logs(self, client: paramiko.SSHClient) -> None:
+        """
+        Cleans up generated log files during the configuration in specified directories by truncating their contents.
+
+        This method checks if the specified log directories exist and contain files. If so, it
+        truncates the contents of all files within those directories to free up space while
+        retaining the file structure.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client used to execute commands on a remote server.
+
+        Returns:
+            None
+        """
+
         logger.debug(f'Cleaning up generated logs in "{self.log_directory_path}"')
 
         command = f"""
@@ -382,6 +451,16 @@ class AmiPostConfigurer:
         logger.info_success("Generated logs cleaned up successfully")
 
     def clean_history(self, client: paramiko.SSHClient) -> None:
+        """
+        Cleans up the bash history files for both the root user and the wazuh user.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client used to execute commands on the
+                                         remote machine.
+        Returns:
+            None
+        """
+
         logger.debug("Cleaning up history files")
 
         command = f"""
@@ -396,6 +475,20 @@ class AmiPostConfigurer:
         logger.info_success("History files cleaned up successfully")
 
     def clean_authorized_keys(self, client: paramiko.SSHClient) -> None:
+        """
+        Cleans up the authorized_keys files for both the wazuh user and the root user.
+
+        This method removes all existing SSH authorized keys by overwriting their
+        `authorized_keys` files with empty content.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client used to execute the cleanup commands
+                                         on the remote machine.
+
+        Returns:
+            None
+        """
+
         logger.debug("Cleaning up authorized keys")
 
         command = f"""
@@ -410,6 +503,17 @@ class AmiPostConfigurer:
         logger.info_success("Authorized keys cleaned up successfully")
 
     def clean_wazuh_configure_directory(self, client: paramiko.SSHClient) -> None:
+        """
+        Cleans up the Wazuh configuration directory that was created during the provision process.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client used to execute the
+                cleanup command on the remote machine.
+
+        Returns:
+            None
+        """
+
         logger.debug("Cleaning up Wazuh configure directory")
 
         command = f"sudo rm -rf {RemoteDirectories.WAZUH_ROOT_DIR}"
