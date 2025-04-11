@@ -8,7 +8,6 @@ from configurer.core.models.certificates_manager import CertsManager
 from configurer.core.utils import ComponentCertsConfigParameter, ComponentCertsDirectory
 from configurer.core.utils.enums import ComponentConfigFile
 from utils import Component
-from utils.enums import RemoteDirectories
 
 RAW_CONFIG_PATH = Path("/path/to/config.yml")
 CERTS_TOOL_PATH = Path("/path/to/certs-tool.sh")
@@ -314,7 +313,7 @@ def test_generate_certificates_success(
 
     mock_exec_command.assert_any_call(
         command=f"""
-            sudo tar -cf {RemoteDirectories.CERTS}/wazuh-certificates.tar -C {RemoteDirectories.CERTS}/wazuh-certificates/ . && sudo rm -rf {RemoteDirectories.CERTS}/wazuh-certificates
+            sudo tar -cf {CERTS_TOOL_PATH.parent}/wazuh-certificates.tar -C {CERTS_TOOL_PATH.parent}/wazuh-certificates/ . && sudo rm -rf {CERTS_TOOL_PATH.parent}/wazuh-certificates
             """,
         client=None,
     )
@@ -329,7 +328,9 @@ def test_generate_certificates_success(
         flattened_key=component != Component.WAZUH_SERVER,
         client=None,
     )
-    mock_copy_certs.assert_any_call(component=component, certs_name=mock_get_certs_name.return_value, client=None)
+    mock_copy_certs.assert_any_call(
+        component=component, certs_path=CERTS_TOOL_PATH.parent, certs_name=mock_get_certs_name.return_value, client=None
+    )
 
     mock_logger.info_success.assert_any_call("Certificates generated successfully")
 
@@ -352,11 +353,16 @@ def test_generate_certificates_error_during_compression(mock_exec_command, mock_
     with pytest.raises(Exception, match="Error while compressing certificates: Error: Failed to compress certificates"):
         certs_manager.generate_certificates()
 
+    expected_command = f"""
+        sudo tar -cf {CERTS_TOOL_PATH.parent}/wazuh-certificates.tar -C {CERTS_TOOL_PATH.parent}/wazuh-certificates/ . && sudo rm -rf {CERTS_TOOL_PATH.parent}/wazuh-certificates
+        """.replace("\n", "").replace(" ", "")
+
+    for command_call in mock_exec_command.call_args_list:
+        command_call.kwargs["command"] = command_call.kwargs["command"].replace("\n", "").replace(" ", "")
+
     # Verify compression command
     mock_exec_command.assert_any_call(
-        command=f"""
-            sudo tar -cf {RemoteDirectories.CERTS}/wazuh-certificates.tar -C {RemoteDirectories.CERTS}/wazuh-certificates/ . && sudo rm -rf {RemoteDirectories.CERTS}/wazuh-certificates
-            """,
+        command=expected_command,
         client=None,
     )
 
@@ -396,7 +402,7 @@ def test_generate_certificates_error_during_copy(mock_get_certs_name, mock_copy_
             },
             f"""
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_INDEXER}
-                sudo tar -xf {RemoteDirectories.CERTS}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_INDEXER} ./indexer-cert.pem ./indexer-key.pem ./indexer-ca.pem
+                sudo tar -xf {CERTS_TOOL_PATH.parent}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_INDEXER} ./indexer-cert.pem ./indexer-key.pem ./indexer-ca.pem
                 sudo mv -n {ComponentCertsDirectory.WAZUH_INDEXER}/indexer-cert.pem {ComponentCertsDirectory.WAZUH_INDEXER}/indexer-cert.pem
                 sudo mv -n {ComponentCertsDirectory.WAZUH_INDEXER}/indexer-key.pem {ComponentCertsDirectory.WAZUH_INDEXER}/indexer-key.pem
                 sudo mv -n {ComponentCertsDirectory.WAZUH_INDEXER}/indexer-ca.pem {ComponentCertsDirectory.WAZUH_INDEXER}/indexer-ca.pem
@@ -412,7 +418,7 @@ def test_generate_certificates_error_during_copy(mock_get_certs_name, mock_copy_
             },
             f"""
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_SERVER}
-                sudo tar -xf {RemoteDirectories.CERTS}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_SERVER} ./server-cert.pem ./server-key.pem ./server-ca.pem
+                sudo tar -xf {CERTS_TOOL_PATH.parent}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_SERVER} ./server-cert.pem ./server-key.pem ./server-ca.pem
                 sudo mv -n {ComponentCertsDirectory.WAZUH_SERVER}/server-cert.pem {ComponentCertsDirectory.WAZUH_SERVER}/server-cert.pem
                 sudo mv -n {ComponentCertsDirectory.WAZUH_SERVER}/server-key.pem {ComponentCertsDirectory.WAZUH_SERVER}/server-key.pem
                 sudo mv -n {ComponentCertsDirectory.WAZUH_SERVER}/server-ca.pem {ComponentCertsDirectory.WAZUH_SERVER}/server-ca.pem
@@ -428,7 +434,7 @@ def test_generate_certificates_error_during_copy(mock_get_certs_name, mock_copy_
             },
             f"""
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_DASHBOARD}
-                sudo tar -xf {RemoteDirectories.CERTS}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_DASHBOARD} ./dashboard-cert.pem ./dashboard-key.pem ./dashboard-ca.pem
+                sudo tar -xf {CERTS_TOOL_PATH.parent}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_DASHBOARD} ./dashboard-cert.pem ./dashboard-key.pem ./dashboard-ca.pem
                 sudo mv -n {ComponentCertsDirectory.WAZUH_DASHBOARD}/dashboard-cert.pem {ComponentCertsDirectory.WAZUH_DASHBOARD}/dashboard-cert.pem
                 sudo mv -n {ComponentCertsDirectory.WAZUH_DASHBOARD}/dashboard-key.pem {ComponentCertsDirectory.WAZUH_DASHBOARD}/dashboard-key.pem
                 sudo mv -n {ComponentCertsDirectory.WAZUH_DASHBOARD}/dashboard-ca.pem {ComponentCertsDirectory.WAZUH_DASHBOARD}/dashboard-ca.pem
@@ -460,7 +466,9 @@ def test_copy_certs_to_component_directory_success(
         },
     }
 
-    certs_manager.copy_certs_to_component_directory(component=component, certs_name=certs_name)
+    certs_manager.copy_certs_to_component_directory(
+        component=component, certs_path=CERTS_TOOL_PATH.parent, certs_name=certs_name
+    )
 
     mock_exec_command.assert_called()
     assert mock_exec_command.call_args.kwargs["command"].replace("\n", "").replace(" ", "") == expected_command.replace(

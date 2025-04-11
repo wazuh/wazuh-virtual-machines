@@ -1,2 +1,2 @@
-from .ami_customize import AmiCustomizer
+from .ami_pre_configurer import AmiPreConfigurer
 from .utils import AmiLocalFilePath

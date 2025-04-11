@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import List
 
 
 class WazuhConfigMapping:
@@ -10,10 +9,10 @@ class WazuhConfigMapping:
         replace_content (List[dict]): A list of dictionaries containing the path, keys, and values for the 'replace' type configuration.
     """
 
-    def __init__(self, files_config: List[dict]):
-        self.replace_content: List[dict] = self._set_content(files_config, "replace")
+    def __init__(self, files_config: list[dict]):
+        self.replace_content: list[dict] = self._set_content(files_config, "replace")
 
-    def _set_content(self, files_config: List[dict], type: str) -> List[dict]:
+    def _set_content(self, files_config: list[dict], type: str) -> list[dict]:
         """
         Set the content for the given configuration files.
 

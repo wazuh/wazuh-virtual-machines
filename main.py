@@ -26,7 +26,7 @@ def parse_arguments():
         --arch (str): Architecture type (optional, default: "x86_64", choices: ["x86_64", "amd64", "arm64", "aarch64"]).
         --dependencies (str): Path to the dependencies file (optional, default: DEPENDENCIES_FILE_PATH).
         --component (str): Component to provision (optional, default: "all", choices: ["wazuh_indexer", "wazuh_server", "wazuh_dashboard", "all"]).
-        --execute (str): Module to execute (required, choices: ["provisioner", "core-configurer", "ami-configurer", "ova-pre-configurer", "ova-post-configurer", "all-ami"]).
+        --execute (str): Module to execute (required, choices: ["provisioner", "core-configurer", "ova-pre-configurer", "ova-post-configurer", "ami-pre-configurer", "ami-post-configurer", "all-ami"]).
     """
     parser = argparse.ArgumentParser(description="Component Provisioner")
     parser.add_argument("--inventory", required=False, help="Path to the inventory file")
@@ -38,9 +38,10 @@ def parse_arguments():
         choices=[
             "provisioner",
             "core-configurer",
-            "ami-configurer",
             "ova-pre-configurer",
             "ova-post-configurer",
+            "ami-pre-configurer",
+            "ami-post-configurer",
             "all-ami",
         ],
     )
@@ -73,8 +74,10 @@ def check_required_arguments(parsed_args):
             '--packages-url-path is required for the "provisioner", "all-ami" and "ova-post-configurer" --execute value'
         )
 
-    if parsed_args.execute in ["ami-configurer", "all-ami"] and not parsed_args.inventory:
-        raise ValueError('--inventory is required for the "ami-configurer" and "all-ami" --execute value')
+    if parsed_args.execute in ["ami-pre-configurer", "ami-post-configurer", "all-ami"] and not parsed_args.inventory:
+        raise ValueError(
+            '--inventory is required for the "ami-pre-configurer", "ami-post-configurer" and "all-ami" --execute value'
+        )
 
 
 def main():
@@ -87,24 +90,28 @@ def main():
     - `provisioner`: Executes the provisioner logic, which requires the
         `--packages-url-path` argument along with other optional arguments.
     - `configurer`: Executes the core configurer logic.
-    - `all`: Executes both the provisioner and configurer logic.
-
-    Raises:
-            ValueError: If the `--packages-url-path` argument is missing when the
-            `provisioner` or `all` subcommand is executed.
+    - `ami-pre-configurer`: Executes the AMI pre-configurer logic, which requires
+        the `--inventory` argument.
+    - `ami-post-configurer`: Executes the AMI post-configurer logic, which requires
+        the `--inventory` and `--packages-url-path` arguments
+    - `all-ami`: Executes both the AMI pre-configurer and post-configurer logic,
+        which requires the `--inventory` and `--packages-url-path` arguments.
+    The script also validates the required arguments based on the selected subcommand.
     """
 
     parsed_args = parse_arguments()
     check_required_arguments(parsed_args)
 
-    if parsed_args.execute in ["ami-configurer", "all-ami"]:
-        ami_configurer_main(inventory_path=parsed_args.inventory)
-        change_inventory_user(inventory_path=parsed_args.inventory, new_user="wazuh-user")
-
-    if parsed_args.execute in ["ova-pre-configurer"]:
+    if parsed_args.execute == "ova-pre-configurer":
         ova_pre_configurer_main()
 
-    if parsed_args.execute in ["provisioner", "all-ami", "ova-post-configurer"]:
+    if parsed_args.execute in ["ami-pre-configurer", "all-ami"]:
+        new_user = ami_configurer_main(inventory_path=parsed_args.inventory, type="ami-pre-configurer")
+        if not new_user:
+            raise ValueError("ami-pre-configurer did not return a new user")
+        change_inventory_user(inventory_path=parsed_args.inventory, new_user=new_user)
+
+    if parsed_args.execute in ["provisioner", "ova-post-configurer", "all-ami"]:
         provisioner_main(
             packages_url_path=Path(parsed_args.packages_url_path),
             package_type=parsed_args.package_type,
@@ -114,11 +121,14 @@ def main():
             inventory=parsed_args.inventory,
         )
 
-    if parsed_args.execute in ["core-configurer", "all-ami", "ova-post-configurer"]:
+    if parsed_args.execute in ["core-configurer", "ova-post-configurer", "all-ami"]:
         core_configurer_main(inventory_path=parsed_args.inventory)
 
-    if parsed_args.execute in ["ova-post-configurer"]:
+    if parsed_args.execute == "ova-post-configurer":
         ova_post_configurer_main()
+
+    if parsed_args.execute in ["ami-post-configurer", "all-ami"]:
+        ami_configurer_main(inventory_path=parsed_args.inventory, type="ami-post-configurer")
 
 
 if __name__ == "__main__":

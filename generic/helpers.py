@@ -1,7 +1,6 @@
 import re
 import subprocess
 from pathlib import Path
-from typing import List
 
 import paramiko
 
@@ -32,7 +31,7 @@ def exec_command(command: str, client: paramiko.SSHClient | None = None) -> tupl
     return output, error_output
 
 
-def modify_file(filepath: Path, replacements: List[tuple[str, str]], client: paramiko.SSHClient | None = None) -> None:
+def modify_file(filepath: Path, replacements: list[tuple[str, str]], client: paramiko.SSHClient | None = None) -> None:
     """
     Modify the content of a file either locally or on a remote server.
 
@@ -56,7 +55,7 @@ def modify_file(filepath: Path, replacements: List[tuple[str, str]], client: par
         modify_file_remote(filepath, replacements, client)
 
 
-def modify_file_local(filepath: Path, replacements: List[tuple[str, str]]) -> None:
+def modify_file_local(filepath: Path, replacements: list[tuple[str, str]]) -> None:
     """
     Modify the content of a local file by applying a series of search-and-replace operations.
 
@@ -79,7 +78,7 @@ def modify_file_local(filepath: Path, replacements: List[tuple[str, str]]) -> No
         file.write(content)
 
 
-def modify_file_remote(filepath: Path, replacements: List[tuple[str, str]], client: paramiko.SSHClient) -> None:
+def modify_file_remote(filepath: Path, replacements: list[tuple[str, str]], client: paramiko.SSHClient) -> None:
     """
     Modifies the content of a remote file by applying a series of search-and-replace operations.
 
@@ -99,7 +98,7 @@ def modify_file_remote(filepath: Path, replacements: List[tuple[str, str]], clie
             raise RuntimeError(f"Error reading {filepath}: {error_output}")
 
         for pattern, replacement in replacements:
-            output = re.sub(pattern, replacement, output)
+            output = re.sub(pattern, replacement, output, flags=re.MULTILINE)
 
         command = f"sudo tee {filepath} > /dev/null <<EOF\n{output}\nEOF"
         output, error_output = exec_command(command, client)
