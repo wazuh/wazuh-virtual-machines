@@ -99,7 +99,7 @@ jobs:
           python3 -m venv workflow_venv
           source workflow_venv/bin/activate
           pip install --upgrade pip
-          pip install hatch yaml
+          pip install hatch pyyaml
 
       - name: Get Wazuh version
         run: |
