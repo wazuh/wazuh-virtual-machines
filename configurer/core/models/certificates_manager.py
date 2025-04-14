@@ -1,4 +1,4 @@
-import re
+import ast
 from pathlib import Path
 
 import paramiko
@@ -127,11 +127,10 @@ class CertsManager:
             logger.error("Error while executing yq query")
             raise Exception(f"Error while executing yq query: {error_output}")
 
-        cleaned_output = re.sub(
-            r'^\["(.*)"\]$', r"\1", output
-        )  # If the result is inside a list [] only return the value
+        if "[" in output and "]" in output:
+            output = ast.literal_eval(output)[-1]  # If the result is inside a list [] return the last value
 
-        return Path(cleaned_output.strip()).name
+        return Path(output.strip()).name
 
     def _get_certs_name(
         self,

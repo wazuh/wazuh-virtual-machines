@@ -15,6 +15,13 @@ requires-python = ">= 3.12"
 description = "Wazuh - Virtual Machines (OVA and AMI)"
 license = {file = "LICENSE"}
 
+[tool.hatch.version]
+path = "VERSION.json"
+pattern = '"version": "(?P<version>[^"]+)"'
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
