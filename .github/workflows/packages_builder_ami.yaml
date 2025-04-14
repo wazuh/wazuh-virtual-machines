@@ -51,6 +51,7 @@ on:
 env:
     COMPOSITE_NAME: "linux-amazon-2023-amd64"
     ALLOCATOR_PATH: "/tmp/allocatorvm_ami"
+    WORKFLOW_VENV: "${{ github.workspace }}/workflow_venv"
     COMMIT_LIST: ${{ inputs.commit_list }}
     PROD_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PROD }}
     PRE_PROD_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PRE }}
@@ -96,8 +97,8 @@ jobs:
           sudo wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
           sudo chmod +x /usr/bin/yq
           sudo apt-get install -y python3 python3-venv
-          python3 -m venv workflow_venv
-          source workflow_venv/bin/activate
+          python3 -m venv ${{ env.WORKFLOW_VENV }}
+          source ${{ env.WORKFLOW_VENV }}/bin/activate
           pip install --upgrade pip
           pip install hatch pyyaml
 
@@ -127,10 +128,9 @@ jobs:
           echo LOCAL_ARTIFACTS_URLS_FILEPATH=$LOCAL_ARTIFACTS_URLS_FILEPATH >> $GITHUB_ENV
 
           if [ "${{ inputs.wazuh_package_type }}" == "prod" ]; then
-            aws s3 cp s3://${{ env.PROD_ARTIFACTS_URLS_BUCKET }}/${{ env.WAZUH_MINOR }}/${{env.ARTIFACTS_URLS_FILENAME}} $LOCAL_ARTIFACTS_URLS_FILEPATH
+            aws s3api get-object --bucket ${{ env.PROD_ARTIFACTS_URLS_BUCKET }} --key ${{ env.WAZUH_MINOR }}/${{ env.ARTIFACTS_URLS_FILENAME }} $LOCAL_ARTIFACTS_URLS_FILEPATH
           elif [ "${{ inputs.wazuh_package_type }}" == "pre-prod" ]; then
-            ARTIFACTS_URLS_BUCKET=${{ env.PRE_PROD_ARTIFACTS_URLS_BUCKET }}
-            aws s3 cp s3://${{ env.PRE_PROD_ARTIFACTS_URLS_BUCKET }}/${{ env.WAZUH_MINOR }}/${{ env.ARTIFACTS_URLS_FILENAME }} $LOCAL_ARTIFACTS_URLS_FILEPATH
+            aws s3api get-object --bucket ${{ env.PRE_PROD_ARTIFACTS_URLS_BUCKET }} --key ${{ env.WAZUH_MINOR }}/${{ env.ARTIFACTS_URLS_FILENAME }} $LOCAL_ARTIFACTS_URLS_FILEPATH
           else
             PARSED_DEV_ARTIFACTS_URLS_PATH=$(echo "${{ env.DEV_ARTIFACTS_URLS_PATH }}" | sed "s|WAZUH_MINOR|${{ env.WAZUH_MINOR }}|")
             aws s3api get-object --bucket ${{ env.DEV_ARTIFACTS_URLS_BUCKET }} --key $PARSED_DEV_ARTIFACTS_URLS_PATH/${{ env.ARTIFACTS_URLS_FILENAME }} $LOCAL_ARTIFACTS_URLS_FILEPATH
@@ -143,6 +143,7 @@ jobs:
       
       - name: Execute configuration AMI process
         run: |
+          source ${{ env.WORKFLOW_VENV }}/bin/activate
           hatch run dev:run --inventory ${{ env.ALLOCATOR_PATH }}/inventory.yml --packages-url-path ${{ env.LOCAL_ARTIFACTS_URLS_FILEPATH }} --execute all-ami
     
       - name: Stop instance
