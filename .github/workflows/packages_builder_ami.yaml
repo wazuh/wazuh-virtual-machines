@@ -92,7 +92,9 @@ jobs:
       - name: Install and configure python and workflow dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq yq
+          sudo apt-get install -y jq
+          sudo wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
           sudo apt-get install -y python3 python3-venv
           python3 -m venv workflow_venv
           source workflow_venv/bin/activate
