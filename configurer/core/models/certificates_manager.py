@@ -128,7 +128,7 @@ class CertsManager:
             raise Exception(f"Error while executing yq query: {error_output}")
 
         cleaned_output = re.sub(
-            r'^\["(.*)"\]$', r"\1", output
+            r"^\[(['\"])(.*)\1\]$", r"\2", output
         )  # If the result is inside a list [] only return the value
 
         return Path(cleaned_output.strip()).name
