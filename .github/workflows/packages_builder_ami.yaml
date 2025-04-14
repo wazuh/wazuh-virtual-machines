@@ -56,7 +56,7 @@ env:
     PRE_PROD_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PRE }}
     DEV_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_DEV }}
     ARTIFACTS_URLS_FILENAME: "artifacts_urls.yml"
-    DEV_ARTIFACTS_URLS_PATH: "development/wazuh/5.x/secondary/ami" #"deployment/WAZUH_MINOR"
+    DEV_ARTIFACTS_URLS_PATH: "development/wazuh/5.x/secondary/ova" #"deployment/WAZUH_MINOR"
     GENERATE_PRESIGNED_URLS_SCRIPT_PATH: ${{ github.workspace }}/.github/scripts/generate_presigned_dev_urls.py
 
 permissions:
