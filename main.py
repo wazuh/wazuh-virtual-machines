@@ -101,6 +101,11 @@ def main():
     if parsed_args.execute in ["core-configurer", "all"]:
         core_configurer_main(inventory_path=parsed_args.inventory)
 
+    if parsed_args.execute in ["vm-tester"]:
+        # instalar cli wazuh-ami-test
+        # ejecutarla
+        return
+
 
 if __name__ == "__main__":
     main()

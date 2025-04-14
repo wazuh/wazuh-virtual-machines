@@ -138,3 +138,6 @@ ruff-format-check = "ruff format --diff --check configurer/ova"
 ruff-lint-check = "ruff check --diff --unsafe-fixes configurer/ova"
 ruff-lint = "ruff check --fix --unsafe-fixes configurer/ova"
 run = "python -m configurer.ova.ova_pre_configurer.ova_pre_configurer"
+
+[tool.hatch.envs.ami-tester.scripts]
+run = "wazuh-ami-test {args:}"

@@ -4,3 +4,5 @@ pycache/
 *coverage.xml
 .coverage
 .vscode/
+*__pycache__/
+*.egg-info
