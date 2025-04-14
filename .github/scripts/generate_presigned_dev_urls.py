@@ -83,7 +83,7 @@ if __name__ == "__main__":
     if not WAZUH_VERSION:
         raise ValueError("WAZUH_VERSION environment variable is not set.")
 
-    COMMIT_LIST = re.sub(r'(\w+)', r'"\1"', COMMIT_LIST)
+    # COMMIT_LIST = re.sub(r'(\w+)', r'"\1"', COMMIT_LIST)
     WAZUH_MAJOR = WAZUH_VERSION.split(".")[0]
 
     set_wazuh_major_and_version(input_file=INPUT_FILE, wazuh_major=WAZUH_MAJOR, wazuh_version=WAZUH_VERSION, commit_list=json.loads(COMMIT_LIST))
