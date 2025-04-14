@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "wazuh-virtual-machines"
-dynamic = ["version"]
+version = "5.0.0"
 dependencies = [
     "pydantic",
     "paramiko",
@@ -14,6 +14,9 @@ dependencies = [
 requires-python = ">= 3.12"
 description = "Wazuh - Virtual Machines (OVA and AMI)"
 license = {file = "LICENSE"}
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
