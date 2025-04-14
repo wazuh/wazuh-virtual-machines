@@ -133,8 +133,7 @@ jobs:
             aws s3 cp s3://${{ env.PRE_PROD_ARTIFACTS_URLS_BUCKET }}/${{ env.WAZUH_MINOR }}/${{ env.ARTIFACTS_URLS_FILENAME }} $LOCAL_ARTIFACTS_URLS_FILEPATH
           else
             PARSED_DEV_ARTIFACTS_URLS_PATH=$(echo "${{ env.DEV_ARTIFACTS_URLS_PATH }}" | sed "s|WAZUH_MINOR|${{ env.WAZUH_MINOR }}|")
-            echo "PARSED_DEV_ARTIFACTS_URLS_PATH=$PARSED_DEV_ARTIFACTS_URLS_PATH"
-            aws s3 cp s3://${{ env.DEV_ARTIFACTS_URLS_BUCKET }}/$PARSED_DEV_ARTIFACTS_URLS_PATH/${{ env.ARTIFACTS_URLS_FILENAME }} $LOCAL_ARTIFACTS_URLS_FILEPATH
+            aws s3api get-object --bucket ${{ env.DEV_ARTIFACTS_URLS_BUCKET }} --key $PARSED_DEV_ARTIFACTS_URLS_PATH/${{ env.ARTIFACTS_URLS_FILENAME }} $LOCAL_ARTIFACTS_URLS_FILEPATH
           fi
       
       - name: Generate presigned URLs for artifacts for dev packages
