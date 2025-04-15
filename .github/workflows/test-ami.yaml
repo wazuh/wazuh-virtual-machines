@@ -135,10 +135,6 @@ jobs:
         run: |
           cat ~/.ssh/wazuh_test_key.pem
 
-      - name: ping
-        run: |
-          ping ${{ github.event.inputs.host }}
-
       - name: curl
         run: |
           curl -v telnet://${{ github.event.inputs.host }}:22
