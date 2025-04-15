@@ -126,7 +126,8 @@ jobs:
           cgl5jrHZa4aWNc3nmwXd657hZdzNOWHkGzvl1icQnyavsZy73LVc1sadA4iI4BBw
           SjTeEQKBgQCXqG3Lsoqny6Y+WNoRpV/EbDnPFhzNSQoHlT692KJ4UZG9UEzT+MxW
           Kd0FHbnNQsiBJvrapJYmkpZ0hFaljuebUe++sLIUyTT2EJlpbo8HNm5nF79kFjZG
-          hXd5hxlsFtAL1yBIRSdkYnPquZP0uKQjZxqk2jU1PX4Fgtx7NPyLhg==" > ~/.ssh/wazuh_test_key.pem
+          hXd5hxlsFtAL1yBIRSdkYnPquZP0uKQjZxqk2jU1PX4Fgtx7NPyLhg==
+          -----END RSA PRIVATE KEY-----" > ~/.ssh/wazuh_test_key.pem
           chmod 400 ~/.ssh/wazuh_test_key.pem
           echo "SSH key created at ~/.ssh/wazuh_test_key.pem"
 
