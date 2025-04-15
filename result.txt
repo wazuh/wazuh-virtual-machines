@@ -5,9 +5,16 @@ Wazuh VM Test Summary
 
 Overall Status: PASS
 
-Total Tests: 0
-Passed: 0
+Total Tests: 1
+Passed: 1
 Failed: 0
 Warnings: 0
 Errors: 0
 Skipped: 0
+
+--------------------------------------------------------------------------------
+Passed Tests
+--------------------------------------------------------------------------------
+
+Certificates Module:
+  ✓ Certificates: Certificates exist
