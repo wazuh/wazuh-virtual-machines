@@ -83,7 +83,7 @@ class WazuhComponentConfigManager:
                 keys = file["keys"]
                 values = file["values"]
 
-                for key, value in zip(keys, values):
+                for key, value in zip(keys, values, strict=False):
                     logger.debug(f"Replacing key:{key} with value:{value} in {filepath}")
                     addon = ""
                     if '"' in value:

@@ -7,11 +7,11 @@ from generic import exec_command, modify_file, remote_connection
 from models import Inventory
 from utils import Logger
 
-logger = Logger("AmiCustomizer")
+logger = Logger("AmiPreConfigurer")
 
 
 @dataclass
-class AmiCustomizer:
+class AmiPreConfigurer:
     """
     AmiCustomizer is a class responsible for customizing an Amazon Machine Image (AMI) for Wazuh.
     It provides methods to configure the AMI environment, including user management, hostname updates,
@@ -22,10 +22,13 @@ class AmiCustomizer:
     wazuh_banner_path: Path
     local_set_ram_script_path: Path
     local_update_indexer_heap_service_path: Path
+    local_customize_certs_service_path: Path
+    local_customize_certs_timer_path: Path
     cloud_config_path: Path = Path("/etc/cloud/cloud.cfg")
     ssh_config_path: Path = Path("/etc/ssh/sshd_config")
     instance_update_logo_path: Path = Path("/etc/update-motd.d/70-available-updates")
-    motd_priority_file = Path("/etc/motd")
+    motd_scripts_directory = Path("/etc/update-motd.d")
+    default_motd_file_path = Path("/usr/lib/motd.d/30-banner")
     journald_file_path = Path("/etc/systemd/journald.conf")
     systemd_services_path = Path("/etc/systemd/system/")
     ram_service_script_destination_path = Path("/etc")
@@ -55,15 +58,20 @@ class AmiCustomizer:
         Returns:
             None
         """
+
+        if client is None:
+            raise Exception("SSH client is not connected")
+
         if self.inventory.ansible_user != self.wazuh_user:
             raise Exception(f'Before customizing the AMI, the Wazuh user  "{self.wazuh_user}" must be created')
 
-        self.remove_default_instance_user(client=client)  # type: ignore
-        self.configure_cloud_cfg(client=client)  # type: ignore
-        self.update_hostname(client=client)  # type: ignore
-        self.configure_motd_logo(client=client)  # type: ignore
-        self.stop_journald_log_storage(client=client)  # type: ignore
-        self.create_service_to_set_ram(client=client)  # type: ignore
+        self.remove_default_instance_user(client=client)
+        self.configure_cloud_cfg(client=client)
+        self.update_hostname(client=client)
+        self.configure_motd_logo(client=client)
+        self.stop_journald_log_storage(client=client)
+        self.create_service_to_set_ram(client=client)
+        self.create_customize_certs_service_files(client=client)
 
         logger.info_success("AMI customization process finished")
 
@@ -163,15 +171,14 @@ class AmiCustomizer:
         logger.debug(f"Configuring cloud config file: {self.cloud_config_path}")
         replacements = [
             (r"gecos: .*", "gecos: Wazuh AMI User"),
-            (r"name: .*", f"name: {self.wazuh_user}"),
+            (r"^[ \t]*name:\s*.*$", f"     name: {self.wazuh_user}"),
             (r"- set_hostname\n", ""),
-            (r"\s*- update_hostname", "\n - preserve_hostname: true"),
+            (r"\s*- update_hostname", ""),
+            (r"preserve_hostname: false", "preserve_hostname: true"),
         ]
         command = """
         sudo cloud-init clean
         sudo cloud-init init
-        sudo cloud-init modules --mode=config
-        sudo cloud-init modules --mode=final
         """
         modify_file(filepath=self.cloud_config_path, replacements=replacements, client=client)
 
@@ -277,7 +284,6 @@ class AmiCustomizer:
         available_updates = self.check_instance_updates(client=client)
         if available_updates:
             self.update_instance(client=client)
-            self._remove_update_motd_logo(client=client)
 
         self._set_wazuh_logo(client=client)
 
@@ -297,7 +303,7 @@ class AmiCustomizer:
 
         logger.debug("Setting Wazuh logo")
 
-        wazuh_banner_file_destination = f"/usr/lib/motd.d/{self.wazuh_banner_path.name}"
+        wazuh_banner_file_destination = f"{self.motd_scripts_directory}/{self.wazuh_banner_path.name}"
 
         temporal_file_path = f"/tmp/{self.wazuh_banner_path.name}"
         sftp = client.open_sftp()
@@ -313,7 +319,7 @@ class AmiCustomizer:
             sudo mv {temporal_file_path} {wazuh_banner_file_destination}
             sudo chmod 755 {wazuh_banner_file_destination}
             sudo chown root:root {wazuh_banner_file_destination}
-            sudo cat {wazuh_banner_file_destination} | sudo tee {self.motd_priority_file} > /dev/null
+            sudo rm -f {self.default_motd_file_path}
             """
 
         _, error_output = exec_command(command=command, client=client)
@@ -322,29 +328,6 @@ class AmiCustomizer:
             raise RuntimeError(f"Error setting Wazuh motd banner: {error_output}")
 
         logger.info_success("Wazuh motd banner set successfully")
-
-    def _remove_update_motd_logo(self, client: paramiko.SSHClient) -> None:
-        """
-        Removes the update MOTD (Message of the Day) logo from the specified path on the remote instance.
-
-        Args:
-            client (paramiko.SSHClient): The SSH client used to connect to the remote instance.
-
-        Returns:
-            None
-        """
-
-        logger.debug("Removing update motd logo")
-        command = f"sudo rm -f {self.instance_update_logo_path}"
-        _, error_output = exec_command(command=command, client=client)
-
-        if error_output:
-            logger.error(f"Error removing update motd logo in path {self.instance_update_logo_path}")
-            raise RuntimeError(
-                f"Error removing update motd logo in path {self.instance_update_logo_path}: {error_output}"
-            )
-
-        logger.info_success("Update motd logo removed successfully")
 
     def stop_journald_log_storage(self, client: paramiko.SSHClient) -> None:
         """
@@ -379,6 +362,43 @@ class AmiCustomizer:
             logger.error("Error stopping journald log storage")
             raise RuntimeError(f"Error stopping journald log storage: {error_output}")
 
+    def create_ami_custom_service(self, file_local_path: Path, client: paramiko.SSHClient) -> None:
+        """
+        Creates a systemd service on the remote host using the provided local service file.
+        This method uploads the service file to the remote host, moves it to the appropriate
+        systemd services directory, sets the necessary permissions and ownership, and enables the service.
+        Args:
+            file_local_path (Path): The local path of the service file to be uploaded.
+            client (paramiko.SSHClient): An active SSH client connected to the remote host.
+        Returns:
+            None
+        """
+
+        logger.debug(f'Creating "{file_local_path.name}" service')
+
+        sftp = client.open_sftp()
+        tmp_service_path = f"/tmp/{file_local_path.name}"
+        try:
+            sftp.put(str(file_local_path), tmp_service_path)
+        except Exception as e:
+            logger.error("Error uploading files to the remote host")
+            raise RuntimeError(f"Error uploading files to the remote host: {str(e)}") from e
+        finally:
+            sftp.close()
+
+        command = f"""
+        sudo mv {tmp_service_path} {self.systemd_services_path}/{file_local_path.name}
+        sudo chmod 755 {self.systemd_services_path}/{file_local_path.name}
+        sudo chown root:root {self.systemd_services_path}/{file_local_path.name}
+        sudo systemctl --quiet enable {file_local_path.name}
+        """
+        _, error_output = exec_command(command=command, client=client)
+        if error_output:
+            logger.error(f"Error creating service {file_local_path.name}")
+            raise RuntimeError(f"Error creating service {file_local_path.name}: {error_output}")
+
+        logger.info_success(f'"{file_local_path.name.split(".")[0]}" service created successfully')
+
     def create_service_to_set_ram(self, client: paramiko.SSHClient) -> None:
         """
         Creates and configures a systemd service to set the appropiate ram usage for the indexer's jvm
@@ -395,13 +415,9 @@ class AmiCustomizer:
             None
         """
 
-        logger.debug(f'Creating "{self.local_update_indexer_heap_service_path.name}" service')
-
         sftp = client.open_sftp()
-        tmp_service_path = f"/tmp/{self.local_update_indexer_heap_service_path.name}"
         tmp_ram_script_path = f"/tmp/{self.local_set_ram_script_path.name}"
         try:
-            sftp.put(str(self.local_update_indexer_heap_service_path), tmp_service_path)
             sftp.put(str(self.local_set_ram_script_path), tmp_ram_script_path)
 
         except Exception as e:
@@ -411,16 +427,32 @@ class AmiCustomizer:
             sftp.close()
 
         command = f"""
-        sudo mv {tmp_service_path} {self.systemd_services_path}/{self.local_update_indexer_heap_service_path.name}
         sudo mv {tmp_ram_script_path} {self.ram_service_script_destination_path}/{self.local_set_ram_script_path.name}
         sudo chmod 755 {self.ram_service_script_destination_path}/{self.local_set_ram_script_path.name}
-        sudo chmod 755 {self.systemd_services_path}/{self.local_update_indexer_heap_service_path.name}
-        sudo chown root:root {self.systemd_services_path}/{self.local_update_indexer_heap_service_path.name}
-        sudo systemctl --quiet enable {self.local_update_indexer_heap_service_path.name}
         """
         _, error_output = exec_command(command=command, client=client)
         if error_output:
-            logger.error("Error creating service to set RAM")
-            raise RuntimeError(f"Error creating service to set RAM: {error_output}")
+            logger.error("Error creating script for set RAM service")
+            raise RuntimeError(f"Error creating script for set RAM service: {error_output}")
 
-        logger.info_success('"updateIndexerHeap" service created successfully')
+        self.create_ami_custom_service(
+            file_local_path=self.local_update_indexer_heap_service_path,
+            client=client,
+        )
+
+    def create_customize_certs_service_files(self, client: paramiko.SSHClient) -> None:
+        """
+        Create the customize certificates service and timer files on the remote server.
+        This method uploads the service and timer files to the remote server and enables them.
+        Args:
+            client (paramiko.SSHClient): The SSH client used for the connection.
+        """
+
+        self.create_ami_custom_service(
+            file_local_path=self.local_customize_certs_service_path,
+            client=client,
+        )
+        self.create_ami_custom_service(
+            file_local_path=self.local_customize_certs_timer_path,
+            client=client,
+        )

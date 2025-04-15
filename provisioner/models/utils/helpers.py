@@ -1,9 +1,7 @@
-from typing import List
-
 from pydantic import AnyUrl
 
 
-def check_correct_url(url: AnyUrl, allowed_hosts: List[str]) -> bool:
+def check_correct_url(url: AnyUrl, allowed_hosts: list[str]) -> bool:
     """
     Check if the given URL belongs to one of the allowed hosts.
     Args:

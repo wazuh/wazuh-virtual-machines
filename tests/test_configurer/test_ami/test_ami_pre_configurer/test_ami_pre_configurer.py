@@ -3,48 +3,32 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from configurer.ami.ami_pre_configurer import AmiCustomizer
+from configurer.ami.ami_pre_configurer import AmiPreConfigurer
 
 
 @pytest.fixture()
-def mock_ami_customizer(valid_inventory) -> AmiCustomizer:
-    return AmiCustomizer(
+def mock_ami_customizer(valid_inventory) -> AmiPreConfigurer:
+    return AmiPreConfigurer(
         inventory=valid_inventory,
         wazuh_banner_path=Path("/path/to/wazuh_banner"),
         local_set_ram_script_path=Path("/path/to/set_ram_script"),
         local_update_indexer_heap_service_path=Path("/path/to/update_indexer_heap_service"),
+        local_customize_certs_service_path=Path("/path/to/customize_certs_service"),
+        local_customize_certs_timer_path=Path("/path/to/customize_certs_timer"),
     )
-
-
-@pytest.fixture(autouse=True)
-def mock_paramiko():
-    with patch("paramiko.SSHClient") as mock_ssh_client:
-        client_mock = MagicMock()
-        mock_ssh_client.return_value = client_mock
-
-        stdin, stdout, stderr = MagicMock(), MagicMock(), MagicMock()
-
-        stdout.read.return_value.decode.return_value = ""
-        stderr.read.return_value.decode.return_value = ""
-
-        client_mock.exec_command.return_value = (stdin, stdout, stderr)
-
-        client_mock.open_sftp.return_value = MagicMock()
-
-        yield mock_ssh_client
 
 
 @pytest.fixture
 def mock_exec_command(autouse=True):
     mock_exec_command = MagicMock()
-    with patch("configurer.ami.ami_pre_configurer.ami_customize.exec_command", mock_exec_command):
+    with patch("configurer.ami.ami_pre_configurer.ami_pre_configurer.exec_command", mock_exec_command):
         mock_exec_command.return_value = "", ""
         yield mock_exec_command
 
 
 @pytest.fixture(autouse=True)
 def mock_modify_file():
-    with patch("configurer.ami.ami_pre_configurer.ami_customize.modify_file") as mock_modify:
+    with patch("configurer.ami.ami_pre_configurer.ami_pre_configurer.modify_file") as mock_modify:
         mock_modify.return_value = None
         yield mock_modify
 
@@ -69,8 +53,6 @@ def test_customize_success(mock_ami_customizer, mock_logger, mock_exec_command, 
         """
         sudo cloud-init clean
         sudo cloud-init init
-        sudo cloud-init modules --mode=config
-        sudo cloud-init modules --mode=final
         """,
         f"""
         sudo hostnamectl set-hostname {mock_ami_customizer.wazuh_hostname}
@@ -79,22 +61,36 @@ def test_customize_success(mock_ami_customizer, mock_logger, mock_exec_command, 
         sudo cat {mock_ami_customizer.instance_update_logo_path}
         """,
         f"""
-        sudo mv /tmp/{mock_ami_customizer.wazuh_banner_path.name} /usr/lib/motd.d/{mock_ami_customizer.wazuh_banner_path.name}
-        sudo chmod 755 /usr/lib/motd.d/{mock_ami_customizer.wazuh_banner_path.name}
-        sudo chown root:root /usr/lib/motd.d/{mock_ami_customizer.wazuh_banner_path.name}
-        sudo cat /usr/lib/motd.d/{mock_ami_customizer.wazuh_banner_path.name} | sudo tee {mock_ami_customizer.motd_priority_file} > /dev/null
+        sudo mv /tmp/{mock_ami_customizer.wazuh_banner_path.name} {mock_ami_customizer.motd_scripts_directory}/{mock_ami_customizer.wazuh_banner_path.name}
+        sudo chmod 755 {mock_ami_customizer.motd_scripts_directory}/{mock_ami_customizer.wazuh_banner_path.name}
+        sudo chown root:root {mock_ami_customizer.motd_scripts_directory}/{mock_ami_customizer.wazuh_banner_path.name}
+        sudo rm -f {mock_ami_customizer.default_motd_file_path}
         """,
         """
         sudo systemctl restart systemd-journald
         sudo journalctl --flush
         """,
         f"""
-        sudo mv /tmp/{mock_ami_customizer.local_update_indexer_heap_service_path.name} {mock_ami_customizer.systemd_services_path}/{mock_ami_customizer.local_update_indexer_heap_service_path.name}
         sudo mv /tmp/{mock_ami_customizer.local_set_ram_script_path.name} {mock_ami_customizer.ram_service_script_destination_path}/{mock_ami_customizer.local_set_ram_script_path.name}
         sudo chmod 755 {mock_ami_customizer.ram_service_script_destination_path}/{mock_ami_customizer.local_set_ram_script_path.name}
+        """,
+        f"""
+        sudo mv /tmp/{mock_ami_customizer.local_update_indexer_heap_service_path.name} {mock_ami_customizer.systemd_services_path}/{mock_ami_customizer.local_update_indexer_heap_service_path.name}
         sudo chmod 755 {mock_ami_customizer.systemd_services_path}/{mock_ami_customizer.local_update_indexer_heap_service_path.name}
         sudo chown root:root {mock_ami_customizer.systemd_services_path}/{mock_ami_customizer.local_update_indexer_heap_service_path.name}
         sudo systemctl --quiet enable {mock_ami_customizer.local_update_indexer_heap_service_path.name}
+        """,
+        f"""
+        sudo mv /tmp/{mock_ami_customizer.local_customize_certs_service_path.name} {mock_ami_customizer.systemd_services_path}/{mock_ami_customizer.local_customize_certs_service_path.name}
+        sudo chmod 755 {mock_ami_customizer.systemd_services_path}/{mock_ami_customizer.local_customize_certs_service_path.name}
+        sudo chown root:root {mock_ami_customizer.systemd_services_path}/{mock_ami_customizer.local_customize_certs_service_path.name}
+        sudo systemctl --quiet enable {mock_ami_customizer.local_customize_certs_service_path.name}
+        """,
+        f"""
+        sudo mv /tmp/{mock_ami_customizer.local_customize_certs_timer_path.name} {mock_ami_customizer.systemd_services_path}/{mock_ami_customizer.local_customize_certs_timer_path.name}
+        sudo chmod 755 {mock_ami_customizer.systemd_services_path}/{mock_ami_customizer.local_customize_certs_timer_path.name}
+        sudo chown root:root {mock_ami_customizer.systemd_services_path}/{mock_ami_customizer.local_customize_certs_timer_path.name}
+        sudo systemctl --quiet enable {mock_ami_customizer.local_customize_certs_timer_path.name}
         """,
     ]
     for command_call in mock_exec_command.call_args_list:
@@ -103,6 +99,12 @@ def test_customize_success(mock_ami_customizer, mock_logger, mock_exec_command, 
     for command in commands:
         command = command.replace("\n", "").replace(" ", "")
         mock_exec_command.assert_any_call(command=command, client=mock_paramiko.return_value)
+
+
+def test_customize_without_client(mock_ami_customizer, mock_logger):
+    mock_ami_customizer.inventory = None
+    with pytest.raises(Exception, match="SSH client is not connected"):
+        mock_ami_customizer.customize()
 
 
 def test_create_user_success(mock_ami_customizer, mock_logger, mock_exec_command, mock_paramiko, mock_modify_file):
@@ -189,15 +191,14 @@ def test_configure_cloud_cfg_success(
     command = """
         sudo cloud-init clean
         sudo cloud-init init
-        sudo cloud-init modules --mode=config
-        sudo cloud-init modules --mode=final
         """.replace("\n", "").replace(" ", "")
 
     replacements = [
         (r"gecos: .*", "gecos: Wazuh AMI User"),
-        (r"name: .*", f"name: {mock_ami_customizer.wazuh_user}"),
+        (r"^[ \t]*name:\s*.*$", f"     name: {mock_ami_customizer.wazuh_user}"),
         (r"- set_hostname\n", ""),
-        (r"\s*- update_hostname", "\n - preserve_hostname: true"),
+        (r"\s*- update_hostname", ""),
+        (r"preserve_hostname: false", "preserve_hostname: true"),
     ]
 
     for command_call in mock_exec_command.call_args_list:
@@ -340,7 +341,7 @@ def test_update_instance_with_warning(mock_ami_customizer, mock_logger, mock_exe
     mock_logger.info_success.assert_any_call("Instance updated successfully")
 
 
-@patch("configurer.ami.ami_pre_configurer.ami_customize.AmiCustomizer.check_instance_updates")
+@patch("configurer.ami.ami_pre_configurer.ami_pre_configurer.AmiPreConfigurer.check_instance_updates")
 def test_configure_motd_logo(mock_updates, mock_ami_customizer, mock_logger, mock_exec_command, mock_paramiko):
     mock_updates.return_value = True
     mock_ami_customizer.configure_motd_logo(mock_paramiko.return_value)
@@ -348,18 +349,15 @@ def test_configure_motd_logo(mock_updates, mock_ami_customizer, mock_logger, moc
     sftp = mock_paramiko.return_value.open_sftp.return_value
 
     commands = [
-        f"""
-        sudo rm -f {mock_ami_customizer.instance_update_logo_path}
-        """,
         """
         sudo yum update -y
         sudo dnf upgrade --assumeyes --releasever=latest
         """,
         f"""
-        sudo mv /tmp/{mock_ami_customizer.wazuh_banner_path.name} /usr/lib/motd.d/{mock_ami_customizer.wazuh_banner_path.name}
-        sudo chmod 755 /usr/lib/motd.d/{mock_ami_customizer.wazuh_banner_path.name}
-        sudo chown root:root /usr/lib/motd.d/{mock_ami_customizer.wazuh_banner_path.name}
-        sudo cat /usr/lib/motd.d/{mock_ami_customizer.wazuh_banner_path.name} | sudo tee {mock_ami_customizer.motd_priority_file} > /dev/null
+        sudo mv /tmp/{mock_ami_customizer.wazuh_banner_path.name} {mock_ami_customizer.motd_scripts_directory}/{mock_ami_customizer.wazuh_banner_path.name}
+        sudo chmod 755 {mock_ami_customizer.motd_scripts_directory}/{mock_ami_customizer.wazuh_banner_path.name}
+        sudo chown root:root {mock_ami_customizer.motd_scripts_directory}/{mock_ami_customizer.wazuh_banner_path.name}
+        sudo rm -f {mock_ami_customizer.default_motd_file_path}
         """,
     ]
 
@@ -380,10 +378,10 @@ def test_set_wazuh_logo(mock_ami_customizer, mock_logger, mock_exec_command, moc
 
     sftp = mock_paramiko.return_value.open_sftp.return_value
     command = f"""
-        sudo mv /tmp/{mock_ami_customizer.wazuh_banner_path.name} /usr/lib/motd.d/{mock_ami_customizer.wazuh_banner_path.name}
-        sudo chmod 755 /usr/lib/motd.d/{mock_ami_customizer.wazuh_banner_path.name}
-        sudo chown root:root /usr/lib/motd.d/{mock_ami_customizer.wazuh_banner_path.name}
-        sudo cat /usr/lib/motd.d/{mock_ami_customizer.wazuh_banner_path.name} | sudo tee {mock_ami_customizer.motd_priority_file} > /dev/null
+        sudo mv /tmp/{mock_ami_customizer.wazuh_banner_path.name} {mock_ami_customizer.motd_scripts_directory}/{mock_ami_customizer.wazuh_banner_path.name}
+        sudo chmod 755 {mock_ami_customizer.motd_scripts_directory}/{mock_ami_customizer.wazuh_banner_path.name}
+        sudo chown root:root {mock_ami_customizer.motd_scripts_directory}/{mock_ami_customizer.wazuh_banner_path.name}
+        sudo rm -f {mock_ami_customizer.default_motd_file_path}
         """.replace("\n", "").replace(" ", "")
 
     for command_call in mock_exec_command.call_args_list:
@@ -417,37 +415,6 @@ def test_set_wazuh_logo_command_fails(mock_ami_customizer, mock_logger, mock_exe
 
     mock_exec_command.assert_called_once()
     mock_logger.error.assert_any_call("Error setting Wazuh motd banner")
-
-
-def test_remove_update_motd_logo_success(mock_ami_customizer, mock_logger, mock_exec_command):
-    mock_ami_customizer._remove_update_motd_logo(None)
-
-    command = f"""
-        sudo rm -f {mock_ami_customizer.instance_update_logo_path}
-        """.replace("\n", "").replace(" ", "")
-
-    for command_call in mock_exec_command.call_args_list:
-        command_call.kwargs["command"] = command_call.kwargs["command"].replace("\n", "").replace(" ", "")
-
-    mock_exec_command.assert_called_once_with(command=command, client=None)
-    mock_logger.debug.assert_any_call("Removing update motd logo")
-    mock_logger.info_success.assert_any_call("Update motd logo removed successfully")
-
-
-def test_remove_update_motd_logo_failure(mock_ami_customizer, mock_logger, mock_exec_command):
-    mock_exec_command.return_value = ("", "rm: No such file or directory")
-    with pytest.raises(
-        RuntimeError,
-        match=f"Error removing update motd logo in path {mock_ami_customizer.instance_update_logo_path}: rm: No such file or directory",
-    ):
-        mock_ami_customizer._remove_update_motd_logo(None)
-
-    mock_exec_command.assert_called_once()
-
-    mock_logger.debug.assert_any_call("Removing update motd logo")
-    mock_logger.error.assert_any_call(
-        f"Error removing update motd logo in path {mock_ami_customizer.instance_update_logo_path}"
-    )
 
 
 def test_stop_journald_log_storage_success(
@@ -496,14 +463,18 @@ def test_stop_journald_log_storage_failure(mock_ami_customizer, mock_logger, moc
 def test_create_service_to_set_ram(mock_ami_customizer, mock_logger, mock_exec_command, mock_paramiko):
     mock_ami_customizer.create_service_to_set_ram(mock_paramiko.return_value)
 
-    command = f"""
-        sudo mv /tmp/{mock_ami_customizer.local_update_indexer_heap_service_path.name} {mock_ami_customizer.systemd_services_path}/{mock_ami_customizer.local_update_indexer_heap_service_path.name}
+    commands = [
+        f"""
         sudo mv /tmp/{mock_ami_customizer.local_set_ram_script_path.name} {mock_ami_customizer.ram_service_script_destination_path}/{mock_ami_customizer.local_set_ram_script_path.name}
         sudo chmod 755 {mock_ami_customizer.ram_service_script_destination_path}/{mock_ami_customizer.local_set_ram_script_path.name}
+        """.replace("\n", "").replace(" ", ""),
+        f"""
+        sudo mv /tmp/{mock_ami_customizer.local_update_indexer_heap_service_path.name} {mock_ami_customizer.systemd_services_path}/{mock_ami_customizer.local_update_indexer_heap_service_path.name}
         sudo chmod 755 {mock_ami_customizer.systemd_services_path}/{mock_ami_customizer.local_update_indexer_heap_service_path.name}
         sudo chown root:root {mock_ami_customizer.systemd_services_path}/{mock_ami_customizer.local_update_indexer_heap_service_path.name}
         sudo systemctl --quiet enable {mock_ami_customizer.local_update_indexer_heap_service_path.name}
-        """.replace("\n", "").replace(" ", "")
+        """,
+    ]
 
     for command_call in mock_exec_command.call_args_list:
         command_call.kwargs["command"] = command_call.kwargs["command"].replace("\n", "").replace(" ", "")
@@ -516,12 +487,16 @@ def test_create_service_to_set_ram(mock_ami_customizer, mock_logger, mock_exec_c
         str(mock_ami_customizer.local_set_ram_script_path),
         f"/tmp/{mock_ami_customizer.local_set_ram_script_path.name}",
     )
-    mock_exec_command.assert_called_once_with(command=command, client=mock_paramiko.return_value)
+    for command in commands:
+        command = command.replace("\n", "").replace(" ", "")
+        mock_exec_command.assert_any_call(command=command, client=mock_paramiko.return_value)
 
     mock_logger.debug.assert_any_call(
         f'Creating "{mock_ami_customizer.local_update_indexer_heap_service_path.name}" service'
     )
-    mock_logger.info_success.assert_any_call('"updateIndexerHeap" service created successfully')
+    mock_logger.info_success.assert_any_call(
+        f'"{mock_ami_customizer.local_update_indexer_heap_service_path.name.split(".")[0]}" service created successfully'
+    )
 
 
 def test_create_service_to_set_ram_sftp_fails(mock_ami_customizer, mock_logger, mock_exec_command, mock_paramiko):
@@ -537,8 +512,109 @@ def test_create_service_to_set_ram_sftp_fails(mock_ami_customizer, mock_logger, 
 def test_create_service_to_set_ram_command_fails(mock_ami_customizer, mock_logger, mock_exec_command, mock_paramiko):
     mock_exec_command.return_value = ("", "command not found")
 
-    with pytest.raises(RuntimeError, match="Error creating service to set RAM: command not found"):
+    with pytest.raises(RuntimeError, match="Error creating script for set RAM service: command not found"):
         mock_ami_customizer.create_service_to_set_ram(mock_paramiko.return_value)
 
     mock_exec_command.assert_called_once()
-    mock_logger.error.assert_any_call("Error creating service to set RAM")
+    mock_logger.error.assert_any_call("Error creating script for set RAM service")
+
+
+def test_create_custom_certs_service(mock_ami_customizer, mock_logger, mock_exec_command, mock_paramiko):
+    mock_ami_customizer.create_customize_certs_service_files(mock_paramiko.return_value)
+
+    commands = [
+        f"""
+        sudo mv /tmp/{mock_ami_customizer.local_customize_certs_service_path.name} {mock_ami_customizer.systemd_services_path}/{mock_ami_customizer.local_customize_certs_service_path.name}
+        sudo chmod 755 {mock_ami_customizer.systemd_services_path}/{mock_ami_customizer.local_customize_certs_service_path.name}
+        sudo chown root:root {mock_ami_customizer.systemd_services_path}/{mock_ami_customizer.local_customize_certs_service_path.name}
+        sudo systemctl --quiet enable {mock_ami_customizer.local_customize_certs_service_path.name}
+        """.replace("\n", "").replace(" ", ""),
+        f"""
+        sudo mv /tmp/{mock_ami_customizer.local_customize_certs_timer_path.name} {mock_ami_customizer.systemd_services_path}/{mock_ami_customizer.local_customize_certs_timer_path.name}
+        sudo chmod 755 {mock_ami_customizer.systemd_services_path}/{mock_ami_customizer.local_customize_certs_timer_path.name}
+        sudo chown root:root {mock_ami_customizer.systemd_services_path}/{mock_ami_customizer.local_customize_certs_timer_path.name}
+        sudo systemctl --quiet enable {mock_ami_customizer.local_customize_certs_timer_path.name}
+        """.replace("\n", "").replace(" ", ""),
+    ]
+
+    for command_call in mock_exec_command.call_args_list:
+        command_call.kwargs["command"] = command_call.kwargs["command"].replace("\n", "").replace(" ", "")
+
+    mock_paramiko.return_value.open_sftp.return_value.put.assert_any_call(
+        str(mock_ami_customizer.local_customize_certs_service_path),
+        f"/tmp/{mock_ami_customizer.local_customize_certs_service_path.name}",
+    )
+    mock_paramiko.return_value.open_sftp.return_value.put.assert_any_call(
+        str(mock_ami_customizer.local_customize_certs_timer_path),
+        f"/tmp/{mock_ami_customizer.local_customize_certs_timer_path.name}",
+    )
+    for command in commands:
+        command = command.replace("\n", "").replace(" ", "")
+        mock_exec_command.assert_any_call(command=command, client=mock_paramiko.return_value)
+
+    mock_logger.debug.assert_any_call(
+        f'Creating "{mock_ami_customizer.local_customize_certs_service_path.name}" service'
+    )
+
+
+def test_create_ami_custom_service_success(mock_ami_customizer, mock_logger, mock_exec_command, mock_paramiko):
+    file_local_path = Path("/path/to/service_file.service")
+    mock_ami_customizer.create_ami_custom_service(file_local_path, mock_paramiko.return_value)
+
+    sftp = mock_paramiko.return_value.open_sftp.return_value
+    tmp_service_path = f"/tmp/{file_local_path.name}"
+    commands = [
+        f"""
+        sudo mv {tmp_service_path} {mock_ami_customizer.systemd_services_path}/{file_local_path.name}
+        sudo chmod 755 {mock_ami_customizer.systemd_services_path}/{file_local_path.name}
+        sudo chown root:root {mock_ami_customizer.systemd_services_path}/{file_local_path.name}
+        sudo systemctl --quiet enable {file_local_path.name}
+        """.replace("\n", "").replace(" ", "")
+    ]
+
+    for command_call in mock_exec_command.call_args_list:
+        command_call.kwargs["command"] = command_call.kwargs["command"].replace("\n", "").replace(" ", "")
+
+    sftp.put.assert_called_once_with(str(file_local_path), tmp_service_path)
+    sftp.close.assert_called_once()
+    for command in commands:
+        command = command.replace("\n", "").replace(" ", "")
+        mock_exec_command.assert_any_call(command=command, client=mock_paramiko.return_value)
+
+    mock_logger.debug.assert_any_call(f'Creating "{file_local_path.name}" service')
+    mock_logger.info_success.assert_any_call(f'"{file_local_path.name.split(".")[0]}" service created successfully')
+
+
+def test_create_ami_custom_service_sftp_failure(mock_ami_customizer, mock_logger, mock_paramiko):
+    file_local_path = Path("/path/to/service_file.service")
+    sftp = mock_paramiko.return_value.open_sftp.return_value
+    sftp.put.side_effect = Exception("SFTP error")
+
+    with pytest.raises(RuntimeError, match="Error uploading files to the remote host: SFTP error"):
+        mock_ami_customizer.create_ami_custom_service(file_local_path, mock_paramiko.return_value)
+
+    sftp.put.assert_called_once_with(str(file_local_path), f"/tmp/{file_local_path.name}")
+    sftp.close.assert_called_once()
+    mock_logger.error.assert_any_call("Error uploading files to the remote host")
+
+
+def test_create_ami_custom_service_command_failure(mock_ami_customizer, mock_logger, mock_exec_command, mock_paramiko):
+    file_local_path = Path("/path/to/service_file.service")
+    mock_exec_command.return_value = ("", "command not found")
+
+    with pytest.raises(RuntimeError, match=f"Error creating service {file_local_path.name}: command not found"):
+        mock_ami_customizer.create_ami_custom_service(file_local_path, mock_paramiko.return_value)
+
+    tmp_service_path = f"/tmp/{file_local_path.name}"
+    command = f"""
+        sudo mv {tmp_service_path} {mock_ami_customizer.systemd_services_path}/{file_local_path.name}
+        sudo chmod 755 {mock_ami_customizer.systemd_services_path}/{file_local_path.name}
+        sudo chown root:root {mock_ami_customizer.systemd_services_path}/{file_local_path.name}
+        sudo systemctl --quiet enable {file_local_path.name}
+        """.replace("\n", "").replace(" ", "")
+
+    for command_call in mock_exec_command.call_args_list:
+        command_call.kwargs["command"] = command_call.kwargs["command"].replace("\n", "").replace(" ", "")
+
+    mock_exec_command.assert_called_once_with(command=command, client=mock_paramiko.return_value)
+    mock_logger.error.assert_any_call(f"Error creating service {file_local_path.name}")

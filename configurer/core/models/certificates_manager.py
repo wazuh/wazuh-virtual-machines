@@ -1,11 +1,11 @@
-import re
+import ast
 from pathlib import Path
 
 import paramiko
 
 from configurer.core.utils import ComponentCertsConfigParameter, ComponentCertsDirectory, ComponentConfigFile
 from generic import exec_command
-from utils import Component, Logger, RemoteDirectories
+from utils import Component, Logger
 
 logger = Logger("CertsManager")
 
@@ -127,11 +127,10 @@ class CertsManager:
             logger.error("Error while executing yq query")
             raise Exception(f"Error while executing yq query: {error_output}")
 
-        cleaned_output = re.sub(
-            r'^\["(.*)"\]$', r"\1", output
-        )  # If the result is inside a list [] only return the value
+        if "[" in output and "]" in output:
+            output = ast.literal_eval(output)[-1]  # If the result is inside a list [] return the last value
 
-        return Path(cleaned_output.strip()).name
+        return Path(output.strip()).name
 
     def _get_certs_name(
         self,
@@ -205,7 +204,7 @@ class CertsManager:
             raise Exception(f"Error while generating certificates: {error_output}")
 
         command = f"""
-            sudo tar -cf {RemoteDirectories.CERTS}/wazuh-certificates.tar -C {RemoteDirectories.CERTS}/wazuh-certificates/ . && sudo rm -rf {RemoteDirectories.CERTS}/wazuh-certificates
+            sudo tar -cf {certs_tool_path.parent}/wazuh-certificates.tar -C {certs_tool_path.parent}/wazuh-certificates/ . && sudo rm -rf {certs_tool_path.parent}/wazuh-certificates
             """
 
         output, error_output = exec_command(command=command, client=client)
@@ -227,7 +226,7 @@ class CertsManager:
                 )
 
                 output, error_output = self.copy_certs_to_component_directory(
-                    component=component, certs_name=certs_name, client=client
+                    component=component, certs_path=certs_tool_path.parent, certs_name=certs_name, client=client
                 )
 
                 if error_output:
@@ -239,7 +238,7 @@ class CertsManager:
         logger.info_success("Certificates generated successfully")
 
     def copy_certs_to_component_directory(
-        self, component: Component, certs_name: dict, client: paramiko.SSHClient | None = None
+        self, component: Component, certs_path: Path, certs_name: dict, client: paramiko.SSHClient | None = None
     ) -> tuple[str, str]:
         """
         Given a compressed folder with certificates, it extracts the certificates and copies them to the appropriate
@@ -252,13 +251,13 @@ class CertsManager:
 
         Returns:
             tuple[str, str]: The result of the command execution.
-        logger.debug(f"Copying certificates to {component.replace('_', ' ')} directory...")
         """
+        logger.debug(f"Copying certificates to {component.replace('_', ' ')} directory...")
 
         if component == Component.WAZUH_INDEXER:
             command = f"""
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_INDEXER}
-                sudo tar -xf {RemoteDirectories.CERTS}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_INDEXER} ./{" ./".join(self.components_certs_default_name[Component.WAZUH_INDEXER].values())}
+                sudo tar -xf {certs_path}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_INDEXER} ./{" ./".join(self.components_certs_default_name[Component.WAZUH_INDEXER].values())}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_INDEXER}/{self.components_certs_default_name[Component.WAZUH_INDEXER]["cert"]} {ComponentCertsDirectory.WAZUH_INDEXER}/{certs_name[ComponentCertsConfigParameter.WAZUH_INDEXER_CERT.name]}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_INDEXER}/{self.components_certs_default_name[Component.WAZUH_INDEXER]["key"]} {ComponentCertsDirectory.WAZUH_INDEXER}/{certs_name[ComponentCertsConfigParameter.WAZUH_INDEXER_KEY.name]}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_INDEXER}/{self.components_certs_default_name[Component.WAZUH_INDEXER]["ca"]} {ComponentCertsDirectory.WAZUH_INDEXER}/{certs_name[ComponentCertsConfigParameter.WAZUH_INDEXER_CA.name]}
@@ -267,7 +266,7 @@ class CertsManager:
         elif component == Component.WAZUH_SERVER:
             command = f"""
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_SERVER}
-                sudo tar -xf {RemoteDirectories.CERTS}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_SERVER} ./{" ./".join(self.components_certs_default_name[Component.WAZUH_SERVER].values())}
+                sudo tar -xf {certs_path}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_SERVER} ./{" ./".join(self.components_certs_default_name[Component.WAZUH_SERVER].values())}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_SERVER}/{self.components_certs_default_name[Component.WAZUH_SERVER]["cert"]} {ComponentCertsDirectory.WAZUH_SERVER}/{certs_name[ComponentCertsConfigParameter.WAZUH_SERVER_CERT.name]}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_SERVER}/{self.components_certs_default_name[Component.WAZUH_SERVER]["key"]} {ComponentCertsDirectory.WAZUH_SERVER}/{certs_name[ComponentCertsConfigParameter.WAZUH_SERVER_KEY.name]}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_SERVER}/{self.components_certs_default_name[Component.WAZUH_SERVER]["ca"]} {ComponentCertsDirectory.WAZUH_SERVER}/{certs_name[ComponentCertsConfigParameter.WAZUH_SERVER_CA.name]}
@@ -276,7 +275,7 @@ class CertsManager:
         elif component == Component.WAZUH_DASHBOARD:
             command = f"""
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_DASHBOARD}
-                sudo tar -xf {RemoteDirectories.CERTS}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_DASHBOARD} ./{" ./".join(self.components_certs_default_name[Component.WAZUH_DASHBOARD].values())}
+                sudo tar -xf {certs_path}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_DASHBOARD} ./{" ./".join(self.components_certs_default_name[Component.WAZUH_DASHBOARD].values())}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_DASHBOARD}/{self.components_certs_default_name[Component.WAZUH_DASHBOARD]["cert"]} {ComponentCertsDirectory.WAZUH_DASHBOARD}/{certs_name[ComponentCertsConfigParameter.WAZUH_DASHBOARD_CERT.name]}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_DASHBOARD}/{self.components_certs_default_name[Component.WAZUH_DASHBOARD]["key"]} {ComponentCertsDirectory.WAZUH_DASHBOARD}/{certs_name[ComponentCertsConfigParameter.WAZUH_DASHBOARD_KEY.name]}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_DASHBOARD}/{self.components_certs_default_name[Component.WAZUH_DASHBOARD]["ca"]} {ComponentCertsDirectory.WAZUH_DASHBOARD}/{certs_name[ComponentCertsConfigParameter.WAZUH_DASHBOARD_CA.name]}
