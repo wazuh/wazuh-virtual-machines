@@ -26,9 +26,6 @@ packages = ["."]
 testpaths = ["tests"]
 pythonpath = ["."]
 
-[tool.hatch.build.targets.wheel]
-packages = ["."]
-
 [tool.ruff]
 line-length = 120
 indent-width = 4
