@@ -16,39 +16,24 @@ on:
         options:
           - ami
           - ssh
-      ami_id:
-        description: 'AMI ID to test (only if test_type=ami)'
+      host:
+        description: 'AMI ID to create ami or host for direct ssh connection'
         required: false
         type: string
-      aws_region:
-        description: 'AWS region'
-        required: false
-        default: 'us-east-1'
-        type: string
-      ssh_host:
-        description: 'SSH host to connect (only if test_type=ssh)'
+      key_name:
+        description: 'Key name to use for SSH connection'
         required: false
         type: string
-      ssh_username:
-        description: 'SSH username (only if test_type=ssh)'
-        required: false
-        default: 'wazuh-user'
-        type: string
-      ssh_port:
-        description: 'SSH port (only if test_type=ssh)'
-        required: false
-        default: '22'
-        type: string
-      WAZUH_SERVER_VERSION:
-        description: 'Expected Wazuh server version'
+      WAZUH_SERVER_VERSION_REVISION:
+        description: 'Expected Wazuh server version-revision'
         required: false
         type: string
-      WAZUH_INDEXER_VERSION:
-        description: 'Expected Wazuh indexer version'
+      WAZUH_INDEXER_VERSION_REVISION:
+        description: 'Expected Wazuh indexer version-revision'
         required: false
         type: string
-      WAZUH_DASHBOARD_VERSION:
-        description: 'Expected Wazuh dashboard version'
+      WAZUH_DASHBOARD_VERSION_REVISION:
+        description: 'Expected Wazuh dashboard version-revision'
         required: false
         type: string
       TESTS:
@@ -76,9 +61,9 @@ on:
 env:
   AWS_DEV_AUTOMATION_ROLE: ${{ secrets.AWS_DEV_AUTOMATION_ROLE }}
   AWS_QA_AUTOMATION_ROLE: ${{ secrets.AWS_QA_AUTOMATION_ROLE }}
-  WAZUH_SERVER_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_SERVER_VERSION }}
-  WAZUH_INDEXER_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_INDEXER_VERSION }}
-  WAZUH_DASHBOARD_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_DASHBOARD_VERSION }}
+  WAZUH_SERVER_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_SERVER_VERSION_REVISION }}
+  WAZUH_INDEXER_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_INDEXER_VERSION_REVISION }}
+  WAZUH_DASHBOARD_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_DASHBOARD_VERSION_REVISION }}
 
 permissions:
   id-token: write
@@ -114,19 +99,11 @@ jobs:
           echo "AWS_DEV_AUTOMATION_ROLE=${{ secrets.AWS_DEV_AUTOMATION_ROLE }}" >> $GITHUB_ENV
           echo "GITHUB_ACTIONS=true" >> $GITHUB_ENV
 
-      - name: Configure SSH key for testing
-        if: ${{ github.event.inputs.test_type == 'ssh' }}
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/wazuh_test_key
-          chmod 600 ~/.ssh/wazuh_test_key
-          echo "SSH_KEY_PATH=~/.ssh/wazuh_test_key" >> $GITHUB_ENV
-
       - name: Run tests with AMI mode
         if: ${{ github.event.inputs.test_type == 'ami' }}
         run: |
           wazuh-vm-tester \
-            --ami-id ${{ github.event.inputs.ami_id }} \
+            --ami-id ${{ github.event.inputs.host }} \
             --aws-region ${{ github.event.inputs.aws_region || 'us-east-1' }} \
             --test-pattern "${{ github.event.inputs.TESTS }}" \
             --log-level ${{ github.event.inputs.log_level || 'INFO' }} \
@@ -137,10 +114,8 @@ jobs:
         if: ${{ github.event.inputs.test_type == 'ssh' }}
         run: |
           wazuh-vm-tester \
-            --ssh-host ${{ github.event.inputs.ssh_host }} \
-            --ssh-username ${{ github.event.inputs.ssh_username || 'wazuh-user' }} \
-            --ssh-key-path ${{ env.SSH_KEY_PATH }} \
-            --ssh-port ${{ github.event.inputs.ssh_port || '22' }} \
+            --ssh-host ${{ github.event.inputs.host }} \
+            --ssh-key-path ${{ github.event.inputs.key_name }} \
             --test-pattern "${{ github.event.inputs.TESTS }}" \
             --log-level ${{ github.event.inputs.log_level || 'INFO' }} \
             --output github \
