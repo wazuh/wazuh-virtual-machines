@@ -279,3 +279,16 @@ jobs:
       - name: Delete allocated VM
         if: always() && steps.alloc_vm_ova.outcome == 'success' && inputs.destroy == true
         run: python3 wazuh-automation/deployability/modules/allocation/main.py --action delete --track-output ${{ env.ALLOCATOR_PATH }}/track.yml
+      
+      - name: Compress Allocator directory
+        id: generate_artifacts
+        if: always() && steps.alloc_vm_ova.outcome == 'success' && inputs.destroy == false
+        run: zip -P "${{ secrets.ZIP_ARTIFACTS_PASSWORD }}" -r ${{ env.ALLOCATOR_PATH }}.zip ${{ env.ALLOCATOR_PATH }}
+        continue-on-error: true
+
+      - name: Upload Allocator directory as artifact
+        if: always() && steps.generate_artifacts.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: instance_info
+          path: ${{ env.ALLOCATOR_PATH }}.zip

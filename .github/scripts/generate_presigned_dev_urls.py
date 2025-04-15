@@ -57,7 +57,7 @@ def replace_url_by_its_signed(input_file: str) -> None:
         content = yaml.safe_load(file)
 
     for key, value in content.items():
-        command = f"aws s3 presign {value} --region us-west-1"
+        command = f"aws s3 presign {value} --region us-west-1 --expires-in 18000"  # 5 hours
         result = subprocess.run(command, shell=True, capture_output=True, text=True)
         output = result.stdout
         error_output = result.stderr
