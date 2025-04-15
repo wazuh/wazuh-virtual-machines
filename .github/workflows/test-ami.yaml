@@ -135,10 +135,6 @@ jobs:
         run: |
           cat ~/.ssh/wazuh_test_key.pem
 
-      - name: curl
-        run: |
-          curl -v telnet://${{ github.event.inputs.host }}:22
-
       - name: Run tests with AMI mode
         if: ${{ github.event.inputs.test_type == 'ami' }}
         run: |
