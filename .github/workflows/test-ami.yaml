@@ -1,0 +1,195 @@
+run-name: Wazuh AMI Test - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
+name: Wazuh AMI Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      WAZUH_VIRTUAL_MACHINES_REFERENCE:
+        description: 'Branch or tag of the wazuh-virtual-machines repository'
+        required: true
+        default: 'master'
+      test_type:
+        description: 'Test type (ami or ssh)'
+        required: true
+        default: 'ami'
+        type: choice
+        options:
+          - ami
+          - ssh
+      ami_id:
+        description: 'AMI ID to test (only if test_type=ami)'
+        required: false
+        type: string
+      aws_region:
+        description: 'AWS region'
+        required: false
+        default: 'us-east-1'
+        type: string
+      ssh_host:
+        description: 'SSH host to connect (only if test_type=ssh)'
+        required: false
+        type: string
+      ssh_username:
+        description: 'SSH username (only if test_type=ssh)'
+        required: false
+        default: 'wazuh-user'
+        type: string
+      ssh_port:
+        description: 'SSH port (only if test_type=ssh)'
+        required: false
+        default: '22'
+        type: string
+      WAZUH_SERVER_VERSION:
+        description: 'Expected Wazuh server version'
+        required: false
+        type: string
+      WAZUH_INDEXER_VERSION:
+        description: 'Expected Wazuh indexer version'
+        required: false
+        type: string
+      WAZUH_DASHBOARD_VERSION:
+        description: 'Expected Wazuh dashboard version'
+        required: false
+        type: string
+      TESTS:
+        description: 'Test to run'
+        required: false
+        default: 'ALL'
+        type: choice
+        options:
+          - ALL
+          - CERTIFICATES
+          - CONNECTIVITY
+          - LOGS
+          - SERVICE
+          - VERSION
+      log_level:
+        description: 'Log level'
+        required: false
+        default: 'INFO'
+        type: choice
+        options:
+          - INFO
+          - DEBUG
+          - TRACE
+
+env:
+  AWS_DEV_AUTOMATION_ROLE: ${{ secrets.AWS_DEV_AUTOMATION_ROLE }}
+  AWS_QA_AUTOMATION_ROLE: ${{ secrets.AWS_QA_AUTOMATION_ROLE }}
+  WAZUH_SERVER_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_SERVER_VERSION }}
+  WAZUH_INDEXER_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_INDEXER_VERSION }}
+  WAZUH_DASHBOARD_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_DASHBOARD_VERSION }}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: View parameters
+        run: echo "${{ toJson(inputs) }}"
+      - name: Checkout wazuh/wazuh-virtual-machines repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.WAZUH_VIRTUAL_MACHINES_REFERENCE }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e wazuh_vm_tester/
+          pip install wazuh_vm_tester/requirements.txt
+
+      - name: Setup AWS role environment variables
+        run: |
+          echo "AWS_QA_AUTOMATION_ROLE=${{ secrets.AWS_QA_AUTOMATION_ROLE }}" >> $GITHUB_ENV
+          echo "AWS_DEV_AUTOMATION_ROLE=${{ secrets.AWS_DEV_AUTOMATION_ROLE }}" >> $GITHUB_ENV
+          echo "GITHUB_ACTIONS=true" >> $GITHUB_ENV
+
+      - name: Configure SSH key for testing
+        if: ${{ github.event.inputs.test_type == 'ssh' }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/wazuh_test_key
+          chmod 600 ~/.ssh/wazuh_test_key
+          echo "SSH_KEY_PATH=~/.ssh/wazuh_test_key" >> $GITHUB_ENV
+
+      - name: Run tests with AMI mode
+        if: ${{ github.event.inputs.test_type == 'ami' }}
+        run: |
+          wazuh-vm-tester \
+            --ami-id ${{ github.event.inputs.ami_id }} \
+            --aws-region ${{ github.event.inputs.aws_region || 'us-east-1' }} \
+            --test-pattern "${{ github.event.inputs.TESTS }}" \
+            --log-level ${{ github.event.inputs.log_level || 'INFO' }} \
+            --output github \
+            --output-file test-results.github
+
+      - name: Run tests with SSH mode
+        if: ${{ github.event.inputs.test_type == 'ssh' }}
+        run: |
+          wazuh-vm-tester \
+            --ssh-host ${{ github.event.inputs.ssh_host }} \
+            --ssh-username ${{ github.event.inputs.ssh_username || 'wazuh-user' }} \
+            --ssh-key-path ${{ env.SSH_KEY_PATH }} \
+            --ssh-port ${{ github.event.inputs.ssh_port || '22' }} \
+            --test-pattern "${{ github.event.inputs.TESTS }}" \
+            --log-level ${{ github.event.inputs.log_level || 'INFO' }} \
+            --output github \
+            --output-file test-results.github
+
+      - name: Parse test results
+        if: always()
+        id: parse-results
+        run: |
+          if [ -f test-results.github ]; then
+            # Set environment variables from test results file
+            while IFS= read -r line; do
+              if [[ $line == *=* ]]; then
+                echo $line >> $GITHUB_ENV
+              fi
+            done < test-results.github
+          else
+            echo "No test results file found!"
+            echo "test_status=ERROR" >> $GITHUB_ENV
+            echo "total_tests=0" >> $GITHUB_ENV
+            echo "passed_tests=0" >> $GITHUB_ENV
+            echo "failed_tests=0" >> $GITHUB_ENV
+            echo "warning_tests=0" >> $GITHUB_ENV
+            echo "skipped_tests=0" >> $GITHUB_ENV
+            echo "short_summary=Failed to generate test results" >> $GITHUB_ENV
+          fi
+
+      - name: Create GitHub Summary
+        if: always()
+        run: |
+          if [ -f test-results.github ]; then
+            # Extract multiline summary from the test results
+            awk '/summary<<EOF/{flag=1;next}/EOF/{flag=0}flag' test-results.github > summary.md
+            cat summary.md >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## Test Execution Failed" >> $GITHUB_STEP_SUMMARY
+            echo "No test results were generated. Please check the workflow logs." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Set job status
+        if: always()
+        run: |
+          if [[ "${{ env.test_status }}" == "PASS" ]]; then
+            echo "Tests passed successfully!"
+            exit 0
+          elif [[ "${{ env.test_status }}" == "WARNING" ]]; then
+            echo "Tests passed with warnings!"
+            exit 0
+          else
+            echo "Tests failed with status: ${{ env.test_status }}"
+            exit 1
+          fi
