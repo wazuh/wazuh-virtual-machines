@@ -1,13 +1,13 @@
 
 ================================================================================
-[1mWazuh VM Test Summary[0m
+Wazuh VM Test Summary
 ================================================================================
 
-Overall Status: [92m[1mPASS[0m
+Overall Status: PASS
 
 Total Tests: 0
-Passed: [92m0[0m
-Failed: [91m0[0m
-Warnings: [93m0[0m
-Errors: [91m0[0m
-Skipped: [94m0[0m
+Passed: 0
+Failed: 0
+Warnings: 0
+Errors: 0
+Skipped: 0
