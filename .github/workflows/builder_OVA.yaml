@@ -77,6 +77,9 @@ env:
     GENERATE_PRESIGNED_URLS_SCRIPT_PATH: ${{ github.workspace }}/.github/scripts/generate_presigned_dev_urls.py
     WVM_REPO_NAME: ${{ github.event.repository.name }}
     WVM_REPOSITORY_PATH: "https://github.com/${{ github.repository }}.git"
+    OVA_SCRIPTS_PATH: "${{ github.workspace }}/.github/scripts/ova"
+    OVA_SET_DEFAULT_SCRIPT_NAME: "setOVADefault.sh"
+    OVA_OVF_TEMPLATE_NAME: "wazuh_ovf_template"
 
 permissions:
   id-token: write   # This is required for requesting the JWT
@@ -229,7 +232,7 @@ jobs:
               -o 'StrictHostKeyChecking no' \
               ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} << EOF
             set -e
-            cd ${{ env.WVM_PATH }}
+            cd ${{ env.WVM_REPO_NAME }}
             sudo vagrant ssh -c 'cd /tmp/wazuh-virtual-machines && sudo hatch run dev-ova-post-configurer:run --packages-url-path ${{ env.ARTIFACTS_URLS_FILENAME }}'
           EOF
 
@@ -240,7 +243,7 @@ jobs:
               -o 'StrictHostKeyChecking no' \
               ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} << EOF
             set -e
-            cd ${{ env.WVM_PATH }}
+            cd ${{ env.WVM_REPO_NAME }}
             sudo vagrant halt
             sudo vboxmanage modifyvm ova_base --nic2 hostonly
             sudo vboxmanage modifyvm ova_base --cableconnected2 on
@@ -256,8 +259,8 @@ jobs:
 
       - name: Standarizing OVA
         run: |
-          sed -i "s|ovf:capacity=\"40\"|ovf:capacity=\"50\"|g" ova/wazuh_ovf_template
-          bash ova/setOVADefault.sh "ova/" "/tmp/${{ env.FILENAME_OVA }}" "/tmp/${{ env.FILENAME_OVA }}" "ova/wazuh_ovf_template" "${{ env.WAZUH_VERSION }}"
+          sed -i "s|ovf:capacity=\"40\"|ovf:capacity=\"50\"|g" ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_OVF_TEMPLATE_NAME }}
+          bash ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_SET_DEFAULT_SCRIPT_NAME }} "${{ env.OVA_SCRIPTS_PATH }}/" "/tmp/${{ env.FILENAME_OVA }}" "/tmp/${{ env.FILENAME_OVA }}" ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_OVF_TEMPLATE_NAME }} "${{ env.WAZUH_VERSION }}"
 
       - name: Exporting OVA to final repository
         run: |
