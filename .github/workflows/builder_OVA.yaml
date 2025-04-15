@@ -248,7 +248,7 @@ jobs:
             sudo vboxmanage modifyvm ova_base --nic2 hostonly
             sudo vboxmanage modifyvm ova_base --cableconnected2 on
             sudo vboxmanage export ova_base --output ${{ env.FILENAME_OVA }}
-            chmod 0755 ${{ env.FILENAME_OVA }}
+            sudo chmod 0755 ${{ env.FILENAME_OVA }}
           EOF
 
       - name: Getting OVA from AWS instance
@@ -260,7 +260,7 @@ jobs:
       - name: Standarizing OVA
         run: |
           sed -i "s|ovf:capacity=\"40\"|ovf:capacity=\"50\"|g" ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_OVF_TEMPLATE_NAME }}
-          bash ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_SET_DEFAULT_SCRIPT_NAME }} "${{ env.OVA_SCRIPTS_PATH }}/" "/tmp/${{ env.FILENAME_OVA }}" "/tmp/${{ env.FILENAME_OVA }}" ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_OVF_TEMPLATE_NAME }} "${{ env.WAZUH_VERSION }}"
+          sudo bash ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_SET_DEFAULT_SCRIPT_NAME }} "${{ env.OVA_SCRIPTS_PATH }}/" "/tmp/${{ env.FILENAME_OVA }}" "/tmp/${{ env.FILENAME_OVA }}" ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_OVF_TEMPLATE_NAME }} "${{ env.WAZUH_VERSION }}"
 
       - name: Exporting OVA to final repository
         run: |
