@@ -102,14 +102,19 @@ jobs:
       - name: Run tests with AMI mode
         if: ${{ github.event.inputs.test_type == 'ami' }}
         run: |
-          # Try to find the script in common locations
-          which wazuh-vm-tester || echo "Not found in PATH"
-          find ~/.local/bin -name "wazuh*" || echo "Not in ~/.local/bin"
-          find /opt/hostedtoolcache/Python/3.10.16/x64/bin -name "wazuh*" || echo "Not in Python bin"
+          # Find the executable dynamically and store its path in a variable
+          WAZUH_VM_TEST_PATH=$(find /opt/hostedtoolcache/Python -name "wazuh-vm-test" | head -n 1)
 
-          # If we find it, run it directly
-          # Assuming it might be in /opt/hostedtoolcache/Python/3.10.16/x64/bin/wazuh-vm-tester
-          /opt/hostedtoolcache/Python/3.10.16/x64/bin/wazuh-vm-tester \
+          # Exit if executable not found
+          if [ -z "$WAZUH_VM_TEST_PATH" ]; then
+            echo "Error: wazuh-vm-test executable not found"
+            exit 1
+          fi
+
+          echo "Found executable at: $WAZUH_VM_TEST_PATH"
+
+          # Run the tests using the dynamically found path
+          $WAZUH_VM_TEST_PATH \
             --ami-id ${{ github.event.inputs.host }} \
             --aws-region ${{ github.event.inputs.aws_region || 'us-east-1' }} \
             --test-pattern "${{ github.event.inputs.TESTS }}" \
@@ -120,7 +125,19 @@ jobs:
       - name: Run tests with SSH mode
         if: ${{ github.event.inputs.test_type == 'ssh' }}
         run: |
-          python -m wazuh_vm_tester \
+          # Find the executable dynamically and store its path in a variable
+          WAZUH_VM_TEST_PATH=$(find /opt/hostedtoolcache/Python -name "wazuh-vm-test" | head -n 1)
+
+          # Exit if executable not found
+          if [ -z "$WAZUH_VM_TEST_PATH" ]; then
+            echo "Error: wazuh-vm-test executable not found"
+            exit 1
+          fi
+
+          echo "Found executable at: $WAZUH_VM_TEST_PATH"
+
+          # Run the tests using the dynamically found path
+          $WAZUH_VM_TEST_PATH \
             --ssh-host ${{ github.event.inputs.host }} \
             --ssh-key-path ${{ github.event.inputs.key_name }} \
             --test-pattern "${{ github.event.inputs.TESTS }}" \
