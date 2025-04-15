@@ -155,11 +155,11 @@ jobs:
             --track-output ${{ env.ALLOCATOR_PATH }}/track.yml --inventory-output ${{ env.ALLOCATOR_PATH }}/inventory.yml --instance-name gha_${{ github.run_id }}_ova_build \
             --label-team devops --label-termination-date 1d
 
-          INSTANCE_ID=$(yq '.all.hosts | keys | .[0]' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
+          INSTANCE_HOSTNAME=$(yq '.all.hosts.[].ansible_host' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
           INSTANCE_PORT=$(yq '.all.hosts.[].ansible_port' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
           INSTANCE_KEY=$(yq '.all.hosts.[].ansible_ssh_private_key_file' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
           INSTANCE_USER=$(yq '.all.hosts.[].ansible_user' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
-          echo INSTANCE_ID=$INSTANCE_ID >> $GITHUB_ENV
+          echo INSTANCE_HOSTNAME=$INSTANCE_HOSTNAME >> $GITHUB_ENV
           echo INSTANCE_PORT=$INSTANCE_PORT >> $GITHUB_ENV
           echo INSTANCE_KEY=$INSTANCE_KEY >> $GITHUB_ENV
           echo INSTANCE_USER=$INSTANCE_USER >> $GITHUB_ENV
@@ -188,7 +188,7 @@ jobs:
           ssh -p ${{ env.INSTANCE_PORT }} \
               -i ${{ env.INSTANCE_KEY }} \
               -o 'StrictHostKeyChecking no' \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_ID }} << EOF
+              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} << EOF
             set -e
             sudo yum install -y python3-pip git
             sudo pip3 install hatch
@@ -199,7 +199,7 @@ jobs:
           ssh -p ${{ env.INSTANCE_PORT }} \
               -i ${{ env.INSTANCE_KEY }} \
               -o 'StrictHostKeyChecking no' \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_ID }} << EOF
+              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} << EOF
             set -e
             git clone ${{ env.WVM_REPOSITORY_PATH }}
           EOF
@@ -209,14 +209,14 @@ jobs:
           scp -P ${{ env.INSTANCE_PORT }} \
               -i ${{ env.INSTANCE_KEY }} \
               "${{ env.LOCAL_ARTIFACTS_URLS_FILEPATH }}" \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_ID }}:~/${{ env.WVM_REPO_NAME }}
+              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }}:~/${{ env.WVM_REPO_NAME }}
 
       - name: Run the OVA PreConfigurer module
         run: |
           ssh -p ${{ env.INSTANCE_PORT }} \
               -i ${{ env.INSTANCE_KEY }} \
               -o 'StrictHostKeyChecking no' \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_ID }} << EOF
+              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} << EOF
             set -e
             cd ${{ env.WVM_REPO_NAME }}
             sudo hatch run dev-ova-pre-configurer:run
@@ -227,7 +227,7 @@ jobs:
           ssh -p ${{ env.INSTANCE_PORT }} \
               -i ${{ env.INSTANCE_KEY }} \
               -o 'StrictHostKeyChecking no' \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_ID }} << EOF
+              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} << EOF
             set -e
             cd ${{ env.WVM_PATH }}
             sudo vagrant ssh -c 'cd /tmp/wazuh-virtual-machines && sudo hatch run dev-ova-post-configurer:run --packages-url-path ${{ env.ARTIFACTS_URLS_FILENAME }}'
@@ -238,7 +238,7 @@ jobs:
           ssh -p ${{ env.INSTANCE_PORT }} \
               -i ${{ env.INSTANCE_KEY }} \
               -o 'StrictHostKeyChecking no' \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_ID }} << EOF
+              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} << EOF
             set -e
             cd ${{ env.WVM_PATH }}
             sudo vagrant halt
@@ -252,7 +252,7 @@ jobs:
         run: |
           scp -P ${{ env.INSTANCE_PORT }} \
               -i ${{ env.INSTANCE_KEY }} \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_ID }}:~${{ env.FILENAME_OVA }} /tmp/${{ env.FILENAME_OVA }}
+              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }}:~${{ env.FILENAME_OVA }} /tmp/${{ env.FILENAME_OVA }}
 
       - name: Standarizing OVA
         run: |
