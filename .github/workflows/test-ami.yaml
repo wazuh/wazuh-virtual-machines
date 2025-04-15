@@ -91,7 +91,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e wazuh_vm_tester/
-          pip install wazuh_vm_tester/requirements.txt
+          pip install -r wazuh_vm_tester/requirements.txt
 
       - name: Setup AWS role environment variables
         run: |
