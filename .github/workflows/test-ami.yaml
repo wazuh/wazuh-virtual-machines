@@ -102,31 +102,31 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           echo "-----BEGIN RSA PRIVATE KEY-----
-            MIIEpAIBAAKCAQEApSEmREcIGLWUbXvTRvXcpw0ZoJRWEoSZtLclhKVx1tThTU7W
-            leupM0+FBrlPZGW2I+WmFa0DEGCtcPb6k1bHy6yKhwFhSWzthRYwxCy8oKw7QA0v
-            0M6yVUuPPayveed1tLtZJsbeRW1D5Vjhzqenr9slYSS4K6tjYpyP4JRQgY+x/CNL
-            wGb61f9ZQJIio79QnlpWQpmJVQxv7h/qJepdOtuyKUZ3WiZs5GFvbmYkPzLIFoAe
-            tx+J42Bk0UeL5XdnN8WFzcoHrPs+78UaGLuPm6gpZAlp8yZkmhNzVeQZoJ00m558
-            scnIHhv4zqQZD8QZRX7yCR594HwUkORusVl4dQIDAQABAoIBAHbBbF/WJcB/dgt2
-            7e8uik2pYjDV/UC8FD6fKGBJC6HQ32dVt4WCQeEg4y5+vtYZP/B5DASytG1m2dVQ
-            Cc1Er9OOduG44FqJ+Beqac/rzIxQ0RuzYBvvStmEybM1Kc2l5ETiJ693fgq4Fggu
-            79ZLRJF4LV27pqfhTkxxBBgjEfLaWHWXRi+cgcDhbNU2KG0PBJvljqwpMTvV6wuT
-            IhWAeyIJQY/pehHiaihBTIqsm87elKBWNT4GRB/5gbX9Jr8rIPv2DV9FlaeQX3SQ
-            WaRXT2Og+H+bsOGv8tUwZpyzSTnAPIwy4L9SAUiYexI6E4jY5Z8JKlEXTxwOLVjj
-            yjDUwNECgYEA2x1142tJyT8273v1gX4GVRVHL3NoIyiW4ca/UnrwlaQoRJDHbI5d
-            U6R76jdDRxa7AFuNLBh5J6/ylcYGlyA7A29FxKJfF2BQZhvL8rJmCCRtPW5x8eSh
-            37OGMprGFZaG8/pBJeWDzc5N1tBdmlKG72/EzNRyvD8yYLs/W921HQ8CgYEAwO08
-            QjWCbjKWBVA639TtAf54tSwCEmRM2LA4CtXIvXjpgcBTXJlE+zWffhFN+hmozBpm
-            C24HgoRv6DSl+qKB2QBGhT3TU/6uVBj0fhVmFgRnuHF+yQtoAvMtyfgt6K4y5ZhZ
-            8dMD57MxbGQOdB72CkRdFajEWW8+1O27pu5T2jsCgYEAkOzsc24cEKrqF/5iRLLp
-            V09KlRz9DPwkx9Kf6tr7084PAELOVIPZQKBzgVfp/NQQ/cyQFFFfmRtsFRo0c7LS
-            tZPcjpFi2eBPbSoHfE/44nvNcSti3D5/vqlMIp5yVAcK3cZxXrJuuioxG9sXfiIF
-            s8q2XVBLTy1xkb9nychbqYsCgYBL2vtebPujqHAkFq+PYoDtz8hWM798y8MLT/45
-            BGWxWeE2CxC7z+e3fhX/0339YClmVtrYk6KQRtJZUpoQOeUkFV+k8/IrjG+u0UEQ
-            cgl5jrHZa4aWNc3nmwXd657hZdzNOWHkGzvl1icQnyavsZy73LVc1sadA4iI4BBw
-            SjTeEQKBgQCXqG3Lsoqny6Y+WNoRpV/EbDnPFhzNSQoHlT692KJ4UZG9UEzT+MxW
-            Kd0FHbnNQsiBJvrapJYmkpZ0hFaljuebUe++sLIUyTT2EJlpbo8HNm5nF79kFjZG
-            hXd5hxlsFtAL1yBIRSdkYnPquZP0uKQjZxqk2jU1PX4Fgtx7NPyLhg==" > ~/.ssh/wazuh_test_key.pem
+          MIIEpAIBAAKCAQEApSEmREcIGLWUbXvTRvXcpw0ZoJRWEoSZtLclhKVx1tThTU7W
+          leupM0+FBrlPZGW2I+WmFa0DEGCtcPb6k1bHy6yKhwFhSWzthRYwxCy8oKw7QA0v
+          0M6yVUuPPayveed1tLtZJsbeRW1D5Vjhzqenr9slYSS4K6tjYpyP4JRQgY+x/CNL
+          wGb61f9ZQJIio79QnlpWQpmJVQxv7h/qJepdOtuyKUZ3WiZs5GFvbmYkPzLIFoAe
+          tx+J42Bk0UeL5XdnN8WFzcoHrPs+78UaGLuPm6gpZAlp8yZkmhNzVeQZoJ00m558
+          scnIHhv4zqQZD8QZRX7yCR594HwUkORusVl4dQIDAQABAoIBAHbBbF/WJcB/dgt2
+          7e8uik2pYjDV/UC8FD6fKGBJC6HQ32dVt4WCQeEg4y5+vtYZP/B5DASytG1m2dVQ
+          Cc1Er9OOduG44FqJ+Beqac/rzIxQ0RuzYBvvStmEybM1Kc2l5ETiJ693fgq4Fggu
+          79ZLRJF4LV27pqfhTkxxBBgjEfLaWHWXRi+cgcDhbNU2KG0PBJvljqwpMTvV6wuT
+          IhWAeyIJQY/pehHiaihBTIqsm87elKBWNT4GRB/5gbX9Jr8rIPv2DV9FlaeQX3SQ
+          WaRXT2Og+H+bsOGv8tUwZpyzSTnAPIwy4L9SAUiYexI6E4jY5Z8JKlEXTxwOLVjj
+          yjDUwNECgYEA2x1142tJyT8273v1gX4GVRVHL3NoIyiW4ca/UnrwlaQoRJDHbI5d
+          U6R76jdDRxa7AFuNLBh5J6/ylcYGlyA7A29FxKJfF2BQZhvL8rJmCCRtPW5x8eSh
+          37OGMprGFZaG8/pBJeWDzc5N1tBdmlKG72/EzNRyvD8yYLs/W921HQ8CgYEAwO08
+          QjWCbjKWBVA639TtAf54tSwCEmRM2LA4CtXIvXjpgcBTXJlE+zWffhFN+hmozBpm
+          C24HgoRv6DSl+qKB2QBGhT3TU/6uVBj0fhVmFgRnuHF+yQtoAvMtyfgt6K4y5ZhZ
+          8dMD57MxbGQOdB72CkRdFajEWW8+1O27pu5T2jsCgYEAkOzsc24cEKrqF/5iRLLp
+          V09KlRz9DPwkx9Kf6tr7084PAELOVIPZQKBzgVfp/NQQ/cyQFFFfmRtsFRo0c7LS
+          tZPcjpFi2eBPbSoHfE/44nvNcSti3D5/vqlMIp5yVAcK3cZxXrJuuioxG9sXfiIF
+          s8q2XVBLTy1xkb9nychbqYsCgYBL2vtebPujqHAkFq+PYoDtz8hWM798y8MLT/45
+          BGWxWeE2CxC7z+e3fhX/0339YClmVtrYk6KQRtJZUpoQOeUkFV+k8/IrjG+u0UEQ
+          cgl5jrHZa4aWNc3nmwXd657hZdzNOWHkGzvl1icQnyavsZy73LVc1sadA4iI4BBw
+          SjTeEQKBgQCXqG3Lsoqny6Y+WNoRpV/EbDnPFhzNSQoHlT692KJ4UZG9UEzT+MxW
+          Kd0FHbnNQsiBJvrapJYmkpZ0hFaljuebUe++sLIUyTT2EJlpbo8HNm5nF79kFjZG
+          hXd5hxlsFtAL1yBIRSdkYnPquZP0uKQjZxqk2jU1PX4Fgtx7NPyLhg==" > ~/.ssh/wazuh_test_key.pem
           chmod 400 ~/.ssh/wazuh_test_key.pem
           echo "SSH key created at ~/.ssh/wazuh_test_key.pem"
 
