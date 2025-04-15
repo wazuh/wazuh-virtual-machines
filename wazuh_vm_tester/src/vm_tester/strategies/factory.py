@@ -4,7 +4,8 @@ Factory for creating appropriate connection strategies.
 
 from typing import Optional
 
-from ..config import AMITesterConfig, get_logger
+from ..config import AMITesterConfig
+from ..utils.logger import get_logger
 from .base import ConnectionStrategy
 from .local import LocalStrategy
 from .ssh import SSHStrategy

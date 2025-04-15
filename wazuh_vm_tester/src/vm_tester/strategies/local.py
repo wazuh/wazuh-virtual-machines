@@ -4,7 +4,7 @@ Local connection strategy implementation.
 
 from typing import Optional
 
-from ..config import get_logger
+from ..utils.logger import get_logger
 from ..connections.base import ConnectionInterface
 from ..connections.local import LocalConnection
 from .base import ConnectionStrategy

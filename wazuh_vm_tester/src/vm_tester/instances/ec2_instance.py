@@ -4,7 +4,7 @@ EC2 instance implementation using SSHConnection.
 
 from typing import Optional, Tuple
 
-from ..config import get_logger
+from ..utils.logger import get_logger
 from .base import InstanceInterface
 from ..connections.ssh import SSHConnection
 

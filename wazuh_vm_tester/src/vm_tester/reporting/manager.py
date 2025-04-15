@@ -5,7 +5,7 @@ Report manager for handling test results and generating reports.
 import os
 from typing import Optional
 
-from ..config import get_logger
+from ..utils.logger import get_logger
 from .base import TestResult, TestSummary, TestStatus
 from .formatters import (
     ReportFormatter,

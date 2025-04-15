@@ -6,7 +6,7 @@ import subprocess
 import shlex
 from typing import Tuple
 
-from ..config import get_logger
+from ..utils.logger import get_logger
 from .base import InstanceInterface
 
 logger = get_logger(__name__)

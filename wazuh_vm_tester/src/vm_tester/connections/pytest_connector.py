@@ -4,7 +4,7 @@ Connection handler for pytest integrations.
 
 from typing import Optional
 
-from ..config import get_logger
+from ..utils.logger import get_logger
 from .base import ConnectionInterface
 from .local import LocalConnection
 

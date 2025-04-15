@@ -7,7 +7,8 @@ import time
 import os
 from typing import Optional, Tuple
 
-from ..config import AMITesterConfig, get_logger
+from ..config import AMITesterConfig
+from ..utils.logger import get_logger
 from ..connections.base import ConnectionInterface
 from ..connections.ssh import SSHConnection
 from ..aws.ec2 import EC2Client

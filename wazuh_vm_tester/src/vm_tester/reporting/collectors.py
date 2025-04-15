@@ -3,7 +3,7 @@ Module to collect test results from pytest.
 """
 
 from typing import List
-from ..config import get_logger
+from ..utils.logger import get_logger
 from .base import TestResult, TestStatus, get_status_color, COLOR_RESET
 
 logger = get_logger(__name__)

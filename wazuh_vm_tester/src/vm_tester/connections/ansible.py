@@ -5,7 +5,7 @@ Ansible-based connection implementation.
 import os
 from typing import Optional, Tuple
 
-from ..config import get_logger
+from ..utils.logger import get_logger
 from ..utils.inventory import get_host_connection_info
 from .base import ConnectionInterface
 from .ssh import SSHConnection

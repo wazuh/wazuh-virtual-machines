@@ -5,7 +5,7 @@ Report formatters for different output formats.
 import json
 from datetime import datetime
 
-from ..config import get_logger
+from ..utils.logger import get_logger
 from .base import TestSummary, TestStatus, get_status_color, COLOR_RESET
 
 logger = get_logger(__name__)

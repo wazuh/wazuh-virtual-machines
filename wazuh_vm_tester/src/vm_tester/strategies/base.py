@@ -5,7 +5,8 @@ Base classes for connection and execution strategies.
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from ..config import AMITesterConfig, get_logger
+from ..config import AMITesterConfig
+from ..utils.logger import get_logger
 from ..connections.base import ConnectionInterface
 
 logger = get_logger(__name__)

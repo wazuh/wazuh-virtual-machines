@@ -4,7 +4,8 @@ Factory module for creating appropriate connections.
 
 from typing import Optional
 
-from ..config import AMITesterConfig, get_logger
+from ..config import AMITesterConfig
+from ..utils.logger import get_logger
 from .base import ConnectionInterface
 from .local import LocalConnection
 from .ssh import SSHConnection

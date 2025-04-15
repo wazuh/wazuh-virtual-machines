@@ -8,7 +8,7 @@ from typing import Optional, Tuple
 from enum import Enum
 from botocore.exceptions import ClientError
 
-from ..config import get_logger
+from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
 

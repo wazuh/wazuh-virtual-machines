@@ -11,7 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from .config import AMITesterConfig, setup_logging, get_logger
+from .config import AMITesterConfig
+from .utils.logger import setup_logging, get_logger
 from .strategies import StrategyFactory
 from .connections.pytest_connector import ConnectionRegistry
 from .reporting.manager import ReportManager
@@ -63,6 +64,10 @@ def parse_args() -> argparse.Namespace:
     ssh_group.add_argument(
         "--ssh-port", type=int, default=22,
         help="SSH port (default: 22)"
+    )
+    ssh_group.add_argument(
+        "--key-name",
+        help="AWS Key Pair name to use instead of ssh-key-path (for direct SSH only)"
     )
 
     # For inventory
@@ -153,8 +158,8 @@ def validate_args(args: argparse.Namespace) -> None:
     """
     # Validate direct SSH mode arguments
     if args.ssh_host:
-        if not args.ssh_key_path and "SSH_PRIVATE_KEY" not in os.environ:
-            raise ValueError("SSH key path is required for direct SSH mode. Use --ssh-key-path.")
+        if not args.ssh_key_path and not args.key_name and "SSH_PRIVATE_KEY" not in os.environ:
+            raise ValueError("Either --ssh-key-path or --key-name is required for direct SSH mode.")
 
     # Validate Ansible inventory mode arguments
     elif args.inventory:
@@ -227,7 +232,8 @@ def load_config_from_args(args: argparse.Namespace) -> AMITesterConfig:
             ssh_port=args.ssh_port,
             expected_version=args.version,
             expected_revision=args.revision,
-            aws_region=args.aws_region
+            aws_region=args.aws_region,
+            key_name=args.key_name
         )
 
     return config

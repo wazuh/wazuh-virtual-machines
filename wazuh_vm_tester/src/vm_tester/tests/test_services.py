@@ -5,7 +5,8 @@ Tests for Wazuh services.
 import os
 import pytest
 
-from ..config import AMITesterConfig, get_logger
+from ..config import AMITesterConfig
+from ..utils.logger import get_logger
 from ..connections.pytest_connector import get_connection
 
 logger = get_logger(__name__)

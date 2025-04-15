@@ -10,7 +10,7 @@ import paramiko
 from paramiko.ssh_exception import SSHException
 import socket
 
-from ..config import get_logger
+from ..utils.logger import get_logger
 from .base import ConnectionInterface
 from ..utils.inventory import digital_clock
 

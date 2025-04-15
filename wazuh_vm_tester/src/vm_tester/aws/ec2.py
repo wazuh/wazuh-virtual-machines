@@ -6,7 +6,7 @@ import time
 from typing import Dict, List, Optional, Any
 from botocore.exceptions import ClientError
 
-from ..config import get_logger
+from ..utils.logger import get_logger
 from .credentials import AWSCredentialsManager, AWSRole
 
 logger = get_logger(__name__)

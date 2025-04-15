@@ -5,7 +5,7 @@ Ansible connection strategy implementation.
 import os
 from typing import Optional
 
-from ..config import get_logger
+from ..utils.logger import get_logger
 from ..connections.base import ConnectionInterface
 from ..connections.ansible import AnsibleConnection
 from .base import ConnectionStrategy
