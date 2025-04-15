@@ -115,7 +115,6 @@ jobs:
           # Run the tests using the dynamically found path
           $WAZUH_VM_TEST_PATH \
             --ami-id ${{ github.event.inputs.host }} \
-            --aws-region ${{ github.event.inputs.aws_region || 'us-east-1' }} \
             --test-pattern "${{ github.event.inputs.TESTS }}" \
             --log-level ${{ github.event.inputs.log_level || 'INFO' }} \
             --output github \
@@ -138,7 +137,7 @@ jobs:
           # Run the tests using the dynamically found path
           $WAZUH_VM_TEST_PATH \
             --ssh-host ${{ github.event.inputs.host }} \
-            --ssh-key-path ${{ github.event.inputs.key_name }} \
+            --key-name ${{ github.event.inputs.key_name }} \
             --test-pattern "${{ github.event.inputs.TESTS }}" \
             --log-level ${{ github.event.inputs.log_level || 'INFO' }} \
             --output github \
