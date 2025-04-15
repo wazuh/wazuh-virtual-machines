@@ -102,7 +102,7 @@ jobs:
       - name: Run tests with AMI mode
         if: ${{ github.event.inputs.test_type == 'ami' }}
         run: |
-          wazuh-vm-tester \
+          python -m wazuh-vm-tester \
             --ami-id ${{ github.event.inputs.host }} \
             --aws-region ${{ github.event.inputs.aws_region || 'us-east-1' }} \
             --test-pattern "${{ github.event.inputs.TESTS }}" \
@@ -113,7 +113,7 @@ jobs:
       - name: Run tests with SSH mode
         if: ${{ github.event.inputs.test_type == 'ssh' }}
         run: |
-          wazuh-vm-tester \
+          python -m wazuh_vm_tester \
             --ssh-host ${{ github.event.inputs.host }} \
             --ssh-key-path ${{ github.event.inputs.key_name }} \
             --test-pattern "${{ github.event.inputs.TESTS }}" \
