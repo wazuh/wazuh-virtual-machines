@@ -209,7 +209,7 @@ class AMITesterConfig(BaseModel):
 
     # AWS additional options
     instance_profile: Optional[str] = None
-    default_security_group_ids: List[str] = Field(default_factory=lambda: ["sg-005cff996b335d497","sg-0471247ce289c863c"])
+    default_security_group_ids: List[str] = Field(default_factory=lambda: ["sg-0471247ce289c863c"])
     security_group_ids: List[str] = []
     tags: Dict[str, str] = Field(default_factory=dict)
     terminate_on_completion: bool = True

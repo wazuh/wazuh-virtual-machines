@@ -1,4 +1,5 @@
-name: Wazuh VM Test
+run-name: Wazuh AMI Test - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
+name: Wazuh AMI Test
 
 on:
   workflow_dispatch:
@@ -24,15 +25,6 @@ on:
         required: false
         default: 'us-east-1'
         type: string
-      aws_role:
-        description: 'AWS role to assume'
-        required: false
-        default: 'default'
-        type: choice
-        options:
-          - default
-          - qa
-          - dev
       ssh_host:
         description: 'SSH host to connect (only if test_type=ssh)'
         required: false
@@ -47,23 +39,30 @@ on:
         required: false
         default: '22'
         type: string
-      WAZUH_SERVER_EXPECTED_VERSION:
+      WAZUH_SERVER_VERSION:
         description: 'Expected Wazuh server version'
         required: false
         type: string
-      WAZUH_INDEXER_EXPECTED_VERSION:
+      WAZUH_INDEXER_VERSION:
         description: 'Expected Wazuh indexer version'
         required: false
         type: string
-      WAZUH_DASHBOARD_EXPECTED_VERSION:
+      WAZUH_DASHBOARD_VERSION:
         description: 'Expected Wazuh dashboard version'
         required: false
         type: string
-      test_pattern:
-        description: 'Test pattern to run'
+      TESTS:
+        description: 'Test to run'
         required: false
-        default: '*'
-        type: string
+        default: 'ALL'
+        type: choice
+        options:
+          - ALL
+          - CERTIFICATES
+          - CONNECTIVITY
+          - LOGS
+          - SERVICE
+          - VERSION
       log_level:
         description: 'Log level'
         required: false
@@ -74,9 +73,16 @@ on:
           - DEBUG
           - TRACE
 
+env:
+  AWS_DEV_AUTOMATION_ROLE: ${{ secrets.AWS_DEV_AUTOMATION_ROLE }}
+  AWS_QA_AUTOMATION_ROLE: ${{ secrets.AWS_QA_AUTOMATION_ROLE }}
+  WAZUH_SERVER_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_SERVER_VERSION }}
+  WAZUH_INDEXER_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_INDEXER_VERSION }}
+  WAZUH_DASHBOARD_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_DASHBOARD_VERSION }}
+
 permissions:
-  id-token: write   # This is required for requesting the JWT
-  contents: read    # This is required for actions/checkout
+  id-token: write
+  contents: read
 
 jobs:
   test:
@@ -104,8 +110,8 @@ jobs:
 
       - name: Setup AWS role environment variables
         run: |
-          echo "AWS_QA_ROLE_ARN=${{ secrets.AWS_QA_ROLE_ARN }}" >> $GITHUB_ENV
-          echo "AWS_DEV_ROLE_ARN=${{ secrets.AWS_DEV_ROLE_ARN }}" >> $GITHUB_ENV
+          echo "AWS_QA_AUTOMATION_ROLE=${{ secrets.AWS_QA_AUTOMATION_ROLE }}" >> $GITHUB_ENV
+          echo "AWS_DEV_AUTOMATION_ROLE=${{ secrets.AWS_DEV_AUTOMATION_ROLE }}" >> $GITHUB_ENV
           echo "GITHUB_ACTIONS=true" >> $GITHUB_ENV
 
       - name: Configure SSH key for testing
@@ -122,9 +128,7 @@ jobs:
           wazuh-vm-tester \
             --ami-id ${{ github.event.inputs.ami_id }} \
             --aws-region ${{ github.event.inputs.aws_region || 'us-east-1' }} \
-            --aws-role ${{ github.event.inputs.aws_role || 'default' }} \
-            --version ${{ github.event.inputs.expected_version }} \
-            --test-pattern "${{ github.event.inputs.test_pattern }}" \
+            --test-pattern "${{ github.event.inputs.TESTS }}" \
             --log-level ${{ github.event.inputs.log_level || 'INFO' }} \
             --output github \
             --output-file test-results.github
@@ -137,8 +141,7 @@ jobs:
             --ssh-username ${{ github.event.inputs.ssh_username || 'wazuh-user' }} \
             --ssh-key-path ${{ env.SSH_KEY_PATH }} \
             --ssh-port ${{ github.event.inputs.ssh_port || '22' }} \
-            --version ${{ github.event.inputs.expected_version }} \
-            --test-pattern "${{ github.event.inputs.test_pattern }}" \
+            --test-pattern "${{ github.event.inputs.TESTS }}" \
             --log-level ${{ github.event.inputs.log_level || 'INFO' }} \
             --output github \
             --output-file test-results.github

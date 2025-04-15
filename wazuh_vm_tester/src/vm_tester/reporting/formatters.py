@@ -126,6 +126,24 @@ class MarkdownFormatter(ReportFormatter):
         """
         self.debug_mode = debug_mode
 
+    def _get_status_emoji(self, status: TestStatus) -> str:
+        """Returns the appropriate emoji for a test state.
+
+        Args:
+            status: Test state
+
+        Returns:
+            Emoji corresponding to the state
+        """
+        status_emojis = {
+            TestStatus.PASS: ":green_circle:",
+            TestStatus.FAIL: ":red_circle:",
+            TestStatus.WARNING: ":yellow_circle:",
+            TestStatus.SKIPPED: ":blue_circle:",
+            TestStatus.ERROR: ":red_circle:"
+        }
+        return status_emojis.get(status, "")
+
     def format_report(self, summary: TestSummary) -> str:
         """Format test summary as Markdown.
 
@@ -135,14 +153,16 @@ class MarkdownFormatter(ReportFormatter):
         Returns:
             Markdown string representation of the report
         """
+        status_emoji = self._get_status_emoji(summary.status)
+
         markdown = f"# Wazuh VM Test Results\n\n"
         markdown += f"## Summary\n\n"
-        markdown += f"**Status**: {summary.status.value}\n\n"
+        markdown += f"**Status**: {summary.status.value} {status_emoji}\n\n"
         markdown += f"| Metric | Count |\n"
         markdown += f"|--------|-------|\n"
         markdown += f"| Total Tests | {summary.total} |\n"
         markdown += f"| Passed | {summary.passed} |\n"
-        markdown += f"| Failed | {summary.failed} |\n"
+        markdown += f"| Failed | {summary.failed}|\n"
         markdown += f"| Warnings | {summary.warnings} |\n"
         markdown += f"| Skipped | {summary.skipped} |\n"
 
@@ -156,7 +176,7 @@ class MarkdownFormatter(ReportFormatter):
 
         # Test failed with details
         if summary.failed > 0:
-            markdown += f"\n## Failed Tests\n\n"
+            markdown += f"\n## Failed Tests {self._get_status_emoji(TestStatus.FAIL)}\n\n"
 
             for module, tests in tests_by_module.items():
                 failed_tests = [t for t in tests if t.status == TestStatus.FAIL]
@@ -165,7 +185,7 @@ class MarkdownFormatter(ReportFormatter):
 
                 markdown += f"### {module}\n\n"
                 for test in failed_tests:
-                    markdown += f"**{test.name}**\n\n"
+                    markdown += f"**{test.name}** {self._get_status_emoji(test.status)}\n\n"
                     if test.message:
                         processed_message = _process_error_message(test.message, self.debug_mode)
 
@@ -182,7 +202,7 @@ class MarkdownFormatter(ReportFormatter):
 
         # Success test
         if summary.passed > 0:
-            markdown += f"\n## Passed Tests\n\n"
+            markdown += f"\n## Passed Tests \n\n"
 
             for module, tests in sorted(tests_by_module.items()):
                 passed_tests = [t for t in tests if t.status == TestStatus.PASS]
@@ -190,11 +210,13 @@ class MarkdownFormatter(ReportFormatter):
                     continue
 
                 markdown += f"### {module}\n\n"
-                markdown += "- " + "\n- ".join(t.name for t in passed_tests) + "\n\n"
+                for test in passed_tests:
+                    markdown += f"- {test.name} {self._get_status_emoji(test.status)}\n"
+                markdown += "\n"
 
-        # Skiped test
+        # Skipped test
         if summary.skipped > 0:
-            markdown += f"\n## Skipped Tests\n\n"
+            markdown += f"\n## Skipped Tests {self._get_status_emoji(TestStatus.SKIPPED)}\n\n"
 
             for module, tests in sorted(tests_by_module.items()):
                 skipped_tests = [t for t in tests if t.status == TestStatus.SKIPPED]
@@ -203,13 +225,35 @@ class MarkdownFormatter(ReportFormatter):
 
                 markdown += f"### {module}\n\n"
                 for test in skipped_tests:
-                    markdown += f"**{test.name}**\n\n"
+                    markdown += f"**{test.name}** {self._get_status_emoji(test.status)}\n\n"
                     if test.message:
                         reason = _process_error_message(test.message, False).split("\n")[0]
                         markdown += f"Reason: `{reason}`\n\n"
 
-        return markdown
+        # Warning test if any
+        warning_tests = [t for t in summary.results if t.status == TestStatus.WARNING]
+        if warning_tests:
+            markdown += f"\n## Warning Tests {self._get_status_emoji(TestStatus.WARNING)}\n\n"
 
+            tests_by_module = {}
+            for result in warning_tests:
+                module = result.module or "Other"
+                if module not in tests_by_module:
+                    tests_by_module[module] = []
+                tests_by_module[module].append(result)
+
+            for module, tests in sorted(tests_by_module.items()):
+                markdown += f"### {module}\n\n"
+                for test in tests:
+                    markdown += f"**{test.name}** {self._get_status_emoji(test.status)}\n\n"
+                    if test.message:
+                        reason = _process_error_message(test.message, self.debug_mode)
+                        if self.debug_mode:
+                            markdown += f"```\n{reason}\n```\n\n"
+                        else:
+                            markdown += f"Warning: `{reason}`\n\n"
+
+        return markdown
 
 class GithubActionsFormatter(ReportFormatter):
     """GitHub Actions compatible formatter."""

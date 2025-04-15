@@ -31,8 +31,8 @@ class AWSCredentialsManager:
             'default': os.environ.get('AWS_DEFAULT_PROFILE', 'default')
         }
         self.role_arns = {
-            'qa': os.environ.get('AWS_QA_ROLE_ARN'),
-            'dev': os.environ.get('AWS_DEV_ROLE_ARN')
+            'qa': os.environ.get('AWS_QA_AUTOMATION_ROLE'),
+            'dev': os.environ.get('AWS_DEV_AUTOMATION_ROLE')
         }
         self.is_github_actions = 'GITHUB_ACTIONS' in os.environ
 

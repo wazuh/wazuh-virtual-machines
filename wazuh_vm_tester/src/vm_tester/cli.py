@@ -78,7 +78,7 @@ def parse_args() -> argparse.Namespace:
         "--aws-region", default="us-east-1", help="AWS region (default: us-east-1)"
     )
     aws_group.add_argument(
-        "--instance-type", default="t3.medium", help="EC2 instance type (default: t3.medium)"
+        "--instance-type", default="c5ad.xlarge", help="EC2 instance type (default: c5ad.xlarge)"
     )
     aws_group.add_argument(
         "--subnet-id", help="ID of the subnet where to launch the instance"
@@ -272,7 +272,7 @@ def run_tests(config: AMITesterConfig, args: argparse.Namespace) -> int:
 
         pytest_args = [str(tests_dir)]
 
-        if args.test_pattern and args.test_pattern != "*":
+        if args.test_pattern and (args.test_pattern != "*" and args.test_pattern.lower() != "all"):
             pytest_args.extend(["-k", args.test_pattern])
 
         if debug_mode:
