@@ -77,7 +77,7 @@ class AWSCredentialsManager:
             if self.is_github_actions:
                 if role_arn:
                     logger.info(f"Asume role: {role_arn}")
-                    sts_client = boto3.client('sts')
+                    sts_client = boto3.client('sts', region_name=region)
                     assumed_role = sts_client.assume_role(
                         RoleArn=role_arn,
                         RoleSessionName="WazuhVMTester"
