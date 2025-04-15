@@ -102,7 +102,7 @@ jobs:
       - name: Run tests with AMI mode
         if: ${{ github.event.inputs.test_type == 'ami' }}
         run: |
-          python -m wazuh-vm-tester \
+          python -m wazuh_vm_tester \
             --ami-id ${{ github.event.inputs.host }} \
             --aws-region ${{ github.event.inputs.aws_region || 'us-east-1' }} \
             --test-pattern "${{ github.event.inputs.TESTS }}" \
