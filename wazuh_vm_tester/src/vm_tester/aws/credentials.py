@@ -31,8 +31,7 @@ class AWSCredentialsManager:
             'default': os.environ.get('AWS_DEFAULT_PROFILE', 'default')
         }
         self.role_arns = {
-            'qa': os.environ.get('AWS_QA_AUTOMATION_ROLE'),
-            'dev': os.environ.get('AWS_DEV_AUTOMATION_ROLE')
+            'default': os.environ.get('AWS_IAM_OVA_ROLE'),
         }
         self.is_github_actions = 'GITHUB_ACTIONS' in os.environ
 
@@ -49,7 +48,7 @@ class AWSCredentialsManager:
 
         # If we are in GitHub Actions, we use the configured ARN role
         if self.is_github_actions:
-            if role_name in ['qa', 'dev'] and self.role_arns.get(role_name):
+            if role_name in ['default'] and self.role_arns.get(role_name):
                 logger.info(f"Using ARN role for {role_name} in GitHub Actions")
                 return self.profiles[role_name], self.role_arns[role_name]
             else:
