@@ -156,7 +156,7 @@ jobs:
             --label-team devops --label-termination-date 1d
 
           INSTANCE_ID=$(yq '.all.hosts | keys | .[0]' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
-          INSTANCE_PORT=$(yq '.all.hosts.[].ansible_port'' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
+          INSTANCE_PORT=$(yq '.all.hosts.[].ansible_port' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
           INSTANCE_KEY=$(yq '.all.hosts.[].ansible_ssh_private_key_file' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
           INSTANCE_USER=$(yq '.all.hosts.[].ansible_user' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
           echo INSTANCE_ID=$INSTANCE_ID >> $GITHUB_ENV
