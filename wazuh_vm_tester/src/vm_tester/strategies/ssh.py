@@ -4,6 +4,7 @@ SSH connection strategy implementation.
 
 import os
 import tempfile
+import traceback
 from typing import Optional, Tuple
 
 from ..utils.logger import get_logger
@@ -74,6 +75,7 @@ class SSHStrategy(ConnectionStrategy):
 
         except Exception as e:
             logger.error(f"Error al intentar obtener la clave de AWS: {e}")
+            self.logger.error(traceback.format_exc())
             return False, None
 
     def create_connection(self) -> Optional[ConnectionInterface]:
