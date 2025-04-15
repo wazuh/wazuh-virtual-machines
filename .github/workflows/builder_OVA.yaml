@@ -154,10 +154,15 @@ jobs:
           python3 wazuh-automation/deployability/modules/allocation/main.py --action create --provider aws --size ${{ env.INSTANCE_TYPE }} --composite-name ${{ env.COMPOSITE_NAME }} --working-dir ${{ env.ALLOCATOR_PATH }} \
             --track-output ${{ env.ALLOCATOR_PATH }}/track.yml --inventory-output ${{ env.ALLOCATOR_PATH }}/inventory.yml --instance-name gha_${{ github.run_id }}_ova_build \
             --label-team devops --label-termination-date 1d
-          sed 's/: */=/g' ${{ env.ALLOCATOR_PATH }}/inventory.yml > ${{ env.ALLOCATOR_PATH }}/inventory_mod.yml
-          sed -n 's/^identifier: \(.*\)$/identifier=\1/p' ${{ env.ALLOCATOR_PATH }}/track.yml >> ${{ env.ALLOCATOR_PATH }}/inventory_mod.yml
-          source ${{ env.ALLOCATOR_PATH }}/inventory_mod.yml
-          cat "${{ env.ALLOCATOR_PATH }}/inventory_mod.yml" >> $GITHUB_ENV;
+
+          INSTANCE_ID=$(yq '.all.hosts | keys | .[0]' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
+          INSTANCE_PORT=$(yq '.all.hosts.[].ansible_port'' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
+          INSTANCE_KEY=$(yq '.all.hosts.[].ansible_ssh_private_key_file' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
+          INSTANCE_USER=$(yq '.all.hosts.[].ansible_user' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
+          echo INSTANCE_ID=$INSTANCE_ID >> $GITHUB_ENV
+          echo INSTANCE_PORT=$INSTANCE_PORT >> $GITHUB_ENV
+          echo INSTANCE_KEY=$INSTANCE_KEY >> $GITHUB_ENV
+          echo INSTANCE_USER=$INSTANCE_USER >> $GITHUB_ENV
 
       - name: Get artifacts URLs file
         run: |
@@ -180,10 +185,10 @@ jobs:
       
       - name: Install necessary dependencies in the AWS instance to create the OVA
         run: |
-          ssh -p ${{ env.ansible_port }} \
-              -i ${{ env.ansible_ssh_private_key_file }} \
+          ssh -p ${{ env.INSTANCE_PORT }} \
+              -i ${{ env.INSTANCE_KEY }} \
               -o 'StrictHostKeyChecking no' \
-              ${{ env.ansible_user }}@${{ env.ansible_host }} << EOF
+              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_ID }} << EOF
             set -e
             sudo yum install -y python3-pip git
             sudo pip3 install hatch
@@ -191,27 +196,27 @@ jobs:
 
       - name: Clone repo on remote instance
         run: |
-          ssh -p ${{ env.ansible_port }} \
-              -i ${{ env.ansible_ssh_private_key_file }} \
+          ssh -p ${{ env.INSTANCE_PORT }} \
+              -i ${{ env.INSTANCE_KEY }} \
               -o 'StrictHostKeyChecking no' \
-              ${{ env.ansible_user }}@${{ env.ansible_host }} << EOF
+              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_ID }} << EOF
             set -e
             git clone ${{ env.WVM_REPOSITORY_PATH }}
           EOF
 
       - name: Copy artifacts URLs file to remote instance
         run: |
-          scp -P ${{ env.ansible_port }} \
-              -i ${{ env.ansible_ssh_private_key_file }} \
+          scp -P ${{ env.INSTANCE_PORT }} \
+              -i ${{ env.INSTANCE_KEY }} \
               "${{ env.LOCAL_ARTIFACTS_URLS_FILEPATH }}" \
-              ${{ env.ansible_user }}@${{ env.ansible_host }}:~/${{ env.WVM_REPO_NAME }}
+              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_ID }}:~/${{ env.WVM_REPO_NAME }}
 
       - name: Run the OVA PreConfigurer module
         run: |
-          ssh -p ${{ env.ansible_port }} \
-              -i ${{ env.ansible_ssh_private_key_file }} \
+          ssh -p ${{ env.INSTANCE_PORT }} \
+              -i ${{ env.INSTANCE_KEY }} \
               -o 'StrictHostKeyChecking no' \
-              ${{ env.ansible_user }}@${{ env.ansible_host }} << EOF
+              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_ID }} << EOF
             set -e
             cd ${{ env.WVM_REPO_NAME }}
             sudo hatch run dev-ova-pre-configurer:run
@@ -219,10 +224,10 @@ jobs:
 
       - name: Run the OVA PostConfigurer module
         run: |
-          ssh -p ${{ env.ansible_port }} \
-              -i ${{ env.ansible_ssh_private_key_file }} \
+          ssh -p ${{ env.INSTANCE_PORT }} \
+              -i ${{ env.INSTANCE_KEY }} \
               -o 'StrictHostKeyChecking no' \
-              ${{ env.ansible_user }}@${{ env.ansible_host }} << EOF
+              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_ID }} << EOF
             set -e
             cd ${{ env.WVM_PATH }}
             sudo vagrant ssh -c 'cd /tmp/wazuh-virtual-machines && sudo hatch run dev-ova-post-configurer:run --packages-url-path ${{ env.ARTIFACTS_URLS_FILENAME }}'
@@ -230,10 +235,10 @@ jobs:
 
       - name: Stop the Vagrant VM, modify the network and export it as OVA
         run: |
-          ssh -p ${{ env.ansible_port }} \
-              -i ${{ env.ansible_ssh_private_key_file }} \
+          ssh -p ${{ env.INSTANCE_PORT }} \
+              -i ${{ env.INSTANCE_KEY }} \
               -o 'StrictHostKeyChecking no' \
-              ${{ env.ansible_user }}@${{ env.ansible_host }} << EOF
+              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_ID }} << EOF
             set -e
             cd ${{ env.WVM_PATH }}
             sudo vagrant halt
@@ -245,9 +250,9 @@ jobs:
 
       - name: Getting OVA from AWS instance
         run: |
-          scp -P ${{ env.ansible_port }} \
-              -i ${{ env.ansible_ssh_private_key_file }} \
-              ${{ env.ansible_user }}@${{ env.ansible_host }}:~${{ env.FILENAME_OVA }} /tmp/${{ env.FILENAME_OVA }}
+          scp -P ${{ env.INSTANCE_PORT }} \
+              -i ${{ env.INSTANCE_KEY }} \
+              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_ID }}:~${{ env.FILENAME_OVA }} /tmp/${{ env.FILENAME_OVA }}
 
       - name: Standarizing OVA
         run: |
