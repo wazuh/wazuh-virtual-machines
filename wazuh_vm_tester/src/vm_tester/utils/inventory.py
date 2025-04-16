@@ -135,7 +135,7 @@ def digital_clock(total_seconds):
         sys.stdout.write(f'\r[{bar}] {percent:.1f}% | Elapsed: {elapsed_formatted} | Remaining: {remaining_formatted}')
         sys.stdout.flush()
 
-        time.sleep(5)
+        time.sleep(1)
     print()
 
 def spinner_clock(total_seconds):
