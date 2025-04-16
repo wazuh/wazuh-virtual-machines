@@ -2,6 +2,7 @@
 SSH connection strategy implementation.
 """
 
+import time
 import os
 import tempfile
 import traceback
@@ -20,70 +21,68 @@ logger = get_logger(__name__)
 class SSHStrategy(ConnectionStrategy):
     """Strategy for direct SSH connection."""
 
-    def _get_key_from_aws(self, key_name: str, region: str) -> Tuple[bool, Optional[str]]:
-        """Finds and downloads an SSH key from AWS.
+    def _create_and_associate_temp_key(self, host_ip: str, region: str) -> Tuple[bool, Optional[str]]:
+        """Creates a temporary key pair and associates it with the instance based on its IP address.
 
         Args:
-            key_name: Name of the key pair in AWS
+            host_ip: Instance IP address
             region: AWS Region
 
         Returns:
             Tuple containing (success, path_to_key_file)
         """
         try:
-            # Inicializar cliente EC2
             aws_role = AWSRole(self.config.aws_role)
             ec2_client = EC2Client(region=region, role_type=aws_role)
 
-            logger.info(f"Looking up key pair '{key_name}' in AWS region {region}")
+            temp_key_name = f"wazuh-vm-test-temp-{int(time.time())}"
+            logger.info(f"Creating temporary key pair: {temp_key_name}")
 
-            # Verificar si la clave existe
-            response = ec2_client.ec2.describe_key_pairs(
-                KeyNames=[key_name]
-            )
+            response = ec2_client.ec2.create_key_pair(KeyName=temp_key_name)
 
-            if not response or 'KeyPairs' not in response or not response['KeyPairs']:
-                logger.error(f"Key pair '{key_name}' not found in AWS")
+            if 'KeyMaterial' not in response:
+                logger.error("Failed to get private key material")
                 return False, None
 
-            try:
-                key_detail = ec2_client.ec2.get_key_pair(
-                    KeyPairId=response['KeyPairs'][0]['KeyPairId'],
-                    IncludePublicKey=True
-                )
+            temp_dir = tempfile.mkdtemp()
+            key_path = os.path.join(temp_dir, f"{temp_key_name}.pem")
 
-                if 'KeyMaterial' in key_detail:
-                    temp_dir = tempfile.mkdtemp()
-                    key_path = os.path.join(temp_dir, f"{key_name}.pem")
+            with open(key_path, 'w') as f:
+                f.write(response['KeyMaterial'])
 
-                    with open(key_path, 'w') as f:
-                        f.write(key_detail['KeyMaterial'])
+            os.chmod(key_path, 0o400)
 
-                    os.chmod(key_path, 0o400)
-
-                    logger.info(f"Key downloaded and saved to {key_path}")
-                    return True, key_path
-            except Exception as e:
-                logger.warning(f"Could not download key material: {e}")
-                pass
-
-            logger.error(
-                "The key pair exists in AWS, but the key hardware cannot be downloaded because AWS does not store private keys."
-                "You must use --ssh-key-path to provide the private key."
+            instances_response = ec2_client.ec2.describe_instances(
+                Filters=[
+                    {'Name': 'ip-address', 'Values': [host_ip]}
+                ]
             )
-            return False, None
+
+            instance_id = None
+            for reservation in instances_response.get('Reservations', []):
+                for instance in reservation.get('Instances', []):
+                    instance_id = instance['InstanceId']
+                    break
+                if instance_id:
+                    break
+
+            if not instance_id:
+                logger.error(f"Could not find EC2 instance with IP {host_ip}")
+                return False, None
+
+            self._temp_key_name = temp_key_name
+            self._temp_key_path = key_path
+            self._instance_id = instance_id
+
+            logger.info(f"Successfully created temporary key pair and saved to {key_path}")
+            return True, key_path
 
         except Exception as e:
-            logger.error(f"Error al intentar obtener la clave de AWS: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Error creating temporary key pair: {e}")
             return False, None
 
     def create_connection(self) -> Optional[ConnectionInterface]:
-        """Create an SSH connection.
-
-        Returns:
-            SSH connection instance or None if connection fails
-        """
+        """Create an SSH connection."""
         if not self.config.ssh_host:
             logger.error("SSH host not specified in configuration")
             return None
@@ -92,17 +91,17 @@ class SSHStrategy(ConnectionStrategy):
 
         key_path = self.config.ssh_key_path
 
-        if not key_path and self.config.key_name:
-            logger.info(f"Trying to use AWS key pair: {self.config.key_name}")
-            success, aws_key_path = self._get_key_from_aws(
-                key_name=self.config.key_name,
+        if not key_path and not self.config.ssh_private_key:
+            logger.info("No key provided, creating a new temporary key pair for this connection")
+            success, temp_key_path = self._create_and_associate_temp_key(
+                host_ip=self.config.ssh_host,
                 region=self.config.aws_region
             )
 
             if success:
-                key_path = aws_key_path
+                key_path = temp_key_path
             else:
-                logger.error("Failed to get key from AWS and no ssh-key-path provided")
+                logger.error("Failed to create and associate a temporary key pair")
                 return None
 
         try:
@@ -136,4 +135,17 @@ class SSHStrategy(ConnectionStrategy):
 
     def cleanup(self) -> None:
         """Clean up resources after testing."""
-        logger.info("Cleanup for SSH connection (no action needed)")
+        if hasattr(self, '_temp_key_name') and self._temp_key_name:
+            try:
+                aws_role = AWSRole(self.config.aws_role)
+                ec2_client = EC2Client(region=self.config.aws_region, role_type=aws_role)
+                logger.info(f"Deleting temporary key pair: {self._temp_key_name}")
+                ec2_client.ec2.delete_key_pair(KeyName=self._temp_key_name)
+
+                if hasattr(self, '_temp_key_path') and os.path.exists(self._temp_key_path):
+                    os.unlink(self._temp_key_path)
+                    logger.info(f"Deleted temporary key file: {self._temp_key_path}")
+            except Exception as e:
+                logger.error(f"Error cleaning up temporary key pair: {e}")
+
+        logger.info("Cleanup for SSH connection completed")

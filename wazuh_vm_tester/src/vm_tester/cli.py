@@ -65,10 +65,6 @@ def parse_args() -> argparse.Namespace:
         "--ssh-port", type=int, default=22,
         help="SSH port (default: 22)"
     )
-    ssh_group.add_argument(
-        "--key-name",
-        help="AWS Key Pair name to use instead of ssh-key-path (for direct SSH only)"
-    )
 
     # For inventory
     ansible_group = parser.add_argument_group('Ansible Inventory Options')
@@ -158,7 +154,7 @@ def validate_args(args: argparse.Namespace) -> None:
     """
     # Validate direct SSH mode arguments
     if args.ssh_host:
-        if not args.ssh_key_path and not args.key_name and "SSH_PRIVATE_KEY" not in os.environ:
+        if not args.ssh_key_path and "SSH_PRIVATE_KEY" not in os.environ:
             raise ValueError("Either --ssh-key-path or --key-name is required for direct SSH mode.")
 
     # Validate Ansible inventory mode arguments
@@ -233,7 +229,6 @@ def load_config_from_args(args: argparse.Namespace) -> AMITesterConfig:
             expected_version=args.version,
             expected_revision=args.revision,
             aws_region=args.aws_region,
-            key_name=args.key_name
         )
 
     return config

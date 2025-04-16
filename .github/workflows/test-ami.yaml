@@ -20,10 +20,6 @@ on:
         description: 'AMI ID to create ami or host for direct ssh connection'
         required: false
         type: string
-      key_name:
-        description: 'Key name to use for SSH connection'
-        required: false
-        type: string
       WAZUH_SERVER_VERSION_REVISION:
         description: 'Expected Wazuh server version-revision'
         required: false
@@ -137,7 +133,6 @@ jobs:
           # Run the tests using the dynamically found path
           $WAZUH_VM_TEST_PATH \
             --ssh-host ${{ github.event.inputs.host }} \
-            --key-name ${{ github.event.inputs.key_name }} \
             --test-pattern "${{ github.event.inputs.TESTS }}" \
             --log-level ${{ github.event.inputs.log_level || 'INFO' }} \
             --output github \
