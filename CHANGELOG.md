@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Added AMI test framework ([#266](https://github.com/wazuh/wazuh-virtual-machines/pull/266))
 - Add the AMI pre_configurer submodule ([#242](https://github.com/wazuh/wazuh-virtual-machines/pull/242))
 - Create the PreConfigurer for the OVA ([#241](https://github.com/wazuh/wazuh-virtual-machines/pull/241))
 - Create the Core Configurer Module for OVA and AMI ([#236](https://github.com/wazuh/wazuh-virtual-machines/pull/236))
