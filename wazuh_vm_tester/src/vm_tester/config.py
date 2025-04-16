@@ -1,5 +1,5 @@
 """
-Archivo actualizado de config.py con configuraciones extraídas de los tests
+Updated config.py file with configurations extracted from tests
 """
 
 import os

@@ -99,7 +99,6 @@ class TestCertificates:
                 invalid_certificates.append(check_result)
                 continue
 
-            # Comprobar días restantes
             exit_code, stdout, stderr = connection.execute_command(
                 f"openssl x509 -in {cert_path} -noout -enddate | cut -d= -f2"
             )

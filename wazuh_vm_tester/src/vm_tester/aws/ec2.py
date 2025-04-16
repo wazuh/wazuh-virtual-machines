@@ -20,7 +20,7 @@ class EC2Client:
 
         Args:
             region: AWS region
-            role_type: Tipo de rol a asumir (QA, DEV, DEFAULT)
+            role_type: Role type to asume (QA, DEV, DEFAULT)
         """
         self.region = region
         self.credentials_manager = AWSCredentialsManager()
@@ -31,11 +31,11 @@ class EC2Client:
 
         self.ec2 = session.client('ec2')
 
-        logger.info(f"EC2Client inicializado en la región {region}")
+        logger.info(f"EC2Client for region {region}")
         if role_arn:
-            logger.info(f"Usando rol: {role_arn}")
+            logger.info(f"Using role: {role_arn}")
         elif profile:
-            logger.info(f"Usando perfil: {profile}")
+            logger.info(f"Using profile: {profile}")
 
     def launch_instance(
         self,

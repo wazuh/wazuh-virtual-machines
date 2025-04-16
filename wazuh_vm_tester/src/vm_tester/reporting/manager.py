@@ -162,11 +162,9 @@ class ReportManager:
                 format_type = 'console'
 
         if format_type == 'text':
-            # Usar ConsoleFormatter sin colores en lugar de TextFormatter
             console_formatter = ConsoleFormatter(debug_mode=self.debug_mode, use_colors=False)
             report = console_formatter.format_report(self.get_summary())
         elif format_type == 'console' and os.path.exists(filename):
-            # Usar ConsoleFormatter sin colores al guardar en archivo
             console_formatter = ConsoleFormatter(debug_mode=self.debug_mode, use_colors=False)
             report = console_formatter.format_report(self.get_summary())
         else:
