@@ -282,7 +282,7 @@ def run_tests(config: AMITesterConfig, args: argparse.Namespace) -> int:
             pytest_args.extend(["-k", args.test_pattern])
 
         if debug_mode:
-            pytest_args.append("-v")
+            pytest_args.extend(["-vvv", "--log-cli-level=DEBUG"])
 
         if args.pytest_args:
             pytest_args.extend(args.pytest_args.split())

@@ -20,15 +20,8 @@ def config() -> AMITesterConfig:
     Returns:
         AMITesterConfig with expected values
     """
-    expected_version = os.environ.get("WAZUH_EXPECTED_VERSION")
-    expected_revision = os.environ.get("WAZUH_EXPECTED_REVISION")
 
-    return AMITesterConfig(
-        expected_version=expected_version,
-        expected_revision=expected_revision
-    )
-
-
+    return AMITesterConfig()
 @pytest.mark.certificates
 class TestCertificates:
     """Tests for Wazuh certificates."""
@@ -37,60 +30,83 @@ class TestCertificates:
         """Test that all required certificates exist."""
         connection = get_connection()
 
-        failures = []
+        existing_certificates = []
+        missing_certificates = []
+        message = ""
 
         for cert_config in config.certificates:
             cert_path = cert_config.path
-            logger.info(f"Testing if certificate exists: {cert_path}")
 
+            check_result = f"Certificate: {cert_path}"
             exit_code, stdout, _ = connection.execute_command(
                 f"test -f {cert_path} && echo 'EXISTS' || echo 'NOT_EXISTS'"
             )
 
-            if stdout.strip() != "EXISTS":
-                failures.append(f"Certificate {cert_path} does not exist")
-                logger.warning(f"Certificate {cert_path} does not exist")
+            if stdout.strip() == "EXISTS":
+                check_result += " exists"
+                existing_certificates.append(check_result)
+            else:
+                check_result += " does NOT exist"
+                missing_certificates.append(check_result)
 
-        if failures:
-            assert False, "\n".join(failures)
+        if existing_certificates or missing_certificates:
+            message = "Certificate existence check results:\n\n"
+
+        if existing_certificates:
+            message += "Existing certificates:\n- " + "\n- ".join(existing_certificates) + "\n\n"
+
+        if missing_certificates:
+            message += "Missing certificates:\n- " + "\n- ".join(missing_certificates) + "\n\n"
+
+        print("\nTEST_DETAIL_MARKER:" + message)
+
+        if missing_certificates:
+            assert False, "One or more certificates do not exist. " + message
+        else:
+            assert True, "All certificates exist. " + message
 
     def test_certificates_validity(self, config: AMITesterConfig):
         """Test that certificates are valid and not expired."""
         connection = get_connection()
 
-        failures = []
-        skipped_certs = []
+        valid_certificates = []
+        invalid_certificates = []
+        skipped_certificates = []
+        message = ""
 
         for cert_config in config.certificates:
             cert_path = cert_config.path
-            logger.info(f"Testing certificate validity: {cert_path}")
+
+            base_check_result = f"Certificate: {cert_path}"
 
             exit_code, stdout, _ = connection.execute_command(
                 f"test -f {cert_path} && echo 'EXISTS' || echo 'NOT_EXISTS'"
             )
 
             if stdout.strip() != "EXISTS":
-                skipped_certs.append(f"Certificate {cert_path} does not exist - skipping validity check")
-                logger.warning(f"Certificate {cert_path} does not exist - skipping validity check")
+                skip_result = base_check_result + " does not exist - skipping validity check"
+                skipped_certificates.append(skip_result)
                 continue
 
             exit_code, stdout, stderr = connection.execute_command(
                 f"openssl x509 -in {cert_path} -noout -checkend 0"
             )
 
+            check_result = base_check_result
+
             if exit_code != 0:
-                failures.append(f"Certificate {cert_path} has expired or is invalid: {stderr}")
-                logger.warning(f"Certificate {cert_path} has expired or is invalid: {stderr}")
+                check_result += f" has expired or is invalid: {stderr}"
+                invalid_certificates.append(check_result)
                 continue
 
-            # Check days remaining
+            # Comprobar días restantes
             exit_code, stdout, stderr = connection.execute_command(
                 f"openssl x509 -in {cert_path} -noout -enddate | cut -d= -f2"
             )
 
             if exit_code != 0 or not stdout.strip():
-                failures.append(f"Could not get end date for certificate {cert_path}: {stderr}")
-                logger.warning(f"Could not get end date for certificate {cert_path}: {stderr}")
+                check_result += f" - could not get end date: {stderr}"
+                invalid_certificates.append(check_result)
                 continue
 
             end_date_str = stdout.strip()
@@ -99,37 +115,46 @@ class TestCertificates:
                 now = datetime.now()
                 days_remaining = (end_date - now).days
 
-                # Verify certificate has enough days remaining
                 if days_remaining < cert_config.days_valid:
-                    failures.append(
-                        f"Certificate {cert_path} will expire in {days_remaining} days "
-                        f"(less than the required {cert_config.days_valid} days)"
-                    )
-                    logger.warning(
-                        f"Certificate {cert_path} will expire in {days_remaining} days "
-                        f"(less than the required {cert_config.days_valid} days)"
-                    )
+                    check_result += f" will expire in {days_remaining} days (less than required {cert_config.days_valid} days)"
+                    invalid_certificates.append(check_result)
                 else:
-                    logger.info(
-                        f"Certificate {cert_path} has {days_remaining} days remaining "
-                        f"(requirement: {cert_config.days_valid} days)"
-                    )
-            except ValueError as e:
-                failures.append(f"Could not parse certificate end date: {end_date_str}")
-                logger.warning(f"Could not parse certificate end date: {end_date_str}")
+                    check_result += f" is valid with {days_remaining} days remaining (requirement: {cert_config.days_valid} days)"
+                    valid_certificates.append(check_result)
+            except ValueError:
+                check_result += f" - could not parse end date: '{end_date_str}'"
+                invalid_certificates.append(check_result)
 
-        if skipped_certs and not failures:
-            pytest.skip("\n".join(skipped_certs))
+        if valid_certificates or invalid_certificates or skipped_certificates:
+            message = "Certificate validity check results:\n\n"
 
-        if failures:
-            assert False, "\n".join(failures)
+        if valid_certificates:
+            message += "Valid certificates:\n- " + "\n- ".join(valid_certificates) + "\n\n"
+
+        if invalid_certificates:
+            message += "Invalid certificates:\n- " + "\n- ".join(invalid_certificates) + "\n\n"
+
+        if skipped_certificates:
+            message += "Skipped certificates:\n- " + "\n- ".join(skipped_certificates) + "\n\n"
+
+        print("\nTEST_DETAIL_MARKER:" + message)
+
+        if skipped_certificates and not invalid_certificates:
+            pytest.skip("Some certificates were skipped. " + message)
+
+        if invalid_certificates:
+            assert False, "One or more certificates are invalid or expiring soon. " + message
+        else:
+            assert True, "All certificates are valid and have sufficient time before expiration. " + message
 
     def test_certificate_subjects(self, config: AMITesterConfig):
         """Test certificate subjects match expected values."""
         connection = get_connection()
 
-        failures = []
-        skipped_certs = []
+        matching_subjects = []
+        mismatched_subjects = []
+        skipped_certificates = []
+        message = ""
 
         for cert_config in config.certificates:
             if not cert_config.subject_match:
@@ -137,44 +162,70 @@ class TestCertificates:
 
             cert_path = cert_config.path
             subject_match = cert_config.subject_match
-            logger.info(f"Testing certificate subject: {cert_path} - should match {subject_match}")
+
+            base_check_result = f"Certificate: {cert_path} (expected subject pattern: {subject_match})"
 
             exit_code, stdout, _ = connection.execute_command(
                 f"test -f {cert_path} && echo 'EXISTS' || echo 'NOT_EXISTS'"
             )
 
             if stdout.strip() != "EXISTS":
-                skipped_certs.append(f"Certificate {cert_path} does not exist - skipping subject check")
-                logger.warning(f"Certificate {cert_path} does not exist - skipping subject check")
+                skip_result = base_check_result + " - certificate does not exist, skipping subject check"
+                skipped_certificates.append(skip_result)
                 continue
 
             exit_code, stdout, stderr = connection.execute_command(
                 f"openssl x509 -in {cert_path} -noout -subject"
             )
 
+            check_result = base_check_result
+
             if exit_code != 0:
-                failures.append(f"Error getting subject from certificate {cert_path}: {stderr}")
-                logger.warning(f"Error getting subject from certificate {cert_path}: {stderr}")
+                check_result += f" - error getting subject: {stderr}"
+                mismatched_subjects.append(check_result)
                 continue
 
             subject = stdout.strip()
+            check_result += f" - actual subject: {subject}"
 
-            if subject_match.lower() not in subject.lower():
-                failures.append(f"Certificate subject {subject} does not match expected pattern {subject_match}")
-                logger.warning(f"Certificate subject {subject} does not match expected pattern {subject_match}")
+            if subject_match.lower() in subject.lower():
+                check_result += " - MATCH"
+                matching_subjects.append(check_result)
+            else:
+                check_result += " - NO MATCH"
+                mismatched_subjects.append(check_result)
 
-        if skipped_certs and not failures:
-            pytest.skip("\n".join(skipped_certs))
+        if matching_subjects or mismatched_subjects or skipped_certificates:
+            message = "Certificate subject check results:\n\n"
 
-        if failures:
-            assert False, "\n".join(failures)
+        if matching_subjects:
+            message += "Matching subjects:\n- " + "\n- ".join(matching_subjects) + "\n\n"
+
+        if mismatched_subjects:
+            message += "Mismatched subjects:\n- " + "\n- ".join(mismatched_subjects) + "\n\n"
+
+        if skipped_certificates:
+            message += "Skipped certificates:\n- " + "\n- ".join(skipped_certificates) + "\n\n"
+
+        print("\nTEST_DETAIL_MARKER:" + message)
+
+        if skipped_certificates and not mismatched_subjects:
+            pytest.skip("Some certificates were skipped. " + message)
+
+        if mismatched_subjects:
+            assert False, "One or more certificate subjects do not match expected patterns. " + message
+        else:
+            assert True, "All certificate subjects match expected patterns. " + message
 
     def test_certificate_issuers(self, config: AMITesterConfig):
         """Test certificate issuers match expected values."""
         connection = get_connection()
 
-        failures = []
-        skipped_certs = []
+        matching_issuers = []
+        mismatched_issuers = []
+        skipped_certificates = []
+        message = ""
+        check_result = ""
 
         for cert_config in config.certificates:
             if not cert_config.issuer_match:
@@ -182,34 +233,57 @@ class TestCertificates:
 
             cert_path = cert_config.path
             issuer_match = cert_config.issuer_match
-            logger.info(f"Testing certificate issuer: {cert_path} - should match {issuer_match}")
+
+            base_check_result = f"Certificate: {cert_path} (expected issuer pattern: {issuer_match})"
 
             exit_code, stdout, _ = connection.execute_command(
                 f"test -f {cert_path} && echo 'EXISTS' || echo 'NOT_EXISTS'"
             )
 
             if stdout.strip() != "EXISTS":
-                skipped_certs.append(f"Certificate {cert_path} does not exist - skipping issuer check")
-                logger.warning(f"Certificate {cert_path} does not exist - skipping issuer check")
+                skip_result = base_check_result + " - certificate does not exist, skipping issuer check"
+                skipped_certificates.append(skip_result)
                 continue
 
             exit_code, stdout, stderr = connection.execute_command(
                 f"openssl x509 -in {cert_path} -noout -issuer"
             )
 
+            check_result = base_check_result
+
             if exit_code != 0:
-                failures.append(f"Error getting issuer from certificate {cert_path}: {stderr}")
-                logger.warning(f"Error getting issuer from certificate {cert_path}: {stderr}")
+                check_result += f" - error getting issuer: {stderr}"
+                mismatched_issuers.append(check_result)
                 continue
 
             issuer = stdout.strip()
+            check_result += f" - actual issuer: {issuer}"
 
-            if issuer_match.lower() not in issuer.lower():
-                failures.append(f"Certificate issuer {issuer} does not match expected pattern {issuer_match}")
-                logger.warning(f"Certificate issuer {issuer} does not match expected pattern {issuer_match}")
+            if issuer_match.lower() in issuer.lower():
+                check_result += " - MATCH"
+                matching_issuers.append(check_result)
+            else:
+                check_result += " - NO MATCH"
+                mismatched_issuers.append(check_result)
 
-        if skipped_certs and not failures:
-            pytest.skip("\n".join(skipped_certs))
+        if matching_issuers or mismatched_issuers or skipped_certificates:
+            message = "Certificate issuer check results:\n\n"
 
-        if failures:
-            assert False, "\n".join(failures)
+        if matching_issuers:
+            message += "Matching issuers:\n- " + "\n- ".join(matching_issuers) + "\n\n"
+
+        if mismatched_issuers:
+            message += "Mismatched issuers:\n- " + "\n- ".join(mismatched_issuers) + "\n\n"
+
+        if skipped_certificates:
+            message += "Skipped certificates:\n- " + "\n- ".join(skipped_certificates) + "\n\n"
+
+        print("\nTEST_DETAIL_MARKER:" + message)
+
+        if skipped_certificates and not mismatched_issuers:
+            pytest.skip("Some certificates were skipped. " + message)
+
+        if mismatched_issuers:
+            assert False, "One or more certificate issuers do not match expected patterns. " + message
+        else:
+            assert True, "All certificate issuers match expected patterns. " + message

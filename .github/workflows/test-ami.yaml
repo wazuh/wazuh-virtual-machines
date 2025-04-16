@@ -94,8 +94,7 @@ jobs:
 
       - name: Setup AWS role environment variables
         run: |
-          echo "AWS_QA_AUTOMATION_ROLE=${{ secrets.AWS_QA_AUTOMATION_ROLE }}" >> $GITHUB_ENV
-          echo "AWS_DEV_AUTOMATION_ROLE=${{ secrets.AWS_DEV_AUTOMATION_ROLE }}" >> $GITHUB_ENV
+          echo "AWS_IAM_OVA_ROLE=${{ secrets.AWS_IAM_OVA_ROLE }}" >> $GITHUB_ENV
           echo "GITHUB_ACTIONS=true" >> $GITHUB_ENV
 
       - name: Create SSH key

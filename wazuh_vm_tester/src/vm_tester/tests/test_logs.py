@@ -20,13 +20,8 @@ def config() -> AMITesterConfig:
     Returns:
         AMITesterConfig with expected values
     """
-    expected_version = os.environ.get("WAZUH_EXPECTED_VERSION")
-    expected_revision = os.environ.get("WAZUH_EXPECTED_REVISION")
 
-    return AMITesterConfig(
-        expected_version=expected_version,
-        expected_revision=expected_revision
-    )
+    return AMITesterConfig()
 
 @pytest.mark.logs
 class TestLogs:
@@ -36,23 +31,38 @@ class TestLogs:
         """Test that all service log files exist."""
         connection = get_connection()
 
-        failures = []
+        existing_logs = []
+        missing_logs = []
 
         for service_config in config.services:
             service_name = service_config.name
             for log_file in service_config.log_files:
-                logger.info(f"Testing if log file exists: {log_file} for {service_name}")
-
+                check_result = f"Log file: {log_file} (for {service_name})"
                 exit_code, stdout, _ = connection.execute_command(
                     f"test -f {log_file} && echo 'EXISTS' || echo 'NOT_EXISTS'"
                 )
 
-                if stdout.strip() != "EXISTS":
-                    failures.append(f"Log file {log_file} for {service_name} does not exist")
-                    logger.warning(f"Log file {log_file} for {service_name} does not exist")
+                if stdout.strip() == "EXISTS":
+                    check_result += " exists"
+                    existing_logs.append(check_result)
+                else:
+                    check_result += " does NOT exist"
+                    missing_logs.append(check_result)
 
-        if failures:
-            assert False, "\n".join(failures)
+        message = "\n\nResults:\n\n"
+
+        if existing_logs:
+            message += "Existing log files:\n- " + "\n- ".join(existing_logs) + "\n\n"
+
+        if missing_logs:
+            message += "Missing log files:\n- " + "\n- ".join(missing_logs) + "\n\n"
+
+        print("\nTEST_DETAIL_MARKER:" + message)
+
+        if missing_logs:
+            assert False, "One or more log files do not exist. " + message
+        else:
+            assert True, "All log files exist. " + message
 
     def test_logs_for_errors(self, config: AMITesterConfig):
         """Test logs for error messages."""
@@ -60,15 +70,15 @@ class TestLogs:
         error_patterns = config.log_error_patterns
         false_positives = config.log_false_positives
 
-        failures = []
+        clean_logs = []
+        logs_with_errors = []
         skipped_logs = []
 
         for service_config in config.services:
             service_name = service_config.name
 
             for log_command in service_config.log_commands:
-                logger.info(f"Checking for errors using command: {log_command} for {service_name}")
-
+                check_result = f"Log command: {log_command} (for {service_name})"
                 error_patterns_str = "|".join(error_patterns)
 
                 if "grep" in log_command:
@@ -88,26 +98,32 @@ class TestLogs:
                             real_errors.append(line.strip())
 
                     if real_errors:
-                        error_msg = (
-                            f"Found {len(real_errors)} errors using command '{log_command}' for {service_name}: "
-                            f"{real_errors[:10]}"
-                        ) + (f" and {len(real_errors) - 10} more..." if len(real_errors) > 10 else "")
-                        failures.append(error_msg)
-                        logger.warning(error_msg)
+                        error_summary = real_errors[:5]
+                        if len(real_errors) > 5:
+                            error_summary.append(f"...and {len(real_errors) - 5} more errors")
+
+                        check_result += f" contains {len(real_errors)} errors: {error_summary}"
+                        logs_with_errors.append(check_result)
+
+                    else:
+                        check_result += " contains no real errors (only false positives)"
+                        clean_logs.append(check_result)
+                else:
+                    check_result += " contains no errors"
+                    clean_logs.append(check_result)
 
             for log_file in service_config.log_files:
                 if not log_file:
                     continue
 
-                logger.info(f"Checking for errors in log file: {log_file} for {service_name}")
-
+                check_result = f"Log file: {log_file} (for {service_name})"
                 exit_code, stdout, _ = connection.execute_command(
                     f"test -f {log_file} && echo 'EXISTS' || echo 'NOT_EXISTS'"
                 )
 
                 if stdout.strip() != "EXISTS":
-                    skipped_logs.append(f"Log file {log_file} does not exist - skipping error check")
-                    logger.warning(f"Log file {log_file} does not exist - skipping error check")
+                    check_result += " does not exist - skipping error check"
+                    skipped_logs.append(check_result)
                     continue
 
                 error_patterns_str = "|".join(error_patterns)
@@ -121,47 +137,68 @@ class TestLogs:
 
                     for line in lines:
                         is_false_positive = any(re.search(fp, line) for fp in false_positives)
-
                         if not is_false_positive:
                             real_errors.append(line.strip())
 
                     if real_errors:
-                        error_msg = f"Found {len(real_errors)} errors in log {log_file} for {service_name}: " \
-                                f"{real_errors[:10]}" + \
-                                (f" and {len(real_errors) - 10} more..." if len(real_errors) > 10 else "")
-                        failures.append(error_msg)
-                        logger.warning(error_msg)
+                        error_summary = real_errors[:5]
+                        if len(real_errors) > 5:
+                            error_summary.append(f"...and {len(real_errors) - 5} more errors")
 
-        if skipped_logs and not failures:
-            pytest.skip("\n".join(skipped_logs))
+                        check_result += f" contains {len(real_errors)} errors: {error_summary}"
+                        logs_with_errors.append(check_result)
 
-        if failures:
-            assert False, "\n".join(failures)
+                    else:
+                        check_result += " contains no real errors (only false positives)"
+                        clean_logs.append(check_result)
+                else:
+                    check_result += " contains no errors"
+                    clean_logs.append(check_result)
+
+        message = "\n\nResults:\n\n"
+
+        if clean_logs:
+            message += "Clean logs (no errors):\n- " + "\n- ".join(clean_logs) + "\n\n"
+
+        if logs_with_errors:
+            message += "Logs with errors:\n- " + "\n- ".join(logs_with_errors) + "\n\n"
+
+        if skipped_logs:
+            message += "Skipped logs:\n- " + "\n- ".join(skipped_logs) + "\n\n"
+
+        print("\nTEST_DETAIL_MARKER:" + message)
+
+        if skipped_logs and not logs_with_errors:
+            pytest.skip("Some log files were skipped. " + message)
+
+        if logs_with_errors:
+            assert False, "Errors found in one or more logs. " + message
+        else:
+            assert True, "No errors found in logs. " + message
 
     def test_recent_logs(self, config: AMITesterConfig):
         """Test for recent errors in logs (last 24 hours)."""
         connection = get_connection()
-
         error_patterns = config.log_error_patterns
         false_positives = config.log_false_positives
 
-        failures = []
+        clean_recent_logs = []
+        recent_logs_with_errors = []
         skipped_logs = []
-        warnings = []
 
         for service_config in config.services:
             service_name = service_config.name
 
             for log_command in service_config.log_commands:
-                logger.info(f"Checking for recent errors using command: {log_command} for {service_name}")
+
 
                 if "journalctl" in log_command and "--since" not in log_command:
                     recent_command = log_command.replace("journalctl", "journalctl --since '24 hours ago'")
                 else:
                     recent_command = log_command
 
+                check_result = f"Recent log command: {recent_command} (for {service_name})"
                 error_patterns_str = "|".join(error_patterns)
-
 
                 if "grep" in recent_command:
                     command = recent_command
@@ -180,26 +217,34 @@ class TestLogs:
                             real_errors.append(line.strip())
 
                     if real_errors:
-                        error_msg = (
-                            f"Found recent errors using command '{recent_command}' for {service_name}: "
-                            f"{real_errors[:5]}"
-                        )
-                        warnings.append(error_msg)
-                        logger.warning(error_msg)
+                        error_summary = real_errors[:5]
+                        if len(real_errors) > 5:
+                            error_summary.append(f"...and {len(real_errors) - 5} more errors")
+
+                        check_result += f" contains recent errors: {error_summary}"
+                        recent_logs_with_errors.append(check_result)
+
+                    else:
+                        check_result += " contains no real recent errors (only false positives)"
+                        clean_recent_logs.append(check_result)
+                else:
+                    check_result += " contains no recent errors"
+                    clean_recent_logs.append(check_result)
 
             for log_file in service_config.log_files:
                 if not log_file:
                     continue
 
-                logger.info(f"Checking for recent errors in log file: {log_file} for {service_name}")
 
+
+                check_result = f"Recent log file: {log_file} (for {service_name})"
                 exit_code, stdout, _ = connection.execute_command(
                     f"test -f {log_file} && echo 'EXISTS' || echo 'NOT_EXISTS'"
                 )
 
                 if stdout.strip() != "EXISTS":
-                    skipped_logs.append(f"Log file {log_file} does not exist - skipping recent error check")
-                    logger.warning(f"Log file {log_file} does not exist - skipping recent error check")
+                    check_result += " does not exist - skipping recent error check"
+                    skipped_logs.append(check_result)
                     continue
 
                 command = (
@@ -213,6 +258,7 @@ class TestLogs:
                     files_with_errors = stdout.strip().split("\n")
 
                     for file_with_errors in files_with_errors:
+                        file_check_result = f"Recent file: {file_with_errors} (for {service_name})"
                         error_patterns_str = "|".join(error_patterns)
                         grep_command = f"grep -E '{error_patterns_str}' {file_with_errors}"
 
@@ -224,20 +270,46 @@ class TestLogs:
 
                             for line in lines:
                                 is_false_positive = any(re.search(fp, line) for fp in false_positives)
-
                                 if not is_false_positive:
                                     real_errors.append(line.strip())
 
                             if real_errors:
-                                error_msg = f"Found recent errors in {file_with_errors}: {real_errors[:5]}"
-                                warnings.append(error_msg)
-                                logger.warning(error_msg)
+                                error_summary = real_errors[:5]
+                                if len(real_errors) > 5:
+                                    error_summary.append(f"...and {len(real_errors) - 5} more errors")
 
-        if skipped_logs and not failures and not warnings:
-            pytest.skip("\n".join(skipped_logs))
+                                file_check_result += f" contains recent errors: {error_summary}"
+                                recent_logs_with_errors.append(file_check_result)
 
-        if warnings:
-            pytest.xfail("\n".join(warnings))
+                            else:
+                                file_check_result += " contains no real recent errors (only false positives)"
+                                clean_recent_logs.append(file_check_result)
+                        else:
+                            file_check_result += " contains no recent errors"
+                            clean_recent_logs.append(file_check_result)
 
-        if failures:
-            assert False, "\n".join(failures)
+                else:
+                    check_result += " contains no recent errors"
+                    clean_recent_logs.append(check_result)
+
+        message = "\n\nResults:\n\n"
+
+        if clean_recent_logs:
+            message += "Clean recent logs (no errors):\n- " + "\n- ".join(clean_recent_logs) + "\n\n"
+
+        if recent_logs_with_errors:
+            message += "Recent logs with errors:\n- " + "\n- ".join(recent_logs_with_errors) + "\n\n"
+
+        if skipped_logs:
+            message += "Skipped logs:\n- " + "\n- ".join(skipped_logs) + "\n\n"
+
+
+        print("\nTEST_DETAIL_MARKER:" + message)
+
+        if skipped_logs and not recent_logs_with_errors:
+            pytest.skip("Some log files were skipped. " + message)
+
+        if recent_logs_with_errors:
+            pytest.xfail("Recent errors found in logs (warning only). " + message)
+
+        assert True, "No recent errors found in logs. " + message

@@ -49,22 +49,80 @@ class ResultCollector:
         """
         if report.when == "call" or (report.when == "setup" and report.failed):
             nodeid = report.nodeid
-            status = TestStatus.PASS if report.passed else TestStatus.FAIL if report.failed else TestStatus.SKIPPED
+
+            if hasattr(report, 'wasxfail'):
+                status = TestStatus.WARNING
+            elif report.passed:
+                status = TestStatus.PASS
+            elif report.failed:
+                status = TestStatus.FAIL
+            elif report.skipped:
+                status = TestStatus.SKIPPED
+            else:
+                status = TestStatus.ERROR
 
             module_name = nodeid.split("::")[0].split("/")[-1].replace(".py", "")
             module_name = module_name.replace("test_", "").capitalize()
 
             test_name = nodeid.split("::")[-1].replace("test_", "").replace("_", " ").capitalize()
 
+            class_name = None
+            method_name = None
+            if "::" in nodeid:
+                parts = nodeid.split("::")
+                if len(parts) > 2:
+                    class_name = parts[1]
+                    method_name = parts[2]
+
             message = ""
-            if hasattr(report, "longrepr") and report.longrepr:
+            if hasattr(report, 'wasxfail') and report.wasxfail:
+                message = report.wasxfail
+            elif report.passed:
+                if hasattr(report, "longrepr") and report.longrepr:
+                    message = str(report.longrepr)
+
+                if not message and hasattr(report, "capstdout") and report.capstdout:
+                    stdout = report.capstdout
+                    if "TEST_DETAIL_MARKER:" in stdout and self.debug_mode:
+                        message = stdout.split("TEST_DETAIL_MARKER:", 1)[1].strip()
+
+                if not message and class_name and method_name:
+                    try:
+                        import importlib
+                        module = importlib.import_module(f"vm_tester.tests.{module_name.lower()}")
+                        test_class = getattr(module, class_name)
+
+                        if hasattr(test_class, 'test_results') and method_name in test_class.test_results:
+                            message = test_class.test_results[method_name]
+                    except Exception as e:
+                        logger.debug(f"Error trying to get test result from class: {e}")
+
+                if not message:
+                    import re
+                    from datetime import datetime, timedelta
+
+                    try:
+                        with open("vm_tester.log", "r") as f:
+                            log_lines = f.readlines()
+
+                        recent_logs = []
+                        for line in log_lines:
+                            if "All revision tests passed" in line:
+                                recent_logs.append(line.split(" - ")[-1].strip())
+
+                        if recent_logs:
+                            message = recent_logs[-1]
+                    except Exception as e:
+                        logger.debug(f"Error trying to get test result from log: {e}")
+
+            elif hasattr(report, "longrepr") and report.longrepr:
                 if self.debug_mode:
                     message = str(report.longrepr)
                 else:
                     if hasattr(report.longrepr, "reprcrash") and report.longrepr.reprcrash:
                         message = report.longrepr.reprcrash.message
                     else:
-                        message = str(report.longrepr).split("\n")[-1] if "\n" in str(report.longrepr) else str(report.longrepr)
+                        message = str(report.longrepr)
 
             test_result = TestResult(
                 test_id=nodeid,
@@ -85,8 +143,20 @@ class ResultCollector:
                         logger.debug(f"  {line}")
                 else:
                     logger.info(f"{color}{status.value}{COLOR_RESET} - {test_name}")
+            elif status == TestStatus.WARNING and hasattr(report, 'wasxfail'):
+                logger.info(f"{color}{status.value}{COLOR_RESET} - {test_name} (xfailed)")
+                if self.debug_mode:
+                    for line in message.split("\n"):
+                        logger.debug(f"  {line}")
+            elif status == TestStatus.PASS and message:
+                logger.info(f"{color}{status.value}{COLOR_RESET} - {test_name}")
+                if self.debug_mode:
+                    logger.debug(f"  Test details:")
+                    for line in message.split("\n"):
+                        logger.debug(f"  {line}")
             else:
                 logger.info(f"{color}{status.value}{COLOR_RESET} - {test_name}")
+
 
     def pytest_report_teststatus(self, report, config):
         """Intercepts the status of each test.

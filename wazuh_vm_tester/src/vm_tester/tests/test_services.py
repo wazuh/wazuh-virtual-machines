@@ -18,13 +18,8 @@ def config() -> AMITesterConfig:
     Returns:
         AMITesterConfig with expected values
     """
-    expected_version = os.environ.get("WAZUH_EXPECTED_VERSION")
-    expected_revision = os.environ.get("WAZUH_EXPECTED_REVISION")
 
-    return AMITesterConfig(
-        expected_version=expected_version,
-        expected_revision=expected_revision
-    )
+    return AMITesterConfig()
 
 @pytest.mark.services
 class TestServices:
@@ -34,94 +29,159 @@ class TestServices:
         """Test that all services are active."""
         connection = get_connection()
 
-        failures = []
+        successful_checks = []
+        failed_checks = []
 
         for service_config in config.services:
             service_name = service_config.name
-            logger.info(f"Testing if service is active: {service_name}")
 
+            check_result = f"Service: {service_name}"
             exit_code, stdout, stderr = connection.execute_command(
                 f"systemctl is-active {service_name}"
             )
 
-            if exit_code != 0 or stdout.strip() != "active":
-                failures.append(f"Service {service_name} is not active. Output: {stdout} {stderr}")
-                logger.warning(f"Service {service_name} is not active. Output: {stdout} {stderr}")
+            if exit_code == 0 and stdout.strip() == "active":
+                check_result += " is active"
+                successful_checks.append(check_result)
+            else:
+                check_result += f" is NOT active. Output: {stdout} {stderr}"
+                failed_checks.append(check_result)
 
 
-        if failures:
-            assert False, "\n".join(failures)
+        message = "\nResults:\n\n"
+
+        if successful_checks:
+            message += "Active services:\n- " + "\n- ".join(successful_checks) + "\n\n"
+
+        if failed_checks:
+            message += "Inactive services:\n- " + "\n- ".join(failed_checks) + "\n\n"
+
+        print("\nTEST_DETAIL_MARKER:" + message)
+
+        if failed_checks:
+            assert False, "One or more services are not active. " + message
+        else:
+            assert True, "All services are active. " + message
 
     def test_services_running(self, config: AMITesterConfig):
         """Test that all services are running."""
         connection = get_connection()
 
-        failures = []
+        successful_checks = []
+        failed_checks = []
 
         for service_config in config.services:
             service_name = service_config.name
-            logger.info(f"Testing if service is running: {service_name}")
 
+            check_result = f"Service: {service_name}"
             exit_code, stdout, stderr = connection.execute_command(
                 f"systemctl status {service_name}"
             )
 
-            if exit_code != 0 or "running" not in stdout:
-                failures.append(f"Service {service_name} is not running. Output: {stdout[:100]}...")
-                logger.warning(f"Service {service_name} is not running. Exit code: {exit_code}")
+            if exit_code == 0 and "running" in stdout:
+                check_result += " is running"
+                successful_checks.append(check_result)
+            else:
+                status_output = stdout[:100] + "..." if len(stdout) > 100 else stdout
+                check_result += f" is NOT running. Status: {status_output}"
+                failed_checks.append(check_result)
 
-        if failures:
-            assert False, "\n".join(failures)
+        message = "Service running state results:\n\n"
+
+        if successful_checks:
+            message += "Running services:\n- " + "\n- ".join(successful_checks) + "\n\n"
+
+        if failed_checks:
+            message += "Non-running services:\n- " + "\n- ".join(failed_checks) + "\n\n"
+
+        print("\nTEST_DETAIL_MARKER:" + message)
+
+        if failed_checks:
+            assert False, "One or more services are not running. " + message
+        else:
+            assert True, "All services are running. " + message
 
     def test_required_directories(self, config: AMITesterConfig):
         """Test that required directories exist."""
         connection = get_connection()
 
-        failures = []
+        existing_dirs = []
+        missing_dirs = []
 
         for service_config in config.services:
             service_name = service_config.name
-
             for directory in service_config.required_dirs:
-                logger.info(f"Testing if directory exists: {directory} for {service_name}")
-
+                check_result = f"Directory: {directory} (for {service_name})"
                 exit_code, stdout, _ = connection.execute_command(
                     f"test -d {directory} && echo 'EXISTS' || echo 'NOT_EXISTS'"
                 )
 
-                if stdout.strip() != "EXISTS":
-                    failures.append(f"Directory {directory} for {service_name} does not exist")
-                    logger.warning(f"Directory {directory} for {service_name} does not exist")
+                if stdout.strip() == "EXISTS":
+                    check_result += " exists"
+                    existing_dirs.append(check_result)
+                else:
+                    check_result += " does NOT exist"
+                    missing_dirs.append(check_result)
 
-        if failures:
-            assert False, "\n".join(failures)
+
+        message = "Directory existence check results:\n\n"
+
+        if existing_dirs:
+            message += "Existing directories:\n- " + "\n- ".join(existing_dirs) + "\n\n"
+
+        if missing_dirs:
+            message += "Missing directories:\n- " + "\n- ".join(missing_dirs) + "\n\n"
+
+        print("\nTEST_DETAIL_MARKER:" + message)
+
+        if missing_dirs:
+            assert False, "One or more required directories do not exist. " + message
+        else:
+            assert True, "All required directories exist. " + message
 
     def test_required_files(self, config: AMITesterConfig):
         """Test that required files exist."""
         connection = get_connection()
-        failures = []
+
+        existing_files = []
+        missing_files = []
 
         for service_config in config.services:
             service_name = service_config.name
-
             for file_path in service_config.required_files:
-                logger.info(f"Testing if file exists: {file_path} for {service_name}")
-
+                check_result = f"File: {file_path} (for {service_name})"
                 exit_code, stdout, _ = connection.execute_command(
                     f"test -f {file_path} && echo 'EXISTS' || echo 'NOT_EXISTS'"
                 )
 
-                if stdout.strip() != "EXISTS":
-                    failures.append(f"File {file_path} for {service_name} does not exist")
-                    logger.warning(f"File {file_path} for {service_name} does not exist")
+                if stdout.strip() == "EXISTS":
+                    check_result += " exists"
+                    existing_files.append(check_result)
+                else:
+                    check_result += " does NOT exist"
+                    missing_files.append(check_result)
 
-        if failures:
-            assert False, "\n".join(failures)
+        message = "File existence check results:\n\n"
+
+        if existing_files:
+            message += "Existing files:\n- " + "\n- ".join(existing_files) + "\n\n"
+
+        if missing_files:
+            message += "Missing files:\n- " + "\n- ".join(missing_files) + "\n\n"
+
+        print("\nTEST_DETAIL_MARKER:" + message)
+
+        if missing_files:
+            assert False, "One or more required files do not exist. " + message
+        else:
+            assert True, "All required files exist. " + message
 
     def test_ports_listening(self, config: AMITesterConfig):
         """Test that service ports are listening."""
         connection = get_connection()
-        failures = []
+
+        listening_ports = []
+        not_listening_ports = []
 
         for service_config in config.services:
             if not service_config.port:
@@ -135,40 +195,53 @@ class TestServices:
                 ports = [service_config.port]
 
             for port in ports:
-                logger.info(f"Testing if port is listening: {port} for {service_name}")
-
+                check_result = f"Port: {port} (for {service_name})"
                 exit_code, stdout, _ = connection.execute_command(
                     f"netstat -tuln | grep -E ':{port}\\s'"
                 )
 
                 if exit_code != 0 or not stdout.strip():
-
                     exit_code, stdout, _ = connection.execute_command(
                         f"ss -tuln | grep -E ':{port}\\s'"
                     )
 
-                if exit_code != 0 or not stdout.strip():
-                    failures.append(f"Port {port} for {service_name} is not listening")
-                    logger.warning(f"Port {port} for {service_name} is not listening")
+                if exit_code == 0 and stdout.strip():
+                    check_result += " is listening"
+                    listening_ports.append(check_result)
+                else:
+                    check_result += " is NOT listening"
+                    not_listening_ports.append(check_result)
 
-        if failures:
-            assert False, "\n".join(failures)
+        message = "Port listening check results:\n\n"
+
+        if listening_ports:
+            message += "Listening ports:\n- " + "\n- ".join(listening_ports) + "\n\n"
+
+        if not_listening_ports:
+            message += "Non-listening ports:\n- " + "\n- ".join(not_listening_ports) + "\n\n"
+
+        print("\nTEST_DETAIL_MARKER:" + message)
+
+        if not_listening_ports:
+            assert False, "One or more ports are not listening. " + message
+        else:
+            assert True, "All ports are listening. " + message
 
     def test_health_endpoints(self, config: AMITesterConfig):
         """Test health_endpoints of services."""
         connection = get_connection()
-        failures = []
+
+        successful_endpoints = []
+        failed_endpoints = []
 
         for service_config in config.services:
             service_name = service_config.name
-
             for endpoint_config in service_config.health_endpoints:
                 url = endpoint_config.url
                 auth = endpoint_config.auth
                 headers = endpoint_config.headers
                 expected_status = endpoint_config.expected_status
-
-                logger.info(f"Testing endpoint: {url} for {service_name}")
+                check_result = f"Endpoint: {url} (for {service_name})"
 
                 if auth:
                     command = f"curl -s -k -u {auth['username']}:{auth['password']} -o /dev/null -w '%{{http_code}}' {url}"
@@ -181,15 +254,29 @@ class TestServices:
                 exit_code, stdout, stderr = connection.execute_command(command)
                 http_code = stdout.strip()
 
-                if exit_code != 0 or int(http_code) not in expected_status:
-                    failures.append(
-                        f"Endpoint {url} for {service_name} "
-                        f"failed with code {http_code}. Error: {stderr}"
-                    )
+                if exit_code == 0 and int(http_code) in expected_status:
+                    check_result += f" returned status {http_code} (expected: {', '.join(map(str, expected_status))})"
+                    successful_endpoints.append(check_result)
+                else:
+                    check_result += f" failed with status {http_code} (expected: {', '.join(map(str, expected_status))}). Error: {stderr}"
+                    failed_endpoints.append(check_result)
                     logger.warning(
                         f"Endpoint {url} for {service_name} "
                         f"failed with code {http_code}. Error: {stderr}"
                     )
 
-        if failures:
-            assert False, "\n".join(failures)
+        message = "Health endpoint check results:\n\n"
+
+        if successful_endpoints:
+            message += "Successful endpoints:\n- " + "\n- ".join(successful_endpoints) + "\n\n"
+
+        if failed_endpoints:
+            message += "Failed endpoints:\n- " + "\n- ".join(failed_endpoints) + "\n\n"
+
+
+        print("\nTEST_DETAIL_MARKER:" + message)
+
+        if failed_endpoints:
+            assert False, "One or more health endpoints failed. " + message
+        else:
+            assert True, "All health endpoints are accessible. " + message

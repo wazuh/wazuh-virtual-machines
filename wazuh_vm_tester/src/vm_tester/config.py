@@ -3,7 +3,7 @@ Archivo actualizado de config.py con configuraciones extraídas de los tests
 """
 
 import os
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field, validator
 
@@ -29,7 +29,8 @@ class CommandConfig(BaseModel):
 class WazuhServiceConfig(BaseModel):
     """Configuration for validating a Wazuh service."""
     name: str
-    version: str = None
+    version: Optional[str] = None
+    revision: Optional[str] = None
     port: Optional[Union[int, List[Union[int, str]]]] = None
     process_name: Optional[str] = None
     log_files: List[str] = []
@@ -37,6 +38,7 @@ class WazuhServiceConfig(BaseModel):
     required_dirs: List[str] = []
     required_files: List[str] = []
     version_commands: List[CommandConfig] = Field(default_factory=list)
+    revision_commands: List[CommandConfig] = Field(default_factory=list)
     health_endpoints: List[EndpointConfig] = Field(default_factory=list)
     api_endpoints: List[EndpointConfig] = Field(default_factory=list)
 
@@ -154,10 +156,34 @@ class AMITesterConfig(BaseModel):
 
 def get_default_wazuh_services() -> List[WazuhServiceConfig]:
     """Get default configuration for Wazuh services."""
+
+    def parse_version_with_revision(version_string: str) -> Tuple[str, Optional[str]]:
+        """Parse version string with optional revision
+
+        Args:
+            version_string: Version string, potentially with revision (e.g. "MAYOR.MINOR.PATCH-REVISION")
+
+        Returns:
+            Tuple of (version, revision)
+        """
+        if not version_string:
+            return None, None
+
+        parts = version_string.split('-', 1)
+        version = parts[0]
+        revision = parts[1] if len(parts) > 1 else None
+
+        return version, revision
+
+    server_version, server_revision = parse_version_with_revision(os.getenv("WAZUH_SERVER_EXPECTED_VERSION", default="5.0.0-1"))
+    indexer_version, indexer_revision = parse_version_with_revision(os.getenv("WAZUH_INDEXER_EXPECTED_VERSION", default="2.19.1-2"))
+    dashboard_version, dashboard_revision = parse_version_with_revision(os.getenv("WAZUH_DASHBOARD_EXPECTED_VERSION", default="5.0.0-1"))
+
     return [
         WazuhServiceConfig(
             name="wazuh-server",
-            version=os.getenv("WAZUH_SERVER_EXPECTED_VERSION", default="5.0.0"),
+            version=server_version,
+            revision=server_revision,
             port=[27000, 55000],
             process_name="wazuh-server",
             log_files=[],
@@ -168,6 +194,16 @@ def get_default_wazuh_services() -> List[WazuhServiceConfig]:
                 CommandConfig(
                     command="/usr/share/wazuh-server/bin/wazuh-server-management-apid -v",
                     expected_regex=r"Wazuh ([\d.]+)"
+                ),
+                CommandConfig(
+                    command="cat /usr/share/wazuh-server/VERSION.json",
+                    expected_regex=r'"version":\s*"([\d.]+)"'
+                )
+            ],
+            revision_commands=[
+                CommandConfig(
+                    command="rpm -q wazuh-server --queryformat '%{RELEASE}' 2>/dev/null || dpkg-query -W -f='${Version}' wazuh-server 2>/dev/null | cut -d '-' -f2",
+                    expected_regex=r"(.+)"
                 )
             ],
             api_endpoints=[
@@ -178,19 +214,12 @@ def get_default_wazuh_services() -> List[WazuhServiceConfig]:
                     headers={"Content-Type": "application/json"},
                     expected_status=[200]
                 ),
-                # Could no test, only registering an agent
-                #EndpointConfig(
-                #    token="https://localhost:27000/api/v1/authentication?raw=true",
-                #    url="https://localhost:55000/?pretty=true",
-                #    auth={"username": "wazuh", "password": "wazuh"},
-                #    headers={"Content-Type": "application/json"},
-                #    expected_status=[200]
-                #),
             ]
         ),
         WazuhServiceConfig(
             name="wazuh-indexer",
-            version=os.getenv("WAZUH_INDEXER_EXPECTED_VERSION", default="2.19.1"),
+            version=indexer_version,
+            revision=indexer_revision,
             port=9200,
             process_name="wazuh-indexer",
             log_files=["/var/log/wazuh-indexer/wazuh-cluster.log"],
@@ -198,8 +227,18 @@ def get_default_wazuh_services() -> List[WazuhServiceConfig]:
             required_dirs=["/etc/wazuh-indexer"],
             version_commands=[
                 CommandConfig(
-                    command="curl -s -k -u admin:admin https://localhost:9200/",
-                    expected_regex=r'"number"\s*:\s*"([\d.]+)"'
+                    command="rpm -q wazuh-indexer 2>/dev/null || dpkg-query -W -f='${Version}' wazuh-indexer 2>/dev/null",
+                    expected_regex=r"([\d.]+)"
+                ),
+                CommandConfig(
+                    command="cat /usr/share/wazuh-indexer/VERSION.json",
+                    expected_regex=r'"version":\s*"([\d.]+)"'
+                )
+            ],
+            revision_commands=[
+                CommandConfig(
+                    command="rpm -q wazuh-indexer --queryformat '%{RELEASE}' 2>/dev/null || dpkg-query -W -f='${Version}' wazuh-indexer 2>/dev/null | cut -d '-' -f2",
+                    expected_regex=r"(.+)"
                 )
             ],
             health_endpoints=[
@@ -212,7 +251,8 @@ def get_default_wazuh_services() -> List[WazuhServiceConfig]:
         ),
         WazuhServiceConfig(
             name="wazuh-dashboard",
-            version=os.getenv("WAZUH_DASHBOARD_EXPECTED_VERSION", default="5.0.0"),
+            version=dashboard_version,
+            revision=dashboard_revision,
             port=443,
             process_name="wazuh-dashboard",
             log_files=[],
@@ -222,6 +262,16 @@ def get_default_wazuh_services() -> List[WazuhServiceConfig]:
                 CommandConfig(
                     command="rpm -q wazuh-dashboard 2>/dev/null || dpkg-query -W -f='${Version}' wazuh-dashboard 2>/dev/null",
                     expected_regex=r"([\d.]+)"
+                ),
+                CommandConfig(
+                    command="cat /usr/share/wazuh-dashboard/VERSION.json",
+                    expected_regex=r'"version":\s*"([\d.]+)"'
+                )
+            ],
+            revision_commands=[
+                CommandConfig(
+                    command="rpm -q wazuh-dashboard --queryformat '%{RELEASE}' 2>/dev/null || dpkg-query -W -f='${Version}' wazuh-dashboard 2>/dev/null | cut -d '-' -f2",
+                    expected_regex=r"(.+)"
                 ),
             ],
             health_endpoints=[
@@ -243,48 +293,57 @@ def get_default_wazuh_certificates() -> List[WazuhCertificateConfig]:
             path="/etc/wazuh-indexer/certs/root-ca.pem",
             subject_match="OU=Wazuh",
             days_valid=365,
+            issuer_match="OU=Wazuh",
         ),
         WazuhCertificateConfig(
             path="/etc/wazuh-indexer/certs/indexer-1.pem",
             subject_match="CN=wazuh_indexer",
             days_valid=365,
+            issuer_match="OU=Wazuh",
         ),
         WazuhCertificateConfig(
             path="/etc/wazuh-indexer/certs/admin.pem",
             subject_match="CN=admin",
             days_valid=365,
+            issuer_match="OU=Wazuh",
         ),
         # Wazuh dashboard
         WazuhCertificateConfig(
             path="/etc/wazuh-dashboard/certs/root-ca.pem",
             subject_match="OU=Wazuh",
             days_valid=365,
+            issuer_match="OU=Wazuh",
         ),
         WazuhCertificateConfig(
             path="/etc/wazuh-dashboard/certs/dashboard.pem",
             subject_match="CN=wazuh_dashboard",
             days_valid=365,
+            issuer_match="OU=Wazuh",
         ),
         # Wazuh server
         WazuhCertificateConfig(
             path="/etc/wazuh-server/certs/server-1.pem",
             subject_match="CN=wazuh_server",
             days_valid=365,
+            issuer_match="OU=Wazuh",
         ),
         WazuhCertificateConfig(
             path="/etc/wazuh-server/certs/root-ca.pem",
             subject_match="OU=Wazuh",
             days_valid=365,
+            issuer_match="OU=Wazuh",
         ),
         WazuhCertificateConfig(
             path="/etc/wazuh-server/certs/admin.pem",
             subject_match="CN=admin",
             days_valid=365,
+            issuer_match="OU=Wazuh",
         ),
         WazuhCertificateConfig(
             path="/etc/wazuh-server/certs/root-ca-merged.pem",
             subject_match="OU=Wazuh",
             days_valid=365,
+            issuer_match="OU=Wazuh",
         ),
     ]
 

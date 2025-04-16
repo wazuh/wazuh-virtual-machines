@@ -139,7 +139,7 @@ class MarkdownFormatter(ReportFormatter):
             TestStatus.PASS: ":green_circle:",
             TestStatus.FAIL: ":red_circle:",
             TestStatus.WARNING: ":yellow_circle:",
-            TestStatus.SKIPPED: ":blue_circle:",
+            TestStatus.SKIPPED: ":large_blue_circle:",
             TestStatus.ERROR: ":red_circle:"
         }
         return status_emojis.get(status, "")
@@ -198,7 +198,8 @@ class MarkdownFormatter(ReportFormatter):
                                     markdown += f"{line}\n"
                                 markdown += "\n"
                             else:
-                                markdown += f"Error: `{processed_message}`\n\n"
+                                markdown += f"Error: \n"
+                                markdown += f"\n```\n{processed_message}\n```\n\n"
 
         # Success test
         if summary.passed > 0:
@@ -212,7 +213,19 @@ class MarkdownFormatter(ReportFormatter):
                 markdown += f"### {module}\n\n"
                 for test in passed_tests:
                     markdown += f"- {test.name} {self._get_status_emoji(test.status)}\n"
-                markdown += "\n"
+                    if test.message:
+                        processed_message = _process_error_message(test.message, True)
+
+                        if any(line.strip().startswith("-") for line in processed_message.split("\n")):
+                            for line in processed_message.split("\n"):
+                                markdown += f"  {line}\n"
+                        else:
+                            for line in processed_message.split("\n"):
+                                if line.strip():
+                                    markdown += f"  - {line}\n"
+                        markdown += "\n"
+                    else:
+                        markdown += "\n"
 
         # Skipped test
         if summary.skipped > 0:
@@ -228,7 +241,8 @@ class MarkdownFormatter(ReportFormatter):
                     markdown += f"**{test.name}** {self._get_status_emoji(test.status)}\n\n"
                     if test.message:
                         reason = _process_error_message(test.message, False).split("\n")[0]
-                        markdown += f"Reason: `{reason}`\n\n"
+                        markdown += f"Reason: \n"
+                        markdown += f"\n```\n{reason}\n```\n\n"
 
         # Warning test if any
         warning_tests = [t for t in summary.results if t.status == TestStatus.WARNING]
@@ -418,6 +432,17 @@ class ConsoleFormatter(ReportFormatter):
                 for test in passed_tests:
                     status_color = get_status_color(TestStatus.PASS, self.use_colors)
                     output.append(f"  {status_color}✓ {test.name}{self._get_color('RESET')}")
+                    if test.message:
+                        processed_message = _process_error_message(test.message, True)
+                        output.append(f"    {self._get_color('CYAN')}Details:{self._get_color('RESET')}")
+
+                        if any(line.strip().startswith("-") for line in processed_message.split("\n")):
+                            for line in processed_message.split("\n"):
+                                output.append(f"      {line}")
+                        else:
+                            for line in processed_message.split("\n"):
+                                if line.strip():
+                                    output.append(f"      - {line}")
 
         # Show warnings and skipped tests
         if summary.warnings > 0 or summary.skipped > 0:
