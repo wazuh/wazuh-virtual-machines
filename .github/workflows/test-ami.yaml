@@ -9,13 +9,12 @@ on:
         required: true
         default: 'master'
       test_type:
-        description: 'Test type (ami or ssh)'
+        description: 'Test type (ami)'
         required: true
         default: 'ami'
         type: choice
         options:
           - ami
-          - ssh
       host:
         description: 'AMI ID to create ami or host for direct ssh connection'
         required: false
@@ -111,28 +110,6 @@ jobs:
           # Run the tests using the dynamically found path
           $WAZUH_VM_TEST_PATH \
             --ami-id ${{ github.event.inputs.host }} \
-            --test-pattern "${{ github.event.inputs.TESTS }}" \
-            --log-level ${{ github.event.inputs.log_level || 'INFO' }} \
-            --output github \
-            --output-file test-results.github
-
-      - name: Run tests with SSH mode
-        if: ${{ github.event.inputs.test_type == 'ssh' }}
-        run: |
-          # Find the executable dynamically and store its path in a variable
-          WAZUH_VM_TEST_PATH=$(find /opt/hostedtoolcache/Python -name "wazuh-vm-test" | head -n 1)
-
-          # Exit if executable not found
-          if [ -z "$WAZUH_VM_TEST_PATH" ]; then
-            echo "Error: wazuh-vm-test executable not found"
-            exit 1
-          fi
-
-          echo "Found executable at: $WAZUH_VM_TEST_PATH"
-
-          # Run the tests using the dynamically found path
-          $WAZUH_VM_TEST_PATH \
-            --ssh-host ${{ github.event.inputs.host }} \
             --test-pattern "${{ github.event.inputs.TESTS }}" \
             --log-level ${{ github.event.inputs.log_level || 'INFO' }} \
             --output github \
