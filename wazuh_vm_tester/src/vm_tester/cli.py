@@ -142,7 +142,6 @@ def parse_args() -> argparse.Namespace:
 
     return parser.parse_args()
 
-
 def validate_args(args: argparse.Namespace) -> None:
     """Validate command-line arguments.
 
@@ -152,14 +151,16 @@ def validate_args(args: argparse.Namespace) -> None:
     Raises:
         ValueError: If required arguments are missing
     """
+    # Detect if running in GitHub Actions
+    is_github_actions = 'GITHUB_ACTIONS' in os.environ
+
     # Validate direct SSH mode arguments
     if args.ssh_host:
-        if not args.ssh_key_path and "SSH_PRIVATE_KEY" not in os.environ:
-            raise ValueError("Either --ssh-key-path or --key-name is required for direct SSH mode.")
-
-    # Validate Ansible inventory mode arguments
+        if not is_github_actions and not args.ssh_key_path and "SSH_PRIVATE_KEY" not in os.environ:
+            raise ValueError("SSH key path (--ssh-key-path) is required for direct SSH mode when running locally.")
+        elif is_github_actions and not args.ssh_key_path and "SSH_PRIVATE_KEY" not in os.environ:
+            logger.debug("No SSH key provided in GitHub Actions. A temporary key will be created automatically.")
     elif args.inventory:
-        # Check if inventory file exists
         if not os.path.exists(args.inventory):
             raise ValueError(f"Ansible inventory file not found: {args.inventory}")
 
