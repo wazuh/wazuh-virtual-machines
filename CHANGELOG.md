@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Added AMI test framework ([#266](https://github.com/wazuh/wazuh-virtual-machines/pull/266))
 - Update the OVA creation workflow using the new python modules ([#262](https://github.com/wazuh/wazuh-virtual-machines/pull/262))
 - Update the AMI creation workflow using the new python modules ([#260](https://github.com/wazuh/wazuh-virtual-machines/pull/260))
 - Create the AMI PostConfigure submodule ([#255](https://github.com/wazuh/wazuh-virtual-machines/pull/255))
