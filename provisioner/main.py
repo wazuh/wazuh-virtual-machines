@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import List
 
 from provisioner.utils.enums import Component_arch, Package_type
 from utils import Component
@@ -30,7 +29,7 @@ def get_component_info(input: Input, component: Component) -> ComponentInfo:
     )
 
 
-def parse_componets(input: Input) -> List[ComponentInfo]:
+def parse_componets(input: Input) -> list[ComponentInfo]:
     """
     Parse the components from the given input.
 

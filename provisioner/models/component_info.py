@@ -1,5 +1,3 @@
-from typing import List
-
 from pydantic import AnyUrl, BaseModel
 
 from utils import Component
@@ -17,4 +15,4 @@ class ComponentInfo(BaseModel):
 
     name: Component
     package_url: AnyUrl
-    dependencies: List[str]
+    dependencies: list[str]

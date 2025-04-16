@@ -36,7 +36,7 @@ def mock_open_file():
 
 
 @pytest.fixture
-def mock_logger():
+def mock_logger(autouse=True):
     mock = MagicMock()
     logger_paths = [
         "provisioner.provisioner.logger",
@@ -45,7 +45,9 @@ def mock_logger():
         "configurer.core.models.wazuh_components_config_manager.logger",
         "configurer.core.models.certificates_manager.logger",
         "configurer.core.core_configurer.logger",
-        "configurer.ami.ami_pre_configurer.ami_customize.logger",
+        "configurer.ami.ami_pre_configurer.ami_pre_configurer.logger",
+        "configurer.ami.ami_post_configurer.ami_post_configurer.logger",
+        "configurer.ami.ami_post_configurer.create_service_directory.logger",
     ]
 
     patches = [patch(path, mock) for path in logger_paths]

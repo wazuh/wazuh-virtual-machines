@@ -1,5 +1,3 @@
-from typing import List
-
 from pydantic import BaseModel
 
 from provisioner.utils import Package_manager, Package_type
@@ -32,18 +30,18 @@ class ComponentsDependencies(BaseModel):
         return Package_manager.APT
 
     @property
-    def indexer_dependencies(self) -> List[str]:
+    def indexer_dependencies(self) -> list[str]:
         return self.get_component_dependencies(Component.WAZUH_INDEXER)
 
     @property
-    def server_dependencies(self) -> List[str]:
+    def server_dependencies(self) -> list[str]:
         return self.get_component_dependencies(Component.WAZUH_SERVER)
 
     @property
-    def dashboard_dependencies(self) -> List[str]:
+    def dashboard_dependencies(self) -> list[str]:
         return self.get_component_dependencies(Component.WAZUH_DASHBOARD)
 
-    def get_component_dependencies(self, component: Component) -> List[str]:
+    def get_component_dependencies(self, component: Component) -> list[str]:
         """
         Retrieve the list of dependencies for a given component.
 
