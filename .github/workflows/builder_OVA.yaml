@@ -199,18 +199,20 @@ jobs:
 
       - name: Clone repo on remote instance
         run: |
-          scp -r -P ${{ env.INSTANCE_PORT }} \
+          ssh -p ${{ env.INSTANCE_PORT }} \
               -i ${{ env.INSTANCE_KEY }} \
               -o 'StrictHostKeyChecking no' \
-              "${{ github.workspace }}" \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }}:/tmp/wazuh-virtual-machines
+              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} << EOF
+            set -e
+            git clone -b ${{ inputs.wazuh_virtual_machines_reference }} ${{ env.WVM_REPOSITORY_PATH }}
+          EOF
 
       - name: Copy artifacts URLs file to remote instance
         run: |
           scp -P ${{ env.INSTANCE_PORT }} \
               -i ${{ env.INSTANCE_KEY }} \
               "${{ env.LOCAL_ARTIFACTS_URLS_FILEPATH }}" \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }}:~/${{ env.WVM_REPO_NAME }}
+              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }}:/tmp/${{ env.WVM_REPO_NAME }}
 
       - name: Run the OVA PreConfigurer module
         run: |
