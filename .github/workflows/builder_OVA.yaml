@@ -212,7 +212,7 @@ jobs:
           scp -P ${{ env.INSTANCE_PORT }} \
               -i ${{ env.INSTANCE_KEY }} \
               "${{ env.LOCAL_ARTIFACTS_URLS_FILEPATH }}" \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }}:/tmp/${{ env.WVM_REPO_NAME }}
+              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }}:~/${{ env.WVM_REPO_NAME }}
 
       - name: Run the OVA PreConfigurer module
         run: |
