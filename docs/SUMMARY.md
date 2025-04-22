@@ -15,3 +15,9 @@
   - [Run Tests](dev/ova/ova-run-tests.md)
 
 # Reference Manual
+
+- [AMI Reference Manual](ref/ami/introduction.md)
+  - [Installation](ref/ami/installation.md)
+  - [Configuration](ref/ami/configuration.md)
+  - [Upgrade](ref/ami/upgrade.md)
+  - [Security](ref/ami/security.md)
