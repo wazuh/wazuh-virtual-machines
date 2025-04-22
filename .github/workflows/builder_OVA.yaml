@@ -199,13 +199,11 @@ jobs:
 
       - name: Clone repo on remote instance
         run: |
-          ssh -p ${{ env.INSTANCE_PORT }} \
+          scp -r -P ${{ env.INSTANCE_PORT }} \
               -i ${{ env.INSTANCE_KEY }} \
               -o 'StrictHostKeyChecking no' \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} << EOF
-            set -e
-            git clone ${{ env.WVM_REPOSITORY_PATH }}
-          EOF
+              "${{ github.workspace }}/wazuh-virtual-machines" \
+              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }}:/tmp/
 
       - name: Copy artifacts URLs file to remote instance
         run: |
