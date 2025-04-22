@@ -202,8 +202,8 @@ jobs:
           scp -r -P ${{ env.INSTANCE_PORT }} \
               -i ${{ env.INSTANCE_KEY }} \
               -o 'StrictHostKeyChecking no' \
-              "${{ github.workspace }}/wazuh-virtual-machines" \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }}:/tmp/
+              "${{ github.workspace }}" \
+              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }}:/tmp/wazuh-virtual-machines
 
       - name: Copy artifacts URLs file to remote instance
         run: |
