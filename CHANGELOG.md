@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Add AMI ref documentation ([#269](https://github.com/wazuh/wazuh-virtual-machines/pull/269))
 - Add AMI dev documentation ([#267](https://github.com/wazuh/wazuh-virtual-machines/pull/267))
 - Added AMI test framework ([#266](https://github.com/wazuh/wazuh-virtual-machines/pull/266))
 - Update the OVA creation workflow using the new python modules ([#262](https://github.com/wazuh/wazuh-virtual-machines/pull/262))
