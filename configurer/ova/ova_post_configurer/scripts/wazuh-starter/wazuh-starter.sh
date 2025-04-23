@@ -95,11 +95,11 @@ logger "Starting Wazuh services in order"
 starter_service wazuh-indexer
 verify_indexer
 
-starter_service wazuh-manager
+starter_service wazuh-server
 
 starter_service wazuh-dashboard
 verify_dashboard
-systemctl enable wazuh-manager
+systemctl enable wazuh-server
 systemctl enable wazuh-dashboard
 
 clean_configuration
