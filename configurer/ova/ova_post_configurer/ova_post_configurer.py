@@ -353,8 +353,7 @@ def main() -> None:
     for index in indexes:
         run_command(f"curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/{index}' -k")
 
-    std_out, _,_ = run_command("bash /usr/share/wazuh-indexer/bin/indexer-security-init.sh -ho 127.0.0.1", output=True)
-    logger.debug(std_out)
+    run_command("bash /usr/share/wazuh-indexer/bin/indexer-security-init.sh -ho 127.0.0.1")
 
     commands = [
         "systemctl stop wazuh-indexer wazuh-dashboard",

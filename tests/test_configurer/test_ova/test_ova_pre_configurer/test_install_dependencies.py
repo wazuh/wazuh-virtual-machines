@@ -140,7 +140,6 @@ def test_install_vagrant_success(mock_run_command, mock_logger):
         "sudo yum install -y yum-utils shadow-utils",
         f"sudo yum-config-manager --add-repo {VAGRANT_REPO_URL}",
         "sudo yum -y install vagrant",
-        "vagrant plugin install vagrant-scp",
     ]
     mock_run_command.assert_called_once_with(commands)
 
