@@ -256,6 +256,7 @@ jobs:
           scp -P ${{ env.INSTANCE_PORT }} \
               -i ${{ env.INSTANCE_KEY }} \
               ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }}:~/${{ env.WVM_REPO_NAME }}/${{ env.FILENAME_OVA }} /tmp/${{ env.FILENAME_OVA }}
+          sudo chmod 0777 /tmp/${{ env.FILENAME_OVA }}
 
       - name: Standarizing OVA
         run: |
