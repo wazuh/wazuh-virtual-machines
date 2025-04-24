@@ -255,24 +255,24 @@ jobs:
         run: |
           scp -P ${{ env.INSTANCE_PORT }} \
               -i ${{ env.INSTANCE_KEY }} \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }}:~/${{ env.WVM_REPO_NAME }}/${{ env.FILENAME_OVA }} /tmp/${{ env.FILENAME_OVA }}
+              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }}:~/${{ env.WVM_REPO_NAME }}/${{ env.FILENAME_OVA }} ${{ github.workspace }}/${{ env.FILENAME_OVA }}
 
       - name: Standarizing OVA
         run: |
           sudo chmod 0777 ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_SET_DEFAULT_SCRIPT_NAME }}
           sed -i "s|ovf:capacity=\"40\"|ovf:capacity=\"50\"|g" ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_OVF_TEMPLATE_NAME }}
-          sudo bash ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_SET_DEFAULT_SCRIPT_NAME }} "${{ env.OVA_SCRIPTS_PATH }}/" "/tmp/${{ env.FILENAME_OVA }}" "/tmp/${{ env.FILENAME_OVA }}" ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_OVF_TEMPLATE_NAME }} "${{ env.WAZUH_VERSION }}"
+          sudo bash ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_SET_DEFAULT_SCRIPT_NAME }} "${{ env.OVA_SCRIPTS_PATH }}/" "${{ github.workspace }}/${{ env.FILENAME_OVA }}" "${{ github.workspace }}/${{ env.FILENAME_OVA }}" ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_OVF_TEMPLATE_NAME }} "${{ env.WAZUH_VERSION }}"
 
       - name: Exporting OVA to final repository
         run: |
-          aws s3 cp --quiet /tmp/${{ env.FILENAME_OVA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_OVA }}
+          aws s3 cp --quiet ${{ github.workspace }}/${{ env.FILENAME_OVA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_OVA }}
           s3uri="s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_OVA }}"
           echo "S3 OVA URI: ${s3uri}"
   
       - name: Generating sha512 file
         if: ${{ inputs.checksum == true }}
         run: |
-          sha512sum /tmp/${{ env.FILENAME_OVA }} > /tmp/${{ env.FILENAME_SHA }}
+          sha512sum ${{ github.workspace }}/${{ env.FILENAME_OVA }} > ${{ github.workspace }}/${{ env.FILENAME_SHA }}
           aws s3 cp --quiet /tmp/${{ env.FILENAME_SHA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_SHA }}
           s3uri="s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_SHA }}"
           echo "S3 sha512 OVA URI: ${s3uri}"
