@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- None
+- Added repository_bumper.sh script. ([#271](https://github.com/wazuh/wazuh-virtual-machines/pull/271))
 
 ### Changed
 
