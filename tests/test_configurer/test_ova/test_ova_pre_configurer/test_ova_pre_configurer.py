@@ -105,10 +105,11 @@ def test_deploy_vm_custom_path(mock_add_vagrant_box, mock_run_vagrant_up, mock_l
     mock_run_vagrant_up.assert_called_once()
 
 
+@patch("configurer.ova.ova_pre_configurer.ova_pre_configurer.prepare_vm")
 @patch("configurer.ova.ova_pre_configurer.ova_pre_configurer.deploy_vm")
 @patch("configurer.ova.ova_pre_configurer.ova_pre_configurer.generate_base_box_main")
 @patch("configurer.ova.ova_pre_configurer.ova_pre_configurer.install_dependencies_main")
-def test_main(mock_install_dependencies, mock_generate_base_box, mock_deploy_vm, mock_logger):
+def test_main(mock_install_dependencies, mock_generate_base_box, mock_deploy_vm, mock_prepare_vm, mock_logger):
     main()
 
     mock_logger.info.assert_any_call("--- Starting OVA PreConfigurer ---")
@@ -119,4 +120,5 @@ def test_main(mock_install_dependencies, mock_generate_base_box, mock_deploy_vm,
     mock_generate_base_box.assert_called_once()
 
     mock_deploy_vm.assert_called_once()
+    mock_prepare_vm.assert_called_once()
     mock_logger.info_success.assert_called_once_with("OVA PreConfigurer completed.")

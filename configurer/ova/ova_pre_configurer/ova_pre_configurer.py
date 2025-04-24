@@ -100,7 +100,11 @@ def prepare_vm() -> None:
             os.remove(filename)
 
     logger.debug("Copying the wazuh-virtual-machines repository to the VM.")
-    run_command("vagrant scp ../wazuh-virtual-machines :/tmp/wazuh-virtual-machines")
+    commands = [
+        "vagrant ssh-config > ssh-config",
+        "scp -r -F ssh-config ../wazuh-virtual-machines default:/tmp/wazuh-virtual-machines",
+    ]
+    run_command(commands, check=True)
 
 
 def main() -> None:

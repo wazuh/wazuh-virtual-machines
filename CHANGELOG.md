@@ -23,7 +23,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- None
+- Fixed several OVA workflow and creation process errors ([#270](https://github.com/wazuh/wazuh-virtual-machines/pull/270))
 
 ### Deleted
 
