@@ -1,4 +1,4 @@
-# Upgrading the Wazuh Central Components in the AMI
+# AMI Upgrade
 
 Upgrading the Wazuh components included in the AMI follows the **same procedure as when upgrading them individually**.
 

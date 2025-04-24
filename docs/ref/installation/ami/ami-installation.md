@@ -1,4 +1,4 @@
-# Installing the Wazuh AMI
+# AMI Installation
 
 There are two alternatives for deploying a Wazuh instance. You can launch the Wazuh All-In-One Deployment AMI directly from the AWS Marketplace or you can configure and deploy an instance using the AWS Management Console.
 

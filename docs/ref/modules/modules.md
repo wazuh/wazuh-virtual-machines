@@ -1,0 +1,23 @@
+# Modules
+
+To create and configure the AMI and OVA, two fundamental modules are used:
+
+- **Provisioner**: Responsible for provisioning the certs-tool and the Wazuh component packages specified.
+- **Configurer**: Once the necessary files have been provisioned, this module handles the creation of certificates for each component, the installation of the components, and their configuration. The configuration is divided into three main parts:
+  - **Core**: Manages the shared configuration between the AMI and OVA. This includes generating certificates for each component, installing the components, and configuring their configuration files.
+  - **AMI Configurer**: Handles the configuration specific to the AMI.
+  - **OVA Configurer**: Handles the configuration specific to the OVA.
+
+These modules are executed through a single CLI. The available CLI options are:
+
+| Parameter | Required | Description | Accepted Values| Default |
+|------------|----------|-------------|----------------|---------|
+| `--inventory`          | Required for `ami-pre-configurer`, `ami-post-configurer`, `all-ami`  | Path to the inventory file | - | - |
+| `--packages-url-path`  | Required for `provisioner`, `ova-post-configurer`, `all-ami` | Path to the packages URL file | - | - |
+| `--package-type`       | No  | Type of package to install | `rpm`, `deb` | `rpm` |
+| `--execute`            | Yes | Module to execute | `provisioner`, `core-configurer`, `ova-pre-configurer`, `ova-post-configurer`, `ami-pre-configurer`, `ami-post-configurer`, `all-ami` | - |
+| `--arch`               | No | Architecture to use | `x86_64`, `amd64`, `arm64`, `aarch64` | `x86_64` |
+| `--dependencies`       | No | Path to the dependencies file | - | `provisioner/static/wazuh_dependencies.yaml` |
+| `--component`          | No | Component to provision | `wazuh_indexer`, `wazuh_server`, `wazuh_dashboard`, `all` | `all` |
+
+> This CLI can be executed using **Hatch** or by creating a **venv**. For more information on how to configure it, you can check the setup of the toolchain [here](../../dev/setup.md).
