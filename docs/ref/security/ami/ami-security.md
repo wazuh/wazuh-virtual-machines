@@ -1,4 +1,4 @@
-# Security
+# AMI Security
 
 ## Security considerations about SSH
 

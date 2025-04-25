@@ -1,4 +1,4 @@
-# Configurating the Wazuh Central Components in the AMI
+# AMI Configuration
 
 Any configuration you can apply to the Wazuh components included in the AMI is **identical to configuring them when installed separately**.
 
