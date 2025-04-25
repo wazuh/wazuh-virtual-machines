@@ -4,7 +4,7 @@ The AMI pre-configuration step includes several system-level tasks to prepare th
 
 - Updating the Message of the Day (MOTD) with the Wazuh logo.
 - Creating the `wazuh-user` user.
-- Remove remote default user.
+- Remove the remote default user.
 - Changing the machine’s hostname.
 - Modifying various files from the base image.
 - Creating necessary directories for the post-configurer to run.
