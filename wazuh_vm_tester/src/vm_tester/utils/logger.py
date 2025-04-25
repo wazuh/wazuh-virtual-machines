@@ -57,6 +57,13 @@ def setup_logging(
         for logger_name in loggers_to_disable:
             logging.getLogger(logger_name).setLevel(logging.WARNING)
 
+        logging.getLogger('pip').setLevel(logging.CRITICAL)
+        logging.getLogger('pip._internal').setLevel(logging.CRITICAL)
+        logging.getLogger('pip._vendor').setLevel(logging.CRITICAL)
+        logging.getLogger('distutils').setLevel(logging.CRITICAL)
+        logging.getLogger('setuptools').setLevel(logging.CRITICAL)
+        logging.getLogger('subprocess').setLevel(logging.CRITICAL)
+
     handlers = {
         'console': {
             'class': 'logging.StreamHandler',

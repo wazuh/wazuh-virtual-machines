@@ -1,11 +1,19 @@
 """
-Updated config.py file with configurations extracted from tests
+Configuration module for Wazuh VM Tester.
 """
 
 import os
-from typing import Any, Dict, List, Optional, Tuple, Union
+from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple, Union, Set
 
 from pydantic import BaseModel, Field, validator
+
+class TestType(str, Enum):
+    """Enum representing the types of tests that can be run."""
+    AMI = "ami"
+    OVA = "ova"
+    #KUBERNETES = "kubernetes"
+    #PUPPET = "puppet"
 
 class EndpointConfig(BaseModel):
     """Configuration for API/health endpoints."""
@@ -49,6 +57,7 @@ class WazuhCertificateConfig(BaseModel):
     subject_match: Optional[str] = None
     issuer_match: Optional[str] = None
     days_valid: int = 90
+    permissions: Optional[int] = None
 
 
 class ConnectivityTestConfig(BaseModel):
@@ -59,28 +68,43 @@ class ConnectivityTestConfig(BaseModel):
     port: int
 
 
-class AMITesterConfig(BaseModel):
-    """Main configuration for the AMI tester."""
-    # AMI option
-    ami_id: Optional[str] = None
-    existing_instance_id: Optional[str] = None
-    use_local: bool = False
+class BaseTesterConfig(BaseModel):
+    """Base configuration for all testers."""
 
-    # Ansible inventory option
+    # Test Type
+    test_type: TestType = TestType.AMI
+
+    # Define which tests to run based on test type
+    test_patterns: Dict[str, List[str]] = Field(
+        default_factory=lambda: {
+            TestType.AMI: ["test_certificates", "test_connectivity", "test_services", "test_logs", "test_version"],
+            TestType.OVA: ["test_certificates", "test_connectivity", "test_services", "test_logs", "test_version", "test_ova"],
+            #TestType.KUBERNETES: ["*", "test_kubernetes*"],
+            #TestType.PUPPET: ["*", "test_puppet*"],
+        }
+    )
+
+    # Connection options
+    use_local: bool = False
+    ssh_host: Optional[str] = None
+    existing_instance_id: Optional[str] = None
+
+    # OVA S3 path
+    ova_s3_path: Optional[str] = None
+
+    # Ansible inventory options
     ansible_inventory_path: Optional[str] = None
     ansible_host_id: Optional[str] = None
 
     # AWS options
     aws_region: str = "us-east-1"
     aws_role: str = "default"
-    instance_type: str = "t3.medium"
 
     # SSH options
     ssh_username: str = "wazuh-user"
     ssh_key_path: Optional[str] = None
     key_name: Optional[str] = None
     ssh_private_key: Optional[str] = None
-    ssh_host: Optional[str] = None
     ssh_port: int = 22
     ssh_common_args: Optional[str] = None
 
@@ -118,25 +142,18 @@ class AMITesterConfig(BaseModel):
         validate_assignment = True
         extra = "forbid"
 
-    @validator('ami_id', 'existing_instance_id', 'ssh_host', 'ansible_inventory_path', pre=True)
-    def validate_required_fields(cls, v, values):
-        """Validate that at least one way to connect is specified."""
-        if 'use_local' in values and values['use_local']:
-            return v
-
-        if (not v and not values.get('ami_id') and not values.get('existing_instance_id')
-            and not values.get('ssh_host') and not values.get('ansible_inventory_path')):
-            raise ValueError(
-                "At least one of 'ami_id', 'existing_instance_id', 'ssh_host', "
-                "'ansible_inventory_path', or 'use_local' must be specified"
-            )
-        return v
-
     @validator('security_group_ids', pre=True, always=True)
     def set_security_groups(cls, v, values):
         """Use default security groups if none are provided."""
         if not v and 'default_security_group_ids' in values:
             return values['default_security_group_ids']
+        return v
+
+    @validator('test_type', pre=True)
+    def validate_test_type(cls, v):
+        """Validate that a test type is explicitly specified."""
+        if not v:
+            raise ValueError("Must specify a test type (ami, ova, kubernetes, puppet)")
         return v
 
     def __init__(self, **data):
@@ -154,26 +171,92 @@ class AMITesterConfig(BaseModel):
         super().__init__(**data)
 
 
+class AMITesterConfig(BaseTesterConfig):
+    """Main configuration for the AMI tester."""
+
+    # AMI option
+    ami_id: Optional[str] = None
+
+    # AWS instance options
+    instance_type: str = "t3.medium"
+
+    @validator('ami_id', 'existing_instance_id', 'ssh_host', 'ansible_inventory_path', pre=True)
+    def validate_required_fields(cls, v, values):
+        """Validate that at least one way to connect is specified."""
+        if 'use_local' in values and values['use_local']:
+            return v
+
+        if (not v and not values.get('ami_id') and not values.get('existing_instance_id')
+            and not values.get('ssh_host') and not values.get('ansible_inventory_path')):
+            raise ValueError(
+                "At least one of 'ami_id', 'existing_instance_id', 'ssh_host', "
+                "'ansible_inventory_path', or 'use_local' must be specified"
+            )
+        return v
+
+
+class OVATesterConfig(BaseTesterConfig):
+    """Main configuration for the OVA tester."""
+
+    # OVA-specific options
+    import_only: bool = False
+
+    # Allocator options for EC2 instance to run VirtualBox
+    allocator_enabled: bool = True
+    allocator_instance_type: str = "metal"
+    allocator_role: str = "default"
+
+    # VirtualBox options
+    virtualbox_version: str = "7.0.12"
+    vm_memory: int = 4096  # MB
+    vm_cpus: int = 2
+
+    # Network options
+    vm_network_mode: str = "nat"
+    vm_port_forwards: Dict[int, int] = Field(default_factory=dict)  # guest port -> host port
+
+    # VM access options
+    vm_username: str = "wazuh-user"
+    vm_password: str = "wazuh"
+
+    # Test-specific OVA options
+    ova_test_features: List[str] = Field(default_factory=list)
+
+    @validator('ova_s3_path')
+    def validate_ova_path(cls, v, values):
+        """Validate if OVA S3 path is provided."""
+        # If other connection methods are specified, OVA path is not required
+        if (values.get('ssh_host') or values.get('existing_instance_id') or
+            values.get('use_local') or values.get('ansible_inventory_path')):
+            return v
+
+        # Otherwise, OVA S3 path is required for OVA testing
+        if not v and values.get('test_type') == TestType.OVA:
+            raise ValueError("OVA S3 path is required for OVA testing")
+        return v
+
+
+def parse_version_with_revision(version_string: str) -> Tuple[str, Optional[str]]:
+    """Parse version string with optional revision
+
+    Args:
+        version_string: Version string, potentially with revision (e.g. "MAYOR.MINOR.PATCH-REVISION")
+
+    Returns:
+        Tuple of (version, revision)
+    """
+    if not version_string:
+        return None, None
+
+    parts = version_string.split('-', 1)
+    version = parts[0]
+    revision = parts[1] if len(parts) > 1 else None
+
+    return version, revision
+
+
 def get_default_wazuh_services() -> List[WazuhServiceConfig]:
     """Get default configuration for Wazuh services."""
-
-    def parse_version_with_revision(version_string: str) -> Tuple[str, Optional[str]]:
-        """Parse version string with optional revision
-
-        Args:
-            version_string: Version string, potentially with revision (e.g. "MAYOR.MINOR.PATCH-REVISION")
-
-        Returns:
-            Tuple of (version, revision)
-        """
-        if not version_string:
-            return None, None
-
-        parts = version_string.split('-', 1)
-        version = parts[0]
-        revision = parts[1] if len(parts) > 1 else None
-
-        return version, revision
 
     server_version, server_revision = parse_version_with_revision(os.getenv("WAZUH_SERVER_EXPECTED_VERSION", default="5.0.0-1"))
     indexer_version, indexer_revision = parse_version_with_revision(os.getenv("WAZUH_INDEXER_EXPECTED_VERSION", default="2.19.1-2"))
@@ -294,18 +377,21 @@ def get_default_wazuh_certificates() -> List[WazuhCertificateConfig]:
             subject_match="OU=Wazuh",
             days_valid=365,
             issuer_match="OU=Wazuh",
+            permissions=0o400,
         ),
         WazuhCertificateConfig(
             path="/etc/wazuh-indexer/certs/indexer-1.pem",
             subject_match="CN=wazuh_indexer",
             days_valid=365,
             issuer_match="OU=Wazuh",
+            permissions=0o400,
         ),
         WazuhCertificateConfig(
             path="/etc/wazuh-indexer/certs/admin.pem",
             subject_match="CN=admin",
             days_valid=365,
             issuer_match="OU=Wazuh",
+            permissions=0o400,
         ),
         # Wazuh dashboard
         WazuhCertificateConfig(
@@ -313,12 +399,14 @@ def get_default_wazuh_certificates() -> List[WazuhCertificateConfig]:
             subject_match="OU=Wazuh",
             days_valid=365,
             issuer_match="OU=Wazuh",
+            permissions=0o400,
         ),
         WazuhCertificateConfig(
             path="/etc/wazuh-dashboard/certs/dashboard.pem",
             subject_match="CN=wazuh_dashboard",
             days_valid=365,
             issuer_match="OU=Wazuh",
+            permissions=0o400,
         ),
         # Wazuh server
         WazuhCertificateConfig(
@@ -326,24 +414,28 @@ def get_default_wazuh_certificates() -> List[WazuhCertificateConfig]:
             subject_match="CN=wazuh_server",
             days_valid=365,
             issuer_match="OU=Wazuh",
+            permissions=0o400,
         ),
         WazuhCertificateConfig(
             path="/etc/wazuh-server/certs/root-ca.pem",
             subject_match="OU=Wazuh",
             days_valid=365,
             issuer_match="OU=Wazuh",
+            permissions=0o400,
         ),
         WazuhCertificateConfig(
             path="/etc/wazuh-server/certs/admin.pem",
             subject_match="CN=admin",
             days_valid=365,
             issuer_match="OU=Wazuh",
+            permissions=0o400,
         ),
         WazuhCertificateConfig(
             path="/etc/wazuh-server/certs/root-ca-merged.pem",
             subject_match="OU=Wazuh",
             days_valid=365,
             issuer_match="OU=Wazuh",
+            permissions=0o400,
         ),
     ]
 

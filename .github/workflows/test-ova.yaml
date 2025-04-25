@@ -1,0 +1,143 @@
+name: Wazuh OVA Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      WAZUH_VIRTUAL_MACHINES_REFERENCE:
+        description: 'Branch or tag of the wazuh-virtual-machines repository'
+        required: true
+        default: 'master'
+      test_type:
+        description: 'Test type (ova, direct)'
+        required: true
+        default: 'ova'
+        type: choice
+        options:
+          - ova
+          - direct
+      ova_path:
+        description: 'Path to OVA file for testing'
+        required: false
+        type: string
+      host:
+        description: 'Host for direct ssh connection (when test_type is direct)'
+        required: false
+        type: string
+      WAZUH_SERVER_VERSION_REVISION:
+        description: 'Expected Wazuh server version-revision'
+        required: false
+        type: string
+      WAZUH_INDEXER_VERSION_REVISION:
+        description: 'Expected Wazuh indexer version-revision'
+        required: false
+        type: string
+      WAZUH_DASHBOARD_VERSION_REVISION:
+        description: 'Expected Wazuh dashboard version-revision'
+        required: false
+        type: string
+      TESTS:
+        description: 'Test to run'
+        required: false
+        default: 'ALL'
+        type: choice
+        options:
+          - ALL
+          - CERTIFICATES
+          - CONNECTIVITY
+          - LOGS
+          - SERVICE
+          - VERSION
+          - OVA
+      log_level:
+        description: 'Log level'
+        required: false
+        default: 'INFO'
+        type: choice
+        options:
+          - INFO
+          - DEBUG
+          - TRACE
+
+env:
+  AWS_IAM_OVA_ROLE: ${{ secrets.AWS_IAM_OVA_ROLE }}
+  WAZUH_SERVER_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_SERVER_VERSION_REVISION }}
+  WAZUH_INDEXER_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_INDEXER_VERSION_REVISION }}
+  WAZUH_DASHBOARD_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_DASHBOARD_VERSION_REVISION }}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: View parameters
+        run: echo "${{ toJson(inputs) }}"
+      - name: Checkout wazuh/wazuh-virtual-machines repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.WAZUH_VIRTUAL_MACHINES_REFERENCE }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r wazuh_vm_tester/requirements.txt
+          pip install -e wazuh_vm_tester/
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
+          aws-region: us-east-1
+
+      - name: Run tests with OVA mode
+        if: ${{ github.event.inputs.test_type == 'ova' }}
+        run: |
+          # Find the executable dynamically and store its path in a variable
+          WAZUH_VM_TEST_PATH=$(find /opt/hostedtoolcache/Python -name "wazuh-vm-test" | head -n 1)
+
+          # Exit if executable not found
+          if [ -z "$WAZUH_VM_TEST_PATH" ]; then
+            echo "Error: wazuh-vm-test executable not found"
+            exit 1
+          fi
+
+          echo "Found executable at: $WAZUH_VM_TEST_PATH"
+
+          # Run the tests using the dynamically found path
+          $WAZUH_VM_TEST_PATH \
+            --ssh-host ${{ github.event.inputs.host }} \
+            --test-pattern "${{ github.event.inputs.TESTS }}" \
+            --log-level ${{ github.event.inputs.log_level || 'INFO' }} \
+            --output github \
+            --output-file test-results.githubd
+          if [ -z "$WAZUH_VM_TEST_PATH" ]; then
+            echo "Error: wazuh-vm-test executable not found"
+            exit 1
+          fi
+
+          echo "Found executable at: $WAZUH_VM_TEST_PATH"
+
+          # Run the tests using the dynamically found path
+          $WAZUH_VM_TEST_PATH \
+            --ova-path ${{ github.event.inputs.ova_path }} \
+            --test-pattern "${{ github.event.inputs.TESTS }}" \
+            --log-level ${{ github.event.inputs.log_level || 'INFO' }} \
+            --output github \
+            --output-file test-results.github
+
+      - name: Run tests with direct SSH mode
+        if: ${{ github.event.inputs.test_type == 'direct' }}
+        run: |
+          # Find the executable dynamically and store its path in a variable
+          WAZUH_VM_TEST_PATH=$(find /opt/hostedtoolcache/Python -name "wazuh-vm-test" | head -n 1)
+
+          # Exit if executable not foun

@@ -8,20 +8,21 @@ import os
 import sys
 import contextlib
 from pathlib import Path
+from typing import Dict
 
 import pytest
 
-from .config import AMITesterConfig
+from .config import AMITesterConfig, BaseTesterConfig, OVATesterConfig, TestType
 from .utils.logger import setup_logging, get_logger
 from .strategies import StrategyFactory
 from .connections.pytest_connector import ConnectionRegistry
 from .reporting.manager import ReportManager
 from .reporting.base import TestResult, TestStatus, get_status_color, COLOR_RESET
 from .reporting.collectors import ResultCollector
+from .utils.logger import get_logger
 
 # Configure logging
 logger = get_logger(__name__)
-
 
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments.
@@ -33,10 +34,20 @@ def parse_args() -> argparse.Namespace:
         description="Tool for validating Wazuh VMs"
     )
 
-    # Define execution type ami, shh, inventory or local (one required)
+    # New test type parameter
+    parser.add_argument(
+        "--test-type",
+        choices=["ami", "ova", "kubernetes", "puppet"],
+        help="Type of test to run (default: ami)"
+    )
+
+    # Connection methods - all in mutually exclusive group
     connection_group = parser.add_mutually_exclusive_group(required=True)
     connection_group.add_argument(
         "--ami-id", help="ID of the AMI to validate by launching a new EC2 instance"
+    )
+    connection_group.add_argument(
+        "--ova-s3-path", help="S3 path to the OVA file to import and test"
     )
     connection_group.add_argument(
         "--inventory",
@@ -102,6 +113,33 @@ def parse_args() -> argparse.Namespace:
         help="AWS role to assume (default: default)"
     )
 
+    # For OVA testing
+    ova_group = parser.add_argument_group('OVA Options')
+    ova_group.add_argument(
+        "--allocator-instance-type",
+        help="EC2 instance type for the allocator (default: t3.xlarge)"
+    )
+    ova_group.add_argument(
+        "--vm-memory", type=int, default=4096,
+        help="Memory to allocate to the VM in MB (default: 4096)"
+    )
+    ova_group.add_argument(
+        "--vm-cpus", type=int, default=2,
+        help="Number of CPUs to allocate to the VM (default: 2)"
+    )
+    ova_group.add_argument(
+        "--import-only", action="store_true",
+        help="Only import the OVA, don't run tests"
+    )
+    ova_group.add_argument(
+        "--vm-username", default="wazuh-user",
+        help="VM username (default: wazuh-user)"
+    )
+    ova_group.add_argument(
+        "--vm-password", default="wazuh",
+        help="VM password (default: wazuh)"
+    )
+
     # Validation parameters
     validation_group = parser.add_argument_group('Validation Options')
     validation_group.add_argument(
@@ -132,8 +170,8 @@ def parse_args() -> argparse.Namespace:
     # Pytest extra arguments
     pytest_group = parser.add_argument_group('Pytest Options')
     pytest_group.add_argument(
-        "--test-pattern", default="*",
-        help="Test pattern to run (e.g. 'services*' or 'test_connectivity.py')"
+        "--test-pattern",
+        help="Test pattern to run (e.g. 'services*' or 'test_connectivity.py'). If not specified, will run tests based on test-type."
     )
     pytest_group.add_argument(
         "--pytest-args",
@@ -154,6 +192,13 @@ def validate_args(args: argparse.Namespace) -> None:
     # Detect if running in GitHub Actions
     is_github_actions = 'GITHUB_ACTIONS' in os.environ
 
+    # Validate test type and connection method combination
+    if args.test_type == "ova" and args.ami_id:
+        logger.warning("Using AMI-ID with OVA test type. This will only test OVA-specific features on an AMI.")
+
+    if args.test_type == "ova" and not args.ova_s3_path and not args.ssh_host and not args.inventory and not args.use_local:
+        raise ValueError("OVA test type requires ova-s3-path when not using direct connection methods")
+
     # Validate direct SSH mode arguments
     if args.ssh_host:
         if not is_github_actions and not args.ssh_key_path and "SSH_PRIVATE_KEY" not in os.environ:
@@ -164,8 +209,7 @@ def validate_args(args: argparse.Namespace) -> None:
         if not os.path.exists(args.inventory):
             raise ValueError(f"Ansible inventory file not found: {args.inventory}")
 
-
-def load_config_from_args(args: argparse.Namespace) -> AMITesterConfig:
+def load_config_from_args(args: argparse.Namespace) -> BaseTesterConfig:
     """Load configuration from command-line arguments.
 
     Args:
@@ -174,68 +218,100 @@ def load_config_from_args(args: argparse.Namespace) -> AMITesterConfig:
     Returns:
         Configuration for the tester
     """
+    # Convert string test-type to TestType enum
+    test_type = TestType(args.test_type)
+
     # Check environment variables for SSH keys
     ssh_private_key = os.environ.get("SSH_PRIVATE_KEY")
 
     # Configure tags for AWS instances
-    tags = {
-        "Name": f"wazuh-vm-test-{args.ami_id if args.ami_id else 'remote-host'}",
+    tags: Dict[str, str] = {
+        "Name": f"wazuh-vm-test-{args.ami_id if hasattr(args, 'ami_id') and args.ami_id else 'remote-host'}",
         "CreatedBy": "wazuh-vm-tester",
         "AutoTerminate": "true" if not getattr(args, 'no_terminate', False) else "false",
+        "TestType": args.test_type
     }
 
-    # Create configuration based on connection mode
-    if args.ami_id:
-        # AMI mode - launching a new instance
-        config = AMITesterConfig(
-            ami_id=args.ami_id,
-            aws_region=args.aws_region,
-            aws_role=args.aws_role,
-            instance_type=args.instance_type,
-            ssh_username=args.ssh_username,
-            ssh_key_path=args.ssh_key_path,
+    # Create configuration based on connection mode and test type
+    if test_type == TestType.OVA and hasattr(args, 'ova_s3_path') and args.ova_s3_path:
+        # OVA mode - testing an OVA file from S3
+        config = OVATesterConfig(
+            test_type=test_type,
+            ova_s3_path=args.ova_s3_path,
+            import_only=args.import_only if hasattr(args, 'import_only') else False,
+            allocator_instance_type=args.allocator_instance_type if hasattr(args, 'allocator_instance_type') and args.allocator_instance_type else "metal",
+            allocator_role=args.aws_role if hasattr(args, 'aws_role') else "default",
+            vm_memory=args.vm_memory if hasattr(args, 'vm_memory') else 4096,
+            vm_cpus=args.vm_cpus if hasattr(args, 'vm_cpus') else 2,
+            vm_network_mode="nat",
+            vm_port_forwards={},  # Default empty port forwards
+            vm_username=args.vm_username if hasattr(args, 'vm_username') else "wazuh-user",
+            vm_password=args.vm_password if hasattr(args, 'vm_password') else "wazuh",
+            aws_region=args.aws_region if hasattr(args, 'aws_region') else "us-east-1",
+            aws_role=args.aws_role if hasattr(args, 'aws_role') else "default",
+            security_group_ids=args.security_group_ids if hasattr(args, 'security_group_ids') else [],
+            instance_profile=args.instance_profile if hasattr(args, 'instance_profile') else None,
+            ssh_key_path=args.ssh_key_path if hasattr(args, 'ssh_key_path') else None,
             ssh_private_key=ssh_private_key,
-            ssh_port=args.ssh_port,
-            expected_version=args.version,
-            expected_revision=args.revision,
-            security_group_ids=args.security_group_ids or [],
-            instance_profile=args.instance_profile,
+            expected_version=args.version if hasattr(args, 'version') else None,
+            expected_revision=args.revision if hasattr(args, 'revision') else None,
             tags=tags,
             terminate_on_completion=not getattr(args, 'no_terminate', False)
         )
-    elif args.inventory:
-        # Ansible inventory mode
+    elif test_type == TestType.AMI and hasattr(args, 'ami_id') and args.ami_id:
+        # AMI mode - launching a new instance
         config = AMITesterConfig(
-            ansible_inventory_path=args.inventory,
-            ansible_host_id=args.host,
-            expected_version=args.version,
-            expected_revision=args.revision,
-            aws_region=args.aws_region
+            test_type=test_type,
+            ami_id=args.ami_id,
+            aws_region=args.aws_region if hasattr(args, 'aws_region') else "us-east-1",
+            aws_role=args.aws_role if hasattr(args, 'aws_role') else "default",
+            instance_type=args.instance_type if hasattr(args, 'instance_type') else "t3.medium",
+            ssh_username=args.ssh_username if hasattr(args, 'ssh_username') else "wazuh-user",
+            ssh_key_path=args.ssh_key_path if hasattr(args, 'ssh_key_path') else None,
+            ssh_private_key=ssh_private_key,
+            ssh_port=args.ssh_port if hasattr(args, 'ssh_port') else 22,
+            expected_version=args.version if hasattr(args, 'version') else None,
+            expected_revision=args.revision if hasattr(args, 'revision') else None,
+            security_group_ids=args.security_group_ids if hasattr(args, 'security_group_ids') else [],
+            instance_profile=args.instance_profile if hasattr(args, 'instance_profile') else None,
+            tags=tags,
+            terminate_on_completion=not getattr(args, 'no_terminate', False)
         )
-    elif args.use_local:
+    elif hasattr(args, 'inventory') and args.inventory:
+        # Ansible inventory mode
+        config = BaseTesterConfig(
+            test_type=test_type,
+            ansible_inventory_path=args.inventory,
+            ansible_host_id=args.host if hasattr(args, 'host') else None,
+            expected_version=args.version if hasattr(args, 'version') else None,
+            expected_revision=args.revision if hasattr(args, 'revision') else None,
+            aws_region=args.aws_region if hasattr(args, 'aws_region') else "us-east-1"
+        )
+    elif hasattr(args, 'use_local') and args.use_local:
         # Local testing mode
-        config = AMITesterConfig(
+        config = BaseTesterConfig(
+            test_type=test_type,
             use_local=True,
-            expected_version=args.version,
-            expected_revision=args.revision,
+            expected_version=args.version if hasattr(args, 'version') else None,
+            expected_revision=args.revision if hasattr(args, 'revision') else None,
         )
     else:
         # Direct SSH mode
-        config = AMITesterConfig(
+       config = BaseTesterConfig(
+            test_type=test_type,
             ssh_host=args.ssh_host,
-            ssh_username=args.ssh_username,
-            ssh_key_path=args.ssh_key_path,
+            ssh_username=args.ssh_username if hasattr(args, 'ssh_username') else "wazuh-user",
+            ssh_key_path=args.ssh_key_path if hasattr(args, 'ssh_key_path') else None,
             ssh_private_key=ssh_private_key,
-            ssh_port=args.ssh_port,
-            expected_version=args.version,
-            expected_revision=args.revision,
-            aws_region=args.aws_region,
+            ssh_port=args.ssh_port if hasattr(args, 'ssh_port') else 22,
+            expected_version=args.version if hasattr(args, 'version') else None,
+            expected_revision=args.revision if hasattr(args, 'revision') else None,
+            aws_region=args.aws_region if hasattr(args, 'aws_region') else "us-east-1"
         )
 
     return config
 
-
-def run_tests(config: AMITesterConfig, args: argparse.Namespace) -> int:
+def run_tests(config: BaseTesterConfig, args: argparse.Namespace) -> int:
     """Run tests using the appropriate strategy.
 
     Args:
@@ -274,8 +350,21 @@ def run_tests(config: AMITesterConfig, args: argparse.Namespace) -> int:
 
         pytest_args = [str(tests_dir)]
 
-        if args.test_pattern and (args.test_pattern != "*" and args.test_pattern.lower() != "all"):
-            pytest_args.extend(["-k", args.test_pattern])
+        # Use custom test pattern if provided, otherwise use pattern from config based on test type
+        if args.test_pattern:
+            if test_pattern == "*":
+                test_pattern = "all"
+            else:
+                test_pattern = args.test_pattern
+        else:
+            test_patterns = config.test_patterns.get(config.test_type, ["all"])
+            test_pattern = " or ".join(test_patterns)
+
+        if test_pattern and (test_pattern != "*" and test_pattern.lower() != "all"):
+            pytest_args.extend(["-k", test_pattern])
+
+        print(f"test_patterns {test_patterns}")
+        print(f"test_pattern {test_pattern}")
 
         if debug_mode:
             pytest_args.extend(["-vvv", "--log-cli-level=DEBUG"])
@@ -367,6 +456,7 @@ def run_tests(config: AMITesterConfig, args: argparse.Namespace) -> int:
         return exit_code
 
     finally:
+        logger.info("Cleaning up resources...")
         strategy.cleanup()
 
 

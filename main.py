@@ -7,6 +7,7 @@ from configurer.ova.ova_post_configurer import ova_post_configurer_main
 from configurer.ova.ova_pre_configurer import ova_pre_configurer_main
 from generic import change_inventory_user
 from provisioner import provisioner_main
+from configurer.ova.ova_pre_configurer.install_dependencies import main as install_dependencies_main
 
 DEPENDENCIES_FILE_NAME = "wazuh_dependencies.yaml"
 DEPENDENCIES_FILE_PATH = Path("provisioner") / "static" / DEPENDENCIES_FILE_NAME
@@ -104,6 +105,9 @@ def main():
 
     if parsed_args.execute == "ova-pre-configurer":
         ova_pre_configurer_main()
+
+    if parsed_args.execute == "ova-pre-configurer-install-dependencies":
+        install_dependencies_main()
 
     if parsed_args.execute in ["ami-pre-configurer", "all-ami"]:
         new_user = ami_configurer_main(inventory_path=parsed_args.inventory, type="ami-pre-configurer")
