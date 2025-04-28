@@ -188,7 +188,7 @@ class OVAStrategy(ConnectionStrategy):
 
             # Clone the repository directly on the remote machine
             logger.info("Cloning wazuh-virtual-machines repository")
-            self.allocator_connection.execute_command("rm -rf /tmp/wazuh-virtual-machines && git clone https://github.com/wazuh/wazuh-virtual-machines.git /tmp/wazuh-virtual-machines && git checkout enhancement/181-ova-tests")
+            self.allocator_connection.execute_command("rm -rf /tmp/wazuh-virtual-machines && git clone https://github.com/wazuh/wazuh-virtual-machines.git /tmp/wazuh-virtual-machines && cd /tmp/wazuh-virtual-machines && git checkout enhancement/181-ova-tests")
 
             # Install required Python dependencies and run the dependencies installer script
             logger.info("Installing module dependencies...")
