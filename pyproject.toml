@@ -104,6 +104,12 @@ Enviroment to be used for OVA PostConfigurer execution testing
 """
 template = "dev"
 
+[tool.hatch.envs.dev-ova-dependencies]
+description = """
+Enviroment to be used for OVA PostConfigurer execution testing
+"""
+template = "dev"
+
 [tool.hatch.envs.dev.scripts]
 test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=. --cov-report term-missing:skip-covered tests/ --cov-report=xml"
 ruff-format = "ruff format ."
@@ -153,9 +159,6 @@ ruff-lint-check = "ruff check --diff --unsafe-fixes configurer/ova/ova_pre_confi
 ruff-lint = "ruff check --fix --unsafe-fixes configurer/ova/ova_pre_configurer"
 run = "python -m main --execute ova-pre-configurer {args:}"
 
-[tool.hatch.envs.dev-ova-pre-configurer-install-dependencies.scripts]
-run = "python -m main --execute ova-pre-configurer-install-dependencies {args:}"
-
 [tool.hatch.envs.dev-ova-post-configurer.scripts]
 test-cov = "FORCE_COLOR=1 pytest -n 4 --cov=configurer/ova/ova_post_configurer --cov-report term-missing:skip-covered tests/test_configurer/test_ova/test_ova_post_configurer --cov-report=xml"
 ruff-format = "ruff format configurer/ova/ova_post_configurer"
@@ -164,3 +167,5 @@ ruff-lint-check = "ruff check --diff --unsafe-fixes configurer/ova/ova_post_conf
 ruff-lint = "ruff check --fix --unsafe-fixes configurer/ova/ova_post_configurer"
 run = "python -m main --execute ova-post-configurer {args:}"
 
+[tool.hatch.envs.dev-ova-dependencies.scripts]
+install = "python3 -c 'from configurer.ova.ova_pre_configurer.install_dependencies import main; main()'"

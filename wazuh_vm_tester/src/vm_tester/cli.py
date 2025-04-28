@@ -350,7 +350,6 @@ def run_tests(config: BaseTesterConfig, args: argparse.Namespace) -> int:
 
         pytest_args = [str(tests_dir)]
 
-        # Use custom test pattern if provided, otherwise use pattern from config based on test type
         if args.test_pattern:
             if test_pattern == "*":
                 test_pattern = "all"
