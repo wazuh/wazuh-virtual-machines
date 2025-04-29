@@ -357,17 +357,24 @@ def run_tests(config: BaseTesterConfig, args: argparse.Namespace) -> int:
         logger.info(f"Using tests path: {tests_dir}")
 
         pytest_args = [str(tests_dir)]
+        test_pattern = args.test_pattern
         if test_pattern:
             if test_pattern == "*" or test_pattern.lower() == "all":
                 test_patterns = config.test_patterns.get(config.test_type, ["all"])
+
                 test_pattern = " or ".join(test_patterns)
+                # Añadir a los argumentos de pytest
                 pytest_args.extend(["-k", test_pattern])
             else:
+                # Si es un patrón específico, usarlo directamente
                 pytest_args.extend(["-k", args.test_pattern])
         else:
+            # Si no se especificó un patrón, usar los predeterminados para el tipo de test
             test_patterns = config.test_patterns.get(config.test_type, ["all"])
             test_pattern = " or ".join(test_patterns)
 
+            # No necesitamos esta comprobación adicional, ya la hicimos arriba
+            # Solo añadir a pytest_args si hay un patrón específico
             if test_patterns != ["all"]:
                 pytest_args.extend(["-k", test_pattern])
 
