@@ -1,5 +1,5 @@
-run-name: Wazuh VM Test - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
-name: Wazuh VM Test
+run-name: Wazuh AMI Test - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
+name: Wazuh AMI Test
 
 on:
   workflow_dispatch:
@@ -44,7 +44,6 @@ on:
           - LOGS
           - SERVICE
           - VERSION
-          - TEST_OVA
       log_level:
         description: 'Log level'
         required: false
