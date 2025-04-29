@@ -107,7 +107,8 @@ class OVAStrategy(ConnectionStrategy):
             wazuh_automation_path = os.environ.get('WAZUH_AUTOMATION_PATH', './wazuh-automation')
             if not os.path.exists(wazuh_automation_path):
                 logger.info(f"Cloning wazuh-automation repository")
-                subprocess.run("git clone https://github.com/wazuh/wazuh-automation.git", shell=True, check=True)
+                token = os.environ.get('WAZUH_AUTOMATION_TOKEN')
+                subprocess.run(f"git clone https://wazuh:{token}@github.com/wazuh/wazuh-automation.git", shell=True, check=True)
 
             # Install requirements
             logger.info("Installing requirements")
