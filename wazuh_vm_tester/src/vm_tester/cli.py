@@ -357,19 +357,19 @@ def run_tests(config: BaseTesterConfig, args: argparse.Namespace) -> int:
         logger.info(f"Using tests path: {tests_dir}")
 
         pytest_args = [str(tests_dir)]
-        test_pattern = args.test_pattern
-
         if test_pattern:
             if test_pattern == "*" or test_pattern.lower() == "all":
                 test_patterns = config.test_patterns.get(config.test_type, ["all"])
+                test_pattern = " or ".join(test_patterns)
+                pytest_args.extend(["-k", test_pattern])
             else:
-                test_pattern = args.test_pattern
+                pytest_args.extend(["-k", args.test_pattern])
         else:
             test_patterns = config.test_patterns.get(config.test_type, ["all"])
             test_pattern = " or ".join(test_patterns)
 
-        if args.test_pattern and (test_pattern != "*" and test_pattern.lower() != "all"):
-            pytest_args.extend(["-k", test_pattern])
+            if test_patterns != ["all"]:
+                pytest_args.extend(["-k", test_pattern])
 
         if debug_mode:
             pytest_args.extend(["-vvv", "--log-cli-level=DEBUG"])
