@@ -17,4 +17,4 @@ It is designed to be deployed in an **All-in-One** configuration, which means th
 
 - **Operating System**: Amazon Linux 2023  
 - **Architecture**: 64-bit  
-- **VM Format**: AWS OVA
+- **VM Format**: OVA

@@ -33,7 +33,7 @@ user: admin
 password: admin
 ```
 
-You can find <wazuh_server_ip> by typing the following command in the VM:
+You can find `<wazuh_server_ip>` by typing the following command in the VM:
 
 ```bash
 ip a
