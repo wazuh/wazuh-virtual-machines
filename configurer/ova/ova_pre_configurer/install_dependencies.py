@@ -175,7 +175,6 @@ def install_vagrant() -> None:
         "sudo yum install -y yum-utils shadow-utils",
         f"sudo yum-config-manager --add-repo {VAGRANT_REPO_URL}",
         "sudo yum -y install vagrant",
-        "vagrant plugin install vagrant-scp",
     ]
     run_command(commands)
 

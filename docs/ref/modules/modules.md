@@ -2,11 +2,11 @@
 
 To create and configure the AMI and OVA, two fundamental modules are used:
 
-- **Provisioner**: Responsible for provisioning the certs-tool and the Wazuh component packages specified.
-- **Configurer**: Once the necessary files have been provisioned, this module handles the creation of certificates for each component, the installation of the components, and their configuration. The configuration is divided into three main parts:
-  - **Core**: Manages the shared configuration between the AMI and OVA. This includes generating certificates for each component, installing the components, and configuring their configuration files.
-  - **AMI Configurer**: Handles the configuration specific to the AMI.
-  - **OVA Configurer**: Handles the configuration specific to the OVA.
+- **Provisioner** ([provisioner.md](provisioner/provisioner.md)): Responsible for provisioning the certs-tool and the Wazuh component packages specified.
+- **Configurer** ([configurer.md](configurer/configurer.md)): Once the necessary files have been provisioned, this module handles the creation of certificates for each component, the installation of the components, and their configuration. The configuration is divided into three main parts:
+  - **Core** ([core.md](configurer/core/core.md)): Manages the shared configuration between the AMI and OVA. This includes generating certificates for each component, installing the components, and configuring their configuration files.
+  - **Pre Configurer** ([pre.md](configurer/pre/pre.md)): Responsible for applying the initial configuration steps required before running the core module.
+  - **Post Configurer** ([post.md](configurer/post/post.md)): Runs after the core configuration has completed. It finalizes the setup by preparing the AMI or OVA to be exported and distributed as a ready-to-use virtual machine.
 
 These modules are executed through a single CLI. The available CLI options are:
 
