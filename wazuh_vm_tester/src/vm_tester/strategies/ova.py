@@ -70,7 +70,7 @@ class OVAStrategy(ConnectionStrategy):
             config: Tester configuration
         """
         super().__init__(config)
-        self.config = config  # Typing hint to recognize as OVATesterConfig
+        self.config = config
         self.instance_id = None
         self.instance_public_ip = None
         self.allocator_instance = None
@@ -100,10 +100,10 @@ class OVAStrategy(ConnectionStrategy):
             return True
 
         try:
-            # Create allocator directory
+
             os.makedirs(self.allocator_path, exist_ok=True)
 
-            # Clone wazuh-automation repository
+
             wazuh_automation_path = os.environ.get('WAZUH_AUTOMATION_PATH', './wazuh-automation')
             if not os.path.exists(wazuh_automation_path):
                 logger.info(f"Cloning wazuh-automation repository")
@@ -123,11 +123,11 @@ class OVAStrategy(ConnectionStrategy):
             else:
                 subprocess.run("pip3 install boto3 pyyaml ansible", shell=True, check=True)
 
-            # Set up paths for allocator outputs
+
             track_output = os.path.join(self.allocator_path, "track.yml")
             self.vm_inventory_path = os.path.join(self.allocator_path, "inventory.yml")
 
-            # Prepare allocator command
+
             instance_name = f"gha_{os.environ.get('GITHUB_RUN_ID', str(int(time.time())))}_ova_test"
             composite_name = f"linux-amazon-2023-amd64"
 
@@ -145,7 +145,7 @@ class OVAStrategy(ConnectionStrategy):
                 "--label-termination-date", "1d"
             ]
 
-            # Execute the allocator
+
             logger.info(f"Running allocator with command: {' '.join(allocator_cmd)}")
             result = subprocess.run(allocator_cmd, capture_output=True, text=True)
 
@@ -155,10 +155,10 @@ class OVAStrategy(ConnectionStrategy):
 
             logger.info(f"Allocator execution succeeded: {result.stdout}")
 
-            # Read the inventory file to get connection information
+
             self.read_allocator_inventory()
 
-            # Create SSH connection to the allocator instance
+
             logger.info(f"Creating SSH connection to allocator instance at {self.instance_public_ip}")
             self.allocator_connection = SSHConnection(
                 connection_id=f"ova-allocator-{composite_name}",
@@ -168,7 +168,7 @@ class OVAStrategy(ConnectionStrategy):
                 key_path=self.ssh_key_path
             )
 
-            # Connect to the instance
+
             self.allocator_connection.connect()
 
             logger.info("Allocator instance setup completed successfully")
@@ -223,10 +223,10 @@ class OVAStrategy(ConnectionStrategy):
             return False
 
         try:
-            # Install git and other prerequisites if needed
+
             self.allocator_connection.execute_command("which git || sudo yum update && sudo yum install -y nc git python3 python3-pip && sudo pip3 install hatch")
 
-            # Clone the repository directly on the remote machine
+
             logger.info("Cloning wazuh-virtual-machines repository")
             token = os.environ.get('WAZUH_AUTOMATION_TOKEN')
             cmd = ""
@@ -239,7 +239,7 @@ class OVAStrategy(ConnectionStrategy):
 
             self.allocator_connection.execute_command(f"rm -rf /tmp/wazuh-virtual-machines && {cmd} /tmp/wazuh-virtual-machines && cd /tmp/wazuh-virtual-machines && git checkout enhancement/181-ova-tests")
 
-            # Install required Python dependencies and run the dependencies installer script
+
             logger.info("Installing module dependencies...")
             command = """cd /tmp/wazuh-virtual-machines &&
                         sudo hatch run dev-ova-dependencies:install """
@@ -257,7 +257,7 @@ class OVAStrategy(ConnectionStrategy):
             else:
                 logger.info(f"exit_code {exit_code}, stdout {stdout}, stderr {stderr}")
 
-            # Verify VirtualBox installation
+
             exit_code, stdout, stderr = self.allocator_connection.execute_command("VBoxManage --version")
             if exit_code != 0:
                 logger.error("VirtualBox installation verification failed")
@@ -287,24 +287,24 @@ class OVAStrategy(ConnectionStrategy):
             return False
 
         try:
-            # Parse S3 path
+
             if not self.config.ova_s3_path.startswith('s3://'):
                 logger.error("S3 path must start with s3://")
                 return False
 
-            s3_path = self.config.ova_s3_path[5:]  # Remove s3:// prefix
+            s3_path = self.config.ova_s3_path[5:]
             bucket_name = s3_path.split('/')[0]
             key = '/'.join(s3_path.split('/')[1:])
             ova_filename = os.path.basename(key)
 
             logger.info(f"Downloading OVA from S3: {self.config.ova_s3_path}")
 
-            # Create local temp directory for download
+
             local_temp_dir = os.path.join(tempfile.mkdtemp(), "ova_download")
             os.makedirs(local_temp_dir, exist_ok=True)
             local_ova_path = os.path.join(local_temp_dir, ova_filename)
 
-            # Download the OVA file locally using boto3
+
             logger.info(f"Downloading OVA to local path: {local_ova_path}")
 
             success = run_with_progress(
@@ -318,12 +318,12 @@ class OVAStrategy(ConnectionStrategy):
                 logger.error("S3 download failed")
                 return False
 
-            # Create remote directory on allocator instance
+
             remote_dir = "/tmp/ova_downloads"
             self.allocator_connection.execute_command(f"mkdir -p {remote_dir}", False)
             self.ova_local_path = f"{remote_dir}/{ova_filename}"
 
-            # Copy OVA to allocator instance using SCP
+
             logger.info(f"Copying OVA to allocator instance at {self.ova_local_path}")
 
             scp_cmd = [
@@ -376,13 +376,13 @@ class OVAStrategy(ConnectionStrategy):
         try:
             logger.info(f"Importing OVA from {self.ova_local_path}")
 
-            # Check if VirtualBox is installed
+
             exit_code, stdout, stderr = self.allocator_connection.execute_command("which VBoxManage")
             if exit_code != 0:
                 logger.error("VirtualBox is not installed on the allocator instance")
                 return False
 
-            # Check if VM already exists and remove it
+
             exit_code, stdout, stderr = self.allocator_connection.execute_command(f"VBoxManage list vms | grep -q \"{self.vm_name}\" && echo 'exists' || echo 'not-exists'")
             if "exists" in stdout:
                 logger.info(f"VM {self.vm_name} already exists, removing it")
@@ -391,7 +391,7 @@ class OVAStrategy(ConnectionStrategy):
                 self.allocator_connection.execute_command(f"VBoxManage unregistervm {self.vm_name} --delete || true")
                 digital_clock(5)
 
-            # Import OVA
+
             logger.info("Importing OVA file...")
             exit_code, stdout, stderr = self.allocator_connection.execute_command(
                 f"VBoxManage import {self.ova_local_path} --vsys 0 --vmname {self.vm_name}"
@@ -401,19 +401,19 @@ class OVAStrategy(ConnectionStrategy):
                 logger.error(f"Failed to import OVA: {stderr}")
                 return False
 
-            # Configure VM resources
+
             logger.info("Configuring VM resources...")
             self.allocator_connection.execute_command(
                 f"VBoxManage modifyvm {self.vm_name} --memory {self.config.vm_memory} --cpus {self.config.vm_cpus}"
             )
 
-            # Configure network
+
             logger.info("Configuring network...")
             self.allocator_connection.execute_command(
                 f"VBoxManage modifyvm {self.vm_name} --nic1 {self.config.vm_network_mode}"
             )
 
-            # Start the VM
+
             logger.info("Starting the VM...")
             exit_code, stdout, stderr = self.allocator_connection.execute_command(
                 f"VBoxManage startvm {self.vm_name} --type headless"
@@ -423,11 +423,11 @@ class OVAStrategy(ConnectionStrategy):
                 logger.error(f"Failed to start VM: {stderr}")
                 return False
 
-            # Wait for VM to boot
+
             logger.info("Waiting for VM to boot (30 seconds)...")
             digital_clock(30)
 
-            # Check if VM is running
+
             exit_code, stdout, stderr = self.allocator_connection.execute_command(
                 f"VBoxManage list runningvms | grep -q \"{self.vm_name}\" && echo 'running' || echo 'not-running'"
             )
@@ -468,7 +468,7 @@ class OVAStrategy(ConnectionStrategy):
 
             digital_clock(10)
 
-            # Add SSH port forwarding
+
             logger.info(f"Setting up SSH port forwarding (22 -> {self.ova_ssh_port})")
             exit_code, stdout, stderr = self.allocator_connection.execute_command(
                 f'VBoxManage modifyvm "{self.vm_name}" --natpf1 "ssh_ova,tcp,,{self.ova_ssh_port},,22"'
@@ -478,7 +478,7 @@ class OVAStrategy(ConnectionStrategy):
                 logger.error(f"Failed to set up SSH port forwarding: {stderr}")
                 raise Exception(f"Failed to set up SSH port forwarding: {stderr}")
 
-            # Add custom port forwardings if any
+
             for port, host_port in self.config.vm_port_forwards.items():
                 logger.info(f"Setting up port forwarding for port {port} -> {host_port}")
                 exit_code, stdout, stderr = self.allocator_connection.execute_command(
@@ -497,11 +497,11 @@ class OVAStrategy(ConnectionStrategy):
                 logger.error(f"Failed to start VM: {stderr}")
                 return False
 
-            # Wait a moment for port forwarding to take effect
+
             logger.info("Waiting for VM to boot (30 seconds)...")
             digital_clock(30)
 
-            # Verify SSH port is accessible
+
             logger.info("Verifying SSH port forwarding...")
             max_attempts = 10
             attempt = 0
@@ -540,7 +540,7 @@ class OVAStrategy(ConnectionStrategy):
         Returns:
             SSH connection to the OVA VM or None if connection fails
         """
-        # For direct SSH testing when OVA VM is already running
+
         if self.config.ssh_host:
             logger.info(f"Using direct SSH connection to {self.config.ssh_host}")
             try:
@@ -566,31 +566,31 @@ class OVAStrategy(ConnectionStrategy):
                 logger.error(f"Failed to connect to OVA VM via direct SSH: {str(e)}")
                 return None
 
-        # For OVA testing process
+
         logger.info("Starting OVA test process")
 
         try:
-            # Step 1: Set up allocator instance
+
             if not self.setup_allocator_instance():
                 logger.error("Failed to set up allocator instance")
 
-            # Step 2: Install dependencies on allocator instance
+
             if not self.install_dependencies():
                 logger.error("Failed to install dependencies")
 
-            # Step 3: Download OVA from S3
+
             if not self.download_ova_from_s3():
                 logger.error("Failed to download OVA from S3")
 
-            # Step 4: Import OVA
+
             if not self.import_ova():
                 logger.error("Failed to import OVA")
 
-            # Step 5: Set up port forwarding
+
             if not self.port_forward():
                 logger.error("Failed to set up port forwarding")
 
-            # Step 6: Create SSH connection to OVA through port forwarding
+
             try:
                 logger.info(f"Creating connection to OVA VM at {self.instance_public_ip}:{self.ova_ssh_port}")
 
@@ -631,10 +631,10 @@ class OVAStrategy(ConnectionStrategy):
     def cleanup(self) -> None:
         """Clean up resources after testing."""
 
-        # Terminate allocator instance if auto-terminate is enabled
+
         if self.config.terminate_on_completion:
             try:
-                # Delete the instance using the allocator module
+
                 logger.info("Terminating allocator instance")
 
                 wazuh_automation_path = os.environ.get('WAZUH_AUTOMATION_PATH', './wazuh-automation')
