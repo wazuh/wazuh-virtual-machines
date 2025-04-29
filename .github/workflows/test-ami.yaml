@@ -84,6 +84,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          yum install -y git
           python -m pip install --upgrade pip
           pip install -r wazuh_vm_tester/requirements.txt
           pip install -e wazuh_vm_tester/
