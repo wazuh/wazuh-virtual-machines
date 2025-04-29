@@ -102,6 +102,7 @@ class BaseTesterConfig(BaseModel):
 
     # SSH options
     ssh_username: str = "wazuh-user"
+    ssh_password: Optional[str] = "wazuh"
     ssh_key_path: Optional[str] = None
     key_name: Optional[str] = None
     ssh_private_key: Optional[str] = None
@@ -258,9 +259,9 @@ def parse_version_with_revision(version_string: str) -> Tuple[str, Optional[str]
 def get_default_wazuh_services() -> List[WazuhServiceConfig]:
     """Get default configuration for Wazuh services."""
 
-    server_version, server_revision = parse_version_with_revision(os.getenv("WAZUH_SERVER_EXPECTED_VERSION", default="5.0.0-1"))
-    indexer_version, indexer_revision = parse_version_with_revision(os.getenv("WAZUH_INDEXER_EXPECTED_VERSION", default="2.19.1-2"))
-    dashboard_version, dashboard_revision = parse_version_with_revision(os.getenv("WAZUH_DASHBOARD_EXPECTED_VERSION", default="5.0.0-1"))
+    server_version, server_revision = parse_version_with_revision(os.getenv("WAZUH_SERVER_EXPECTED_VERSION", default="5.0.0-latest"))
+    indexer_version, indexer_revision = parse_version_with_revision(os.getenv("WAZUH_INDEXER_EXPECTED_VERSION", default="5.0.0-latest"))
+    dashboard_version, dashboard_revision = parse_version_with_revision(os.getenv("WAZUH_DASHBOARD_EXPECTED_VERSION", default="5.0.0-latest"))
 
     return [
         WazuhServiceConfig(
@@ -377,21 +378,21 @@ def get_default_wazuh_certificates() -> List[WazuhCertificateConfig]:
             subject_match="OU=Wazuh",
             days_valid=365,
             issuer_match="OU=Wazuh",
-            permissions=0o400,
+            permissions=400,
         ),
         WazuhCertificateConfig(
             path="/etc/wazuh-indexer/certs/indexer-1.pem",
             subject_match="CN=wazuh_indexer",
             days_valid=365,
             issuer_match="OU=Wazuh",
-            permissions=0o400,
+            permissions=400,
         ),
         WazuhCertificateConfig(
             path="/etc/wazuh-indexer/certs/admin.pem",
             subject_match="CN=admin",
             days_valid=365,
             issuer_match="OU=Wazuh",
-            permissions=0o400,
+            permissions=400,
         ),
         # Wazuh dashboard
         WazuhCertificateConfig(
@@ -399,14 +400,14 @@ def get_default_wazuh_certificates() -> List[WazuhCertificateConfig]:
             subject_match="OU=Wazuh",
             days_valid=365,
             issuer_match="OU=Wazuh",
-            permissions=0o400,
+            permissions=400,
         ),
         WazuhCertificateConfig(
             path="/etc/wazuh-dashboard/certs/dashboard.pem",
             subject_match="CN=wazuh_dashboard",
             days_valid=365,
             issuer_match="OU=Wazuh",
-            permissions=0o400,
+            permissions=400,
         ),
         # Wazuh server
         WazuhCertificateConfig(
@@ -414,28 +415,28 @@ def get_default_wazuh_certificates() -> List[WazuhCertificateConfig]:
             subject_match="CN=wazuh_server",
             days_valid=365,
             issuer_match="OU=Wazuh",
-            permissions=0o400,
+            permissions=400,
         ),
         WazuhCertificateConfig(
             path="/etc/wazuh-server/certs/root-ca.pem",
             subject_match="OU=Wazuh",
             days_valid=365,
             issuer_match="OU=Wazuh",
-            permissions=0o400,
+            permissions=400,
         ),
         WazuhCertificateConfig(
             path="/etc/wazuh-server/certs/admin.pem",
             subject_match="CN=admin",
             days_valid=365,
             issuer_match="OU=Wazuh",
-            permissions=0o400,
+            permissions=400,
         ),
         WazuhCertificateConfig(
             path="/etc/wazuh-server/certs/root-ca-merged.pem",
             subject_match="OU=Wazuh",
             days_valid=365,
             issuer_match="OU=Wazuh",
-            permissions=0o400,
+            permissions=400,
         ),
     ]
 

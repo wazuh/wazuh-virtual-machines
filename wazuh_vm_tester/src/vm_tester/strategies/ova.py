@@ -21,10 +21,44 @@ from ..connections.ssh import SSHConnection
 from .base import ConnectionStrategy
 from ..aws.ec2 import EC2Client
 from ..aws.credentials import AWSRole
-from ..utils.inventory import digital_clock
+from ..utils.utils import digital_clock, run_with_progress, download_s3_file, run_scp_command
 
 logger = get_logger(__name__)
 
+class OVAConnection(SSHConnection):
+    """Simple connection class for OVA VMs that extends the standard SSHConnection."""
+
+    def __init__(
+        self,
+        host_ip: str,
+        username: str = "wazuh-user",
+        port: int = 2201,
+        key_path: Optional[str] = None,
+        private_key: Optional[str] = None,
+        password: Optional[str] = None,
+        connection_id: str = "ova-connection"
+    ):
+        """Initialize the OVA connection.
+
+        Args:
+            host_ip: Host IP to connect to (allocator's public IP)
+            username: Username for SSH connection
+            port: Port for SSH connection (forwarded port)
+            key_path: Path to SSH key file
+            private_key: SSH private key content
+            password: Password for SSH authentication
+            connection_id: Unique identifier for this connection
+        """
+        super().__init__(
+            connection_id=connection_id,
+            host=host_ip,
+            username=username,
+            port=port,
+            key_path=key_path,
+            private_key=private_key,
+            password=password
+        )
+        logger.info(f"Created OVA connection to {host_ip}:{port} as {username}")
 
 class OVAStrategy(ConnectionStrategy):
     """Strategy for OVA testing."""
@@ -53,6 +87,7 @@ class OVAStrategy(ConnectionStrategy):
         self.ssh_username = None
         self.ssh_port = None
         self.ssh_key_path = None
+        self.ova_ssh_port = 2201
 
     def setup_allocator_instance(self) -> bool:
         """Set up an EC2 instance for OVA allocation using wazuh-automation allocator.
@@ -169,7 +204,7 @@ class OVAStrategy(ConnectionStrategy):
 
         except Exception as e:
             logger.error(f"Error reading allocator inventory: {str(e)}")
-            logger.error(f"Error reading allocator inventory: {traceback.print_exc()}")
+            logger.error(f"Error reading allocator inventory: {traceback.format_exc()}")
             raise Exception(f"Failed to read allocator inventory: {str(e)}")
 
     def install_dependencies(self) -> bool:
@@ -193,14 +228,18 @@ class OVAStrategy(ConnectionStrategy):
             # Install required Python dependencies and run the dependencies installer script
             logger.info("Installing module dependencies...")
             command = """cd /tmp/wazuh-virtual-machines &&
-                        hatch run dev-ova-dependencies:install """
+                        sudo hatch run dev-ova-dependencies:install """
 
-            exit_code, stdout, stderr = self.allocator_connection.execute_command(command)
+            exit_code, stdout, stderr = run_with_progress(
+                lambda: self.allocator_connection.execute_command(command, False),
+                duration_seconds=120,
+                operation_name="Dependencies Installation"
+            )
 
             if exit_code != 0:
                 logger.error(f"Dependencies installation failed: {stderr}")
                 logger.error(f"Installation output: {stdout}")
-                raise Exception(f"Dependencies installation failed with exit code {stderr}")
+                raise Exception(f"Dependencies installation failed with exit code {exit_code}: {stderr}")
             else:
                 logger.info(f"exit_code {exit_code}, stdout {stdout}, stderr {stderr}")
 
@@ -253,24 +292,28 @@ class OVAStrategy(ConnectionStrategy):
 
             # Download the OVA file locally using boto3
             logger.info(f"Downloading OVA to local path: {local_ova_path}")
-            s3_client = boto3.client('s3')
-            try:
-                s3_client.download_file(bucket_name, key, local_ova_path)
-                logger.info(f"OVA file downloaded locally to {local_ova_path}")
-            except Exception as e:
-                logger.error(f"Failed to download OVA from S3: {str(e)}")
+
+            success = run_with_progress(
+                download_s3_file,
+                args=(bucket_name, key, local_ova_path),
+                duration_seconds=180,
+                operation_name="S3 Download"
+            )
+
+            if not success or not os.path.exists(local_ova_path):
+                logger.error("S3 download failed")
                 return False
 
             # Create remote directory on allocator instance
             remote_dir = "/tmp/ova_downloads"
-            self.allocator_connection.execute_command(f"mkdir -p {remote_dir}")
+            self.allocator_connection.execute_command(f"mkdir -p {remote_dir}", False)
             self.ova_local_path = f"{remote_dir}/{ova_filename}"
 
             # Copy OVA to allocator instance using SCP
             logger.info(f"Copying OVA to allocator instance at {self.ova_local_path}")
 
-            # Build SCP command
             scp_cmd = [
+                "sudo",
                 "scp",
                 "-P", str(self.ssh_port),
                 "-i", self.ssh_key_path,
@@ -280,28 +323,26 @@ class OVAStrategy(ConnectionStrategy):
                 f"{self.ssh_username}@{self.instance_public_ip}:{self.ova_local_path}"
             ]
 
-            logger.info(f"Running SCP command: {' '.join(scp_cmd)}")
-            result = subprocess.run(scp_cmd, capture_output=True, text=True)
+            logger.info(f"Starting SCP transfer to {self.ova_local_path}")
 
-            if result.returncode != 0:
-                logger.error(f"Failed to copy OVA to allocator instance: {result.stderr}")
-                return False
+            success = run_with_progress(
+                run_scp_command,
+                args=(scp_cmd,),
+                duration_seconds=540,
+                operation_name="SCP Transfer"
+            )
+
+            if not success:
+                logger.error("SCP transfer failed")
+                raise
 
             logger.info(f"OVA successfully copied to allocator instance at {self.ova_local_path}")
-
-            # Clean up local temporary file
-            try:
-                os.remove(local_ova_path)
-                os.rmdir(local_temp_dir)
-                logger.info(f"Removed local temporary OVA file")
-            except Exception as e:
-                logger.warning(f"Could not remove local temporary files: {str(e)}")
 
             return True
 
         except Exception as e:
             logger.error(f"Error in download_ova_from_s3: {str(e)}")
-            logger.error(f"Error in download_ova_from_s3: {traceback.print_exc()}")
+            logger.error(f"Error in download_ova_from_s3: {traceback.format_exc()}")
             raise Exception(f"Failed to download OVA from S3: {str(e)}")
 
     def import_ova(self) -> bool:
@@ -332,9 +373,9 @@ class OVAStrategy(ConnectionStrategy):
             if "exists" in stdout:
                 logger.info(f"VM {self.vm_name} already exists, removing it")
                 self.allocator_connection.execute_command(f"VBoxManage controlvm {self.vm_name} poweroff || true")
-                time.sleep(5)
+                digital_clock(5)
                 self.allocator_connection.execute_command(f"VBoxManage unregistervm {self.vm_name} --delete || true")
-                time.sleep(5)
+                digital_clock(5)
 
             # Import OVA
             logger.info("Importing OVA file...")
@@ -369,8 +410,8 @@ class OVAStrategy(ConnectionStrategy):
                 return False
 
             # Wait for VM to boot
-            logger.info("Waiting for VM to boot (60 seconds)...")
-            time.sleep(60)
+            logger.info("Waiting for VM to boot (30 seconds)...")
+            digital_clock(30)
 
             # Check if VM is running
             exit_code, stdout, stderr = self.allocator_connection.execute_command(
@@ -411,15 +452,17 @@ class OVAStrategy(ConnectionStrategy):
                 logger.error(f"Failed to shutdown VM: {stderr}")
                 return False
 
+            digital_clock(10)
+
             # Add SSH port forwarding
-            logger.info("Setting up SSH port forwarding (2200 -> 2222)")
+            logger.info(f"Setting up SSH port forwarding (22 -> {self.ova_ssh_port})")
             exit_code, stdout, stderr = self.allocator_connection.execute_command(
-                f'VBoxManage modifyvm "{self.vm_name}" --natpf1 "ssh,tcp,,2222,,2200"'
+                f'VBoxManage modifyvm "{self.vm_name}" --natpf1 "ssh_ova,tcp,,{self.ova_ssh_port},,22"'
             )
 
             if exit_code != 0:
                 logger.error(f"Failed to set up SSH port forwarding: {stderr}")
-                return False
+                raise Exception(f"Failed to set up SSH port forwarding: {stderr}")
 
             # Add custom port forwardings if any
             for port, host_port in self.config.vm_port_forwards.items():
@@ -441,7 +484,8 @@ class OVAStrategy(ConnectionStrategy):
                 return False
 
             # Wait a moment for port forwarding to take effect
-            time.sleep(5)
+            logger.info("Waiting for VM to boot (30 seconds)...")
+            digital_clock(30)
 
             # Verify SSH port is accessible
             logger.info("Verifying SSH port forwarding...")
@@ -454,7 +498,7 @@ class OVAStrategy(ConnectionStrategy):
                 logger.info(f"Checking SSH port forwarding (attempt {attempt}/{max_attempts})")
 
                 exit_code, stdout, stderr = self.allocator_connection.execute_command(
-                    "nc -z -w5 localhost 2222 && echo 'success' || echo 'failed'"
+                    f"nc -z -w5 localhost {self.ova_ssh_port} && echo 'success' || echo 'failed'"
                 )
 
                 if "success" in stdout:
@@ -462,7 +506,7 @@ class OVAStrategy(ConnectionStrategy):
                     success = True
                 else:
                     logger.info("SSH port forwarding not ready yet, waiting 10 seconds...")
-                    time.sleep(10)
+                    digital_clock(5)
 
             if not success:
                 logger.error("Could not verify SSH port forwarding after multiple attempts")
@@ -473,7 +517,7 @@ class OVAStrategy(ConnectionStrategy):
 
         except Exception as e:
             logger.error(f"Error setting up port forwarding: {str(e)}")
-            logger.error(f"Trace: {traceback.print_exc()}")
+            logger.error(f"Trace: {traceback.format_exc()}")
             raise Exception(f"Error setting up port forwarding: {str(e)}")
 
     def create_connection(self) -> Optional[ConnectionInterface]:
@@ -486,13 +530,12 @@ class OVAStrategy(ConnectionStrategy):
         if self.config.ssh_host:
             logger.info(f"Using direct SSH connection to {self.config.ssh_host}")
             try:
-                connection = SSHConnection(
+                connection = OVAConnection(
                     connection_id="direct-ova-ssh",
-                    host=self.config.ssh_host,
+                    host_ip=self.config.ssh_host,
                     username=self.config.ssh_username,
                     port=self.config.ssh_port,
-                    key_path=self.config.ssh_key_path,
-                    private_key=self.config.ssh_private_key
+                    password=self.config.ssh_password or "wazuh",
                 )
 
                 connection.connect(
@@ -535,35 +578,41 @@ class OVAStrategy(ConnectionStrategy):
 
             # Step 6: Create SSH connection to OVA through port forwarding
             try:
-                logger.info("Connecting to OVA VM via SSH through port forwarding")
+                logger.info(f"Creating connection to OVA VM at {self.instance_public_ip}:{self.ova_ssh_port}")
 
-                # Create connection to the VM through port forwarding
-                connection = SSHConnection(
-                    connection_id="ova-vm",
-                    host=self.instance_public_ip,
+                logger.info("Attempting connection with password authentication")
+                ova_connection = OVAConnection(
+                    connection_id=f"ova-{self.vm_name}",
+                    host_ip=self.instance_public_ip,
                     username=self.config.vm_username or "wazuh-user",
-                    port=2222,
-                    key_path=self.config.ssh_key_path,
-                    private_key=self.config.ssh_private_key
+                    port=self.ova_ssh_port,
+                    password=self.config.vm_password or "wazuh",
                 )
 
-                # Connect to the OVA VM with retries
-                logger.info("Attempting to connect to OVA VM...")
-                connection.connect(
+                ova_connection.connect(
                     timeout=self.config.ssh_connect_timeout,
                     max_retries=self.config.max_retries,
                     retry_delay=self.config.retry_delay
                 )
 
-                logger.info("Successfully connected to OVA VM")
-                self.connection = connection
-                return connection
+                exit_code, stdout, stderr = ova_connection.execute_command("whoami")
+                if exit_code != 0:
+                    logger.error(f"Failed to execute test command on OVA VM: {stderr}")
+                    return None
+
+                logger.info(f"Successfully connected to OVA VM as user: {stdout.strip()}")
+                self.connection = ova_connection
+                return ova_connection
 
             except Exception as e:
-                logger.error(f"Failed to connect to OVA VM: {str(e)}")
-                return None
-        finally:
+                logger.error(f"Failed to connect to OVA VM via password: {str(e)}")
+                logger.error(f"Trace: {traceback.format_exc()}")
+                raise Exception(f"Failed to connect to OVA VM: {str(e)}")
+
+        except Exception as e:
+            logger.error(f"Error in OVA testing process: {str(e)}")
             self.cleanup()
+            raise Exception(f"OVA testing process failed: {str(e)}")
 
     def cleanup(self) -> None:
         """Clean up resources after testing."""

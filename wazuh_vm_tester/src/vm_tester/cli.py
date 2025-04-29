@@ -73,6 +73,10 @@ def parse_args() -> argparse.Namespace:
         help="Path to the SSH private key"
     )
     ssh_group.add_argument(
+        "--ssh-password",
+        help="Paswword for SSH connection"
+    )
+    ssh_group.add_argument(
         "--ssh-port", type=int, default=22,
         help="SSH port (default: 22)"
     )
@@ -192,6 +196,9 @@ def validate_args(args: argparse.Namespace) -> None:
     # Detect if running in GitHub Actions
     is_github_actions = 'GITHUB_ACTIONS' in os.environ
 
+    if not args.test_type:
+        raise ValueError("--test-type is required")
+
     # Validate test type and connection method combination
     if args.test_type == "ova" and args.ami_id:
         logger.warning("Using AMI-ID with OVA test type. This will only test OVA-specific features on an AMI.")
@@ -201,7 +208,7 @@ def validate_args(args: argparse.Namespace) -> None:
 
     # Validate direct SSH mode arguments
     if args.ssh_host:
-        if not is_github_actions and not args.ssh_key_path and "SSH_PRIVATE_KEY" not in os.environ:
+        if not is_github_actions and not (args.ssh_key_path or args.ssh_password or "SSH_PRIVATE_KEY" in os.environ):
             raise ValueError("SSH key path (--ssh-key-path) is required for direct SSH mode when running locally.")
         elif is_github_actions and not args.ssh_key_path and "SSH_PRIVATE_KEY" not in os.environ:
             logger.debug("No SSH key provided in GitHub Actions. A temporary key will be created automatically.")
@@ -301,6 +308,7 @@ def load_config_from_args(args: argparse.Namespace) -> BaseTesterConfig:
             test_type=test_type,
             ssh_host=args.ssh_host,
             ssh_username=args.ssh_username if hasattr(args, 'ssh_username') else "wazuh-user",
+            ssh_password=args.ssh_password if hasattr(args, 'ssh_password') else "wazuh",
             ssh_key_path=args.ssh_key_path if hasattr(args, 'ssh_key_path') else None,
             ssh_private_key=ssh_private_key,
             ssh_port=args.ssh_port if hasattr(args, 'ssh_port') else 22,
@@ -325,20 +333,20 @@ def run_tests(config: BaseTesterConfig, args: argparse.Namespace) -> int:
 
     debug_mode = args.log_level in ["DEBUG", "TRACE"]
 
-    strategy = StrategyFactory.create_strategy(config)
-    if not strategy:
-        logger.error("Failed to create a valid connection strategy")
-        return 1
-
-    connection = strategy.create_connection()
-    if not connection:
-        logger.error("Failed to establish connection")
-        return 1
-
-    ConnectionRegistry.set_active_connection(connection)
-    logger.info(f"Connection '{connection.id}' set as active for testing")
-
     try:
+        strategy = StrategyFactory.create_strategy(config)
+        if not strategy:
+            logger.error("Failed to create a valid connection strategy")
+            return 1
+
+        connection = strategy.create_connection()
+        if not connection:
+            logger.error("Failed to establish connection")
+            return 1
+
+        ConnectionRegistry.set_active_connection(connection)
+        logger.info(f"Connection '{connection.id}' set as active for testing")
+
         current_dir = Path(__file__).parent.absolute()
         tests_dir = current_dir / "tests"
 
@@ -349,8 +357,9 @@ def run_tests(config: BaseTesterConfig, args: argparse.Namespace) -> int:
         logger.info(f"Using tests path: {tests_dir}")
 
         pytest_args = [str(tests_dir)]
+        test_pattern = args.test_pattern
 
-        if args.test_pattern:
+        if test_pattern:
             if test_pattern == "*":
                 test_pattern = "all"
             else:
@@ -361,9 +370,6 @@ def run_tests(config: BaseTesterConfig, args: argparse.Namespace) -> int:
 
         if test_pattern and (test_pattern != "*" and test_pattern.lower() != "all"):
             pytest_args.extend(["-k", test_pattern])
-
-        print(f"test_patterns {test_patterns}")
-        print(f"test_pattern {test_pattern}")
 
         if debug_mode:
             pytest_args.extend(["-vvv", "--log-cli-level=DEBUG"])

@@ -5,9 +5,10 @@ Tests specific to OVA validation.
 import os
 import pytest
 
-from ..config import BaseTesterConfig, OVATesterConfig
+from ..config import BaseTesterConfig, TestType
 from ..utils.logger import get_logger
 from ..connections.pytest_connector import get_connection
+
 logger = get_logger(__name__)
 
 @pytest.fixture(scope="module")
@@ -23,103 +24,192 @@ def config() -> BaseTesterConfig:
 class TestOVA:
     """Tests specific to OVA validation."""
 
-    def test_1(self, config: BaseTesterConfig):
-        """Test ......"""
+    def test_boot_files(self, config: BaseTesterConfig):
+        """Test the existence of required boot files."""
         connection = get_connection()
 
-        # Check if hardware virtualization is enabled
-        exit_code, stdout, stderr = connection.execute_command(
-            ""
-        )
+        # Files to check
+        files_to_check = [
+            "/boot/grub2/wazuh.png",
+            "/boot/grub2/grub.cfg",
+            "/etc/default/grub"
+        ]
 
-        if exit_code == 0 and stdout.strip():
-            assertion_message = ""
+        existing_files = []
+        missing_files = []
+
+        for file_path in files_to_check:
+            check_result = f"File: {file_path}"
+            exit_code, stdout, _ = connection.execute_command(
+                f"test -f {file_path} && echo 'EXISTS' || echo 'NOT_EXISTS'"
+            )
+
+            if stdout.strip() == "EXISTS":
+                check_result += " exists"
+                existing_files.append(check_result)
+            else:
+                check_result += " does NOT exist"
+                missing_files.append(check_result)
+
+        message = "Boot files check results:\n\n"
+
+        if existing_files:
+            message += "Existing files:\n- " + "\n- ".join(existing_files) + "\n\n"
+
+        if missing_files:
+            message += "Missing files:\n- " + "\n- ".join(missing_files) + "\n\n"
+
+        print("\nTEST_DETAIL_MARKER:" + message)
+
+        if missing_files:
+            assert False, "One or more required boot files do not exist. " + message
         else:
-            assertion_message = ""
+            assert True, "All required boot files exist. " + message
 
-        print("\nTEST_DETAIL_MARKER:" + assertion_message)
-        assert exit_code == 0 and stdout.strip(), assertion_message
-
-    def test_2(self, config: BaseTesterConfig):
-        """Test ......"""
+    def test_fips_enabled(self, config: BaseTesterConfig):
+        """Test that FIPS is correctly enabled."""
         connection = get_connection()
 
-        # Check if hardware virtualization is enabled
-        exit_code, stdout, stderr = connection.execute_command(
-            ""
+        fips_file = "/proc/sys/crypto/fips_enabled"
+        check_result = f"FIPS status file: {fips_file}"
+
+        # Check if the file exists
+        exit_code, stdout, _ = connection.execute_command(
+            f"test -f {fips_file} && echo 'EXISTS' || echo 'NOT_EXISTS'"
         )
 
-        if exit_code == 0 and stdout.strip():
-            assertion_message = ""
+        if stdout.strip() != "EXISTS":
+            message = f"{check_result} does NOT exist"
+            print("\nTEST_DETAIL_MARKER:" + message)
+            assert False, message
+
+        # Check if FIPS is enabled (should contain 1)
+        exit_code, stdout, _ = connection.execute_command(
+            f"cat {fips_file}"
+        )
+
+        fips_enabled = stdout.strip() == "1"
+
+        if fips_enabled:
+            message = "FIPS is enabled"
         else:
-            assertion_message = ""
+            message = "FIPS is NOT enabled"
 
-        print("\nTEST_DETAIL_MARKER:" + assertion_message)
-        assert exit_code == 0 and stdout.strip(), assertion_message
+        print("\nTEST_DETAIL_MARKER:" + message)
+        assert fips_enabled, message
 
-    def test_3(self, config: BaseTesterConfig):
-        """Test ......"""
+    def test_wazuh_banner(self, config: BaseTesterConfig):
+        """Test the existence of the Wazuh banner"""
         connection = get_connection()
 
-        # Check if hardware virtualization is enabled
-        exit_code, stdout, stderr = connection.execute_command(
-            ""
+        banner_path = "/usr/lib/motd.d/40-wazuh-banner"
+        banner_dir = "/usr/lib/motd.d/"
+
+        # Check if the banner exists
+        exit_code, stdout, _ = connection.execute_command(
+            f"test -f {banner_path} && echo 'EXISTS' || echo 'NOT_EXISTS'"
         )
 
-        if exit_code == 0 and stdout.strip():
-            assertion_message = ""
+        banner_exists = stdout.strip() == "EXISTS"
+
+        # Check if it's the only file in the directory
+        exit_code, stdout, _ = connection.execute_command(
+            f"ls -la {banner_dir} | grep -v '^d' | grep -v 'total' | wc -l"
+        )
+
+        file_count = int(stdout.strip())
+
+        is_only_file = file_count == 1
+
+        message = ""
+        if banner_exists:
+            message += f"Wazuh banner exists at {banner_path}\n"
         else:
-            assertion_message = ""
+            message += f"Wazuh banner does NOT exist at {banner_path}\n"
 
-        print("\nTEST_DETAIL_MARKER:" + assertion_message)
-        assert exit_code == 0 and stdout.strip(), assertion_message
+        if is_only_file:
+            message += "It is the only file in the directory"
+        else:
+            message += f"There are {file_count} files in the directory (should be 1)"
 
-    def test_4(self, config: BaseTesterConfig):
-        """Test ......"""
+        print("\nTEST_DETAIL_MARKER:" + message)
+
+        assert banner_exists and is_only_file, message
+
+    def test_residual_files(self, config: BaseTesterConfig):
+        """Test for residual installation files that should be present."""
         connection = get_connection()
 
-        # Check if hardware virtualization is enabled
-        exit_code, stdout, stderr = connection.execute_command(
-            ""
-        )
+        residual_files = [
+            "/etc/systemd/system/wazuh-starter.service",
+            "/usr/local/bin/wazuh-starter.sh",
+            "/etc/systemd/system/wazuh-starter.timer"
+        ]
 
-        if exit_code == 0 and stdout.strip():
-            assertion_message = ""
+        existing_files = []
+        missing_files = []
+
+        for file_path in residual_files:
+            check_result = f"Residual file: {file_path}"
+            exit_code, stdout, _ = connection.execute_command(
+                f"test -e {file_path} && echo 'EXISTS' || echo 'NOT_EXISTS'"
+            )
+
+            if stdout.strip() == "EXISTS":
+                check_result += " exists"
+                existing_files.append(check_result)
+            else:
+                check_result += " does NOT exist"
+                missing_files.append(check_result)
+
+        message = "Residual installation files check results:\n\n"
+
+        if existing_files:
+            message += "Existing files:\n- " + "\n- ".join(existing_files) + "\n\n"
+
+        if missing_files:
+            message += "Missing files:\n- " + "\n- ".join(missing_files) + "\n\n"
+
+        print("\nTEST_DETAIL_MARKER:" + message)
+
+        if missing_files:
+            assert False, "One or more residual installation files do not exist. " + message
         else:
-            assertion_message = ""
+            assert True, "All residual installation files exist. " + message
 
-        print("\nTEST_DETAIL_MARKER:" + assertion_message)
-        assert exit_code == 0 and stdout.strip(), assertion_message
-
-    def test_ova_virtualbox_specific(self, config: BaseTesterConfig):
-        """Test VirtualBox-specific features."""
+    def test_dns_resolution(self, config: BaseTesterConfig):
+        """Test that DNS resolution is working correctly."""
         connection = get_connection()
 
-        # Check for VirtualBox Guest Additions
+        resolv_file = "/etc/resolv.conf"
+        test_domain = "google.com"
+
+        # Check if resolv.conf exists
+        exit_code, stdout, _ = connection.execute_command(
+            f"test -f {resolv_file} && echo 'EXISTS' || echo 'NOT_EXISTS'"
+        )
+
+        resolv_exists = stdout.strip() == "EXISTS"
+
+        # Test DNS resolution
         exit_code, stdout, stderr = connection.execute_command(
-            "lsmod | grep -i vbox"
+            f"ping -c 1 {test_domain}"
         )
 
-        vbox_guest_detected = exit_code == 0 and stdout.strip()
+        dns_works = exit_code == 0
 
-        # Alternative check for VirtualBox Guest Additions
-        exit_code2, stdout2, stderr2 = connection.execute_command(
-            "ls -la /opt/VBoxGuestAdditions* 2>/dev/null || ls -la /usr/lib/virtualbox-guest-* 2>/dev/null"
-        )
-
-        guest_additions_files = exit_code2 == 0 and stdout2.strip()
-
-        # Combine results
-        if vbox_guest_detected or guest_additions_files:
-            assertion_message = "VirtualBox Guest Additions appear to be installed"
-            if vbox_guest_detected:
-                assertion_message += f"\nVirtualBox kernel modules:\n{stdout.strip()}"
-            if guest_additions_files:
-                assertion_message += f"\nVirtualBox Guest Additions files:\n{stdout2.strip()}"
+        message = ""
+        if resolv_exists:
+            message += f"The {resolv_file} file exists\n"
         else:
-            assertion_message = "VirtualBox Guest Additions do not appear to be installed"
-            # This might be acceptable depending on your use case, so we'll just warn
-            pytest.xfail(assertion_message)
+            message += f"The {resolv_file} file does NOT exist\n"
 
-        print("\nTEST_DETAIL_MARKER:" + assertion_message)
-        assert vbox_guest_detected or guest_additions_files, assertion_message
+        if dns_works:
+            message += f"DNS resolution for {test_domain} works"
+        else:
+            message += f"DNS resolution for {test_domain} does NOT work\n"
+            message += f"Error: {stderr}"
+
+        print("\nTEST_DETAIL_MARKER:" + message)
+
+        assert resolv_exists and dns_works, message

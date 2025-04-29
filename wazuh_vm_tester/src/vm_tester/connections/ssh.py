@@ -2,20 +2,26 @@
 SSH connection implementation.
 """
 
+import os
 import re
 import time
-from typing import Optional, Tuple
+import tempfile
+import stat
+import subprocess
+import socket
+import threading
+import shutil
+from io import StringIO
+from typing import Optional, Tuple, Union, Any
 
 import paramiko
 from paramiko.ssh_exception import SSHException
-import socket
 
 from ..utils.logger import get_logger
 from .base import ConnectionInterface
-from ..utils.inventory import digital_clock
+from ..utils.utils import digital_clock
 
 logger = get_logger(__name__)
-
 
 class SSHConnection(ConnectionInterface):
     """Class for SSH connections."""
@@ -28,6 +34,7 @@ class SSHConnection(ConnectionInterface):
         port: int = 22,
         key_path: Optional[str] = None,
         private_key: Optional[str] = None,
+        password: Optional[str] = None,
     ):
         """Initialize SSH connection.
 
@@ -38,6 +45,7 @@ class SSHConnection(ConnectionInterface):
             port: SSH port
             key_path: Path to private key file
             private_key: Private key content
+            password: Password for password-based authentication
         """
         self._id = connection_id
         self._host = host
@@ -45,7 +53,14 @@ class SSHConnection(ConnectionInterface):
         self._port = port
         self._key_path = key_path
         self._private_key = private_key
+        self._password = password
         self._ssh_client = None
+        self._connection_type = None
+        self._temp_dir = None
+
+        # Default timeout values
+        self.default_timeout = 240
+        self.connect_timeout = 30
 
     @property
     def id(self) -> str:
@@ -78,87 +93,164 @@ class SSHConnection(ConnectionInterface):
             Self for method chaining
 
         Raises:
-            ValueError: If neither key_path nor private_key is provided
+            ValueError: If neither key_path nor private_key nor password is provided
             SSHException: If the SSH connection fails after all retries
         """
-        if not self._key_path and not self._private_key:
-            raise ValueError("Either key_path or private_key must be provided for SSH connection")
+        if not self._key_path and not self._private_key and not self._password:
+            raise ValueError("Either key_path, private_key, or password must be provided for SSH connection")
 
         if self._ssh_client is not None:
             return self
 
-        client = paramiko.SSHClient()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-        connect_options = {}
-        if ssh_common_args:
-            # Parse SSH arguments
-            if "-o StrictHostKeyChecking=no" in ssh_common_args:
-                logger.debug("Setting StrictHostKeyChecking=no")
-                connect_options["look_for_keys"] = False
-                connect_options["allow_agent"] = False
-
-            port_match = re.search(r"-p\s+(\d+)", ssh_common_args)
-            if port_match:
-                custom_port = int(port_match.group(1))
-                logger.debug(f"Using custom port from SSH common args: {custom_port}")
-                self._port = custom_port
-
-        pkey = None
-        if self._private_key:
-            pkey = paramiko.RSAKey.from_private_key(self._private_key)
+        # Store timeout for later use
+        self.connect_timeout = timeout
 
         last_exception = None
         attempts = 0
 
-        logger.info(f"Attempting to establish SSH connection to {self._host} (max {max_retries} attempts, timeout {timeout}s per attempt)")
+        logger.info(f"Attempting to establish SSH connection to {self._host}:{self._port} (max {max_retries} attempts, timeout {timeout}s per attempt)")
 
         while attempts < max_retries:
             attempts += 1
-            try:
-                conn_args = {
-                    "hostname": self._host,
-                    "username": self._username,
-                    "port": self._port,
-                    "timeout": timeout,
-                    **connect_options,
-                    **kwargs
-                }
 
-                # Set authentication method
-                if self._key_path:
-                    conn_args["key_filename"] = self._key_path
-                else:
-                    conn_args["pkey"] = pkey
+            # Determine authentication method
+            using_password = self._password is not None
+            using_key = (self._key_path is not None) or (self._private_key is not None)
 
-                logger.info(f"SSH connection attempt {attempts}/{max_retries}...")
-                logger.debug(f"Connection arguments: {conn_args}")
-                client.connect(**conn_args)
-                self._ssh_client = client
-                logger.info(f"SSH connection established to {self._host} on attempt {attempts}")
-                return self
-            except (SSHException, socket.error, ConnectionError, TimeoutError) as e:
-                last_exception = e
-                logger.warning(f"SSH connection attempt {attempts} failed: {str(e)}")
+            logger.info(f"SSH connection attempt {attempts}/{max_retries} (auth: {'password' if using_password else 'key'}, port: {self._port})")
 
-                if attempts < max_retries:
-                    logger.info(f"Waiting {retry_delay} seconds before next attempt...")
-                    digital_clock(retry_delay)
-                else:
-                    logger.error(f"All {max_retries} SSH connection attempts failed")
+            # For KEY-based authentication, use standard Paramiko
+            if using_key and not using_password:
+                try:
+                    logger.info("Using standard Paramiko method with key authentication")
+
+                    client = paramiko.SSHClient()
+                    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+                    connect_options = {
+                        "hostname": self._host,
+                        "port": self._port,
+                        "username": self._username,
+                        "timeout": timeout,
+                        "allow_agent": False,
+                        "look_for_keys": False
+                    }
+
+                    # Add key authentication
+                    if self._key_path:
+                        connect_options["key_filename"] = self._key_path
+                    elif self._private_key:
+                        key = paramiko.RSAKey.from_private_key(self._private_key)
+                        connect_options["pkey"] = key
+
+                    # Parse SSH arguments if provided
+                    if ssh_common_args:
+                        port_match = re.search(r"-p\s+(\d+)", ssh_common_args)
+                        if port_match:
+                            custom_port = int(port_match.group(1))
+                            logger.debug(f"Using custom port from SSH common args: {custom_port}")
+                            connect_options["port"] = custom_port
+
+                    # Add additional kwargs if provided
+                    for key, value in kwargs.items():
+                        connect_options[key] = value
+
+                    # Try standard connection
+                    client.connect(**connect_options)
+
+                    # Mark the client as Paramiko type for future reference
+                    self._connection_type = "paramiko"
+                    self._ssh_client = client
+                    logger.info(f"SSH connection established to {self._host} using standard Paramiko method with key")
+                    return self
+
+                except Exception as e:
+                    logger.debug(f"Standard Paramiko connection with key failed: {str(e)}")
+                    last_exception = e
+
+            # For PASSWORD-based authentication, use SubprocessSSHClient
+            elif using_password:
+                try:
+                    logger.info("Using direct subprocess method with password authentication")
+
+                    # Install sshpass
+                    sshpass_path = shutil.which("sshpass")
+                    if not sshpass_path:
+                        logger.warning("sshpass not installed. Attempting to install it.")
+                        try:
+                            if os.path.exists("/etc/debian_version"):
+                                # Debian/Ubuntu
+                                subprocess.run(["sudo", "apt-get", "update", "-y"], check=True)
+                                subprocess.run(["sudo", "apt-get", "install", "-y", "sshpass"], check=True)
+                            elif os.path.exists("/etc/redhat-release"):
+                                # RHEL/CentOS/Fedora
+                                subprocess.run(["sudo", "yum", "install", "-y", "sshpass"], check=True)
+                            elif os.path.exists("/etc/arch-release"):
+                                # Arch Linux
+                                subprocess.run(["sudo", "pacman", "-S", "--noconfirm", "sshpass"], check=True)
+                            elif os.path.exists("/usr/local/bin/brew"):
+                                # macOS with Homebrew
+                                subprocess.run(["brew", "install", "hudochenkov/sshpass/sshpass"], check=True)
+                            else:
+                                logger.error("Could not detect package manager to install sshpass")
+                                raise SSHException("sshpass not installed and could not be automatically installed")
+
+                            sshpass_path = shutil.which("sshpass")
+                            if not sshpass_path:
+                                raise SSHException("sshpass installation succeeded but command not found in PATH")
+                        except Exception as e:
+                            logger.error(f"Failed to install sshpass: {str(e)}")
+                            raise SSHException(f"Failed to install sshpass: {str(e)}")
+
+                    # Create a Python wrapper
+                    ssh_client = SubprocessSSHClient(
+                        host=self._host,
+                        port=self._port,
+                        username=self._username,
+                        password=self._password,
+                        sshpass_path=sshpass_path,
+                        timeout=timeout
+                    )
+
+                    # Set the client and connection type
+                    self._ssh_client = ssh_client
+                    self._connection_type = "subprocess"
+                    logger.info(f"SSH connection established to {self._host} using subprocess method with password")
+                    return self
+
+                except Exception as e:
+                    last_exception = e
+                    logger.debug(f"Subprocess SSH method failed: {str(e)}")
+
+            # If we got here, the current attempt failed
+            if attempts < max_retries:
+                logger.info(f"Waiting {retry_delay} seconds before next attempt...")
+                digital_clock(retry_delay)
+            else:
+                logger.error(f"All {max_retries} SSH connection attempts failed")
 
         raise SSHException(
             f"Could not establish SSH connection to {self._host} after {max_retries} attempts: {last_exception}"
         )
 
     def execute_command(
-        self, command: str, sudo: bool = True
+        self,
+        command: str,
+        sudo: bool = True,
+        timeout: Optional[int] = None,
+        retry_on_timeout: bool = False,
+        max_retries: int = 3,
+        timeout_multiplier: float = 2.0
     ) -> Tuple[int, str, str]:
-        """Execute a command on the remote host via SSH.
+        """Execute a command on the remote host via SSH with support for long-running commands.
 
         Args:
             command: Command to execute
             sudo: Whether to execute with sudo
+            timeout: Command timeout in seconds (None uses default timeout)
+            retry_on_timeout: Whether to retry if timeout occurs
+            max_retries: Maximum number of retries for timeouts
+            timeout_multiplier: Factor to increase timeout on each retry
 
         Returns:
             Tuple with (exit code, stdout, stderr)
@@ -172,19 +264,352 @@ class SSHConnection(ConnectionInterface):
         if sudo and not command.startswith("sudo "):
             command = f"sudo {command}"
 
-        logger.debug(f"Executing command: {command}")
-        stdin, stdout, stderr = self._ssh_client.exec_command(command)
-        exit_code = stdout.channel.recv_exit_status()
+        # Use the default timeout if none is specified
+        current_timeout = timeout if timeout is not None else self.default_timeout
 
-        return (
-            exit_code,
-            stdout.read().decode("utf-8"),
-            stderr.read().decode("utf-8"),
-        )
+        # Initialize variables for retry logic
+        attempt = 0
+        max_attempts = max_retries + 1 if retry_on_timeout else 1
+        accumulated_stdout = ""
+        accumulated_stderr = ""
+        last_exit_code = None
+
+        logger.debug(f"Executing command: {command}")
+
+        while attempt < max_attempts:
+            attempt += 1
+
+            if attempt > 1:
+                logger.info(f"Retry attempt {attempt-1}/{max_retries} with timeout {current_timeout}s")
+
+            try:
+                # Execute the command
+                stdin, stdout, stderr = self._ssh_client.exec_command(command, timeout=current_timeout)
+
+                # Get exit code
+                exit_code = stdout.channel.recv_exit_status()
+
+                # Read stdout and stderr
+                stdout_str = stdout.read()
+                stderr_str = stderr.read()
+
+                # Ensure strings (not bytes)
+                if isinstance(stdout_str, bytes):
+                    stdout_str = stdout_str.decode('utf-8', errors='replace')
+                elif not isinstance(stdout_str, str):
+                    stdout_str = str(stdout_str)
+
+                if isinstance(stderr_str, bytes):
+                    stderr_str = stderr_str.decode('utf-8', errors='replace')
+                elif not isinstance(stderr_str, str):
+                    stderr_str = str(stderr_str)
+
+                # Accumulate output
+                accumulated_stdout += stdout_str
+                accumulated_stderr += stderr_str
+                last_exit_code = exit_code
+
+                # If not a timeout or we're not retrying on timeouts, return immediately
+                if exit_code != 124 or not retry_on_timeout:
+                    if exit_code == 124:
+                        logger.warning(f"Command timed out after {current_timeout}s: {command}")
+                        accumulated_stderr += f"\nCommand timed out after {current_timeout} seconds."
+                    else:
+                        logger.debug(f"Command completed with exit code {exit_code}")
+
+                    return (exit_code, accumulated_stdout, accumulated_stderr)
+
+                # Handle timeout with retry logic
+                logger.warning(f"Command timed out after {current_timeout}s, will retry with increased timeout")
+                current_timeout = int(current_timeout * timeout_multiplier)
+
+            except Exception as e:
+                logger.error(f"Error executing command: {str(e)}")
+
+                # Accumulate error message
+                accumulated_stderr += f"\nError: {str(e)}"
+
+                # If this was the last attempt, return error state
+                if attempt >= max_attempts:
+                    return (1 if last_exit_code is None else last_exit_code, accumulated_stdout, accumulated_stderr)
+
+                # Otherwise, continue to next retry
+                logger.info(f"Will retry after execution error")
+
+        # If we get here, all attempts ended in timeout
+        logger.error(f"Command failed to complete within allowed time after {max_attempts} attempts")
+        return (124, accumulated_stdout, accumulated_stderr)
 
     def close(self) -> None:
         """Close the SSH connection if open."""
         if self._ssh_client:
-            self._ssh_client.close()
-            self._ssh_client = None
-            logger.info(f"SSH connection closed to {self._host}")
+            try:
+                self._ssh_client.close()
+            except Exception as e:
+                logger.debug(f"Error closing SSH connection: {str(e)}")
+            finally:
+                self._ssh_client = None
+                logger.info(f"SSH connection closed to {self._host}")
+
+        # Clean up temporary directory if exists
+        if hasattr(self, '_temp_dir') and self._temp_dir:
+            try:
+                shutil.rmtree(self._temp_dir)
+                logger.debug("Removed temporary directory")
+            except Exception as e:
+                logger.debug(f"Error removing temporary directory: {str(e)}")
+
+
+class SubprocessSSHClient:
+    """SSH client implementation using subprocess for enhanced timeout handling."""
+
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        username: str,
+        password: str,
+        sshpass_path: str,
+        timeout: int = 30
+    ):
+        """Initialize the subprocess-based SSH client.
+
+        Args:
+            host: Remote host to connect to
+            port: SSH port
+            username: SSH username
+            password: SSH password
+            sshpass_path: Path to sshpass executable
+            timeout: Default timeout in seconds
+        """
+        self.host = host
+        self.port = port
+        self.username = username
+        self.password = password
+        self.sshpass_path = sshpass_path
+        self.timeout = timeout
+
+        # Test the connection to ensure it works
+        self._test_connection()
+
+    def _test_connection(self):
+        """Test the SSH connection with a simple command."""
+        try:
+            stdin, stdout, stderr = self.exec_command("whoami")
+            exit_code = stdout.channel.recv_exit_status()
+
+            if exit_code != 0:
+                error_msg = stderr.read()
+                raise SSHException(f"SSH test connection failed with exit code {exit_code}: {error_msg}")
+
+            username = stdout.read().strip()
+            logger.info(f"SSH connection test successful, connected as: {username}")
+
+        except Exception as e:
+            logger.error(f"SSH connection test failed: {str(e)}")
+            raise
+
+    def exec_command(self, command, get_pty=False, timeout=None):
+        """Execute a command remotely and return file-like objects for stdin, stdout, stderr
+
+        Args:
+            command: The command to execute
+            get_pty: Whether to request a PTY (ignored in this implementation)
+            timeout: Command timeout in seconds (if None, uses the default timeout)
+
+        Returns:
+            Tuple of (stdin, stdout, stderr) file-like objects
+        """
+        # Use the provided timeout or default
+        cmd_timeout = timeout if timeout is not None else self.timeout
+
+        # Prepare command arguments as a list (safer than shell=True)
+        cmd_args = [
+            self.sshpass_path, "-p", self.password,
+            "ssh",
+            "-p", str(self.port),
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "UserKnownHostsFile=/dev/null",
+            f"{self.username}@{self.host}",
+            command
+        ]
+
+        # Variables to capture output
+        stdout_data = []
+        stderr_data = []
+        exit_code = None
+        exit_code_lock = threading.Lock()
+        process = None
+        process_lock = threading.Lock()
+
+        # Flag to indicate if we're still collecting output
+        collection_active = True
+
+        # Thread to read stdout
+        def read_stdout():
+            nonlocal process
+            if process is None:
+                return
+
+            while collection_active:
+                line = process.stdout.readline()
+                if not line and process.poll() is not None:
+                    break
+                if line:
+                    stdout_data.append(line)
+
+        # Thread to read stderr
+        def read_stderr():
+            nonlocal process
+            if process is None:
+                return
+
+            while collection_active:
+                line = process.stderr.readline()
+                if not line and process.poll() is not None:
+                    break
+                if line:
+                    stderr_data.append(line)
+
+        # Thread to monitor the process exit code
+        def monitor_process():
+            nonlocal process, exit_code, collection_active
+            if process is None:
+                return
+
+            # Wait for the process to complete
+            proc_exit_code = process.wait()
+
+            # Store the exit code safely
+            with exit_code_lock:
+                exit_code = proc_exit_code
+
+            # Signal the reader threads that process has ended
+            collection_active = False
+
+        # Thread to handle timeout
+        def handle_timeout():
+            nonlocal process, exit_code, collection_active
+
+            # Wait for the specified timeout
+            start_time = time.time()
+            remaining_time = cmd_timeout
+
+            while remaining_time > 0:
+                # Check if process has already completed
+                with exit_code_lock:
+                    if exit_code is not None:
+                        return  # Process completed, no need to enforce timeout
+
+                # Sleep in short intervals to be responsive
+                sleep_time = min(0.5, remaining_time)
+                time.sleep(sleep_time)
+
+                # Recalculate remaining time
+                elapsed = time.time() - start_time
+                remaining_time = cmd_timeout - elapsed
+
+            # If we get here, the timeout has expired
+            # First try a graceful termination by sending SIGTERM
+            with process_lock:
+                if process is not None and process.poll() is None:
+                    logger.warning(f"Command timed out after {cmd_timeout} seconds, sending SIGTERM: {command}")
+                    try:
+                        process.terminate()
+
+                        # Wait a moment for graceful termination
+                        for _ in range(10):  # 1 second total
+                            if process.poll() is not None:
+                                break
+                            time.sleep(0.1)
+
+                        # If still running, force kill
+                        if process.poll() is None:
+                            logger.warning(f"Command didn't respond to SIGTERM, sending SIGKILL")
+                            process.kill()
+                    except Exception as e:
+                        logger.error(f"Error terminating command: {str(e)}")
+
+                    # Set exit code for timeout
+                    with exit_code_lock:
+                        exit_code = 124  # Timeout exit code
+
+                    # Signal the reader threads that process has ended
+                    collection_active = False
+
+        try:
+            # Start the process
+            process = subprocess.Popen(
+                cmd_args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.PIPE,
+                text=True,
+                bufsize=1,  # Use line buffering for better real-time output
+                universal_newlines=True
+            )
+
+            # Start all monitoring and reader threads
+            stdout_thread = threading.Thread(target=read_stdout)
+            stderr_thread = threading.Thread(target=read_stderr)
+            monitor_thread = threading.Thread(target=monitor_process)
+            timeout_thread = threading.Thread(target=handle_timeout)
+
+            stdout_thread.daemon = True
+            stderr_thread.daemon = True
+            monitor_thread.daemon = True
+            timeout_thread.daemon = True
+
+            stdout_thread.start()
+            stderr_thread.start()
+            monitor_thread.start()
+            timeout_thread.start()
+
+            # Wait for process to complete or timeout to occur
+            # We'll join the monitor thread which will exit when the process is done
+            monitor_thread.join(cmd_timeout + 5)  # Give extra time for cleanup
+
+            # Ensure we have a valid exit code
+            with exit_code_lock:
+                final_exit_code = 255 if exit_code is None else exit_code
+
+            # Set collection_active to False to terminate reader threads
+            collection_active = False
+
+            # Wait for reader threads to finish with a short timeout
+            stdout_thread.join(1)
+            stderr_thread.join(1)
+
+            # Create the return value file-like objects
+            stdin_file = StringIO()
+            stdout_file = StringIO("".join(stdout_data))
+            stderr_file = StringIO("".join(stderr_data))
+
+            # Create a channel-like object for compatibility
+            class DummyChannel:
+                def __init__(self, exit_code):
+                    self.exit_code = exit_code
+                def recv_exit_status(self):
+                    return self.exit_code
+
+            stdout_file.channel = DummyChannel(final_exit_code)
+
+            return stdin_file, stdout_file, stderr_file
+
+        except Exception as e:
+            logger.error(f"Error executing command: {str(e)}")
+
+            # Return dummy objects with error state
+            stdin_file = StringIO()
+            stdout_file = StringIO("")
+            stderr_file = StringIO(str(e))
+
+            class DummyChannel:
+                def __init__(self, exit_code):
+                    self.exit_code = exit_code
+                def recv_exit_status(self):
+                    return self.exit_code
+
+            stdout_file.channel = DummyChannel(1)
+
+            return stdin_file, stdout_file, stderr_file
