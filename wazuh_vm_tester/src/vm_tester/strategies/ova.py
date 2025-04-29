@@ -116,13 +116,11 @@ class OVAStrategy(ConnectionStrategy):
 
                 subprocess.run(cmd, shell=True, check=True)
 
-            # Install requirements
             logger.info("Installing requirements")
             requirements_path = os.path.join(wazuh_automation_path, "deployability/deps/requirements.txt")
             if os.path.exists(requirements_path):
                 subprocess.run(f"pip3 install -r {requirements_path}", shell=True, check=True)
             else:
-                # Install minimal required packages
                 subprocess.run("pip3 install boto3 pyyaml ansible", shell=True, check=True)
 
             # Set up paths for allocator outputs

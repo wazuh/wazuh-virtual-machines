@@ -28,7 +28,7 @@ class TestOVA:
         """Test the existence of required boot files."""
         connection = get_connection()
 
-        # Files to check
+
         files_to_check = [
             "/boot/grub2/wazuh.png",
             "/boot/grub2/grub.cfg",
@@ -73,7 +73,7 @@ class TestOVA:
         fips_file = "/proc/sys/crypto/fips_enabled"
         check_result = f"FIPS status file: {fips_file}"
 
-        # Check if the file exists
+
         exit_code, stdout, _ = connection.execute_command(
             f"test -f {fips_file} && echo 'EXISTS' || echo 'NOT_EXISTS'"
         )
@@ -83,7 +83,7 @@ class TestOVA:
             print("\nTEST_DETAIL_MARKER:" + message)
             assert False, message
 
-        # Check if FIPS is enabled (should contain 1)
+
         exit_code, stdout, _ = connection.execute_command(
             f"cat {fips_file}"
         )
@@ -105,14 +105,14 @@ class TestOVA:
         banner_path = "/usr/lib/motd.d/40-wazuh-banner"
         banner_dir = "/usr/lib/motd.d/"
 
-        # Check if the banner exists
+
         exit_code, stdout, _ = connection.execute_command(
             f"test -f {banner_path} && echo 'EXISTS' || echo 'NOT_EXISTS'"
         )
 
         banner_exists = stdout.strip() == "EXISTS"
 
-        # Check if it's the only file in the directory
+
         exit_code, stdout, _ = connection.execute_command(
             f"ls -la {banner_dir} | grep -v '^d' | grep -v 'total' | wc -l"
         )
@@ -184,14 +184,14 @@ class TestOVA:
         resolv_file = "/etc/resolv.conf"
         test_domain = "google.com"
 
-        # Check if resolv.conf exists
+
         exit_code, stdout, _ = connection.execute_command(
             f"test -f {resolv_file} && echo 'EXISTS' || echo 'NOT_EXISTS'"
         )
 
         resolv_exists = stdout.strip() == "EXISTS"
 
-        # Test DNS resolution
+
         exit_code, stdout, stderr = connection.execute_command(
             f"ping -c 1 {test_domain}"
         )

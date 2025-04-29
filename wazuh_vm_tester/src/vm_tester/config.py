@@ -12,8 +12,6 @@ class TestType(str, Enum):
     """Enum representing the types of tests that can be run."""
     AMI = "ami"
     OVA = "ova"
-    #KUBERNETES = "kubernetes"
-    #PUPPET = "puppet"
 
 class EndpointConfig(BaseModel):
     """Configuration for API/health endpoints."""
@@ -79,8 +77,6 @@ class BaseTesterConfig(BaseModel):
         default_factory=lambda: {
             TestType.AMI: ["test_certificates", "test_connectivity", "test_services", "test_logs", "test_version"],
             TestType.OVA: ["test_certificates", "test_connectivity", "test_services", "test_logs", "test_version", "test_ova"],
-            #TestType.KUBERNETES: ["*", "test_kubernetes*"],
-            #TestType.PUPPET: ["*", "test_puppet*"],
         }
     )
 
