@@ -360,15 +360,15 @@ def run_tests(config: BaseTesterConfig, args: argparse.Namespace) -> int:
         test_pattern = args.test_pattern
 
         if test_pattern:
-            if test_pattern == "*":
-                test_pattern = "all"
+            if test_pattern == "*" or test_pattern.lower() == "all":
+                test_patterns = config.test_patterns.get(config.test_type, ["all"])
             else:
                 test_pattern = args.test_pattern
         else:
             test_patterns = config.test_patterns.get(config.test_type, ["all"])
             test_pattern = " or ".join(test_patterns)
 
-        if test_pattern and (test_pattern != "*" and test_pattern.lower() != "all"):
+        if args.test_pattern and (test_pattern != "*" and test_pattern.lower() != "all"):
             pytest_args.extend(["-k", test_pattern])
 
         if debug_mode:

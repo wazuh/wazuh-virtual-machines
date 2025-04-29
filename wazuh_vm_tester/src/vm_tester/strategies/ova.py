@@ -108,7 +108,13 @@ class OVAStrategy(ConnectionStrategy):
             if not os.path.exists(wazuh_automation_path):
                 logger.info(f"Cloning wazuh-automation repository")
                 token = os.environ.get('WAZUH_AUTOMATION_TOKEN')
-                subprocess.run(f"git clone https://wazuh:{token}@github.com/wazuh/wazuh-automation.git", shell=True, check=True)
+                cmd = ""
+                if token:
+                    cmd = f"git clone https://wazuh:{token}@github.com/wazuh/wazuh-automation.git"
+                else:
+                    cmd = f"git clone https://github.com/wazuh/wazuh-automation.git"
+
+                subprocess.run(cmd, shell=True, check=True)
 
             # Install requirements
             logger.info("Installing requirements")
@@ -224,7 +230,16 @@ class OVAStrategy(ConnectionStrategy):
 
             # Clone the repository directly on the remote machine
             logger.info("Cloning wazuh-virtual-machines repository")
-            self.allocator_connection.execute_command("rm -rf /tmp/wazuh-virtual-machines && git clone https://github.com/wazuh/wazuh-virtual-machines.git /tmp/wazuh-virtual-machines && cd /tmp/wazuh-virtual-machines && git checkout enhancement/181-ova-tests")
+            token = os.environ.get('WAZUH_AUTOMATION_TOKEN')
+            cmd = ""
+            if token:
+                cmd = f"git clone https://wazuh:{token}@github.com/wazuh/wazuh-virtual-machines.git"
+            else:
+                cmd = f"git clone https://github.com/wazuh/wazuh-virtual-machines.git"
+
+            subprocess.run(cmd, shell=True, check=True)
+
+            self.allocator_connection.execute_command(f"rm -rf /tmp/wazuh-virtual-machines && {cmd} /tmp/wazuh-virtual-machines && cd /tmp/wazuh-virtual-machines && git checkout enhancement/181-ova-tests")
 
             # Install required Python dependencies and run the dependencies installer script
             logger.info("Installing module dependencies...")
@@ -297,7 +312,7 @@ class OVAStrategy(ConnectionStrategy):
             success = run_with_progress(
                 download_s3_file,
                 args=(bucket_name, key, local_ova_path),
-                duration_seconds=180,
+                duration_seconds=30,
                 operation_name="S3 Download"
             )
 
@@ -329,7 +344,7 @@ class OVAStrategy(ConnectionStrategy):
             success = run_with_progress(
                 run_scp_command,
                 args=(scp_cmd,),
-                duration_seconds=540,
+                duration_seconds=60,
                 operation_name="SCP Transfer"
             )
 
