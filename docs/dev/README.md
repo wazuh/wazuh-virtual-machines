@@ -8,10 +8,10 @@ The guide is organized into the following sections:
 
 - **Clean Code Philosophy**: Guide for maintaining clean code in both the AMI and OVA projects using formatters and linters. ([clean-code.md](clean-code.md))
 
-- **AMI Development**  
-  - **Generate Artifact**: Step-by-step guide for generating the AMI image in AWS. ([ami-generate-artifact.md](ami/ami-generate-artifact.md))
-  - **Run Tests**: Procedure for executing tests to validate the AMI. ([ami-run-tests.md](ami/ami-run-tests.md))
+- **Generate Artifact**: Step-by-step guide for generating the AMI and OVA artifacts. ([generate-artifact.md](generate-artifact/generate-artifact.md))
+  - **AMI Artifact**: Step-by-step guide for generating the AMI image in AWS. ([ami-generate-artifact.md](generate-artifact/ami/ami-generate-artifact.md))
+  - **OVA Artifact**: Step-by-step guide for generating the `.ova` image. ([ova-generate-artifact.md](generate-artifact/ova/ova-generate-artifact.md))
 
-- **OVA Development**  
-  - **Generate Artifact**: Step-by-step guide for generating the `.ova` image. ([ova-generate-artifact.md](ova/ova-generate-artifact.md))
-  - **Run Tests**: Procedure for executing tests to validate the OVA. ([ova-run-tests.md](ova/ova-run-tests.md))
+- **Run Tests**: Procedure for executing tests to validate the AMI and OVA artifacts. ([run-tests.md](run-tests/run-tests.md))
+  - **AMI Tests**: Procedure for executing tests to validate the AMI. ([ami-run-tests.md](run-tests/ami/ami-run-tests.md))
+  - **OVA Tests**: Procedure for executing tests to validate the OVA. ([ova-run-tests.md](run-tests/ova/ova-run-tests.md))

@@ -6,3 +6,4 @@ pycache/
 .vscode/
 *__pycache__/
 *.egg-info
+docs/book/
