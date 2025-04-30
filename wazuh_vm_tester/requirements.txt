@@ -2,7 +2,7 @@
 #wazuh-vm-tester==0.1.0
 
 boto3>=1.28.0
-paramiko>=3.0.0
+paramiko>=3.4.1
 pydantic>=2.0.0
 PyYAML>=6.0
 pytest>=7.0.0

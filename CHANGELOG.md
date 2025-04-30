@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Added OVA test to VM framework test module ([#276](https://github.com/wazuh/wazuh-virtual-machines/pull/276))
 - Add OVA documentation ([#275](https://github.com/wazuh/wazuh-virtual-machines/pull/275))
 - Add AMI and global modules ref documentation ([#272](https://github.com/wazuh/wazuh-virtual-machines/pull/272))
 - Add AMI ref documentation ([#269](https://github.com/wazuh/wazuh-virtual-machines/pull/269))

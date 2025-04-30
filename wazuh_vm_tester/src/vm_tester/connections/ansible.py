@@ -6,7 +6,7 @@ import os
 from typing import Optional, Tuple
 
 from ..utils.logger import get_logger
-from ..utils.inventory import get_host_connection_info
+from ..utils.utils import get_host_connection_info
 from .base import ConnectionInterface
 from .ssh import SSHConnection
 

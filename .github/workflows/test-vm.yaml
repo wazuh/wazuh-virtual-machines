@@ -1,5 +1,5 @@
-run-name: Wazuh AMI Test - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
-name: Wazuh AMI Test
+run-name: Wazuh VM Test - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
+name: Wazuh VM Test
 
 on:
   workflow_dispatch:
@@ -9,14 +9,15 @@ on:
         required: true
         default: 'master'
       test_type:
-        description: 'Test type (ami)'
+        description: 'Test type'
         required: true
         default: 'ami'
         type: choice
         options:
           - ami
+          - ova
       host:
-        description: 'AMI ID to create ami or host for direct ssh connection'
+        description: 'AMI ID to create ami or OVA path'
         required: false
         type: string
       WAZUH_SERVER_VERSION_REVISION:
@@ -43,6 +44,7 @@ on:
           - LOGS
           - SERVICE
           - VERSION
+          - OVA
       log_level:
         description: 'Log level'
         required: false
@@ -58,6 +60,7 @@ env:
   WAZUH_SERVER_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_SERVER_VERSION_REVISION }}
   WAZUH_INDEXER_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_INDEXER_VERSION_REVISION }}
   WAZUH_DASHBOARD_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_DASHBOARD_VERSION_REVISION }}
+  WAZUH_AUTOMATION_TOKEN: ${{ secrets.GH_CLONE_TOKEN }}
 
 permissions:
   id-token: write
@@ -83,6 +86,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          apt-get update && apt-get install -y git
           python -m pip install --upgrade pip
           pip install -r wazuh_vm_tester/requirements.txt
           pip install -e wazuh_vm_tester/
@@ -109,7 +113,31 @@ jobs:
 
           # Run the tests using the dynamically found path
           $WAZUH_VM_TEST_PATH \
+            --test-type ${{ github.event.inputs.test_type }} \
             --ami-id ${{ github.event.inputs.host }} \
+            --test-pattern "${{ github.event.inputs.TESTS }}" \
+            --log-level ${{ github.event.inputs.log_level || 'INFO' }} \
+            --output github \
+            --output-file test-results.github
+
+      - name: Run tests with OVA mode
+        if: ${{ github.event.inputs.test_type == 'ova' }}
+        run: |
+          # Find the executable dynamically and store its path in a variable
+          WAZUH_VM_TEST_PATH=$(find /opt/hostedtoolcache/Python -name "wazuh-vm-test" | head -n 1)
+
+          # Exit if executable not found
+          if [ -z "$WAZUH_VM_TEST_PATH" ]; then
+            echo "Error: wazuh-vm-test executable not found"
+            exit 1
+          fi
+
+          echo "Found executable at: $WAZUH_VM_TEST_PATH"
+
+          # Run the tests using the dynamically found path
+          $WAZUH_VM_TEST_PATH \
+            --test-type ${{ github.event.inputs.test_type }} \
+            --ova-s3-path ${{ github.event.inputs.host }} \
             --test-pattern "${{ github.event.inputs.TESTS }}" \
             --log-level ${{ github.event.inputs.log_level || 'INFO' }} \
             --output github \
@@ -140,14 +168,9 @@ jobs:
       - name: Create GitHub Summary
         if: always()
         run: |
-          if [ -f test-results.github ]; then
-            # Extract multiline summary from the test results
-            awk '/summary<<EOF/{flag=1;next}/EOF/{flag=0}flag' test-results.github > summary.md
-            cat summary.md >> $GITHUB_STEP_SUMMARY
-          else
-            echo "## Test Execution Failed" >> $GITHUB_STEP_SUMMARY
-            echo "No test results were generated. Please check the workflow logs." >> $GITHUB_STEP_SUMMARY
-          fi
+          # Extract multiline summary from the test results
+          awk '/summary<<EOF/{flag=1;next}/EOF/{flag=0}flag' test-results.github > summary.md
+          cat summary.md >> $GITHUB_STEP_SUMMARY
 
       - name: Set job status
         if: always()

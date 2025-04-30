@@ -286,3 +286,67 @@ class TestCertificates:
             assert False, "One or more certificate issuers do not match expected patterns. " + message
         else:
             assert True, "All certificate issuers match expected patterns. " + message
+
+    def test_certificate_permissions(self, config: AMITesterConfig):
+        """Test certificate permissions match expected values."""
+        connection = get_connection()
+
+        matching_permissions = []
+        mismatched_permissions = []
+        skipped_certificates = []
+        message = ""
+
+        for cert_config in config.certificates:
+            if not cert_config.permissions:
+                skipped_certificates.append(f"Certificate: {cert_config.path} - no permissions specified")
+                continue
+
+            cert_path = cert_config.path
+            permissions = cert_config.permissions
+
+            base_check_result = f"Certificate: {cert_path} (expected permissions: {permissions})"
+
+            exit_code, stdout, _ = connection.execute_command(
+                f"[ -f {cert_path} ] && echo 'EXISTS' || echo 'NOT_EXISTS'"
+            )
+
+            if stdout.strip() != "EXISTS":
+                skiped_result = base_check_result + " - certificate file not found"
+                skipped_certificates.append(skiped_result)
+                continue
+
+            exit_code, stdout, _ = connection.execute_command(
+                f"stat -c '%a' {cert_path}"
+            )
+
+            actual_permissions = stdout.strip()
+            check_result = base_check_result + f" - actual permissions: {actual_permissions}"
+
+            if actual_permissions == str(permissions):
+                check_result += " - MATCH"
+                matching_permissions.append(check_result)
+            else:
+                check_result += " - NO MATCH"
+                mismatched_permissions.append(check_result)
+
+        if matching_permissions or mismatched_permissions or skipped_certificates:
+            message = "Certificate permissions check results:\n\n"
+
+        if matching_permissions:
+            message += "Matching permissions:\n- " + "\n- ".join(matching_permissions) + "\n\n"
+
+        if mismatched_permissions:
+            message += "Mismatched permissions:\n- " + "\n- ".join(mismatched_permissions) + "\n\n"
+
+        if skipped_certificates:
+            message += "Skipped certificates:\n- " + "\n- ".join(skipped_certificates) + "\n\n"
+
+        print("\nTEST_DETAIL_MARKER:" + message)
+
+        if skipped_certificates and not mismatched_permissions:
+            pytest.skip("Some certificates were skipped. " + message)
+
+        if mismatched_permissions:
+            assert False, "One or more certificate permissions do not match expected values. " + message
+        else:
+            assert True, "All certificate permissions match expected values. " + message

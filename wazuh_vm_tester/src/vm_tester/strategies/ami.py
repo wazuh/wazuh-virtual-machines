@@ -13,7 +13,7 @@ from ..connections.base import ConnectionInterface
 from ..connections.ssh import SSHConnection
 from ..aws.ec2 import EC2Client
 from ..aws.credentials import AWSRole
-from ..utils.inventory import digital_clock
+from ..utils.utils import digital_clock
 from .base import ConnectionStrategy
 
 logger = get_logger(__name__)

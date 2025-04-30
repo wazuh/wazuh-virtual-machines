@@ -4,22 +4,22 @@ Factory for creating appropriate connection strategies.
 
 from typing import Optional
 
-from ..config import AMITesterConfig
+from ..config import BaseTesterConfig, AMITesterConfig, OVATesterConfig
 from ..utils.logger import get_logger
 from .base import ConnectionStrategy
 from .local import LocalStrategy
 from .ssh import SSHStrategy
 from .ansible import AnsibleStrategy
 from .ami import AMIStrategy
+from .ova import OVAStrategy
 
 logger = get_logger(__name__)
-
 
 class StrategyFactory:
     """Factory for creating connection strategies."""
 
     @staticmethod
-    def create_strategy(config: AMITesterConfig) -> Optional[ConnectionStrategy]:
+    def create_strategy(config: BaseTesterConfig) -> Optional[ConnectionStrategy]:
         """Create the appropriate strategy based on configuration.
 
         Args:
@@ -32,7 +32,13 @@ class StrategyFactory:
             logger.info("Using local strategy")
             return LocalStrategy(config)
 
-        if config.ami_id:
+        # Check if this is an OVA test configuration
+        if isinstance(config, OVATesterConfig) and hasattr(config, 'ova_s3_path'):
+            logger.info(f"Using OVA strategy for OVA at {config.ova_s3_path}")
+            return OVAStrategy(config)
+
+        # Check if this is an AMI test configuration
+        if isinstance(config, AMITesterConfig) and hasattr(config, 'ami_id') and config.ami_id:
             logger.info(f"Using AMI strategy for AMI {config.ami_id}")
             return AMIStrategy(config)
 

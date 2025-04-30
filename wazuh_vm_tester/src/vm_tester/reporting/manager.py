@@ -20,7 +20,7 @@ logger = get_logger(__name__)
 class ReportManager:
     """Manager for handling test results and generating reports."""
 
-    def __init__(self, debug_mode=False):
+    def __init__(self, debug_mode=False, test_type=None):
         """Initialize the report manager.
 
         Args:
@@ -28,6 +28,7 @@ class ReportManager:
         """
         self.results = []
         self.debug_mode = debug_mode
+        self.test_type = test_type
         self.formatters = {
             "json": JSONFormatter(debug_mode=debug_mode),
             "markdown": MarkdownFormatter(debug_mode=debug_mode),
@@ -119,7 +120,7 @@ class ReportManager:
         Returns:
             Test summary
         """
-        return TestSummary(self.results)
+        return TestSummary(self.results, test_type=self.test_type)
 
     def generate_report(self, format_type: str = "console") -> str:
         """Generate a report in the specified format.

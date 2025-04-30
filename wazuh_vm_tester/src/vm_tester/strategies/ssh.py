@@ -90,8 +90,9 @@ class SSHStrategy(ConnectionStrategy):
         logger.info(f"Creating SSH connection to {self.config.ssh_host}")
 
         key_path = self.config.ssh_key_path
+        password = self.config.ssh_password
 
-        if not key_path and not self.config.ssh_private_key:
+        if not key_path and not password and not self.config.ssh_private_key:
             logger.info("No key provided, creating a new temporary key pair for this connection")
             success, temp_key_path = self._create_and_associate_temp_key(
                 host_ip=self.config.ssh_host,
@@ -109,6 +110,7 @@ class SSHStrategy(ConnectionStrategy):
                 connection_id="direct-ssh",
                 host=self.config.ssh_host,
                 username=self.config.ssh_username,
+                password=self.config.ssh_password,
                 port=self.config.ssh_port,
                 key_path=key_path,
                 private_key=self.config.ssh_private_key

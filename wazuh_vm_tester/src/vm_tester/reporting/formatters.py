@@ -155,8 +155,10 @@ class MarkdownFormatter(ReportFormatter):
         """
         status_emoji = self._get_status_emoji(summary.status)
 
+        test_type_str = f" for {summary.test_type.upper()}" if summary.test_type else ""
+
         markdown = f"# Wazuh VM Test Results\n\n"
-        markdown += f"## Summary\n\n"
+        markdown += f"## Summary {test_type_str}\n\n"
         markdown += f"**Status**: {summary.status.value} {status_emoji}\n\n"
         markdown += f"| Metric | Count |\n"
         markdown += f"|--------|-------|\n"
@@ -293,7 +295,8 @@ class GithubActionsFormatter(ReportFormatter):
         markdown = MarkdownFormatter(debug_mode=self.debug_mode).format_report(summary)
 
         # GitHub Actions format
-        short_summary = f"Tests Summary: {summary.status.value} - Total: {summary.total}, Passed: {summary.passed}, Failed: {summary.failed}, Skipped: {summary.skipped}"
+        test_type_str = f" ({summary.test_type})" if summary.test_type else ""
+        short_summary = f"Tests Summary {test_type_str}: {summary.status.value} - Total: {summary.total}, Passed: {summary.passed}, Failed: {summary.failed}, Skipped: {summary.skipped}"
 
         github_data = (
             f"test_status={summary.status.value}\n"
@@ -302,6 +305,7 @@ class GithubActionsFormatter(ReportFormatter):
             f"failed_tests={summary.failed}\n"
             f"warning_tests={summary.warnings}\n"
             f"skipped_tests={summary.skipped}\n"
+            f"test_type={summary.test_type or 'not-specified'}\n"
             f"short_summary={short_summary}\n"
             f"summary<<EOF\n{markdown}\nEOF\n"
         )
@@ -360,7 +364,8 @@ class ConsoleFormatter(ReportFormatter):
         output = []
 
         output.append("\n" + "=" * 80)
-        output.append(f"{self._get_color('BOLD')}Wazuh VM Test Summary{self._get_color('RESET')}")
+        test_type_str = f" - {summary.test_type.upper()}" if summary.test_type else ""
+        output.append(f"{self._get_color('BOLD')}Wazuh VM Test Summary{test_type_str}{self._get_color('RESET')}")
         output.append("=" * 80)
 
         # Print status by color

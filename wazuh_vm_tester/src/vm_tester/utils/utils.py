@@ -4,8 +4,11 @@ Utility module for working with Ansible inventory files.
 
 import logging
 import os
+import subprocess
+import threading
 from typing import Dict, List, Optional
 
+import boto3
 import yaml
 
 logger = logging.getLogger(__name__)
@@ -121,6 +124,11 @@ def simple_progress_bar(total_seconds):
     print()
 
 def digital_clock(total_seconds):
+    """Display a digital clock progress bar.
+
+    Args:
+        total_seconds (int): Total estimated seconds for the operation
+    """
     start_time = time.time()
     for remaining in range(total_seconds, -1, -1):
         elapsed = time.time() - start_time
@@ -163,3 +171,163 @@ def tqdm_progress(total_seconds):
             time.sleep(1)
     except ImportError:
         simple_progress_bar(total_seconds)
+
+def show_progress(duration_seconds, operation_name, is_completed_func):
+    """
+   Displays a progress bar and updates based on the status of the operation.
+
+    Args:
+        duration_seconds: Estimated duration in seconds
+        operation_name: Name of the operation to display
+        is_completed_func: Function that returns True when the operation is complete
+
+    Returns:
+        The elapsed time in seconds
+    """
+    start_time = time.time()
+    for remaining in range(duration_seconds, -1, -1):
+        if is_completed_func():
+            elapsed = time.time() - start_time
+            elapsed_formatted = time.strftime("%M:%S", time.gmtime(elapsed))
+            percent = 100.0
+            bar_length = 50
+            bar = '█' * bar_length
+
+            sys.stdout.write(f'\r[{bar}] {percent:.1f}% | {operation_name} completed in {elapsed_formatted}')
+            sys.stdout.flush()
+            print()
+            return elapsed
+
+        elapsed = time.time() - start_time
+        percent = ((duration_seconds - remaining) / duration_seconds) * 100
+        elapsed_formatted = time.strftime("%M:%S", time.gmtime(elapsed))
+        remaining_formatted = time.strftime("%M:%S", time.gmtime(remaining))
+        progress = (duration_seconds - remaining) / duration_seconds
+        bar_length = 50
+        filled_length = int(bar_length * progress)
+        bar = '█' * filled_length + '░' * (bar_length - filled_length)
+
+        sys.stdout.write(f'\r[{bar}] {percent:.1f}% | {operation_name} | Elapsed: {elapsed_formatted} | Remaining: {remaining_formatted}')
+        sys.stdout.flush()
+
+        time.sleep(1)
+
+    return time.time() - start_time
+
+def wait_for_completion(operation_name, is_completed_func):
+    """
+    Waits for an operation to complete, displaying a spinner.
+
+    Args:
+        operation_name: Name of the operation
+        is_completed_func: Function that returns True when the operation is complete
+
+    Returns:
+        The additional time elapsed in seconds
+    """
+    print(f"\n{operation_name} is taking longer than expected, please wait...")
+
+    start_time = time.time()
+    spinner = ['|', '/', '-', '\\']
+    i = 0
+    while not is_completed_func():
+        sys.stdout.write(f'\rWaiting for completion... {spinner[i % len(spinner)]}')
+        sys.stdout.flush()
+        time.sleep(0.5)
+        i += 1
+
+    print(f"\n{operation_name} completed")
+    return time.time() - start_time
+
+def run_with_progress(func, args=(), kwargs={}, duration_seconds=360, operation_name="Operation"):
+    """
+    Executes a function in a separate thread while displaying a progress bar.
+    If the function completes before the estimated time, the progress bar stops.
+    If the function takes longer, it waits for it to complete.
+
+    Args:
+        func: The function to execute
+        args: Positional arguments for the function
+        kwargs: Named arguments for the function
+        duration_seconds: Estimated duration in seconds for the progress bar
+        operation_name: Name of the operation for logging
+
+    Returns:
+        The result of the function
+    """
+    thread_completed = False
+    thread_result = [None]
+    thread_exception = [None]
+
+    def thread_wrapper():
+        try:
+            result = func(*args, **kwargs)
+            thread_result[0] = result
+        except Exception as e:
+            thread_exception[0] = e
+        finally:
+            nonlocal thread_completed
+            thread_completed = True
+
+    print(f"Starting {operation_name}...")
+    logger.info(f"Starting {operation_name}")
+
+    thread = threading.Thread(target=thread_wrapper)
+    thread.start()
+
+    is_completed = lambda: thread_completed
+
+    elapsed = show_progress(duration_seconds, operation_name, is_completed)
+
+    if not thread_completed:
+        additional_time = wait_for_completion(operation_name, is_completed)
+        elapsed += additional_time
+
+    thread.join()
+
+    if thread_exception[0]:
+        logger.error(f"Error in {operation_name}: {str(thread_exception[0])}")
+        raise thread_exception[0]
+
+    elapsed_formatted = time.strftime("%M:%S", time.gmtime(elapsed))
+    print(f"{operation_name} completed successfully in {elapsed_formatted}")
+
+    return thread_result[0]
+
+def download_s3_file(bucket_name, key, local_path):
+    """Download a file from S3 to a local path.
+
+    Args:
+        bucket_name (str): S3 bucket name
+        key (str): S3 object key
+        local_path (str): Local file path to save to
+
+    Returns:
+        bool: True if successful
+    """
+    try:
+        s3_client = boto3.client('s3')
+        s3_client.download_file(bucket_name, key, local_path)
+        return True
+    except Exception as e:
+        logger.error(f"S3 download error: {str(e)}")
+        return False
+
+def run_scp_command(scp_cmd):
+    """Run an SCP command to transfer a file.
+
+    Args:
+        scp_cmd (list): SCP command as a list of arguments
+
+    Returns:
+        bool: True if successful
+    """
+    try:
+        result = subprocess.run(scp_cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            logger.error(f"SCP error: {result.stderr}")
+            return False
+        return True
+    except Exception as e:
+        logger.error(f"SCP execution error: {str(e)}")
+        return False
