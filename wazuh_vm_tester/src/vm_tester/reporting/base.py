@@ -95,7 +95,7 @@ class TestResult:
 class TestSummary:
     """Class representing a summary of test results."""
 
-    def __init__(self, results: List[TestResult]):
+    def __init__(self, results: List[TestResult], test_type=None):
         """Initialize a test summary.
 
         Args:
@@ -108,6 +108,7 @@ class TestSummary:
         self.warnings = sum(1 for r in results if r.status == TestStatus.WARNING)
         self.errors = sum(1 for r in results if r.status == TestStatus.ERROR)
         self.skipped = sum(1 for r in results if r.status == TestStatus.SKIPPED)
+        self.test_type = test_type
 
         # Determine overall status
         self.status = TestStatus.PASS
@@ -133,4 +134,5 @@ class TestSummary:
             "error": self.errors,
             "skipped": self.skipped,
             "timestamp": self.timestamp,
+            "test_type": self.test_type,
         }

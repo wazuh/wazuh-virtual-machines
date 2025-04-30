@@ -121,7 +121,7 @@ def parse_args() -> argparse.Namespace:
     ova_group = parser.add_argument_group('OVA Options')
     ova_group.add_argument(
         "--allocator-instance-type",
-        help="EC2 instance type for the allocator (default: t3.xlarge)"
+        help="EC2 instance type for the allocator (default: c5.metal)"
     )
     ova_group.add_argument(
         "--vm-memory", type=int, default=4096,
@@ -405,7 +405,10 @@ def run_tests(config: BaseTesterConfig, args: argparse.Namespace) -> int:
                     if line.strip():
                         logger.debug(f"  {line}")
 
-        report_manager = ReportManager(debug_mode=debug_mode)
+        report_manager = ReportManager(
+            debug_mode=debug_mode,
+            test_type=config.test_type.value if hasattr(config, 'test_type') else None
+        )
 
         for test_result in result_collector.results:
             report_manager.add_result(test_result)

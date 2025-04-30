@@ -205,8 +205,8 @@ class OVATesterConfig(BaseTesterConfig):
 
     # VirtualBox options
     virtualbox_version: str = "7.0.12"
-    vm_memory: int = 4096  # MB
-    vm_cpus: int = 2
+    vm_memory: int = 8192  # MB
+    vm_cpus: int = 4
 
     # Network options
     vm_network_mode: str = "nat"

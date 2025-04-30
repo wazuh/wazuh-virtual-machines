@@ -120,7 +120,7 @@ jobs:
             --output github \
             --output-file test-results.github
 
-      - name: Run tests with AMI mode
+      - name: Run tests with OVA mode
         if: ${{ github.event.inputs.test_type == 'ova' }}
         run: |
           # Find the executable dynamically and store its path in a variable
@@ -168,14 +168,9 @@ jobs:
       - name: Create GitHub Summary
         if: always()
         run: |
-          if [ -f test-results.github ]; then
-            # Extract multiline summary from the test results
-            awk '/summary<<EOF/{flag=1;next}/EOF/{flag=0}flag' test-results.github > summary.md
-            cat summary.md >> $GITHUB_STEP_SUMMARY
-          else
-            echo "## Test Execution Failed" >> $GITHUB_STEP_SUMMARY
-            echo "No test results were generated. Please check the workflow logs." >> $GITHUB_STEP_SUMMARY
-          fi
+          # Extract multiline summary from the test results
+          awk '/summary<<EOF/{flag=1;next}/EOF/{flag=0}flag' test-results.github > summary.md
+          cat summary.md >> $GITHUB_STEP_SUMMARY
 
       - name: Set job status
         if: always()

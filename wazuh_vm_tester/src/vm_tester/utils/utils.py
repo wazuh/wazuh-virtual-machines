@@ -174,15 +174,15 @@ def tqdm_progress(total_seconds):
 
 def show_progress(duration_seconds, operation_name, is_completed_func):
     """
-    Muestra una barra de progreso y actualiza según el estado de la operación.
+   Displays a progress bar and updates based on the status of the operation.
 
     Args:
-        duration_seconds: Duración estimada en segundos
-        operation_name: Nombre de la operación para mostrar
-        is_completed_func: Función que retorna True cuando la operación está completa
+        duration_seconds: Estimated duration in seconds
+        operation_name: Name of the operation to display
+        is_completed_func: Function that returns True when the operation is complete
 
     Returns:
-        El tiempo transcurrido en segundos
+        The elapsed time in seconds
     """
     start_time = time.time()
     for remaining in range(duration_seconds, -1, -1):
@@ -216,14 +216,14 @@ def show_progress(duration_seconds, operation_name, is_completed_func):
 
 def wait_for_completion(operation_name, is_completed_func):
     """
-    Espera a que una operación se complete, mostrando un spinner.
+    Waits for an operation to complete, displaying a spinner.
 
     Args:
-        operation_name: Nombre de la operación
-        is_completed_func: Función que retorna True cuando la operación está completa
+        operation_name: Name of the operation
+        is_completed_func: Function that returns True when the operation is complete
 
     Returns:
-        El tiempo adicional transcurrido en segundos
+        The additional time elapsed in seconds
     """
     print(f"\n{operation_name} is taking longer than expected, please wait...")
 
@@ -241,19 +241,19 @@ def wait_for_completion(operation_name, is_completed_func):
 
 def run_with_progress(func, args=(), kwargs={}, duration_seconds=360, operation_name="Operation"):
     """
-    Ejecuta una función en un hilo separado mientras muestra una barra de progreso.
-    Si la función termina antes del tiempo estimado, la barra de progreso se detiene.
-    Si la función toma más tiempo, se espera a que termine.
+    Executes a function in a separate thread while displaying a progress bar.
+    If the function completes before the estimated time, the progress bar stops.
+    If the function takes longer, it waits for it to complete.
 
     Args:
-        func: La función a ejecutar
-        args: Argumentos posicionales para la función
-        kwargs: Argumentos nombrados para la función
-        duration_seconds: Duración estimada en segundos para la barra de progreso
-        operation_name: Nombre de la operación para los logs
+        func: The function to execute
+        args: Positional arguments for the function
+        kwargs: Named arguments for the function
+        duration_seconds: Estimated duration in seconds for the progress bar
+        operation_name: Name of the operation for logging
 
     Returns:
-        El resultado de la función
+        The result of the function
     """
     thread_completed = False
     thread_result = [None]
