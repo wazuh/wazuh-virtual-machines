@@ -80,6 +80,8 @@ env:
     OVA_SCRIPTS_PATH: "${{ github.workspace }}/.github/scripts/ova"
     OVA_SET_DEFAULT_SCRIPT_NAME: "setOVADefault.sh"
     OVA_OVF_TEMPLATE_NAME: "wazuh_ovf_template"
+    AL2023_VAGRANT_BOX_NAME: "al2023.box"
+    S3_PATH_TO_STORE_BOX: "vms/ova"
 
 permissions:
   id-token: write   # This is required for requesting the JWT
@@ -250,6 +252,18 @@ jobs:
             sudo vboxmanage export ova_base --output ${{ env.FILENAME_OVA }}
             sudo chmod 0755 ${{ env.FILENAME_OVA }}
           EOF
+
+      - name: Getting Amazon Linux 2023 Vagrant Box from AWS instance
+        run: |
+          scp -P ${{ env.INSTANCE_PORT }} \
+              -i ${{ env.INSTANCE_KEY }} \
+              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }}:~/${{ env.WVM_REPO_NAME }}/${{ env.AL2023_VAGRANT_BOX_NAME }} ${{ github.workspace }}/${{ env.AL2023_VAGRANT_BOX_NAME }}
+
+      - name: Exporting OVA to final repository
+        run: |
+          aws s3 cp --quiet ${{ github.workspace }}/${{ env.AL2023_VAGRANT_BOX_NAME }} s3://${{ vars.AWS_S3_BUCKET_PRE }}/${{ env.S3_PATH_TO_STORE_BOX }}/${{ env.AL2023_VAGRANT_BOX_NAME }}
+          s3uri="s3://${{ vars.AWS_S3_BUCKET_PRE }}/${{ env.S3_PATH_TO_STORE_BOX }}/${{ env.AL2023_VAGRANT_BOX_NAME }}
+          echo "S3 AL2023 URI: ${s3uri}"
 
       - name: Getting OVA from AWS instance
         run: |
