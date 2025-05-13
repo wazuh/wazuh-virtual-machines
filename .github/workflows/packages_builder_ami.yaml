@@ -14,7 +14,7 @@ on:
       wazuh_automation_reference:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
-        default: '5.0.0'
+        default: '6.0.0'
       ami_revision:
         description: |
           'For AMI candidates must be a number, e,g: -1.'
@@ -75,7 +75,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.wazuh_virtual_machines_reference }}
-      
+
       - name: Checkout wazuh/wazuh-automation repository
         uses: actions/checkout@v4
         with:
@@ -89,7 +89,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
           aws-region: us-east-1
-      
+
       - name: Install and configure python and workflow dependencies
         run: |
           sudo apt-get update
@@ -121,7 +121,7 @@ jobs:
             --label-team devops --label-termination-date 1d
           INSTANCE_ID=$(yq '.all.hosts | keys | .[0]' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
           echo INSTANCE_ID=$INSTANCE_ID >> $GITHUB_ENV
-      
+
       - name: Get artifacts URLs file
         run: |
           LOCAL_ARTIFACTS_URLS_FILEPATH=${{ github.workspace }}/${{ env.ARTIFACTS_URLS_FILENAME }}
@@ -135,17 +135,17 @@ jobs:
             PARSED_DEV_ARTIFACTS_URLS_PATH=$(echo "${{ env.DEV_ARTIFACTS_URLS_PATH }}" | sed "s|WAZUH_MINOR|${{ env.WAZUH_MINOR }}|")
             aws s3api get-object --bucket ${{ env.DEV_ARTIFACTS_URLS_BUCKET }} --key $PARSED_DEV_ARTIFACTS_URLS_PATH/${{ env.ARTIFACTS_URLS_FILENAME }} $LOCAL_ARTIFACTS_URLS_FILEPATH
           fi
-      
+
       - name: Generate presigned URLs for artifacts for dev packages
         if: inputs.wazuh_package_type == 'dev'
         run: |
           python ${{ env.GENERATE_PRESIGNED_URLS_SCRIPT_PATH }}
-      
+
       - name: Execute configuration AMI process
         run: |
           source ${{ env.WORKFLOW_VENV }}/bin/activate
           hatch run dev:run --inventory ${{ env.ALLOCATOR_PATH }}/inventory.yml --packages-url-path ${{ env.LOCAL_ARTIFACTS_URLS_FILEPATH }} --execute all-ami
-    
+
       - name: Stop instance
         run: |
           aws ec2 stop-instances --instance-ids ${{ env.INSTANCE_ID }}
