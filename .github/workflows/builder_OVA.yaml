@@ -80,7 +80,8 @@ env:
     OVA_SCRIPTS_PATH: "${{ github.workspace }}/.github/scripts/ova"
     OVA_SET_DEFAULT_SCRIPT_NAME: "setOVADefault.sh"
     OVA_OVF_TEMPLATE_NAME: "wazuh_ovf_template"
-    AL2023_VAGRANT_BOX_NAME: "al2023.box"
+    AL2023_VAGRANT_BOX_NAME: "al2023"
+    AL2023_VAGRANT_BOX_NAME_EXTENSION: "al2023.box"
     S3_PATH_TO_STORE_BOX: "vms/ova"
 
 permissions:
@@ -138,9 +139,11 @@ jobs:
         run: |
           COMMIT_SHA=$(git rev-parse --short ${{ github.sha }})
           FILENAME="wazuh-${{ env.WAZUH_VERSION }}-${{ inputs.OVA_REVISION }}"
+          FILENAME_BOX="${{ env.AL2023_VAGRANT_BOX_NAME }}"
 
           if [ ${{ inputs.is_stage }} == false ]; then
             FILENAME="${FILENAME}-${COMMIT_SHA}"
+            FILENAME_BOX="${{ env.AL2023_VAGRANT_BOX_NAME }}-${COMMIT_SHA}"
           fi
 
           echo "FILENAME=$FILENAME" >> $GITHUB_ENV
@@ -148,6 +151,8 @@ jobs:
           echo "FILENAME_OVA=$FILENAME_OVA" >> $GITHUB_ENV
           FILENAME_SHA="${FILENAME}.ova.sha512"
           echo "FILENAME_SHA=$FILENAME_SHA" >> $GITHUB_ENV
+          FILENAME_BOX_EXTENSION="${FILENAME_BOX}.box"
+          echo "FILENAME_BOX_EXTENSION=$FILENAME_BOX_EXTENSION" >> $GITHUB_ENV
 
       - name: Install and set allocator requirements
         run: |
@@ -257,12 +262,12 @@ jobs:
         run: |
           scp -P ${{ env.INSTANCE_PORT }} \
               -i ${{ env.INSTANCE_KEY }} \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }}:~/${{ env.WVM_REPO_NAME }}/${{ env.AL2023_VAGRANT_BOX_NAME }} ${{ github.workspace }}/${{ env.AL2023_VAGRANT_BOX_NAME }}
+              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }}:~/${{ env.WVM_REPO_NAME }}/${{ env.AL2023_VAGRANT_BOX_NAME_EXTENSION }} ${{ github.workspace }}/${{ env.AL2023_VAGRANT_BOX_NAME_EXTENSION }}
 
-      - name: Exporting OVA to final repository
+      - name: Exporting AL2023 Vagrant Box to AWS S3 bucket
         run: |
-          aws s3 cp --quiet ${{ github.workspace }}/${{ env.AL2023_VAGRANT_BOX_NAME }} s3://${{ vars.AWS_S3_BUCKET_PRE }}/${{ env.S3_PATH_TO_STORE_BOX }}/${{ env.AL2023_VAGRANT_BOX_NAME }}
-          s3uri="s3://${{ vars.AWS_S3_BUCKET_PRE }}/${{ env.S3_PATH_TO_STORE_BOX }}/${{ env.AL2023_VAGRANT_BOX_NAME }}
+          aws s3 cp --quiet ${{ github.workspace }}/${{ env.AL2023_VAGRANT_BOX_NAME_EXTENSION }} s3://${{ vars.AWS_S3_BUCKET_PRE }}/${{ env.S3_PATH_TO_STORE_BOX }}/${{ env.FILENAME_BOX_EXTENSION }}
+          s3uri="s3://${{ vars.AWS_S3_BUCKET_PRE }}/${{ env.S3_PATH_TO_STORE_BOX }}/${{ env.FILENAME_BOX_EXTENSION }}
           echo "S3 AL2023 URI: ${s3uri}"
 
       - name: Getting OVA from AWS instance
