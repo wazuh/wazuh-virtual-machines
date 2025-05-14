@@ -1,4 +1,5 @@
 from pathlib import Path
+
 import typer
 
 from .build_ova import configure_vagrant_vm, export_ova_image, generate_checksum, setup_execution_environment
