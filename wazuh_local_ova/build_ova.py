@@ -39,8 +39,11 @@ def setup_execution_environment(vm_name: str, packages_url_path: str) -> None:
     """
     logger.debug_title("Setting up execution environment")
 
-    if Path(packages_url_path).parent != ROOT_DIR:
+    try:
+        logger.debug(f"Copying {packages_url_path} to the root directory")
         shutil.copy(packages_url_path, ROOT_DIR)
+    except shutil.SameFileError:
+        logger.debug(f"File {packages_url_path} already exists in the root directory.")
 
     vagrant_context = {
         "vm_name": vm_name,
