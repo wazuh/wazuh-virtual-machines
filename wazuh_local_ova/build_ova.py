@@ -133,17 +133,7 @@ def export_ova_image(vagrant_uuid: str, name: str, ova_dest: str) -> None:
         f"vagrant halt {vagrant_uuid}",
         f'vboxmanage modifyvm "{vbox_vm_id}" --nic2 hostonly',
         f'vboxmanage modifyvm "{vbox_vm_id}" --cableconnected2 on',
-        f'''vboxmanage export "{vbox_vm_id}" -o "{temp_dir}/{name}-raw.ova" \
-            --vsys 0 \
-            --product "Wazuh v{wazuh_version} OVA" \
-            --producturl "https://packages.wazuh.com/vm/wazuh-{wazuh_version}.ova" \
-            --vendor "Wazuh, inc <info@wazuh.com>" \
-            --vendorurl "https://wazuh.com" \
-            --version "{wazuh_version}" \
-            --description "Wazuh enhances security visibility in your infrastructure \
-            by monitoring endpoints at the operating system and application levels. \
-            Its capabilities include log analysis, file integrity monitoring, intrusion detection, \
-            and compliance monitoring."''',
+        f'vboxmanage export "{vbox_vm_id}" -o "{temp_dir}/{name}-raw.ova"',
         f'bash {STANDARIZE_OVA_FILEPATH} "{temp_dir}" "{temp_dir}/{name}-raw.ova" "{temp_dir}/{name}.ova" "{OVA_OVF_TEMPLATE_FILEPATH}" "{wazuh_version}"',
         f"vagrant destroy -f {vagrant_uuid}",
     ]
