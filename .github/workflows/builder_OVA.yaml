@@ -20,7 +20,7 @@ on:
       wazuh_automation_reference:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
-        default: '5.0.0'
+        default: '6.0.0'
       is_stage:
         description: "Is stage?"
         type: boolean
@@ -67,7 +67,7 @@ env:
     ALLOCATOR_PATH: "/tmp/allocatorvm_ova"
     WORKFLOW_VENV: "${{ github.workspace }}/workflow_venv"
     S3_BUCKET_TO_STORE_OVA: ${{ vars.AWS_S3_BUCKET }}
-    S3_PATH_TO_STORE_OVA: "development/wazuh/5.x/secondary/ova"
+    S3_PATH_TO_STORE_OVA: "development/wazuh/6.x/secondary/ova"
     COMMIT_LIST: ${{ inputs.commit_list }}
     PROD_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PROD }}
     PRE_PROD_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PRE }}
@@ -96,7 +96,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.wazuh_virtual_machines_reference }}
-      
+
       - name: Checkout wazuh/wazuh-automation repository
         uses: actions/checkout@v4
         with:
@@ -180,12 +180,12 @@ jobs:
             PARSED_DEV_ARTIFACTS_URLS_PATH=$(echo "${{ env.DEV_ARTIFACTS_URLS_PATH }}" | sed "s|WAZUH_MINOR|${{ env.WAZUH_MINOR }}|")
             aws s3api get-object --bucket ${{ env.DEV_ARTIFACTS_URLS_BUCKET }} --key $PARSED_DEV_ARTIFACTS_URLS_PATH/${{ env.ARTIFACTS_URLS_FILENAME }} $LOCAL_ARTIFACTS_URLS_FILEPATH
           fi
-      
+
       - name: Generate presigned URLs for artifacts for dev packages
         if: inputs.wazuh_package_type == 'dev'
         run: |
           python ${{ env.GENERATE_PRESIGNED_URLS_SCRIPT_PATH }}
-      
+
       - name: Install necessary dependencies in the AWS instance to create the OVA
         run: |
           ssh -p ${{ env.INSTANCE_PORT }} \
@@ -268,7 +268,7 @@ jobs:
           aws s3 cp --quiet ${{ github.workspace }}/${{ env.FILENAME_OVA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_OVA }}
           s3uri="s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_OVA }}"
           echo "S3 OVA URI: ${s3uri}"
-  
+
       - name: Generating sha512 file
         if: ${{ inputs.checksum == true }}
         run: |
@@ -276,11 +276,11 @@ jobs:
           aws s3 cp --quiet /tmp/${{ env.FILENAME_SHA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_SHA }}
           s3uri="s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_SHA }}"
           echo "S3 sha512 OVA URI: ${s3uri}"
-  
+
       - name: Delete allocated VM
         if: always() && steps.alloc_vm_ova.outcome == 'success' && inputs.destroy == true
         run: python3 wazuh-automation/deployability/modules/allocation/main.py --action delete --track-output ${{ env.ALLOCATOR_PATH }}/track.yml
-      
+
       - name: Compress Allocator directory
         id: generate_artifacts
         if: always() && steps.alloc_vm_ova.outcome == 'success' && inputs.destroy == false

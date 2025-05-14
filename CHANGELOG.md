@@ -1,7 +1,7 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
-## [5.0.0]
+## [6.0.0]
 
 ### Added
 
@@ -31,6 +31,24 @@ All notable changes to this project will be documented in this file.
 ### Deleted
 
 - Removed VERSION file from main branch. ([#221](https://github.com/wazuh/wazuh-virtual-machines/pull/221))
+
+## [5.0.0]
+
+### Added
+
+- None
+
+### Changed
+
+- None
+
+### Fixed
+
+- None
+
+### Deleted
+
+- None
 
 ## [4.10.2]
 
