@@ -60,6 +60,7 @@ docstring-code-format = true
 omit = [
     "*/tests/*",
     "*/__init__.py",
+    "*/wazuh_local_ova/*",
 ]
 
 [tool.hatch.envs.dev]
@@ -103,6 +104,15 @@ description = """
 Enviroment to be used for OVA PostConfigurer execution testing
 """
 template = "dev"
+
+[tool.hatch.envs.dev-local-ova]
+description = """
+Enviroment to be used for local OVA build execution testing
+"""
+template = "dev"
+extra-dependencies = [
+    "typer",
+]
 
 [tool.hatch.envs.dev-ova-dependencies]
 description = """
@@ -166,6 +176,13 @@ ruff-format-check = "ruff format --diff --check configurer/ova/ova_post_configur
 ruff-lint-check = "ruff check --diff --unsafe-fixes configurer/ova/ova_post_configurer"
 ruff-lint = "ruff check --fix --unsafe-fixes configurer/ova/ova_post_configurer"
 run = "python -m main --execute ova-post-configurer {args:}"
+
+[tool.hatch.envs.dev-local-ova.scripts]
+ruff-format = "ruff format wazuh_local_ova"
+ruff-format-check = "ruff format --diff --check wazuh_local_ova"
+ruff-lint-check = "ruff check --diff --unsafe-fixes wazuh_local_ova"
+ruff-lint = "ruff check --fix --unsafe-fixes wazuh_local_ova"
+run = "python -m wazuh_local_ova {args:}"
 
 [tool.hatch.envs.dev-ova-dependencies.scripts]
 install = "python3 -c 'from configurer.ova.ova_pre_configurer.install_dependencies import main; main()'"

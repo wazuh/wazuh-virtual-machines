@@ -15,9 +15,9 @@ class ComponentCertsDirectory(StrEnum):
 
 class ComponentCertsConfigParameter(StrEnum):
     # Wazuh Server
-    WAZUH_SERVER_KEY = "server.node.ssl.key"
-    WAZUH_SERVER_CERT = "server.node.ssl.cert"
-    WAZUH_SERVER_CA = "server.node.ssl.ca"
+    WAZUH_SERVER_KEY = "communications_api.ssl.key"
+    WAZUH_SERVER_CERT = "communications_api.ssl.cert"
+    WAZUH_SERVER_CA = "communications_api.ssl.ca"
     # Wazuh Indexer
     WAZUH_INDEXER_KEY = "plugins.security.ssl.http.pemkey_filepath"
     WAZUH_INDEXER_CERT = "plugins.security.ssl.http.pemcert_filepath"

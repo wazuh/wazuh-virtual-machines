@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 from configurer.utils import run_command
 from utils import Logger
@@ -26,7 +27,7 @@ def add_vagrant_box(box_path: str = VAGRANT_BOX_PATH) -> None:
     run_command(f"vagrant box add --name al2023 {box_path}")
 
 
-def run_vagrant_up(max_retries: int = 100) -> bool:
+def run_vagrant_up(max_retries: int = 100, vagrantfile: Path | None = None) -> bool | None:
     """
     Attempts to start a Vagrant virtual machine by running the 'vagrant up' command.
     If it fails, it destroys the Vagrant machine and retries the operation up to a specified number of times.
@@ -41,10 +42,12 @@ def run_vagrant_up(max_retries: int = 100) -> bool:
         RuntimeError: If the Vagrant VM fails to start after the maximum number of retries.
     """
     attempts = 0
+    vagrant_command = f"VAGRANT_VAGRANTFILE={vagrantfile} vagrant up" if vagrantfile else "vagrant up"
+
     while attempts < max_retries:
         attempts += 1
         logger.debug(f"Attempt {attempts} to run 'vagrant up'.")
-        stdout, stderr, returncode = run_command("vagrant up", output=True)
+        stdout, stderr, returncode = run_command(vagrant_command, output=True)
         if returncode[0] == 0:
             logger.info_success("Vagrant VM started.")
             return True
