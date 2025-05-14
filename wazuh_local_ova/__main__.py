@@ -1,3 +1,4 @@
+from pathlib import Path
 import typer
 
 from .build_ova import configure_vagrant_vm, export_ova_image, generate_checksum, setup_execution_environment
@@ -14,14 +15,15 @@ def create_ova(
         False,
         "--checksum",
         "-c",
-        help="Generate the SHA512 checksum of the generated OVA image. If is set, this will be stored in the same path as the OVA image.",
+        help="""Generate the SHA512 checksum of the generated OVA image. 
+        If is set, this will be stored in the same path as the OVA image.""",
     ),
 ):
     """
     Create a new Wazuh OVA image.
     """
     setup_execution_environment(vm_name=name, packages_url_path=packages_url_path)
-    vagrant_uuid = configure_vagrant_vm()
+    vagrant_uuid = configure_vagrant_vm(packages_url_filename=Path(packages_url_path).name)
     export_ova_image(vagrant_uuid=vagrant_uuid, name=name, ova_dest=output)
 
     if checksum:

@@ -11,7 +11,7 @@ from .helpers import clean_output_lines, get_wazuh_version, render_vagrantfile
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 CURRENT_PATH = Path(__file__).resolve().parent
-URL_FILENAME = "artifacts_urls.yaml"
+DEFAULT_URL_FILENAME = "artifacts_urls.yaml"
 VERSION_FILENAME = "VERSION.json"
 STANDARIZE_OVA_FILENAME = "setOVADefault.sh"
 OVA_OVF_TEMPLATE = "wazuh_ovf_template"
@@ -39,8 +39,8 @@ def setup_execution_environment(vm_name: str, packages_url_path: str) -> None:
     """
     logger.debug_title("Setting up execution environment")
 
-    copied_file = shutil.copy(packages_url_path, ROOT_DIR)
-    os.rename(copied_file, ROOT_DIR / URL_FILENAME)
+    if Path(packages_url_path).parent != ROOT_DIR:
+        shutil.copy(packages_url_path, ROOT_DIR)
 
     vagrant_context = {
         "vm_name": vm_name,
@@ -60,7 +60,7 @@ def setup_execution_environment(vm_name: str, packages_url_path: str) -> None:
     logger.info_success("Vagrantfile created successfully")
 
 
-def configure_vagrant_vm() -> str:
+def configure_vagrant_vm(packages_url_filename: str = DEFAULT_URL_FILENAME) -> str:
     """
     Configures a Vagrant virtual machine (VM) for the Wazuh environment.
     Para ello crea una Vagrant VM y dentro de ella, se ejecuta Hatch con la configuración
@@ -87,7 +87,7 @@ def configure_vagrant_vm() -> str:
         the logs generated during the configuration will be displayed in the console. 
     """)
 
-    command = f"vagrant ssh {vagrant_uuid} -c 'cd /tmp/ && sudo hatch run dev-ova-post-configurer:run --packages-url-path {URL_FILENAME}'"
+    command = f"vagrant ssh {vagrant_uuid} -c 'cd /tmp/ && sudo hatch run dev-ova-post-configurer:run --packages-url-path {packages_url_filename}'"
     output, error_output = exec_command(command=command)
     if error_output:
         raise RuntimeError(f"Error running command in the remote VM: {error_output}")
