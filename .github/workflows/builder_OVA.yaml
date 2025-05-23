@@ -11,11 +11,11 @@ on:
       wazuh_virtual_machines_reference:
         description: 'Branch or tag of the wazuh-virtual-machines repository'
         required: true
-        default: '4.10.2'
+        default: '4.10.3'
       wazuh_installation_assistant_reference:
         description: 'Branch or tag of the wazuh-installation-assistant repository'
         required: true
-        default: '4.10.2'
+        default: '4.10.3'
       wazuh_package_repository:
         type: choice
         description: 'Wazuh package repository from which to download the packages'
