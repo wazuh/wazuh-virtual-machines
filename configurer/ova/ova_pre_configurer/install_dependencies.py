@@ -19,6 +19,7 @@ REQUIRED_PACKAGES = [
     "perl",
     "python3-pip",
     "git",
+    "wget",
 ]
 VAGRANT_REPO_URL = "https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo"
 
