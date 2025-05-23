@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Add wget as a package dependency ([#309](https://github.com/wazuh/wazuh-virtual-machines/pull/309))
 - Create build process for local ova and fix certificates default path for Wazuh Server ([#299](https://github.com/wazuh/wazuh-virtual-machines/pull/299))
 - Added OVA test to VM framework test module ([#276](https://github.com/wazuh/wazuh-virtual-machines/pull/276))
 - Add OVA documentation ([#275](https://github.com/wazuh/wazuh-virtual-machines/pull/275))
