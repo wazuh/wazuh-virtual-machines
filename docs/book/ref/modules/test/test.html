@@ -1,0 +1,533 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Test - Wazuh Virtual Machines Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="The technical documentation for the Wazuh OVA and the Wazuh AMI, composed by the development documentation and the reference manual.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../../favicon.svg">
+        <link rel="shortcut icon" href="../../../favicon.png">
+        <link rel="stylesheet" href="../../../css/variables.css">
+        <link rel="stylesheet" href="../../../css/general.css">
+        <link rel="stylesheet" href="../../../css/chrome.css">
+        <link rel="stylesheet" href="../../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../../../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../../../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../../../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../../../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../../../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Wazuh Virtual Machines Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="test-module"><a class="header" href="#test-module">Test module</a></h1>
+<p>The <code>Test</code> module provides a modular and extensible framework for automated validation of Wazuh virtual machines repository. This tool allows to validate that Wazuh components are correctly installed and functioning in a VM, OVA, or AWS AMI by verifying services, certificates, logs, connectivity, and versions. Tests can be executed against different deployment types, with specific test suites tailored to each environment. And a detailed test reports is generated in multiple formats types.</p>
+<h2 id="features"><a class="header" href="#features">Features</a></h2>
+<ul>
+<li>Automated validation of Wazuh components with extensive tests</li>
+<li>Support for multiple test types:
+<ul>
+<li>AWS AMI testing</li>
+<li>OVA image testing</li>
+<li>Direct SSH testing</li>
+</ul>
+</li>
+<li>Detailed test reports in multiple formats (console, JSON, Markdown, GitHub Actions)</li>
+</ul>
+<h2 id="requirements"><a class="header" href="#requirements">Requirements</a></h2>
+<ul>
+<li>Python 3.8+</li>
+<li>Specific requirements depending on the test type:
+<ul>
+<li>For AMI testing: AWS access with specific permissions</li>
+<li>For OVA testing: AWS access (if using allocator), VirtualBox</li>
+<li>For SSH testing: SSH key or password for the target host</li>
+<li>For local testing: Wazuh installation on the local machine</li>
+</ul>
+</li>
+</ul>
+<h2 id="installation"><a class="header" href="#installation">Installation</a></h2>
+<h3 id="from-the-repository"><a class="header" href="#from-the-repository">From the repository</a></h3>
+<pre><code class="language-bash">git clone https://github.com/wazuh/wazuh-virtual-machines.git
+cd wazuh-vm-tester
+pip install -e .
+</code></pre>
+<h2 id="usage"><a class="header" href="#usage">Usage</a></h2>
+<p>The tool provides a comprehensive CLI for running tests with various parameters:</p>
+<pre><code class="language-bash">wazuh-vm-test --test-type TYPE [CONNECTION PARAMETERS] [TEST OPTIONS]
+</code></pre>
+<h3 id="common-parameters"><a class="header" href="#common-parameters">Common Parameters</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Parameter</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>--test-type</code></td><td>Type of test to run (<code>ami</code>, <code>ova</code>)</td></tr>
+<tr><td><code>--version</code></td><td>Expected Wazuh version</td></tr>
+<tr><td><code>--revision</code></td><td>Expected revision</td></tr>
+<tr><td><code>--output</code></td><td>Output format (<code>json</code>, <code>markdown</code>, <code>console</code>, <code>github</code>)</td></tr>
+<tr><td><code>--output-file</code></td><td>File where to save the results</td></tr>
+<tr><td><code>--log-level</code></td><td>Set logging level (<code>DEBUG</code>, <code>INFO</code>, <code>TRACE</code>)</td></tr>
+<tr><td><code>--test-pattern</code></td><td>Test pattern to run (e.g. 'services*' or 'test_connectivity.py')</td></tr>
+<tr><td><code>--pytest-args</code></td><td>Additional arguments to pass to pytest</td></tr>
+</tbody></table>
+</div>
+<h3 id="connection-methods"><a class="header" href="#connection-methods">Connection Methods</a></h3>
+<p>At least one of these connection methods must be specified:</p>
+<div class="table-wrapper"><table><thead><tr><th>Parameter</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>--ami-id</code></td><td>ID of the AMI to validate by launching a new EC2 instance</td></tr>
+<tr><td><code>--ova-s3-path</code></td><td>S3 path to the OVA file to import and test</td></tr>
+<tr><td><code>--inventory</code></td><td>Path to Ansible inventory file to use for connection details</td></tr>
+<tr><td><code>--ssh-host</code></td><td>SSH host to connect to (direct SSH mode)</td></tr>
+<tr><td><code>--use-local</code></td><td>Use local machine for testing</td></tr>
+</tbody></table>
+</div>
+<h3 id="ssh-connection-options"><a class="header" href="#ssh-connection-options">SSH Connection Options</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Parameter</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>--ssh-username</code></td><td>SSH username (default: wazuh-user)</td></tr>
+<tr><td><code>--ssh-key-path</code></td><td>Path to the SSH private key</td></tr>
+<tr><td><code>--ssh-password</code></td><td>Password for SSH connection</td></tr>
+<tr><td><code>--ssh-port</code></td><td>SSH port (default: 22)</td></tr>
+</tbody></table>
+</div>
+<h3 id="ansible-inventory-options"><a class="header" href="#ansible-inventory-options">Ansible Inventory Options</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Parameter</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>--host</code></td><td>Host ID in the Ansible inventory to use</td></tr>
+</tbody></table>
+</div>
+<h3 id="aws-options"><a class="header" href="#aws-options">AWS Options</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Parameter</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>--aws-region</code></td><td>AWS region (default: us-east-1)</td></tr>
+<tr><td><code>--instance-type</code></td><td>EC2 instance type (default: c5ad.xlarge)</td></tr>
+<tr><td><code>--subnet-id</code></td><td>ID of the subnet where to launch the instance</td></tr>
+<tr><td><code>--instance-profile</code></td><td>IAM instance profile name</td></tr>
+<tr><td><code>--no-terminate</code></td><td>Do not terminate the instance after tests</td></tr>
+<tr><td><code>--security-group-ids</code></td><td>Security group IDs (overrides default security groups)</td></tr>
+<tr><td><code>--aws-role</code></td><td>AWS role to assume (choices: qa, dev, default)</td></tr>
+</tbody></table>
+</div>
+<h3 id="ova-options"><a class="header" href="#ova-options">OVA Options</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Parameter</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>--allocator-instance-type</code></td><td>EC2 instance type for the allocator</td></tr>
+<tr><td><code>--vm-memory</code></td><td>Memory to allocate to the VM in MB (default: 4096)</td></tr>
+<tr><td><code>--vm-cpus</code></td><td>Number of CPUs to allocate to the VM (default: 2)</td></tr>
+<tr><td><code>--import-only</code></td><td>Only import the OVA, don't run tests</td></tr>
+<tr><td><code>--vm-username</code></td><td>VM username (default: wazuh-user)</td></tr>
+<tr><td><code>--vm-password</code></td><td>VM password (default: wazuh)</td></tr>
+</tbody></table>
+</div>
+<h3 id="example"><a class="header" href="#example">Example</a></h3>
+<pre><code class="language-bash"># Test with verbose output for debugging
+wazuh-vm-test --test-type ami --ami-id ami-12345 --ssh-key-path ~/.ssh/my-key.pem --log-level DEBUG
+</code></pre>
+<h3 id="using-pytest-directly"><a class="header" href="#using-pytest-directly">Using Pytest Directly</a></h3>
+<p>You can also run the tests using pytest directly:</p>
+<pre><code class="language-bash"># Run tests on a remote host via SSH
+pytest -v --ssh-host=1.2.3.4 --ssh-username=wazuh-user --ssh-key=~/.ssh/my-key.pem
+</code></pre>
+<h2 id="core-test-types"><a class="header" href="#core-test-types">Core Test Types</a></h2>
+<p>The framework includes the following core tests that run for all test types:</p>
+<h3 id="service-validation"><a class="header" href="#service-validation">Service Validation</a></h3>
+<p><strong>Service tests</strong> verify the proper functioning of Wazuh services:</p>
+<ul>
+<li>Verifies that all Wazuh services are running (wazuh-server, wazuh-indexer, wazuh-dashboard)</li>
+<li>Verifies that service ports are listening</li>
+<li>Verifies that required directories and files exist</li>
+<li>Tests health endpoints for each service</li>
+</ul>
+<h3 id="certificate-validation"><a class="header" href="#certificate-validation">Certificate Validation</a></h3>
+<p><strong>Certificate tests</strong> ensure the security and integrity of SSL/TLS certificates:</p>
+<ul>
+<li>Verifies that certificates exist in the expected locations</li>
+<li>Validates that certificates are not expired</li>
+<li>Checks that certificate subjects and issuers match expected values</li>
+<li>Verifies certificate permissions</li>
+</ul>
+<h3 id="log-analysis"><a class="header" href="#log-analysis">Log Analysis</a></h3>
+<p><strong>Log tests</strong> identify potential issues by analyzing log files:</p>
+<ul>
+<li>Searches for errors in service logs</li>
+<li>Detects known error patterns</li>
+<li>Filters false positives</li>
+<li>Checks for recent errors (last 24 hours)</li>
+</ul>
+<h3 id="connectivity-tests"><a class="header" href="#connectivity-tests">Connectivity Tests</a></h3>
+<p><strong>Connectivity tests</strong> verify proper communication between components:</p>
+<ul>
+<li>Verifies connectivity between Wazuh components</li>
+<li>Tests Wazuh API connectivity and authentication</li>
+<li>Validates network configuration</li>
+</ul>
+<h3 id="version-verification"><a class="header" href="#version-verification">Version Verification</a></h3>
+<p><strong>Version tests</strong> ensure correct software versions are installed:</p>
+<ul>
+<li>Verifies that the installed version of each component matches the expected version</li>
+<li>Validates revisions match the expected values</li>
+</ul>
+<h2 id="test-types-and-their-specific-tests"><a class="header" href="#test-types-and-their-specific-tests">Test Types and Their Specific Tests</a></h2>
+<p>The framework supports different test types, each with specific test patterns:</p>
+<ul>
+<li><strong>AMI Testing</strong> - See <a href="ami/ami.html">Test AMI</a> for detailed information</li>
+<li><strong>OVA Testing</strong> - See <a href="ova/ova.html">Test OVA</a> for detailed information</li>
+</ul>
+<h2 id="connection-types"><a class="header" href="#connection-types">Connection Types</a></h2>
+<h3 id="ssh-connection-with-password-authentication"><a class="header" href="#ssh-connection-with-password-authentication">SSH Connection with Password Authentication</a></h3>
+<p>The framework supports SSH connections using password authentication, particularly useful when key-based authentication is not available.</p>
+<p>The SSH connection is implemented using a multi-threaded approach for better handling of timeouts and command execution:</p>
+<pre><code>┌────────────────────┐      ┌─────────────────┐
+│  Main Thread       │      │  SSH process    │
+│                    │      │                 │
+│ -Process begins    │─────▶│  - Execute the  │
+│ -Coordinate threads│      │    command      │
+│ -Return            │◀─────│    on the remote│
+│    results         │      │    server       │
+└─────────┬──────────┘      └────────┬────────┘
+          │                          │
+          │                          │
+┌─────────▼──────────┐      ┌────────▼────────┐
+│ Timeout Thread     │      │ Reader Threads  │
+│                    │      │                 │
+│ - Watch time       │      │ - stdout_thread │
+│ - Terminate process│      │ - stderr_thread │
+│   if exceeded      │      │ - Capture all   │
+│   the limit        │      │    the exit     │
+└────────────────────┘      └─────────────────┘
+</code></pre>
+<p>This approach provides:</p>
+<ul>
+<li>Reliable command execution</li>
+<li>Better timeout handling</li>
+<li>Concurrent collection of stdout and stderr</li>
+<li>Graceful termination of long-running commands</li>
+</ul>
+<h2 id="project-structure"><a class="header" href="#project-structure">Project Structure</a></h2>
+<pre><code>wazuh-vm-tester/
+├── pyproject.toml               # Project configuration
+├── README.md                    # Main documentation
+├── src/                         # Source code
+│   └── vm_tester/               # Main package
+│       ├── __init__.py          # Package initialization
+│       ├── cli.py               # Command-line interface
+│       ├── config.py            # Tester configuration
+│       ├── conftest.py          # Pytest fixtures
+│       ├── aws/                 # AWS modules
+│       ├── connections/         # Connection handling
+│       ├── instances/           # Instance management
+│       ├── reporting/           # Reporting modules
+│       ├── strategies/          # Connection strategies
+│       ├── tests/               # Test modules
+│       └── utils/               # Utility modules
+</code></pre>
+<h2 id="core-configuration"><a class="header" href="#core-configuration">Core Configuration</a></h2>
+<p>The test framework uses a centralized configuration system in <code>config.py</code> that handles all test types through Pydantic models. This provides strong typing, validation, and default values for all configuration parameters.</p>
+<h3 id="configuration-model-hierarchy"><a class="header" href="#configuration-model-hierarchy">Configuration Model Hierarchy</a></h3>
+<p>The main configuration classes form a hierarchy:</p>
+<ul>
+<li><code>BaseTesterConfig</code>: Core configuration shared by all test types</li>
+<li><code>AMITesterConfig</code>: Extends base config with AMI-specific settings</li>
+<li><code>OVATesterConfig</code>: Extends base config with OVA-specific settings</li>
+</ul>
+<h3 id="component-configuration-models"><a class="header" href="#component-configuration-models">Component Configuration Models</a></h3>
+<p>The framework uses specialized configuration models for different test components:</p>
+<pre><code class="language-python">class EndpointConfig(BaseModel):
+    """Configuration for API/health endpoints."""
+    url: str
+    token: Optional[str] = None
+    method: str = "GET"
+    auth: Optional[Dict[str, str]] = None
+    headers: Dict[str, str] = Field(default_factory=dict)
+    expected_status: List[int] = Field(default_factory=lambda: [200])
+    expected_content: Optional[str] = None
+
+
+class CommandConfig(BaseModel):
+    """Configuration for commands to execute."""
+    command: str
+    expected_output: Optional[str] = None
+    expected_regex: Optional[str] = None
+    expected_status: int = 0
+
+
+class WazuhServiceConfig(BaseModel):
+    """Configuration for validating a Wazuh service."""
+    name: str
+    version: Optional[str] = None
+    revision: Optional[str] = None
+    port: Optional[Union[int, List[Union[int, str]]]] = None
+    process_name: Optional[str] = None
+    log_files: List[str] = []
+    log_commands: List[str] = []
+    required_dirs: List[str] = []
+    required_files: List[str] = []
+    version_commands: List[CommandConfig] = Field(default_factory=list)
+    revision_commands: List[CommandConfig] = Field(default_factory=list)
+    health_endpoints: List[EndpointConfig] = Field(default_factory=list)
+    api_endpoints: List[EndpointConfig] = Field(default_factory=list)
+
+
+class WazuhCertificateConfig(BaseModel):
+    """Configuration for validating Wazuh certificates."""
+    path: str
+    subject_match: Optional[str] = None
+    issuer_match: Optional[str] = None
+    days_valid: int = 90
+    permissions: Optional[int] = None
+
+
+class ConnectivityTestConfig(BaseModel):
+    """Configuration for connectivity tests between services."""
+    source: str
+    target: str
+    host: str
+    port: int
+</code></pre>
+<p>These models define all the validation parameters for:</p>
+<ul>
+<li>Wazuh services (server, indexer, dashboard)</li>
+<li>Commands to run and expected outputs/exit codes</li>
+<li>API and health endpoints to test</li>
+<li>Certificate validation requirements</li>
+<li>Connectivity tests between components</li>
+</ul>
+<h3 id="default-configuration-provider"><a class="header" href="#default-configuration-provider">Default Configuration Provider</a></h3>
+<p>The configuration system includes utility functions that provide default configurations:</p>
+<ul>
+<li><code>get_default_wazuh_services()</code>: Default service configurations</li>
+<li><code>get_default_wazuh_certificates()</code>: Default certificate validation rules</li>
+<li><code>get_default_connectivity_tests()</code>: Default connectivity tests</li>
+<li><code>get_default_log_error_patterns()</code>: Default log error patterns to check</li>
+<li><code>get_default_log_false_positives()</code>: Default patterns to ignore in logs</li>
+</ul>
+<p>This design makes it easy to:</p>
+<ul>
+<li>Add new test types</li>
+<li>Extend existing test configurations</li>
+<li>Validate configuration parameters</li>
+<li>Provide sensible defaults</li>
+<li>Override specific settings when needed</li>
+</ul>
+<p>Test-specific configurations for AMI and OVA testing are detailed in their respective sections:</p>
+<h2 id="extending-the-framework"><a class="header" href="#extending-the-framework">Extending the Framework</a></h2>
+<p>The framework is designed to be extended with new tests:</p>
+<ol>
+<li>Create a new test file in the <code>tests</code> directory</li>
+<li>Define your test class with pytest markers</li>
+<li>Implement test methods</li>
+</ol>
+<p>Example of a new test:</p>
+<pre><code class="language-python">@pytest.mark.custom_test
+class TestCustomFeature:
+    """Tests for a custom feature."""
+
+    def test_custom_functionality(self, config: AMITesterConfig):
+        """Test some custom functionality."""
+        connection = get_connection()
+
+        # Run your test
+        exit_code, stdout, stderr = connection.execute_command("your-command")
+
+        # Assert results
+        assert exit_code == 0, f"Command failed: {stderr}"
+</code></pre>
+<h2 id="license"><a class="header" href="#license">License</a></h2>
+<p>WAZUH</p>
+<p>Copyright (C) 2015 Wazuh Inc.  (License GPLv2)</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../../ref/modules/configurer/post/ova/post-ova.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../../ref/modules/test/ova/ova.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../../ref/modules/configurer/post/ova/post-ova.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../../ref/modules/test/ova/ova.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+        <!-- Livereload script (if served using the cli tool) -->
+        <script>
+            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
+            const socket = new WebSocket(wsAddress);
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload();
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../../elasticlunr.min.js"></script>
+        <script src="../../../mark.min.js"></script>
+        <script src="../../../searcher.js"></script>
+
+        <script src="../../../clipboard.min.js"></script>
+        <script src="../../../highlight.js"></script>
+        <script src="../../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

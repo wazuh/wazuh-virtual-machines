@@ -1,0 +1,1833 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Wazuh Virtual Machines Documentation</title>
+        <meta name="robots" content="noindex">
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="The technical documentation for the Wazuh OVA and the Wazuh AMI, composed by the development documentation and the reference manual.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Wazuh Virtual Machines Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="wazuh-virtual-machines-technical-documentation"><a class="header" href="#wazuh-virtual-machines-technical-documentation">Wazuh Virtual Machines Technical Documentation</a></h1>
+<p>This folder contains the technical documentation for the Wazuh OVA and the Wazuh AMI. The documentation is organized into the following guides:</p>
+<ul>
+<li><strong>Development Guide</strong>: Instruction for building, testing and generate the OVA and AMI artifacts.</li>
+<li><strong>Reference Manual</strong>: Detailed information about the OVA and AMI architecture, configuration and usage.</li>
+</ul>
+<h2 id="requirements"><a class="header" href="#requirements">Requirements</a></h2>
+<p>To work with this documentation, you need <strong>mdBook</strong> installed. For installation instructions, refer to the <a href="https://rust-lang.github.io/mdBook/">mdBook documentation</a>.</p>
+<h2 id="usage"><a class="header" href="#usage">Usage</a></h2>
+<ul>
+<li>
+<p>To build the documentation, run:</p>
+<pre><code class="language-bash">./build.sh
+</code></pre>
+<p>The output will be generated in the <code>book</code> directory.</p>
+</li>
+<li>
+<p>To serve the documentation locally for preview, run:</p>
+<pre><code class="language-bash">./server.sh
+</code></pre>
+<p>The documentation will be available at <a href="http://127.0.0.1:3000">http://127.0.0.1:3000</a>.</p>
+</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="wazuh-virtual-machines-development-guide"><a class="header" href="#wazuh-virtual-machines-development-guide">Wazuh Virtual Machines Development Guide</a></h1>
+<p>This guide provides complete, step-by-step instructions for creating, configuring, testing, and generating both the AMI and OVA images for Wazuh using an All-in-One environment.</p>
+<p>The guide is organized into the following sections:</p>
+<ul>
+<li>
+<p><strong>Setup Environment</strong>: Guide for configuring the development environment for both the AMI and the OVA. (<a href="dev/setup.html">setup.md</a>)</p>
+</li>
+<li>
+<p><strong>Clean Code Philosophy</strong>: Guide for maintaining clean code in both the AMI and OVA projects using formatters and linters. (<a href="dev/clean-code.html">clean-code.md</a>)</p>
+</li>
+<li>
+<p><strong>Generate Artifact</strong>: Step-by-step guide for generating the AMI and OVA artifacts. (<a href="dev/generate-artifact/generate-artifact.html">generate-artifact.md</a>)</p>
+<ul>
+<li><strong>AMI Artifact</strong>: Step-by-step guide for generating the AMI image in AWS. (<a href="dev/generate-artifact/ami/ami-generate-artifact.html">ami-generate-artifact.md</a>)</li>
+<li><strong>OVA Artifact</strong>: Step-by-step guide for generating the <code>.ova</code> image. (<a href="dev/generate-artifact/ova/ova-generate-artifact.html">ova-generate-artifact.md</a>)</li>
+</ul>
+</li>
+<li>
+<p><strong>Run Tests</strong>: Procedure for executing tests to validate the AMI and OVA artifacts. (<a href="dev/run-tests/run-tests.html">run-tests.md</a>)</p>
+<ul>
+<li><strong>AMI Tests</strong>: Procedure for executing tests to validate the AMI. (<a href="dev/run-tests/ami/ami-run-tests.html">ami-run-tests.md</a>)</li>
+<li><strong>OVA Tests</strong>: Procedure for executing tests to validate the OVA. (<a href="dev/run-tests/ova/ova-run-tests.html">ova-run-tests.md</a>)</li>
+</ul>
+</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="set-up-the-development-environment"><a class="header" href="#set-up-the-development-environment">Set up the Development Environment</a></h1>
+<h2 id="dependencies"><a class="header" href="#dependencies">Dependencies</a></h2>
+<p>The following dependencies are required to set up the development environment for the Wazuh OVA and AMI:</p>
+<ul>
+<li><strong>Git</strong></li>
+<li><strong>Python &gt;= 3.8</strong></li>
+<li><strong>Pip</strong></li>
+<li>Plus some additionals packages listed in the toolchain</li>
+</ul>
+<h2 id="set-up-the-toolchain"><a class="header" href="#set-up-the-toolchain">Set Up the Toolchain</a></h2>
+<p>Our development process is carried out within a Python virtual environment. There are two supported ways to set up this environment:</p>
+<h3 id="option-1-using-hatch"><a class="header" href="#option-1-using-hatch">Option 1: Using <a href="https://hatch.pypa.io">Hatch</a></a></h3>
+<p>Hatch is a modern project manager for Python that simplifies environment management and task automation.</p>
+<p>If you choose this approach, the only additional dependency you need to install manually is <strong>Hatch</strong> itself. Once installed, Hatch will handle the creation of isolated environments and manage all required dependencies for each task you want to perform.</p>
+<p>To install Hatch:</p>
+<pre><code class="language-bash">pip install hatch
+</code></pre>
+<p><strong>Note:</strong> Hatch requires Python <strong>3.8 or later</strong>.</p>
+<h3 id="option-2-manual-venv-setup"><a class="header" href="#option-2-manual-venv-setup">Option 2: Manual <code>venv</code> Setup</a></h3>
+<p>Alternatively, you can create and manage a virtual environment manually using Python's built-in <code>venv</code> module.</p>
+<p>This approach requires that you have <strong>Python 3.12 or higher</strong> installed. After creating the virtual environment, you'll need to install the following dependencies:</p>
+<pre><code class="language-bash">pip install \
+  pydantic \
+  paramiko \
+  pyyaml \
+  jinja2 \
+  pytest \
+  pytest-cov \
+  pytest-xdist \
+  ruff \
+  requests
+</code></pre>
+<p>Both approaches are valid. Choose the one that best fits your workflow or team preferences.</p>
+<h2 id="set-up-the-editordebugger"><a class="header" href="#set-up-the-editordebugger">Set Up the editor/debugger</a></h2>
+<p>Any editor and debugger can be used, feel free to use your favorite one.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="clean-code-philosophy"><a class="header" href="#clean-code-philosophy">Clean Code Philosophy</a></h1>
+<h2 id="code-formatting-and-linting-with-ruff"><a class="header" href="#code-formatting-and-linting-with-ruff">Code Formatting and Linting with Ruff</a></h2>
+<p>The code in the <strong>Wazuh Virtual Machines</strong> repository must remain clean, well-formatted, and compliant with modern industry standards. To achieve this, we use <a href="https://docs.astral.sh/ruff/">Ruff</a> for both formatting and linting.</p>
+<p>Below are the commands to apply Ruff, depending on the scope and method you prefer:</p>
+<hr />
+<h3 id="code-formatting"><a class="header" href="#code-formatting">Code Formatting</a></h3>
+<h4 id="format-all-wazuh-virtual-machines-code"><a class="header" href="#format-all-wazuh-virtual-machines-code">Format all Wazuh Virtual Machines code</a></h4>
+<ul>
+<li>
+<p>Using Hatch:</p>
+<pre><code class="language-bash">hatch run dev:ruff-format
+</code></pre>
+</li>
+<li>
+<p>Using the command line:</p>
+<pre><code class="language-bash">ruff format .
+</code></pre>
+</li>
+</ul>
+<h4 id="format-only-the-ami-related-code"><a class="header" href="#format-only-the-ami-related-code">Format only the AMI-related code</a></h4>
+<ul>
+<li>
+<p>Using Hatch:</p>
+<pre><code class="language-bash">hatch run dev-ami-configurer:ruff-format
+</code></pre>
+</li>
+<li>
+<p>Using the command line:</p>
+<pre><code class="language-bash">ruff format configurer/ami tests/test_configurer/test_ami
+</code></pre>
+</li>
+</ul>
+<h4 id="format-only-the-ova-related-code"><a class="header" href="#format-only-the-ova-related-code">Format only the OVA-related code</a></h4>
+<ul>
+<li>
+<p>Using Hatch:</p>
+<pre><code class="language-bash">hatch run dev-ova-pre-configurer:ruff-format
+hatch run dev-ova-post-configurer:ruff-format
+</code></pre>
+</li>
+<li>
+<p>Using the command line:</p>
+<pre><code class="language-bash">ruff format configurer/ova tests/test_configurer/test_ova
+</code></pre>
+</li>
+</ul>
+<hr />
+<h3 id="code-linting"><a class="header" href="#code-linting">Code Linting</a></h3>
+<h4 id="lint-all-wazuh-virtual-machines-code"><a class="header" href="#lint-all-wazuh-virtual-machines-code">Lint all Wazuh Virtual Machines code</a></h4>
+<ul>
+<li>
+<p>Using Hatch:</p>
+<pre><code class="language-bash">hatch run dev:ruff-lint
+</code></pre>
+</li>
+<li>
+<p>Using the command line:</p>
+<pre><code class="language-bash">ruff check --fix --unsafe-fixes .
+</code></pre>
+</li>
+</ul>
+<h4 id="lint-only-the-ami-related-code"><a class="header" href="#lint-only-the-ami-related-code">Lint only the AMI-related code</a></h4>
+<ul>
+<li>
+<p>Using Hatch:</p>
+<pre><code class="language-bash">hatch run dev-ami-configurer:ruff-lint
+</code></pre>
+</li>
+<li>
+<p>Using the command line:</p>
+<pre><code class="language-bash">ruff check --fix --unsafe-fixes configurer/ami tests/test_configurer/test_ami
+</code></pre>
+</li>
+</ul>
+<h4 id="lint-only-the-ova-related-code"><a class="header" href="#lint-only-the-ova-related-code">Lint only the OVA-related code</a></h4>
+<ul>
+<li>
+<p>Using Hatch:</p>
+<pre><code class="language-bash">hatch run dev-ova-pre-configurer:ruff-lint
+hatch run dev-ova-post-configurer:ruff-lint
+</code></pre>
+</li>
+<li>
+<p>Using the command line:</p>
+<pre><code class="language-bash">ruff check --fix --unsafe-fixes configurer/ova tests/test_configurer/test_ova
+</code></pre>
+</li>
+</ul>
+<hr />
+<h3 id="combined-formatting-and-linting-with-hatch-only"><a class="header" href="#combined-formatting-and-linting-with-hatch-only">Combined Formatting and Linting (with Hatch only)</a></h3>
+<h4 id="format-and-lint-all-wazuh-virtual-machines-code"><a class="header" href="#format-and-lint-all-wazuh-virtual-machines-code">Format and lint all Wazuh Virtual Machines code</a></h4>
+<pre><code class="language-bash">hatch run dev:fix
+</code></pre>
+<h4 id="format-and-lint-ami-related-code"><a class="header" href="#format-and-lint-ami-related-code">Format and lint AMI-related code</a></h4>
+<pre><code class="language-bash">hatch run dev-ami-configurer:fix
+</code></pre>
+<h4 id="format-and-lint-ova-related-code"><a class="header" href="#format-and-lint-ova-related-code">Format and lint OVA-related code</a></h4>
+<pre><code class="language-bash">hatch run dev-ova-pre-configurer:fix
+hatch run dev-ova-post-configurer:fix
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="generate-artifact"><a class="header" href="#generate-artifact">Generate Artifact</a></h1>
+<p>This section covers everything related to the creation of the AMI and OVA artifacts.</p>
+<ul>
+<li>
+<p><strong>AMI artifact</strong> (<a href="dev/generate-artifact/ami/ami-generate-artifact.html">ami-generate-artifact.md</a>): The AMI artifact consists of creating an AWS image by configuring an EC2 instance based on the Amazon Linux 2023 base image.</p>
+</li>
+<li>
+<p><strong>OVA artifact</strong> (<a href="dev/generate-artifact/ova/ova-generate-artifact.html">ova-generate-artifact.md</a>): The OVA artifact is a <code>.ova</code> file generated from a base OVA using Amazon Linux 2023.</p>
+</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="generate-ami-artifact"><a class="header" href="#generate-ami-artifact">Generate AMI artifact</a></h1>
+<p>You can generate the AMI artifact in two different ways:</p>
+<ul>
+<li><strong>Manually</strong>, by running the code yourself and exporting the AMI from a pre-configured instance.</li>
+<li><strong>Automatically</strong>, using the GitHub Actions workflow.</li>
+</ul>
+<blockquote>
+<p>📦 This AMI is the one that will eventually be published and made available for users to deploy an All-in-one environment easily.</p>
+</blockquote>
+<h2 id="manual-execution"><a class="header" href="#manual-execution">Manual Execution</a></h2>
+<p>To generate the AMI manually, you will need two things:</p>
+<ol>
+<li>
+<p>An <strong>inventory file</strong> in Ansible inventory format, like the following:</p>
+<pre><code class="language-yaml">all:
+  hosts:
+    &lt;ec2-instance-id&gt;:
+      ansible_connection: ssh
+      ansible_host: &lt;instance-ip-or-dns&gt;
+      ansible_port: &lt;instance-port&gt;
+      ansible_ssh_common_args: -o StrictHostKeyChecking=no
+      ansible_ssh_private_key_file: &lt;instance-private-key-path&gt;
+      ansible_user: &lt;instance-user&gt;
+</code></pre>
+</li>
+<li>
+<p>A <strong>file containing the URLs</strong> to the Wazuh component packages.</p>
+</li>
+</ol>
+<p>Once you have both files ready, you can configure the AMI using either <strong>Hatch</strong> or the <strong>command line</strong>:</p>
+<ul>
+<li>
+<p><strong>Using Hatch</strong></p>
+<pre><code class="language-bash">hatch run dev-ami-configurer:run --inventory &lt;inventory path&gt; --packages-url-path &lt;urls file path&gt;
+</code></pre>
+</li>
+<li>
+<p><strong>Using the Command Line</strong></p>
+<pre><code class="language-bash">python -m main --execute all-ami --inventory &lt;inventory path&gt; --packages-url-path &lt;urls file path&gt;
+</code></pre>
+</li>
+</ul>
+<p>This command will configure the AMI on the instance specified in your inventory.<br />
+Once the execution is complete, <strong>you must export the AMI manually from the AWS Console</strong>.</p>
+<h2 id="automatic-execution-with-github-actions"><a class="header" href="#automatic-execution-with-github-actions">Automatic Execution with GitHub Actions</a></h2>
+<p>To automate the process, you can use the <code>packages_builder_ami.yaml</code> workflow from the <strong>Actions</strong> section in GitHub.</p>
+<p>This workflow accepts the following inputs:</p>
+<ul>
+<li><code>id</code>: Unique identifier for the workflow run.</li>
+<li><code>wazuh virtual machines reference</code>: Branch or tag of the <code>wazuh-virtual-machines</code> repository.</li>
+<li><code>wazuh automation reference</code>: Branch or tag of the <code>wazuh-automation</code> repository.</li>
+<li><code>ami revision</code>: Suffix for the AMI name.<br />
+For AMI candidates, this must be a number (e.g., <code>-1</code>).<br />
+For development AMIs, you can use a different format (e.g., <code>-dev</code>).</li>
+<li><code>package type</code>: Package type used for the AMI: <code>release</code>, <code>pre-release</code>, or <code>dev</code>.</li>
+<li><code>dev packages revision</code>: If using <code>dev</code> as package type, this should be a list of revisions (e.g., <code>latest</code> or the commit hash for each package).</li>
+<li><code>destroy</code>: If set, the EC2 instance used for building the AMI will be destroyed once complete.</li>
+</ul>
+<p>The resulting AMI will be stored in <strong>AWS</strong>.<br />
+If you need information about where it's stored or how to access it, please contact the <strong>DevOps team</strong>.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="generate-ova-artifact"><a class="header" href="#generate-ova-artifact">Generate OVA artifact</a></h1>
+<p>You can generate the OVA artifact automatically by using the GitHub Actions workflow.</p>
+<blockquote>
+<p>📦 This OVA is the one that will eventually be published and made available for users to download and deploy an All-in-one environment easily.</p>
+</blockquote>
+<h2 id="automatic-execution-with-github-actions-1"><a class="header" href="#automatic-execution-with-github-actions-1">Automatic execution with GitHub Actions</a></h2>
+<p>This process is fully automatic. It can be used from the <strong>Actions</strong> page of the wazuh-virtual-machines repository. The name of the workflow is <code>builder_OVA.yaml</code> or <strong>Build OVA</strong> in the web browser.</p>
+<p>This workflow accepts the following inputs:</p>
+<ul>
+<li><code>id</code>: Unique identifier for the workflow run.</li>
+<li><code>checksum</code>: If set to true, it will generate package checksum file <code>.sha512</code>. Defaults to false.</li>
+<li><code>wazuh virtual machines reference</code>: Branch or tag of the <code>wazuh-virtual-machines</code> repository.</li>
+<li><code>wazuh automation reference</code>: Branch or tag of the <code>wazuh-automation</code> repository.</li>
+<li><code>is_stage</code>: If set to false, it will add the last commit hash to the final filename of the OVA. Otherwise, the name will remain with the version and stage of the branch. Defaults to false.</li>
+<li><code>ova_revision</code>: Revision of the OVA file.
+For AMI candidates, this must be a number (e.g., <code>-1</code>).<br />
+For development AMIs, you can use a different format (e.g., <code>-0</code>).</li>
+<li><code>wazuh_package_type</code>: Package type used for the AMI: <code>release</code>, <code>pre-release</code>, or <code>dev</code>.</li>
+<li><code>commit_list</code>: If using <code>dev</code> as <code>wazuh_package_type</code>, this should be a list of revisions (e.g., <code>latest</code> or the commit hash for each package). Defaults to <code>latest</code> for each Wazuh package.</li>
+<li><code>destroy</code>: If set, the EC2 instance used for building the OVA will be destroyed once complete. Defaults to true.</li>
+</ul>
+<p>The resulted OVA will be stored in an <strong>AWS S3 bucket</strong>.
+If you need information about where it's stored or how to access it, please contact the <strong>DevOps team</strong>.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="run-tests"><a class="header" href="#run-tests">Run Tests</a></h1>
+<p>This section covers everything related to executing tests for both the AMI and the OVA. Tests are divided into two essential categories:</p>
+<ul>
+<li>
+<p><strong>Unit tests</strong>: These are standard unit tests that verify the internal logic of the code related to the AMI and OVA, ensuring it behaves correctly and without errors.</p>
+</li>
+<li>
+<p><strong>Functionality tests</strong>: These tests validate that the generated artifact (AMI or OVA) works as expected and meets all functional requirements. They ensure the artifact performs correctly in its intended use.</p>
+</li>
+</ul>
+<p>The test procedures are divided as follows:</p>
+<ul>
+<li><strong>AMI tests</strong> (<a href="dev/run-tests/ami/ami-run-tests.html">ami-run-tests.md</a>)</li>
+<li><strong>OVA tests</strong> (<a href="dev/run-tests/ova/ova-run-tests.html">ova-run-tests.md</a>)</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="run-ami-tests"><a class="header" href="#run-ami-tests">Run AMI Tests</a></h1>
+<p>There are two types of tests designed to ensure the AMI works as expected:</p>
+<h2 id="unit-tests"><a class="header" href="#unit-tests">Unit Tests</a></h2>
+<p>These are standard unit tests that verify the internal logic of the code related to the AMI, ensuring it behaves correctly and without errors.</p>
+<p>You can run the unit tests for the AMI using <strong>Hatch</strong> or directly from the <strong>command line</strong>:</p>
+<ul>
+<li>
+<p><strong>Using Hatch</strong></p>
+<pre><code class="language-bash">hatch run dev-ami-configurer:test-cov
+</code></pre>
+</li>
+<li>
+<p><strong>Using the Command Line</strong></p>
+<pre><code class="language-bash">FORCE_COLOR=1 pytest -n 4 \
+  --cov=configurer/ami \
+  --cov-report term-missing:skip-covered \
+  tests/test_configurer/test_ami \
+  --cov-report=xml
+</code></pre>
+</li>
+</ul>
+<h2 id="functionality-tests"><a class="header" href="#functionality-tests">Functionality Tests</a></h2>
+<p>These tests are responsible for validating the correct behavior of the AMI itself by creating an instance using the generated image and checking that all components and services work as expected.</p>
+<blockquote>
+<p>🚧 Details on how to execute functionality tests will be provided later.</p>
+</blockquote>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="run-ova-tests"><a class="header" href="#run-ova-tests">Run OVA Tests</a></h1>
+<p>There are two types of tests designed to ensure the OVA works as expected:</p>
+<h2 id="unit-tests-1"><a class="header" href="#unit-tests-1">Unit Tests</a></h2>
+<p>These are standard unit tests that verify the internal logic of the code related to the OVA, ensuring it behaves correctly and without errors.</p>
+<p>You can run the unit tests for the OVA using <strong>Hatch</strong> or directly from the <strong>command line</strong>. There are two Hatch environments: PreConfigurer and PostConfigurer. You can run the tests for each one of the environments:</p>
+<h3 id="1-preconfigurer"><a class="header" href="#1-preconfigurer">1. PreConfigurer</a></h3>
+<ul>
+<li>
+<p>Using Hatch</p>
+<pre><code class="language-bash">hatch run dev-ova-pre-configurer:test-cov
+</code></pre>
+</li>
+<li>
+<p>Using the Command Line</p>
+<pre><code class="language-bash">FORCE_COLOR=1 pytest -n 4 \
+  --cov=configurer/ova/ova_pre_configurer \
+  --cov-report term-missing:skip-covered \
+  tests/test_configurer/test_ova/test_ova_pre_configurer \
+  --cov-report=xml
+</code></pre>
+</li>
+</ul>
+<h3 id="2-postconfigurer"><a class="header" href="#2-postconfigurer">2. PostConfigurer</a></h3>
+<ul>
+<li>
+<p>Using Hatch</p>
+<pre><code class="language-bash">hatch run dev-ova-post-configurer:test-cov
+</code></pre>
+</li>
+<li>
+<p>Using the Command Line</p>
+<pre><code class="language-bash">FORCE_COLOR=1 pytest -n 4 \
+  --cov=configurer/ova/ova_post_configurer \
+  --cov-report term-missing:skip-covered \
+  tests/test_configurer/test_ova/test_ova_post_configurer \
+  --cov-report=xml
+</code></pre>
+</li>
+</ul>
+<h2 id="functionality-tests-1"><a class="header" href="#functionality-tests-1">Functionality Tests</a></h2>
+<p>These tests are responsible for validating the correct behavior of the OVA itself by importing the <code>.ova</code> file in a supported virtualization software (<strong>VirtualBox</strong> and <strong>VMWare</strong>), opening the Virtual Machine and checking that all components and services work as expected.</p>
+<blockquote>
+<p>🚧 Details on how to execute functionality tests will be provided later.</p>
+</blockquote>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
+<p>This section introduces the two deployment options developed in the Wazuh Virtual Machines repository.</p>
+<p>Wazuh provides the option to deploy two types of virtual machines with a base all-in-one (AIO) installation that includes the main Wazuh components. This allows us to have a ready-to-use virtual machine without needing to configure any components, making it completely transparent to the user.</p>
+<p>We can deploy two types of virtual machines:</p>
+<ul>
+<li>AMI (<a href="ref/getting-started/ami/ami-introduction.html">ami-introduction.md</a>): An AWS image ready to be used as the image for an EC2 instance.</li>
+<li>OVA (<a href="ref/getting-started/ova/ova-introduction.html">ova-introduction.md</a>): A <code>.ova</code> VM compatible with VirtualBox. We can import it into VirtualBox and have a VM ready to use.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="introduction-to-wazuh-ami"><a class="header" href="#introduction-to-wazuh-ami">Introduction to Wazuh AMI</a></h1>
+<p>Wazuh provides a pre-built <strong>Amazon Machine Image (AMI)</strong>. An AMI is a ready-to-use template for creating virtual computing environments in <strong>Amazon Elastic Compute Cloud (Amazon EC2)</strong>.</p>
+<p>The latest Wazuh AMI includes the Wazuh central components:</p>
+<ul>
+<li>Wazuh Server</li>
+<li>Wazuh Indexer</li>
+<li>Wazuh Dashboard</li>
+</ul>
+<p>It is designed to be deployed in an <strong>All-in-One</strong> configuration, which means that all components are installed on a single instance.</p>
+<blockquote>
+<p>This AMI does not include the Wazuh agent. If you need to deploy Wazuh agents, you can do so separately on your desired hosts.</p>
+</blockquote>
+<h2 id="compatibility"><a class="header" href="#compatibility">Compatibility</a></h2>
+<ul>
+<li><strong>Operating System</strong>: Amazon Linux 2023</li>
+<li><strong>Architecture</strong>: 64-bit</li>
+<li><strong>VM Format</strong>: AWS AMI</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="introduction-to-wazuh-ova"><a class="header" href="#introduction-to-wazuh-ova">Introduction to Wazuh OVA</a></h1>
+<p>Wazuh provides a pre-built <strong>Open Virtual Appliance (OVA)</strong>.
+An <code>.ova</code> file contains a descriptor file (<code>.ovf</code>), which describes the structure and configuration of the virtual machine, as well as the virtual disks (<code>.vmdk</code>) required for its operation.</p>
+<p>The latest Wazuh OVA includes the Wazuh central components:</p>
+<ul>
+<li>Wazuh Server</li>
+<li>Wazuh Indexer</li>
+<li>Wazuh Dashboard</li>
+</ul>
+<p>It is designed to be deployed in an <strong>All-in-One</strong> configuration, which means that all components are installed on a single instance.</p>
+<blockquote>
+<p>This OVA does not include the Wazuh agent. If you need to deploy Wazuh agents, you can do so separately on your desired hosts.</p>
+</blockquote>
+<h2 id="compatibility-1"><a class="header" href="#compatibility-1">Compatibility</a></h2>
+<ul>
+<li><strong>Operating System</strong>: Amazon Linux 2023</li>
+<li><strong>Architecture</strong>: 64-bit</li>
+<li><strong>VM Format</strong>: OVA</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
+<p>This section covers how to correctly install AMI and OVA. Once the installation is complete, the VM will be ready to use.</p>
+<ul>
+<li><strong>AMI installation</strong> (<a href="ref/installation/ami/ami-installation.html">ami-installation.md</a>): This section covers the installation of the AMI on AWS. It includes the steps to create an EC2 instance using the AMI.</li>
+<li><strong>OVA installation</strong> (<a href="ref/installation/ova/ova-installation.html">ova-installation.md</a>): This section covers the installation of the OVA on VirtualBox. It includes the steps to import the OVA into VirtualBox.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="ami-installation"><a class="header" href="#ami-installation">AMI Installation</a></h1>
+<p>There are two alternatives for deploying a Wazuh instance. You can launch the Wazuh All-In-One Deployment AMI directly from the AWS Marketplace or you can configure and deploy an instance using the AWS Management Console.</p>
+<h2 id="launching-the-wazuh-ami-from-the-aws-marketplace"><a class="header" href="#launching-the-wazuh-ami-from-the-aws-marketplace">Launching the Wazuh AMI from the AWS Marketplace</a></h2>
+<ol>
+<li>Go to <a href="https://aws.amazon.com/marketplace/pp/prodview-eju4flv5eqmgq?ref=hmpg_recommendations_widget">Wazuh All-In-One Deployment</a> in the AWS Marketplace, then click <strong>Continue to Subscribe</strong>.</li>
+<li>Review the information and accept the terms for the software. Click <strong>Continue to Configuration</strong> to confirm subscribing to our Server product.</li>
+<li>Select a <strong>Software Version</strong> and the <strong>Region</strong> where the instance is going to be deployed. Then, click <strong>Continue to Launch</strong>.</li>
+<li>Review your configuration, making sure that all settings are correct before launching the software. Adapt the default configuration values to your needs.
+<ol>
+<li><strong>Instance Type</strong>: When selecting the EC2 Instance Type, we recommend that you use an instance type <code>c5a.xlarge</code>.</li>
+<li><strong>Network Settings</strong>: When selecting the <strong>Security Group</strong>, it must be one with the appropriate settings for your Wazuh instance to guarantee the correct operation. You can create a new security group by choosing <strong>Create new based on seller</strong> settings. This new group will have the appropriate settings by default.</li>
+</ol>
+</li>
+<li>Click <strong>Launch</strong> to start the instance.</li>
+</ol>
+<p>Once your instance is successfully launched and a few minutes have elapsed, you can access the Wazuh dashboard.</p>
+<h2 id="deploy-an-instance-using-the-aws-management-console"><a class="header" href="#deploy-an-instance-using-the-aws-management-console">Deploy an instance using the AWS Management Console</a></h2>
+<ol>
+<li>
+<p>Select <strong>Launch instance</strong> from your AWS Management Console dashboard.</p>
+</li>
+<li>
+<p>Find <strong>Wazuh All-In-One Deployment by Wazuh Inc.</strong>, and click <strong>Select</strong> to subscribe.</p>
+</li>
+<li>
+<p>Review the Server product characteristics, then click <strong>Continue</strong>. This allows subscribing to our Server product.</p>
+</li>
+<li>
+<p>Select the instance type according to your needs, then click Next: Configure Instance Details. We recommend that you use an instance type <code>c5a.xlarge</code>.</p>
+</li>
+<li>
+<p>Configure your instance as needed, then click Next: <strong>Add Storage</strong>.</p>
+</li>
+<li>
+<p>Set the storage capacity of your instance under the <strong>Size (GiB)</strong> column, then click Next: <strong>Add Tags</strong>. We recommend 100 GiB GP3 or more.</p>
+</li>
+<li>
+<p>Add as many tags as you need, then click Next: <strong>Configure Security Group</strong>.</p>
+</li>
+<li>
+<p>Check that the ports and protocols are the ports and protocols for Wazuh. Check the security measures for your instance. This will establish the Security Group (SG). Then, click <strong>Review and Launch</strong>.</p>
+</li>
+<li>
+<p>Review the instance configuration and click <strong>Launch</strong>.</p>
+</li>
+<li>
+<p>Select one of three configuration alternatives available regarding the key pair settings: <strong>Choose an existing key pair</strong>, <strong>Create a new key pair</strong>, Proceed without a key pair. You need to choose an existing key pair or create a new one to access the instance with SSH.</p>
+</li>
+<li>
+<p>Click <strong>Launch instances</strong> to complete the process and deploy your instance.</p>
+</li>
+</ol>
+<p>Once your instance is fully configured and ready after a few minutes since launch, you can access the Wazuh dashboard.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="ova-installation"><a class="header" href="#ova-installation">OVA Installation</a></h1>
+<p>The OVA can be deployed by downloading the <code>.ova</code> file from the official Wazuh documentation.</p>
+<h2 id="import-and-access-the-virtual-machine"><a class="header" href="#import-and-access-the-virtual-machine">Import and access the virtual machine</a></h2>
+<ol>
+<li>
+<p>Import the OVA to the virtualization platform.</p>
+</li>
+<li>
+<p>If you're using VirtualBox, set the <strong>VMSVGA</strong> graphic controller. Setting another graphic controller freezes the VM window.</p>
+<ol>
+<li>Select the imported VM.</li>
+<li>Click Settings &gt; Display</li>
+<li>In Graphic controller, select the <strong>VMSVGA</strong> option.</li>
+</ol>
+</li>
+<li>
+<p>Start the machine.</p>
+</li>
+<li>
+<p>Access the virtual machine using the following user and password. You can use the virtualization platform or access it via <strong>SSH</strong>.</p>
+<pre><code class="language-bash">user: wazuh-user
+password: wazuh
+</code></pre>
+<p>SSH root user login has been deactivated; nevertheless, the wazuh-user retains sudo privileges. Root privilege escalation can be achieved by executing the following command:</p>
+<pre><code class="language-bash">sudo -i
+</code></pre>
+</li>
+</ol>
+<h2 id="access-the-wazuh-dashboard"><a class="header" href="#access-the-wazuh-dashboard">Access the Wazuh dashboard</a></h2>
+<p>Shortly after starting the VM, the Wazuh dashboard can be accessed from the web interface by using the following credentials:</p>
+<pre><code class="language-bash">URL: https://&lt;wazuh_server_ip&gt;
+user: admin
+password: admin
+</code></pre>
+<p>You can find <code>&lt;wazuh_server_ip&gt;</code> by typing the following command in the VM:</p>
+<pre><code class="language-bash">ip a
+</code></pre>
+<h2 id="virtualbox-time-configuration"><a class="header" href="#virtualbox-time-configuration">VirtualBox time configuration</a></h2>
+<p>In case of using VirtualBox, once the virtual machine is imported it may run into issues caused by time skew when VirtualBox synchronizes the time of the guest machine. To avoid this situation, enable the <strong>Hardware Clock in UTC Time</strong> option in the <strong>System</strong> tab of the virtual machine configuration.</p>
+<blockquote>
+<p><strong>Note:</strong> By default, the network interface type is set to Bridged Adapter. The VM will attempt to obtain an IP address from the network DHCP server. Alternatively, a static IP address can be set by configuring the appropriate network files in the Amazon Linux operating system on which the VM is based.</p>
+</blockquote>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="configuration"><a class="header" href="#configuration">Configuration</a></h1>
+<p>This section covers the different types of configurations that can be applied to the AMI or OVA once they have been installed, including both component configurations and machine configurations.</p>
+<ul>
+<li><strong>AMI configuration</strong> (<a href="ref/configuration/ami/ami-configuration.html">ami-configuration.md</a>)</li>
+<li><strong>OVA configuration</strong> (<a href="ref/configuration/ova/ova-configuration.html">ova-configuration.md</a>)</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="ami-configuration"><a class="header" href="#ami-configuration">AMI Configuration</a></h1>
+<p>Any configuration you can apply to the Wazuh components included in the AMI is <strong>identical to configuring them when installed separately</strong>.</p>
+<p>This means that if you need to make adjustments or customizations, you can simply refer to the official documentation for each Wazuh component.</p>
+<blockquote>
+<p>The AMI does not alter the standard behavior or configuration mechanisms of any Wazuh component.</p>
+</blockquote>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="ova-configuration"><a class="header" href="#ova-configuration">OVA Configuration</a></h1>
+<p>All components included in this virtual image are configured to work out-of-the-box, without the need to modify any settings. However, <strong>all components can be fully customized.</strong></p>
+<p>You can replicate any configuration to the Wazuh components included in the OVA as done for every component by itself.</p>
+<p>This means that if you need to make adjustments or customizations, you can simply refer to the official documentation for each Wazuh component.</p>
+<blockquote>
+<p>The OVA does not alter the standard behavior or configuration mechanisms of any Wazuh component.</p>
+</blockquote>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="modules"><a class="header" href="#modules">Modules</a></h1>
+<p>To create and configure the AMI and OVA, two fundamental modules are used:</p>
+<ul>
+<li><strong>Provisioner</strong> (<a href="ref/modules/provisioner/provisioner.html">provisioner.md</a>): Responsible for provisioning the certs-tool and the Wazuh component packages specified.</li>
+<li><strong>Configurer</strong> (<a href="ref/modules/configurer/configurer.html">configurer.md</a>): Once the necessary files have been provisioned, this module handles the creation of certificates for each component, the installation of the components, and their configuration. The configuration is divided into three main parts:
+<ul>
+<li><strong>Core</strong> (<a href="ref/modules/configurer/core/core.html">core.md</a>): Manages the shared configuration between the AMI and OVA. This includes generating certificates for each component, installing the components, and configuring their configuration files.</li>
+<li><strong>Pre Configurer</strong> (<a href="ref/modules/configurer/pre/pre.html">pre.md</a>): Responsible for applying the initial configuration steps required before running the core module.</li>
+<li><strong>Post Configurer</strong> (<a href="ref/modules/configurer/post/post.html">post.md</a>): Runs after the core configuration has completed. It finalizes the setup by preparing the AMI or OVA to be exported and distributed as a ready-to-use virtual machine.</li>
+</ul>
+</li>
+</ul>
+<p>These modules are executed through a single CLI. The available CLI options are:</p>
+<div class="table-wrapper"><table><thead><tr><th>Parameter</th><th>Required</th><th>Description</th><th>Accepted Values</th><th>Default</th></tr></thead><tbody>
+<tr><td><code>--inventory</code></td><td>Required for <code>ami-pre-configurer</code>, <code>ami-post-configurer</code>, <code>all-ami</code></td><td>Path to the inventory file</td><td>-</td><td>-</td></tr>
+<tr><td><code>--packages-url-path</code></td><td>Required for <code>provisioner</code>, <code>ova-post-configurer</code>, <code>all-ami</code></td><td>Path to the packages URL file</td><td>-</td><td>-</td></tr>
+<tr><td><code>--package-type</code></td><td>No</td><td>Type of package to install</td><td><code>rpm</code>, <code>deb</code></td><td><code>rpm</code></td></tr>
+<tr><td><code>--execute</code></td><td>Yes</td><td>Module to execute</td><td><code>provisioner</code>, <code>core-configurer</code>, <code>ova-pre-configurer</code>, <code>ova-post-configurer</code>, <code>ami-pre-configurer</code>, <code>ami-post-configurer</code>, <code>all-ami</code></td><td>-</td></tr>
+<tr><td><code>--arch</code></td><td>No</td><td>Architecture to use</td><td><code>x86_64</code>, <code>amd64</code>, <code>arm64</code>, <code>aarch64</code></td><td><code>x86_64</code></td></tr>
+<tr><td><code>--dependencies</code></td><td>No</td><td>Path to the dependencies file</td><td>-</td><td><code>provisioner/static/wazuh_dependencies.yaml</code></td></tr>
+<tr><td><code>--component</code></td><td>No</td><td>Component to provision</td><td><code>wazuh_indexer</code>, <code>wazuh_server</code>, <code>wazuh_dashboard</code>, <code>all</code></td><td><code>all</code></td></tr>
+</tbody></table>
+</div>
+<blockquote>
+<p>This CLI can be executed using <strong>Hatch</strong> or by creating a <strong>venv</strong>. For more information on how to configure it, you can check the setup of the toolchain <a href="ref/modules/../../dev/setup.html">here</a>.</p>
+</blockquote>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="provisioner"><a class="header" href="#provisioner">Provisioner</a></h1>
+<p>The <code>provisioner</code> module is responsible for preparing a target machine with the following:</p>
+<ul>
+<li>
+<p><strong>certs-tool</strong>: Script from the <code>certs-tool</code> project used to generate certificates for Wazuh components. Along with the script, the <code>config.yml</code> file is also copied, which contains the IP addresses and node names to generate the appropriate certificates.</p>
+</li>
+<li>
+<p><strong>Component packages</strong>: In addition to the <code>certs-tool</code>, the provisioner is also responsible for downloading Wazuh component packages from the specified URLs and copying them to the target machine.</p>
+</li>
+</ul>
+<p>This ensures that the target machine contains both the necessary certificate generation tools and the Wazuh packages ready for installation.</p>
+<h2 id="parameters"><a class="header" href="#parameters">Parameters</a></h2>
+<p>The provisioner module accepts the following options:</p>
+<ul>
+<li><code>--inventory</code>: Path to the inventory file.</li>
+<li><code>--packages-url-path</code>: Path to the file containing the package URLs.</li>
+<li><code>--package-type</code>: Type of package to provision (<code>rpm</code>, <code>deb</code>).</li>
+<li><code>--arch</code>: Target architecture (<code>x86_64</code>, <code>amd64</code>, <code>arm64</code>, <code>aarch64</code>).</li>
+<li><code>--dependencies</code>: Path to the dependencies file.</li>
+<li><code>--component</code>: Component to provision (<code>wazuh-server</code>, <code>wazuh-indexer</code>, <code>wazuh-dashboard</code>, <code>all</code>).</li>
+</ul>
+<h3 id="required-parameters"><a class="header" href="#required-parameters">Required Parameters</a></h3>
+<p>To run the provisioner module, the following are required:</p>
+<ul>
+<li>
+<p>A running machine where the provisioner will operate. This can be a local machine or a remote VM.</p>
+</li>
+<li>
+<p>If the machine is not local, you will need Ansible-compatible inventory details (passed via <code>--inventory</code>). For local execution, this is not needed:</p>
+<pre><code class="language-yaml">all:
+    hosts:
+        &lt;ec2-instance-id&gt;:
+        ansible_connection: ssh
+        ansible_host: &lt;instance-ip-or-dns&gt;
+        ansible_port: &lt;instance-port&gt;
+        ansible_ssh_common_args: -o StrictHostKeyChecking=no
+        ansible_ssh_private_key_file: &lt;instance-private-key-path&gt;
+        ansible_user: &lt;instance-user&gt;
+</code></pre>
+</li>
+<li>
+<p>A file with the URLs for the components to be installed (<code>--packages-url-path</code> parameter).</p>
+</li>
+</ul>
+<h2 id="examples"><a class="header" href="#examples">Examples</a></h2>
+<blockquote>
+<p>By default, if only the <code>--packages-url-path</code> parameter is provided, the provisioning will be done locally, with the following default values:</p>
+<ul>
+<li><code>--package-type</code>: <code>rpm</code></li>
+<li><code>--arch</code>: <code>x86_64</code></li>
+<li><code>--dependencies</code>: <code>provisioner/static/wazuh_dependencies.yaml</code></li>
+<li><code>--component</code>: <code>all</code> (Wazuh Server, Wazuh Indexer, and Wazuh Dashboard)</li>
+</ul>
+</blockquote>
+<h3 id="provision-locally-with-default-options"><a class="header" href="#provision-locally-with-default-options">Provision locally with default options</a></h3>
+<ul>
+<li>
+<p>Using Hatch:</p>
+<pre><code class="language-bash">hatch run dev-provisioner:run --packages-url-path &lt;path-to-file&gt;
+</code></pre>
+</li>
+<li>
+<p>Using the command line:</p>
+<pre><code class="language-bash">python -m main --execute provisioner --packages-url-path &lt;path-to-file&gt;
+</code></pre>
+</li>
+</ul>
+<h3 id="provision-remotely-for-arm64-architecture-and-deb-packages"><a class="header" href="#provision-remotely-for-arm64-architecture-and-deb-packages">Provision remotely for <code>arm64</code> architecture and <code>deb</code> packages</a></h3>
+<ul>
+<li>
+<p>Using Hatch:</p>
+<pre><code class="language-bash">hatch run dev-provisioner:run --inventory &lt;path-to-inventory&gt; --packages-url-path &lt;path-to-file&gt; --arch arm64 --package-type deb
+</code></pre>
+</li>
+<li>
+<p>Using the command line:</p>
+<pre><code class="language-bash">python -m main --execute provisioner --inventory &lt;path-to-inventory&gt; --packages-url-path &lt;path-to-file&gt; --arch arm64 --package-type deb
+</code></pre>
+</li>
+</ul>
+<h3 id="provision-only-the-wazuh-dashboard-remotely"><a class="header" href="#provision-only-the-wazuh-dashboard-remotely">Provision only the Wazuh Dashboard remotely</a></h3>
+<ul>
+<li>
+<p>Using Hatch:</p>
+<pre><code class="language-bash">hatch run dev-provisioner:run --inventory &lt;path-to-inventory&gt; --packages-url-path &lt;path-to-file&gt; --component wazuh-dashboard
+</code></pre>
+</li>
+<li>
+<p>Using the command line:</p>
+<pre><code class="language-bash">python -m main --execute provisioner --inventory &lt;path-to-inventory&gt; --packages-url-path &lt;path-to-file&gt; --component wazuh-dashboard
+</code></pre>
+</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="configurer"><a class="header" href="#configurer">Configurer</a></h1>
+<p>The <code>configurer</code> module is responsible for all the required configuration tasks, including both the setup of Wazuh components and the specific adjustments needed for AMI and OVA environments.</p>
+<p>This module is divided into three main submodules:</p>
+<ul>
+<li>
+<p><strong>Core</strong> (<a href="ref/modules/configurer/core/core.html">core.md</a>): Handles the general Wazuh configuration. It generates certificates for each component, installs them, and applies their respective configurations. Once this module is executed, the machine is ready to be used.</p>
+</li>
+<li>
+<p><strong>Pre-configurer</strong>(<a href="ref/modules/configurer/pre/pre.html">pre.md</a>): Performs the preliminary setup required before executing the core module. Each deployment type (AMI or OVA) uses this submodule to prepare the environment with deployment-specific settings.</p>
+</li>
+<li>
+<p><strong>Post-configurer</strong> (<a href="ref/modules/configurer/post/post.html">post.md</a>): Runs after the <code>core</code> configuration has completed. It finalizes the setup by preparing the AMI or OVA to be exported and distributed as a ready-to-use virtual machine.</p>
+</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="core-configurer"><a class="header" href="#core-configurer">Core Configurer</a></h1>
+<p>The <code>core</code> module is responsible for configuring all Wazuh components and their certificates. It ensures the virtual machine is fully functional with all services properly started.</p>
+<h2 id="main-functionalities"><a class="header" href="#main-functionalities">Main functionalities</a></h2>
+<ul>
+<li>Installation of Wazuh components.</li>
+<li>Certificate generation for each component.</li>
+<li>Configuration of each component’s configuration files.</li>
+<li>Starting all necessary services.</li>
+</ul>
+<blockquote>
+<p>This module assumes that the <code>provisioner</code> has already been executed on the machine. That means all required packages and the <code>certs-tool</code> must be available beforehand.</p>
+</blockquote>
+<h2 id="component-configuration"><a class="header" href="#component-configuration">Component configuration</a></h2>
+<p>Component configuration is handled using the <code>yq</code> tool. This command-line utility allows reading and updating YAML files, which is the format used for all component configuration files.</p>
+<p>Configuration mappings are defined in the file:</p>
+<pre><code class="language-bash">configurer/core/static/configuration_mappings.yaml
+</code></pre>
+<p>Each Wazuh component has a section in this file with the following structure:</p>
+<ul>
+<li><strong>path</strong>: Filepath to the configuration file to be modified.</li>
+<li><strong>replace</strong>:
+<ul>
+<li><strong>keys</strong>: A list of <code>yq</code>-formatted keys to search for in the configuration file.</li>
+<li><strong>values</strong>: New values to assign to those keys.</li>
+</ul>
+</li>
+</ul>
+<p>For example, to update the <code>network.host</code> setting in the <code>wazuh_indexer</code> component:</p>
+<pre><code class="language-yaml">wazuh_indexer:
+  - path: /etc/wazuh-indexer/opensearch.yml 
+    replace:
+      keys:
+        - .["network.host"]
+      values:
+        - "127.0.0.1"
+</code></pre>
+<h2 id="parameters-1"><a class="header" href="#parameters-1">Parameters</a></h2>
+<ul>
+<li>
+<p><code>--inventory</code>: Required when executing on a remote machine. It must point to an Ansible-compatible inventory file. Not required for local execution.</p>
+<pre><code class="language-yaml">all:
+    hosts:
+        &lt;ec2-instance-id&gt;:
+        ansible_connection: ssh
+        ansible_host: &lt;instance-ip-or-dns&gt;
+        ansible_port: &lt;instance-port&gt;
+        ansible_ssh_common_args: -o StrictHostKeyChecking=no
+        ansible_ssh_private_key_file: &lt;instance-private-key-path&gt;
+        ansible_user: &lt;instance-user&gt;
+</code></pre>
+</li>
+</ul>
+<h2 id="examples-1"><a class="header" href="#examples-1">Examples</a></h2>
+<h3 id="run-core-locally"><a class="header" href="#run-core-locally">Run core locally</a></h3>
+<ul>
+<li>
+<p>Using Hatch:</p>
+<pre><code class="language-bash">hatch run dev-core-configurer:run
+</code></pre>
+</li>
+<li>
+<p>Using the command line:</p>
+<pre><code class="language-bash">python -m main --execute core-configurer
+</code></pre>
+</li>
+</ul>
+<h3 id="run-core-remotely"><a class="header" href="#run-core-remotely">Run core remotely</a></h3>
+<ul>
+<li>
+<p>Using Hatch:</p>
+<pre><code class="language-bash">hatch run dev-core-configurer:run --inventory &lt;path-to-inventory&gt;
+</code></pre>
+</li>
+<li>
+<p>Using the command line:</p>
+<pre><code class="language-bash">python -m main --execute core-configurer --inventory &lt;path-to-inventory&gt;
+</code></pre>
+</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="pre-configurer"><a class="header" href="#pre-configurer">Pre Configurer</a></h1>
+<p>The <code>pre-configurer</code> submodule is responsible for applying the initial configuration steps required before running the <code>core</code> module. This step is essential for preparing the AMI or OVA environments properly before the Wazuh components are installed and configured.</p>
+<p>Each deployment type has its own pre-configuration logic:</p>
+<ul>
+<li><strong>AMI Pre-configuration</strong>: <a href="ref/modules/configurer/pre/ami/pre-ami.html">pre-ami.md</a></li>
+<li><strong>OVA Pre-configuration</strong>: <a href="ref/modules/configurer/pre/ova/pre-ova.html">pre-ova.md</a></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="ami-pre-configurer"><a class="header" href="#ami-pre-configurer">AMI Pre Configurer</a></h1>
+<p>The AMI pre-configuration step includes several system-level tasks to prepare the virtual machine before installing and configuring Wazuh components. These tasks include:</p>
+<ul>
+<li>Updating the Message of the Day (MOTD) with the Wazuh logo.</li>
+<li>Creating the <code>wazuh-user</code> user.</li>
+<li>Remove the remote default user.</li>
+<li>Changing the machine’s hostname.</li>
+<li>Modifying various files from the base image.</li>
+<li>Creating necessary directories for the post-configurer to run.</li>
+</ul>
+<p>These changes prepare the AMI environment to continue with the full configuration process.</p>
+<h2 id="considerations"><a class="header" href="#considerations">Considerations</a></h2>
+<p>The AMI pre-configurer is designed to be executed on a <strong>remote machine only</strong>, since it involves deleting and creating users. Running it locally is not allowed, as active sessions with users being removed would interfere.</p>
+<p>This remote machine must be an <strong>AWS instance</strong>, since the resulting image will be exported once configuration is completed.</p>
+<h2 id="parameters-2"><a class="header" href="#parameters-2">Parameters</a></h2>
+<ul>
+<li>
+<p><code>--inventory</code>: Must point to an Ansible-compatible inventory file. This is a required parameter to run this module.</p>
+<pre><code class="language-yaml">all:
+    hosts:
+        &lt;ec2-instance-id&gt;:
+        ansible_connection: ssh
+        ansible_host: &lt;instance-ip-or-dns&gt;
+        ansible_port: &lt;instance-port&gt;
+        ansible_ssh_common_args: -o StrictHostKeyChecking=no
+        ansible_ssh_private_key_file: &lt;instance-private-key-path&gt;
+        ansible_user: &lt;instance-user&gt;
+</code></pre>
+</li>
+</ul>
+<h2 id="execution"><a class="header" href="#execution">Execution</a></h2>
+<p>This module is designed to run alongside the <code>post-configurer</code>, not individually. Therefore, no Hatch command is available for running it directly.</p>
+<p>However, if you need to execute it manually, you can do so via command line:</p>
+<pre><code class="language-bash">python -m main --execute ami-pre-configurer --inventory &lt;path-to-inventory&gt;
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="ova-pre-configurer"><a class="header" href="#ova-pre-configurer">OVA Pre Configurer</a></h1>
+<p>The <strong>OVA Pre Configurer</strong> performs specific tasks that create and prepare a virtual machine with <strong>Amazon Linux 2023</strong> as the operating system.</p>
+<blockquote>
+<p>⚠️ This module is intended to be part of the <strong>Build OVA workflow</strong> developed in the <code>wazuh-virtual-machines</code> repository so its separate use is possible but it might require adaptation to work properly.</p>
+</blockquote>
+<p>The tasks that this module executes are listed below and then each task will be described:</p>
+<ul>
+<li>Dependencies installation.</li>
+<li>Generation of the base Vagrant box.</li>
+<li>Deployment of the VM.</li>
+<li>Preparation of the VM.</li>
+</ul>
+<h2 id="dependencies-installation"><a class="header" href="#dependencies-installation">Dependencies installation</a></h2>
+<p>This submodule installs the following dependencies:</p>
+<ul>
+<li><code>kernel-devel</code></li>
+<li><code>kernel-headers</code></li>
+<li><code>dkms</code></li>
+<li><code>elfutils-libelf-devel</code></li>
+<li><code>gcc</code></li>
+<li><code>make</code></li>
+<li><code>perl</code></li>
+<li><code>python3-pip</code></li>
+<li><code>git</code></li>
+<li><code>Development Tools group</code></li>
+<li><code>Virtual Box</code></li>
+<li><code>vagrant</code></li>
+</ul>
+<p>It also excludes the <code>kernel-devel</code> and <code>kernel-headers</code> from updating once the required version is installed.</p>
+<h2 id="generation-of-the-base-vagrant-box"><a class="header" href="#generation-of-the-base-vagrant-box">Generation of the base Vagrant box</a></h2>
+<p>This submodule uses the <code>generate_base_box.py</code> and <code>setup.py</code> scripts to generate a Vagrant <code>.box</code> file with the latest version of Amazon Linux 2023. It also performs some configurations to make the Vagrant box accessible.</p>
+<h2 id="deployment-of-the-vm"><a class="header" href="#deployment-of-the-vm">Deployment of the VM</a></h2>
+<p>This submodule makes use of the Vagrant box created in the previous step and adds it to the list of boxes to use. It then deploys a VM making use of the existing <code>Vagrantfile</code> in the repository.</p>
+<h2 id="preparation-of-the-vm"><a class="header" href="#preparation-of-the-vm">Preparation of the VM</a></h2>
+<p>This submodule connects from the host to the VM deployed in the previous step and prepares the VM for the execution of the <strong>OVA Post Configurer</strong>.
+For this, it installs <code>python3-pip</code> and <code>hatch</code> on the VM.
+In addition, it deletes the residual files from the creation of the Vagrant box from the previous <strong>Generation of the base Vagrant box</strong> submodule.
+Finally, it copies the <code>wazuh-virtual-machines</code> repository from the host machine to the deployed VM in <code>/tmp</code>.</p>
+<h2 id="considerations-1"><a class="header" href="#considerations-1">Considerations</a></h2>
+<p>The <strong>OVA Pre Configurer</strong> is designed to be executed in a <strong>local machine only</strong>. In addition, this machine <strong>must</strong> support virtualization.</p>
+<h2 id="execution-1"><a class="header" href="#execution-1">Execution</a></h2>
+<p>This module is desgined to run alongside the <strong>OVA Post Configurer</strong>, <strong>not individually</strong>. By the design constraints of the OVA build, you can run this module unilaterally, which would result in having a VM deployed with Amazon Linux 2023 and the <code>wazuh-virtual-machines</code> repository cloned in <code>/tmp</code>.</p>
+<p>The module can be executed by running this command:</p>
+<pre><code class="language-bash">hatch run dev-ova-pre-configurer:run
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="post-configurer"><a class="header" href="#post-configurer">Post Configurer</a></h1>
+<p>The <strong>Post-configurer</strong> runs after the <code>core</code> configuration has completed. It finalizes the setup by preparing the AMI or OVA to be exported and distributed as a ready-to-use virtual machine.</p>
+<p>Each deployment type has its own post-configuration logic:</p>
+<ul>
+<li><strong>AMI Post-configuration</strong>: <a href="ref/modules/configurer/post/ami/post-ami.html">post-ami.md</a></li>
+<li><strong>OVA Post-configuration</strong>: <a href="ref/modules/configurer/post/ova/post-ova.html">post-ova.md</a></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="ami-post-configurer"><a class="header" href="#ami-post-configurer">AMI Post Configurer</a></h1>
+<p>The <strong>AMI Post-configurer</strong> is responsible for preparing the AMI to be exported as an artifact once the Wazuh components are configured and the pre-configuration steps are completed. This post-configuration process includes:</p>
+<ul>
+<li>Pausing all services.</li>
+<li>Deleting any Wazuh indices created in the indexer during the configuration process.</li>
+<li>Clearing all log files that may have been generated during the configuration.</li>
+<li>Removing the base directory created in the provisioner step that contains the certs tool and component packages.</li>
+</ul>
+<p>These steps ensure that when a user launches an instance from the base AMI image, they will find a clean Wazuh environment.</p>
+<h2 id="creation-of-custom-certificate-service"><a class="header" href="#creation-of-custom-certificate-service">Creation of Custom Certificate Service</a></h2>
+<p>In the <strong>core-configurer</strong>, certificates are created for each Wazuh component. When creating the AMI, every instance launched from this image will have the same certificates, which could pose a security issue.</p>
+<p>To address this, a custom systemd service is created that, when the instance starts for the first time, generates new certificates for each Wazuh component and restarts the services. This ensures that each instance has unique certificates.</p>
+<p>For this service, a Python virtual environment is set up with the necessary dependencies to run the corresponding Python scripts. This virtual environment is created during the post-configurer process, so that when the service runs and generates the new certificates, the service files and the virtual environment used for execution are deleted. This ensures that any unnecessary files and dependencies are removed from the system.</p>
+<h2 id="considerations-2"><a class="header" href="#considerations-2">Considerations</a></h2>
+<p>Just like the pre-configurer, this module is designed to be executed on a remote machine, meaning the <code>--inventory</code> option must be provided.</p>
+<p>The remote machine must be an AWS instance, as this will be the one exported after the configuration process is complete.</p>
+<h2 id="execution-2"><a class="header" href="#execution-2">Execution</a></h2>
+<p>This module is intended to be executed along with the pre-configurer and not individually. Therefore, there is no Hatch command available for this specific module.</p>
+<p>If you need to execute it individually, you can do so via the command line:</p>
+<pre><code class="language-bash">python -m main --execute ami-post-configurer --inventory &lt;path-to-inventory&gt;
+</code></pre>
+<h3 id="global-execution"><a class="header" href="#global-execution">Global Execution</a></h3>
+<p>A global option has been created for the CLI: <code>--execute all-ami</code>. This command allows you to run the entire process of creating and configuring the AMI, which includes:</p>
+<ol>
+<li>AMI Pre-configurer</li>
+<li>Provisioner</li>
+<li>Core-configurer</li>
+<li>AMI Post-configurer</li>
+</ol>
+<p>To run this option, the following required parameters must be specified:</p>
+<ul>
+<li><code>--inventory</code>: Points to an Ansible-compatible inventory file.</li>
+<li><code>--packages-url-path</code>: A file containing the URLs for the components to be installed.</li>
+</ul>
+<p>You can execute it in two ways:</p>
+<ul>
+<li>
+<p>Using Hatch:</p>
+<pre><code class="language-bash">hatch run dev-ami-configurer:run --inventory &lt;path-to-inventory&gt; --packages-url-path &lt;path-to-file&gt;
+</code></pre>
+</li>
+<li>
+<p>Using the command line:</p>
+<pre><code class="language-bash">python -m main --execute all-ami --inventory &lt;path-to-inventory&gt; --packages-url-path &lt;path-to-file&gt;
+</code></pre>
+</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="ova-post-configurer"><a class="header" href="#ova-post-configurer">OVA Post Configurer</a></h1>
+<p>The <strong>OVA Post Configurer</strong> module is responsible for running the <strong>Provisioner and Core Configurer</strong> modules and then running the <strong>OVA Post Configurer</strong> itself.
+The main objective of this module is to configure the final machine so that the user can import it into his virtualizer and have Wazuh running quickly.</p>
+<blockquote>
+<p>⚠️ This module is intended to be part of the <strong>Build OVA workflow</strong> developed in the <code>wazuh-virtual-machines</code> repository so its separate use is possible but it might require adaptation to work properly.</p>
+</blockquote>
+<p>Once the <strong>Provisioner and Core Configurer</strong> have been executed, the Wazuh components are installed in the VM deployed with the <strong>OVA Pre Configurer</strong>. Subsequently, the <strong>OVA Post Configurer</strong> performs the following configurations on the VM:</p>
+<ol>
+<li><strong>GRUB bootloader</strong> is configured to display an image with the <strong>Wazuh logo</strong> when loading the VM.</li>
+<li><strong>FIPS</strong> (Federal Information Processing Standards) is enabled on the VM.</li>
+<li><strong>JVM</strong> heap size is updated to half of the total RAM.</li>
+<li>Added <code>wazuh-starter</code> service which is responsible for raising each Wazuh component correctly.</li>
+<li>Changed the <code>root</code> password to <code>wazuh</code>.</li>
+<li>Changed the VM hostname to <code>wazuh-server</code>.</li>
+<li>Disable the SSH connection to the <code>root</code> user.</li>
+<li>Enable SSH connection via password.</li>
+<li>Execute the <code>messages.sh</code> script which adds welcome messages both at machine startup and login.</li>
+<li>Afterwards the <code>wazuh-server</code> is stopped and the following indexes are deleted:
+<ul>
+<li><code>wazuh-alerts-*</code></li>
+<li><code>wazuh-archives-*</code></li>
+<li><code>wazuh-states-vulnerabilities-*</code></li>
+<li><code>wazuh-statistics-*</code></li>
+<li><code>wazuh-monitoring-*</code></li>
+</ul>
+</li>
+<li>The <code>security-init.sh</code> is executed.</li>
+<li>Stop <code>wazuh-indexer</code> and <code>wazuh-dashboard</code> services and disable <code>wazuh-server</code> and <code>wazuh-dashboard</code>.</li>
+<li>Cleanup tasks are executed.</li>
+<li>A network configuration file is created which ensures that a network interface is raised with <strong>DHCP</strong> on <strong>IPv4</strong> accessible.</li>
+<li><strong>SSH</strong> is configured to use modern and secure cryptographic algorithms, in accordance with <strong>FIPS</strong> activation.</li>
+<li>Further cleanup of logs, command history, package cache and restart of the <code>sshd</code> service.</li>
+</ol>
+<h2 id="considerations-3"><a class="header" href="#considerations-3">Considerations</a></h2>
+<p>The <strong>OVA Post Configurer</strong> is designed to be executed in a <strong>local machine only</strong>. As mentioned above the execution of this module using <strong>Hatch</strong> will execute the <strong>Provisioner</strong> and <strong>Core Configurer</strong> modules previously.</p>
+<h2 id="parameters-3"><a class="header" href="#parameters-3">Parameters</a></h2>
+<p>As this module makes use of the <strong>Provisioner</strong> module, it needs the parameter required by this module which is the <code>--packages-url-path &lt;path&gt;</code>. This parameter expects the path to the <code>.yml</code> file containing the download URLs of each package. For more information see the <strong>Provisioner</strong> documentation <a href="ref/modules/configurer/post/ova/../../../provisioner/provisioner.html">here</a>.</p>
+<h2 id="execution-3"><a class="header" href="#execution-3">Execution</a></h2>
+<p>This module can be executed using Hatch running the following command:</p>
+<pre><code class="language-bash">hatch run dev-ova-post-configurer:run --packages-url-path &lt;path-to-file&gt;
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="test-module"><a class="header" href="#test-module">Test module</a></h1>
+<p>The <code>Test</code> module provides a modular and extensible framework for automated validation of Wazuh virtual machines repository. This tool allows to validate that Wazuh components are correctly installed and functioning in a VM, OVA, or AWS AMI by verifying services, certificates, logs, connectivity, and versions. Tests can be executed against different deployment types, with specific test suites tailored to each environment. And a detailed test reports is generated in multiple formats types.</p>
+<h2 id="features"><a class="header" href="#features">Features</a></h2>
+<ul>
+<li>Automated validation of Wazuh components with extensive tests</li>
+<li>Support for multiple test types:
+<ul>
+<li>AWS AMI testing</li>
+<li>OVA image testing</li>
+<li>Direct SSH testing</li>
+</ul>
+</li>
+<li>Detailed test reports in multiple formats (console, JSON, Markdown, GitHub Actions)</li>
+</ul>
+<h2 id="requirements-1"><a class="header" href="#requirements-1">Requirements</a></h2>
+<ul>
+<li>Python 3.8+</li>
+<li>Specific requirements depending on the test type:
+<ul>
+<li>For AMI testing: AWS access with specific permissions</li>
+<li>For OVA testing: AWS access (if using allocator), VirtualBox</li>
+<li>For SSH testing: SSH key or password for the target host</li>
+<li>For local testing: Wazuh installation on the local machine</li>
+</ul>
+</li>
+</ul>
+<h2 id="installation-1"><a class="header" href="#installation-1">Installation</a></h2>
+<h3 id="from-the-repository"><a class="header" href="#from-the-repository">From the repository</a></h3>
+<pre><code class="language-bash">git clone https://github.com/wazuh/wazuh-virtual-machines.git
+cd wazuh-vm-tester
+pip install -e .
+</code></pre>
+<h2 id="usage-1"><a class="header" href="#usage-1">Usage</a></h2>
+<p>The tool provides a comprehensive CLI for running tests with various parameters:</p>
+<pre><code class="language-bash">wazuh-vm-test --test-type TYPE [CONNECTION PARAMETERS] [TEST OPTIONS]
+</code></pre>
+<h3 id="common-parameters"><a class="header" href="#common-parameters">Common Parameters</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Parameter</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>--test-type</code></td><td>Type of test to run (<code>ami</code>, <code>ova</code>)</td></tr>
+<tr><td><code>--version</code></td><td>Expected Wazuh version</td></tr>
+<tr><td><code>--revision</code></td><td>Expected revision</td></tr>
+<tr><td><code>--output</code></td><td>Output format (<code>json</code>, <code>markdown</code>, <code>console</code>, <code>github</code>)</td></tr>
+<tr><td><code>--output-file</code></td><td>File where to save the results</td></tr>
+<tr><td><code>--log-level</code></td><td>Set logging level (<code>DEBUG</code>, <code>INFO</code>, <code>TRACE</code>)</td></tr>
+<tr><td><code>--test-pattern</code></td><td>Test pattern to run (e.g. 'services*' or 'test_connectivity.py')</td></tr>
+<tr><td><code>--pytest-args</code></td><td>Additional arguments to pass to pytest</td></tr>
+</tbody></table>
+</div>
+<h3 id="connection-methods"><a class="header" href="#connection-methods">Connection Methods</a></h3>
+<p>At least one of these connection methods must be specified:</p>
+<div class="table-wrapper"><table><thead><tr><th>Parameter</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>--ami-id</code></td><td>ID of the AMI to validate by launching a new EC2 instance</td></tr>
+<tr><td><code>--ova-s3-path</code></td><td>S3 path to the OVA file to import and test</td></tr>
+<tr><td><code>--inventory</code></td><td>Path to Ansible inventory file to use for connection details</td></tr>
+<tr><td><code>--ssh-host</code></td><td>SSH host to connect to (direct SSH mode)</td></tr>
+<tr><td><code>--use-local</code></td><td>Use local machine for testing</td></tr>
+</tbody></table>
+</div>
+<h3 id="ssh-connection-options"><a class="header" href="#ssh-connection-options">SSH Connection Options</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Parameter</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>--ssh-username</code></td><td>SSH username (default: wazuh-user)</td></tr>
+<tr><td><code>--ssh-key-path</code></td><td>Path to the SSH private key</td></tr>
+<tr><td><code>--ssh-password</code></td><td>Password for SSH connection</td></tr>
+<tr><td><code>--ssh-port</code></td><td>SSH port (default: 22)</td></tr>
+</tbody></table>
+</div>
+<h3 id="ansible-inventory-options"><a class="header" href="#ansible-inventory-options">Ansible Inventory Options</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Parameter</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>--host</code></td><td>Host ID in the Ansible inventory to use</td></tr>
+</tbody></table>
+</div>
+<h3 id="aws-options"><a class="header" href="#aws-options">AWS Options</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Parameter</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>--aws-region</code></td><td>AWS region (default: us-east-1)</td></tr>
+<tr><td><code>--instance-type</code></td><td>EC2 instance type (default: c5ad.xlarge)</td></tr>
+<tr><td><code>--subnet-id</code></td><td>ID of the subnet where to launch the instance</td></tr>
+<tr><td><code>--instance-profile</code></td><td>IAM instance profile name</td></tr>
+<tr><td><code>--no-terminate</code></td><td>Do not terminate the instance after tests</td></tr>
+<tr><td><code>--security-group-ids</code></td><td>Security group IDs (overrides default security groups)</td></tr>
+<tr><td><code>--aws-role</code></td><td>AWS role to assume (choices: qa, dev, default)</td></tr>
+</tbody></table>
+</div>
+<h3 id="ova-options"><a class="header" href="#ova-options">OVA Options</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Parameter</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>--allocator-instance-type</code></td><td>EC2 instance type for the allocator</td></tr>
+<tr><td><code>--vm-memory</code></td><td>Memory to allocate to the VM in MB (default: 4096)</td></tr>
+<tr><td><code>--vm-cpus</code></td><td>Number of CPUs to allocate to the VM (default: 2)</td></tr>
+<tr><td><code>--import-only</code></td><td>Only import the OVA, don't run tests</td></tr>
+<tr><td><code>--vm-username</code></td><td>VM username (default: wazuh-user)</td></tr>
+<tr><td><code>--vm-password</code></td><td>VM password (default: wazuh)</td></tr>
+</tbody></table>
+</div>
+<h3 id="example"><a class="header" href="#example">Example</a></h3>
+<pre><code class="language-bash"># Test with verbose output for debugging
+wazuh-vm-test --test-type ami --ami-id ami-12345 --ssh-key-path ~/.ssh/my-key.pem --log-level DEBUG
+</code></pre>
+<h3 id="using-pytest-directly"><a class="header" href="#using-pytest-directly">Using Pytest Directly</a></h3>
+<p>You can also run the tests using pytest directly:</p>
+<pre><code class="language-bash"># Run tests on a remote host via SSH
+pytest -v --ssh-host=1.2.3.4 --ssh-username=wazuh-user --ssh-key=~/.ssh/my-key.pem
+</code></pre>
+<h2 id="core-test-types"><a class="header" href="#core-test-types">Core Test Types</a></h2>
+<p>The framework includes the following core tests that run for all test types:</p>
+<h3 id="service-validation"><a class="header" href="#service-validation">Service Validation</a></h3>
+<p><strong>Service tests</strong> verify the proper functioning of Wazuh services:</p>
+<ul>
+<li>Verifies that all Wazuh services are running (wazuh-server, wazuh-indexer, wazuh-dashboard)</li>
+<li>Verifies that service ports are listening</li>
+<li>Verifies that required directories and files exist</li>
+<li>Tests health endpoints for each service</li>
+</ul>
+<h3 id="certificate-validation"><a class="header" href="#certificate-validation">Certificate Validation</a></h3>
+<p><strong>Certificate tests</strong> ensure the security and integrity of SSL/TLS certificates:</p>
+<ul>
+<li>Verifies that certificates exist in the expected locations</li>
+<li>Validates that certificates are not expired</li>
+<li>Checks that certificate subjects and issuers match expected values</li>
+<li>Verifies certificate permissions</li>
+</ul>
+<h3 id="log-analysis"><a class="header" href="#log-analysis">Log Analysis</a></h3>
+<p><strong>Log tests</strong> identify potential issues by analyzing log files:</p>
+<ul>
+<li>Searches for errors in service logs</li>
+<li>Detects known error patterns</li>
+<li>Filters false positives</li>
+<li>Checks for recent errors (last 24 hours)</li>
+</ul>
+<h3 id="connectivity-tests"><a class="header" href="#connectivity-tests">Connectivity Tests</a></h3>
+<p><strong>Connectivity tests</strong> verify proper communication between components:</p>
+<ul>
+<li>Verifies connectivity between Wazuh components</li>
+<li>Tests Wazuh API connectivity and authentication</li>
+<li>Validates network configuration</li>
+</ul>
+<h3 id="version-verification"><a class="header" href="#version-verification">Version Verification</a></h3>
+<p><strong>Version tests</strong> ensure correct software versions are installed:</p>
+<ul>
+<li>Verifies that the installed version of each component matches the expected version</li>
+<li>Validates revisions match the expected values</li>
+</ul>
+<h2 id="test-types-and-their-specific-tests"><a class="header" href="#test-types-and-their-specific-tests">Test Types and Their Specific Tests</a></h2>
+<p>The framework supports different test types, each with specific test patterns:</p>
+<ul>
+<li><strong>AMI Testing</strong> - See <a href="ref/modules/test/ami/ami.html">Test AMI</a> for detailed information</li>
+<li><strong>OVA Testing</strong> - See <a href="ref/modules/test/ova/ova.html">Test OVA</a> for detailed information</li>
+</ul>
+<h2 id="connection-types"><a class="header" href="#connection-types">Connection Types</a></h2>
+<h3 id="ssh-connection-with-password-authentication"><a class="header" href="#ssh-connection-with-password-authentication">SSH Connection with Password Authentication</a></h3>
+<p>The framework supports SSH connections using password authentication, particularly useful when key-based authentication is not available.</p>
+<p>The SSH connection is implemented using a multi-threaded approach for better handling of timeouts and command execution:</p>
+<pre><code>┌────────────────────┐      ┌─────────────────┐
+│  Main Thread       │      │  SSH process    │
+│                    │      │                 │
+│ -Process begins    │─────▶│  - Execute the  │
+│ -Coordinate threads│      │    command      │
+│ -Return            │◀─────│    on the remote│
+│    results         │      │    server       │
+└─────────┬──────────┘      └────────┬────────┘
+          │                          │
+          │                          │
+┌─────────▼──────────┐      ┌────────▼────────┐
+│ Timeout Thread     │      │ Reader Threads  │
+│                    │      │                 │
+│ - Watch time       │      │ - stdout_thread │
+│ - Terminate process│      │ - stderr_thread │
+│   if exceeded      │      │ - Capture all   │
+│   the limit        │      │    the exit     │
+└────────────────────┘      └─────────────────┘
+</code></pre>
+<p>This approach provides:</p>
+<ul>
+<li>Reliable command execution</li>
+<li>Better timeout handling</li>
+<li>Concurrent collection of stdout and stderr</li>
+<li>Graceful termination of long-running commands</li>
+</ul>
+<h2 id="project-structure"><a class="header" href="#project-structure">Project Structure</a></h2>
+<pre><code>wazuh-vm-tester/
+├── pyproject.toml               # Project configuration
+├── README.md                    # Main documentation
+├── src/                         # Source code
+│   └── vm_tester/               # Main package
+│       ├── __init__.py          # Package initialization
+│       ├── cli.py               # Command-line interface
+│       ├── config.py            # Tester configuration
+│       ├── conftest.py          # Pytest fixtures
+│       ├── aws/                 # AWS modules
+│       ├── connections/         # Connection handling
+│       ├── instances/           # Instance management
+│       ├── reporting/           # Reporting modules
+│       ├── strategies/          # Connection strategies
+│       ├── tests/               # Test modules
+│       └── utils/               # Utility modules
+</code></pre>
+<h2 id="core-configuration"><a class="header" href="#core-configuration">Core Configuration</a></h2>
+<p>The test framework uses a centralized configuration system in <code>config.py</code> that handles all test types through Pydantic models. This provides strong typing, validation, and default values for all configuration parameters.</p>
+<h3 id="configuration-model-hierarchy"><a class="header" href="#configuration-model-hierarchy">Configuration Model Hierarchy</a></h3>
+<p>The main configuration classes form a hierarchy:</p>
+<ul>
+<li><code>BaseTesterConfig</code>: Core configuration shared by all test types</li>
+<li><code>AMITesterConfig</code>: Extends base config with AMI-specific settings</li>
+<li><code>OVATesterConfig</code>: Extends base config with OVA-specific settings</li>
+</ul>
+<h3 id="component-configuration-models"><a class="header" href="#component-configuration-models">Component Configuration Models</a></h3>
+<p>The framework uses specialized configuration models for different test components:</p>
+<pre><code class="language-python">class EndpointConfig(BaseModel):
+    """Configuration for API/health endpoints."""
+    url: str
+    token: Optional[str] = None
+    method: str = "GET"
+    auth: Optional[Dict[str, str]] = None
+    headers: Dict[str, str] = Field(default_factory=dict)
+    expected_status: List[int] = Field(default_factory=lambda: [200])
+    expected_content: Optional[str] = None
+
+
+class CommandConfig(BaseModel):
+    """Configuration for commands to execute."""
+    command: str
+    expected_output: Optional[str] = None
+    expected_regex: Optional[str] = None
+    expected_status: int = 0
+
+
+class WazuhServiceConfig(BaseModel):
+    """Configuration for validating a Wazuh service."""
+    name: str
+    version: Optional[str] = None
+    revision: Optional[str] = None
+    port: Optional[Union[int, List[Union[int, str]]]] = None
+    process_name: Optional[str] = None
+    log_files: List[str] = []
+    log_commands: List[str] = []
+    required_dirs: List[str] = []
+    required_files: List[str] = []
+    version_commands: List[CommandConfig] = Field(default_factory=list)
+    revision_commands: List[CommandConfig] = Field(default_factory=list)
+    health_endpoints: List[EndpointConfig] = Field(default_factory=list)
+    api_endpoints: List[EndpointConfig] = Field(default_factory=list)
+
+
+class WazuhCertificateConfig(BaseModel):
+    """Configuration for validating Wazuh certificates."""
+    path: str
+    subject_match: Optional[str] = None
+    issuer_match: Optional[str] = None
+    days_valid: int = 90
+    permissions: Optional[int] = None
+
+
+class ConnectivityTestConfig(BaseModel):
+    """Configuration for connectivity tests between services."""
+    source: str
+    target: str
+    host: str
+    port: int
+</code></pre>
+<p>These models define all the validation parameters for:</p>
+<ul>
+<li>Wazuh services (server, indexer, dashboard)</li>
+<li>Commands to run and expected outputs/exit codes</li>
+<li>API and health endpoints to test</li>
+<li>Certificate validation requirements</li>
+<li>Connectivity tests between components</li>
+</ul>
+<h3 id="default-configuration-provider"><a class="header" href="#default-configuration-provider">Default Configuration Provider</a></h3>
+<p>The configuration system includes utility functions that provide default configurations:</p>
+<ul>
+<li><code>get_default_wazuh_services()</code>: Default service configurations</li>
+<li><code>get_default_wazuh_certificates()</code>: Default certificate validation rules</li>
+<li><code>get_default_connectivity_tests()</code>: Default connectivity tests</li>
+<li><code>get_default_log_error_patterns()</code>: Default log error patterns to check</li>
+<li><code>get_default_log_false_positives()</code>: Default patterns to ignore in logs</li>
+</ul>
+<p>This design makes it easy to:</p>
+<ul>
+<li>Add new test types</li>
+<li>Extend existing test configurations</li>
+<li>Validate configuration parameters</li>
+<li>Provide sensible defaults</li>
+<li>Override specific settings when needed</li>
+</ul>
+<p>Test-specific configurations for AMI and OVA testing are detailed in their respective sections:</p>
+<h2 id="extending-the-framework"><a class="header" href="#extending-the-framework">Extending the Framework</a></h2>
+<p>The framework is designed to be extended with new tests:</p>
+<ol>
+<li>Create a new test file in the <code>tests</code> directory</li>
+<li>Define your test class with pytest markers</li>
+<li>Implement test methods</li>
+</ol>
+<p>Example of a new test:</p>
+<pre><code class="language-python">@pytest.mark.custom_test
+class TestCustomFeature:
+    """Tests for a custom feature."""
+
+    def test_custom_functionality(self, config: AMITesterConfig):
+        """Test some custom functionality."""
+        connection = get_connection()
+
+        # Run your test
+        exit_code, stdout, stderr = connection.execute_command("your-command")
+
+        # Assert results
+        assert exit_code == 0, f"Command failed: {stderr}"
+</code></pre>
+<h2 id="license"><a class="header" href="#license">License</a></h2>
+<p>WAZUH</p>
+<p>Copyright (C) 2015 Wazuh Inc.  (License GPLv2)</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="test-ova"><a class="header" href="#test-ova">Test OVA</a></h1>
+<p>The OVA testing type provides specialized tools and configuration for validating OVA (Open Virtual Appliance) files that contain Wazuh components.</p>
+<h2 id="features-1"><a class="header" href="#features-1">Features</a></h2>
+<ul>
+<li>Import and test OVA files in VirtualBox on an allocator instance</li>
+<li>Comprehensive verification of Wazuh components in the OVA</li>
+<li>OVA-specific tests beyond the standard core tests</li>
+</ul>
+<h2 id="requirements-2"><a class="header" href="#requirements-2">Requirements</a></h2>
+<p>For OVA testing, you'll need:</p>
+<ul>
+<li>AWS access (if using allocator)</li>
+<li>VirtualBox (automatically installed on the allocator instance)</li>
+<li>OVA file accessible in S3</li>
+</ul>
+<h2 id="ova-specific-parameters"><a class="header" href="#ova-specific-parameters">OVA-Specific Parameters</a></h2>
+<p>When running tests on an OVA, you can use these specific parameters:</p>
+<div class="table-wrapper"><table><thead><tr><th>Parameter</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>--ova-s3-path</code></td><td>S3 path to the OVA file to import and test</td></tr>
+<tr><td><code>--allocator-instance-type</code></td><td>EC2 instance type for the allocator (default: c5.metal)</td></tr>
+<tr><td><code>--vm-memory</code></td><td>Memory to allocate to the VM in MB (default: 4096)</td></tr>
+<tr><td><code>--vm-cpus</code></td><td>Number of CPUs to allocate to the VM (default: 2)</td></tr>
+<tr><td><code>--import-only</code></td><td>Only import the OVA, don't run tests</td></tr>
+<tr><td><code>--vm-username</code></td><td>VM username (default: wazuh-user)</td></tr>
+<tr><td><code>--vm-password</code></td><td>VM password (default: wazuh)</td></tr>
+</tbody></table>
+</div>
+<h2 id="usage-2"><a class="header" href="#usage-2">Usage</a></h2>
+<h3 id="command-line-interface"><a class="header" href="#command-line-interface">Command Line Interface</a></h3>
+<pre><code class="language-bash"># Test an OVA file by importing it into VirtualBox on an allocator instance
+wazuh-vm-test --test-type ova --ova-s3-path s3://bucket-name/path/to/wazuh.ova --vm-memory 4096 --vm-cpus 2
+
+# Specify output format
+wazuh-vm-test --test-type ova --ova-s3-path s3://bucket-name/path/to/wazuh.ova --output json --output-file results.json
+
+# Specify AWS region for the allocator instance
+wazuh-vm-test --test-type ova --ova-s3-path s3://bucket-name/path/to/wazuh.ova --aws-region us-west-2
+
+# Specify specific tests to run
+wazuh-vm-test --test-type ova --ova-s3-path s3://bucket-name/path/to/wazuh.ova --test-pattern "ova* services*"
+
+# Verbose output for debugging
+wazuh-vm-test --test-type ova --ova-s3-path s3://bucket-name/path/to/wazuh.ova --log-level DEBUG
+</code></pre>
+<h2 id="ova-tests"><a class="header" href="#ova-tests">OVA Tests</a></h2>
+<p>The OVA testing module runs all <a href="ref/modules/test/ova/../test.html#core-test-types">core tests</a> and adds the following OVA-specific tests:</p>
+<h3 id="boot-files-validation"><a class="header" href="#boot-files-validation">Boot Files Validation</a></h3>
+<p>Verifies the presence and integrity of boot files essential for proper OVA startup:</p>
+<ul>
+<li><code>/boot/grub2/wazuh.png</code></li>
+<li><code>/boot/grub2/grub.cfg</code></li>
+<li><code>/etc/default/grub</code></li>
+</ul>
+<h3 id="fips-compliance-verification"><a class="header" href="#fips-compliance-verification">FIPS Compliance Verification</a></h3>
+<p>Checks if FIPS (Federal Information Processing Standards) mode is correctly enabled:</p>
+<ul>
+<li>Verifies the existence of <code>/proc/sys/crypto/fips_enabled</code></li>
+<li>Confirms that FIPS mode is properly set to "1" (enabled)</li>
+</ul>
+<h3 id="wazuh-banner-validation"><a class="header" href="#wazuh-banner-validation">Wazuh Banner Validation</a></h3>
+<p>Ensures the correct implementation of the Wazuh banner for login screens:</p>
+<ul>
+<li>Verifies that <code>/usr/lib/motd.d/40-wazuh-banner</code> exists</li>
+<li>Confirms it's the only banner file in its directory</li>
+</ul>
+<h3 id="residual-files-verification"><a class="header" href="#residual-files-verification">Residual Files Verification</a></h3>
+<p>Checks for required installation residual files:</p>
+<ul>
+<li><code>/etc/systemd/system/wazuh-starter.service</code></li>
+<li><code>/usr/local/bin/wazuh-starter.sh</code></li>
+<li><code>/etc/systemd/system/wazuh-starter.timer</code></li>
+</ul>
+<h3 id="dns-resolution-testing"><a class="header" href="#dns-resolution-testing">DNS Resolution Testing</a></h3>
+<p>Verifies that DNS resolution is working correctly:</p>
+<ul>
+<li>Checks the existence of <code>/etc/resolv.conf</code></li>
+<li>Tests connectivity to external domains</li>
+</ul>
+<h2 id="ova-port-forwarding"><a class="header" href="#ova-port-forwarding">OVA Port Forwarding</a></h2>
+<p>For OVA testing, the framework sets up port forwarding between the allocator instance and the imported OVA VM:</p>
+<ol>
+<li>The allocator instance is launched on AWS</li>
+<li>VirtualBox is installed on the allocator instance</li>
+<li>The OVA file is downloaded from S3 and imported into VirtualBox</li>
+<li>Port forwarding is set up to access the OVA VM:
+<ul>
+<li>SSH (guest port 22 → host port 2201)</li>
+<li>Any additional ports specified in configuration</li>
+</ul>
+</li>
+</ol>
+<p>This allows the framework to connect to the OVA VM through the allocator instance using the forwarded ports.</p>
+<h2 id="ova-testing-strategy"><a class="header" href="#ova-testing-strategy">OVA Testing Strategy</a></h2>
+<p>The OVA testing strategy follows these steps:</p>
+<ol>
+<li>
+<p><strong>Allocator Setup</strong>:</p>
+<ul>
+<li>Launch an EC2 instance to serve as the allocator</li>
+<li>Install VirtualBox on the allocator</li>
+</ul>
+</li>
+<li>
+<p><strong>OVA Import</strong>:</p>
+<ul>
+<li>Download the OVA file from S3</li>
+<li>Import the OVA into VirtualBox</li>
+<li>Configure VM settings (memory, CPUs)</li>
+</ul>
+</li>
+<li>
+<p><strong>Port Forwarding Setup</strong>:</p>
+<ul>
+<li>Configure port forwarding for SSH and other required ports</li>
+</ul>
+</li>
+<li>
+<p><strong>Test Execution</strong>:</p>
+<ul>
+<li>Run all specified tests against the OVA VM</li>
+<li>Collect and analyze results</li>
+</ul>
+</li>
+<li>
+<p><strong>Reporting</strong>:</p>
+<ul>
+<li>Generate detailed reports in the specified format</li>
+<li>Include pass/fail status for each test</li>
+</ul>
+</li>
+<li>
+<p><strong>Cleanup</strong>:</p>
+<ul>
+<li>Stop and remove the imported VM</li>
+<li>Terminate the allocator instance</li>
+<li>Clean up temporary resources</li>
+</ul>
+</li>
+</ol>
+<h2 id="configuration-1"><a class="header" href="#configuration-1">Configuration</a></h2>
+<p>The OVA testing module uses the <a href="ref/modules/test/ova/../test.html#core-configuration">core configuration system</a> defined in <code>config.py</code>. For OVA-specific testing, the configuration is managed through the <code>OVATesterConfig</code> class which extends the base configuration:</p>
+<pre><code class="language-python">class OVATesterConfig(BaseTesterConfig):
+    """Main configuration for the OVA tester."""
+
+    # OVA-specific options
+    import_only: bool = False
+
+    # Allocator options for EC2 instance to run VirtualBox
+    allocator_enabled: bool = True
+    allocator_instance_type: str = "metal"
+    allocator_role: str = "default"
+
+    # VirtualBox options
+    virtualbox_version: str = "7.0.12"
+    vm_memory: int = 8192  # MB
+    vm_cpus: int = 4
+
+    # Network options
+    vm_network_mode: str = "nat"
+    vm_port_forwards: Dict[int, int] = Field(default_factory=dict)  # guest port -&gt; host port
+
+    # VM access options
+    vm_username: str = "wazuh-user"
+    vm_password: str = "wazuh"
+
+    # Test-specific OVA options
+    ova_test_features: List[str] = Field(default_factory=list)
+</code></pre>
+<p>This OVA-specific configuration provides:</p>
+<ul>
+<li>OVA identification and import settings</li>
+<li>AWS allocator configuration for VirtualBox hosting</li>
+<li>VM resource allocation settings</li>
+<li>Network and port forwarding configuration</li>
+<li>VM access credentials</li>
+</ul>
+<p>Key configuration aspects for OVA testing include:</p>
+<ul>
+<li>AWS allocator settings (instance type, region, security groups)</li>
+<li>VirtualBox configuration (version, VM resources)</li>
+<li>VM network configuration (port forwarding)</li>
+<li>Test patterns to execute, including OVA-specific tests</li>
+<li>Expected versions of Wazuh components</li>
+</ul>
+<p>The configuration is designed to be modular and extensible, making it easy to add new tests or parameters while maintaining backward compatibility and consistent validation.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="test-ami"><a class="header" href="#test-ami">Test AMI</a></h1>
+<p>The AMI testing type provides specialized tools and configuration for validating AWS AMIs that contain Wazuh components.</p>
+<h2 id="features-2"><a class="header" href="#features-2">Features</a></h2>
+<ul>
+<li>Launch and test new instances from an AMI</li>
+<li>Test existing EC2 instances via direct SSH or using Ansible inventory files</li>
+<li>Support for various authentication methods</li>
+<li>Execute several test of Wazuh components.</li>
+</ul>
+<h2 id="requirements-3"><a class="header" href="#requirements-3">Requirements</a></h2>
+<p>For AMI testing, you'll need:</p>
+<ul>
+<li>AWS access with permissions to:
+<ul>
+<li>Describe AMIs</li>
+<li>Launch and terminate EC2 instances</li>
+<li>Describe EC2 instances</li>
+<li>Create and delete EC2 key pairs</li>
+</ul>
+</li>
+<li>SSH key for connecting to instances</li>
+</ul>
+<h2 id="ami-specific-parameters"><a class="header" href="#ami-specific-parameters">AMI-Specific Parameters</a></h2>
+<p>When running tests on an AMI, you can use these specific parameters:</p>
+<div class="table-wrapper"><table><thead><tr><th>Parameter</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>--ami-id</code></td><td>ID of the AMI to validate by launching a new EC2 instance</td></tr>
+<tr><td><code>--instance-type</code></td><td>EC2 instance type (default: t3.medium)</td></tr>
+<tr><td><code>--security-group-ids</code></td><td>Security group IDs for the launched instance</td></tr>
+<tr><td><code>--no-terminate</code></td><td>Do not terminate the instance after tests</td></tr>
+<tr><td><code>--aws-region</code></td><td>AWS region where the AMI is located</td></tr>
+<tr><td><code>--aws-role</code></td><td>AWS role to assume (choices: qa, dev, default)</td></tr>
+<tr><td><code>--instance-profile</code></td><td>IAM instance profile to attach to the instance</td></tr>
+</tbody></table>
+</div>
+<h2 id="usage-3"><a class="header" href="#usage-3">Usage</a></h2>
+<h3 id="command-line-interface-1"><a class="header" href="#command-line-interface-1">Command Line Interface</a></h3>
+<pre><code class="language-bash"># Test a new instance launched from an AMI
+wazuh-vm-test --test-type ami --ami-id ami-12345 --ssh-key-path ~/.ssh/my-key.pem --version 5.0.0
+
+# Test an existing instance via direct SSH with key authentication
+wazuh-vm-test --test-type ami --ssh-host 1.2.3.4 --ssh-username wazuh-user --ssh-key-path ~/.ssh/my-key.pem
+
+# Test an existing instance via direct SSH with password authentication
+wazuh-vm-test --test-type ami --ssh-host 1.2.3.4 --ssh-username wazuh-user --ssh-password your-password
+
+# Test using an Ansible inventory
+wazuh-vm-test --test-type ami --inventory /path/to/inventory.yml --host wazuh-server
+
+# Test on the local machine
+wazuh-vm-test --test-type ami --use-local
+
+# Specify output format
+wazuh-vm-test --test-type ami --ami-id ami-12345 --output json --output-file results.json
+
+# Specify AWS region
+wazuh-vm-test --test-type ami --ami-id ami-12345 --aws-region us-west-2
+
+# Specify specific tests to run (e.g., only services tests)
+wazuh-vm-test --test-type ami --ssh-host 1.2.3.4 --test-pattern "services*"
+
+# Specify multiple test types
+wazuh-vm-test --test-type ami --ssh-host 1.2.3.4 --test-pattern "services* logs*"
+
+# Verbose output for debugging
+wazuh-vm-test --test-type ami --ami-id ami-12345 --ssh-key-path ~/.ssh/my-key.pem --log-level DEBUG
+</code></pre>
+<h3 id="using-pytest-directly-1"><a class="header" href="#using-pytest-directly-1">Using Pytest Directly</a></h3>
+<pre><code class="language-bash"># Run tests on a remote host via SSH
+pytest -v --ssh-host=1.2.3.4 --ssh-username=wazuh-user --ssh-key=~/.ssh/my-key.pem
+
+# Run tests on the local machine
+pytest -v --use-local
+
+# Run specific test modules
+pytest -v --use-local -k "services"
+
+# Run tests with expected version
+pytest -v --use-local --expected-version=5.0.0
+</code></pre>
+<h2 id="ami-tests"><a class="header" href="#ami-tests">AMI Tests</a></h2>
+<p>The AMI testing module runs the <a href="ref/modules/test/ami/../test.html#core-test-types">core tests</a> which include:</p>
+<ul>
+<li><strong>test_certificates</strong>: Validates SSL/TLS certificates for security and proper setup</li>
+<li><strong>test_connectivity</strong>: Ensures proper network connectivity between components</li>
+<li><strong>test_services</strong>: Verifies that all services are running correctly</li>
+<li><strong>test_logs</strong>: Analyzes logs to detect errors or anomalies</li>
+<li><strong>test_version</strong>: Validates that the installed versions match expectations</li>
+</ul>
+<p>No additional tests beyond the core tests are implemented specifically for AMI testing.</p>
+<h2 id="ami-testing-strategy"><a class="header" href="#ami-testing-strategy">AMI Testing Strategy</a></h2>
+<p>The AMI testing strategy follows these steps:</p>
+<ol>
+<li>
+<p><strong>Instance Initialization</strong>:</p>
+<ul>
+<li>If an AMI ID is provided, a new EC2 instance is launched from that AMI</li>
+<li>If an SSH host is provided, a direct connection to that host is established</li>
+</ul>
+</li>
+<li>
+<p><strong>Test Execution</strong>:</p>
+<ul>
+<li>Runs all specified tests against the target instance</li>
+<li>Collects and analyzes results</li>
+</ul>
+</li>
+<li>
+<p><strong>Reporting</strong>:</p>
+<ul>
+<li>Generates detailed reports in the specified format</li>
+<li>Includes pass/fail status for each test</li>
+</ul>
+</li>
+<li>
+<p><strong>Cleanup</strong>:</p>
+<ul>
+<li>If a new instance was launched, it is terminated</li>
+<li>Temporary resources are cleaned up</li>
+</ul>
+</li>
+</ol>
+<h2 id="aws-integration"><a class="header" href="#aws-integration">AWS Integration</a></h2>
+<p>The AMI testing module integrates with AWS services through:</p>
+<ol>
+<li><strong>EC2 Client</strong>: Manages instance lifecycle and status</li>
+<li><strong>Credentials Management</strong>: Securely handles AWS authentication</li>
+</ol>
+<h2 id="configuration-2"><a class="header" href="#configuration-2">Configuration</a></h2>
+<p>The AMI testing module uses the <a href="ref/modules/test/ami/../test.html#core-configuration">core configuration system</a> defined in <code>config.py</code>. For AMI-specific testing, the configuration is managed through the <code>AMITesterConfig</code> class which extends the base configuration:</p>
+<pre><code class="language-python">class AMITesterConfig(BaseTesterConfig):
+    """Main configuration for the AMI tester."""
+
+    # AMI option
+    ami_id: Optional[str] = None
+
+    # AWS instance options
+    instance_type: str = "t3.medium"
+</code></pre>
+<p>This AMI-specific configuration provides:</p>
+<ul>
+<li>AMI identification settings</li>
+<li>AWS instance type configuration</li>
+<li>Validation of required connection parameters</li>
+</ul>
+<p>Key configuration aspects for AMI testing include:</p>
+<ul>
+<li>AWS connection details (region, instance type, security groups)</li>
+<li>SSH authentication settings</li>
+<li>Test patterns to execute</li>
+<li>Expected versions of Wazuh components</li>
+<li>Timeout and retry settings</li>
+</ul>
+<p>The configuration inherits all the core validation parameters for Wazuh services, certificates, and connectivity testing, while adding AMI-specific options.</p>
+<h2 id="connection-handling"><a class="header" href="#connection-handling">Connection Handling</a></h2>
+<p>The AMI testing module supports multiple connection methods:</p>
+<ul>
+<li><strong>Direct SSH</strong>: Connect directly to an instance with key or password</li>
+<li><strong>EC2 Instance</strong>: Launch a new instance from an AMI</li>
+<li><strong>Ansible Inventory</strong>: Use existing Ansible inventory for testing</li>
+<li><strong>Local Testing</strong>: Test on the local machine</li>
+</ul>
+<p>Each connection method provides the same interface for executing commands and transferring files, allowing the tests to run consistently regardless of the connection type.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="upgrade"><a class="header" href="#upgrade">Upgrade</a></h1>
+<p>Upgrading the Wazuh components included in the AMI and the OVA follows the <strong>same procedure as when upgrading them individually</strong>.</p>
+<p>If you need to update any component (Wazuh Server, Wazuh Indexer, or Wazuh Dashboard), you can follow the official upgrade guides provided by Wazuh.</p>
+<blockquote>
+<p>The AMI and the OVA does not modify the standard upgrade process of any Wazuh component, so the official documentation remains fully applicable.</p>
+</blockquote>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="security"><a class="header" href="#security">Security</a></h1>
+<p>This section covers the different security configurations of the AMI and OVA, as well as how to access the dashboard in each of the deployments.</p>
+<ul>
+<li><strong>AMI security</strong> (<a href="ref/security/ami/ami-security.html">ami-security.md</a>): This section covers the security configurations of the AMI, including SSH access and Wazuh dashboard access.</li>
+<li><strong>OVA security</strong> (<a href="ref/security/ova/ova-security.html">ova-security.md</a>): This section covers the security configurations of the OVA.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="ami-security"><a class="header" href="#ami-security">AMI Security</a></h1>
+<h2 id="security-considerations-about-ssh"><a class="header" href="#security-considerations-about-ssh">Security considerations about SSH</a></h2>
+<ul>
+<li>
+<p>The <code>root</code> user cannot be identified by SSH and the instance can only be accessed through the <code>wazuh-user</code> user.</p>
+</li>
+<li>
+<p>SSH authentication through passwords is disabled and the instance can only be accessed through a key pair. This means that only the user with the key pair has access to the instance.</p>
+</li>
+<li>
+<p>To access the instance with a key pair, you need to download the key generated or stored in AWS. Then, run the following command to connect with the instance.</p>
+<pre><code class="language-bash">ssh -i "&lt;KEY_PAIR_NAME&gt;" wazuh-user@&lt;YOUR_INSTANCE_IP&gt;
+</code></pre>
+</li>
+</ul>
+<h2 id="access-the-wazuh-dashboard-1"><a class="header" href="#access-the-wazuh-dashboard-1">Access the Wazuh dashboard</a></h2>
+<blockquote>
+<p>🚧 Details on how to access to the Wazuh Dashboard UI will be provided later.</p>
+</blockquote>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="ova-security"><a class="header" href="#ova-security">OVA Security</a></h1>
+<h2 id="security-considerations-about-ssh-1"><a class="header" href="#security-considerations-about-ssh-1">Security considerations about SSH</a></h2>
+<ul>
+<li>The <code>root</code> user cannot be identified by SSH and the instance can only be accessed through the <code>wazuh-user</code> user. This retains <code>sudo</code> privileges.</li>
+<li>SSH authentication is done with user and password.</li>
+<li>Federal Information Processing Standards (FIPS) is enabled on the system.</li>
+<li>SSH is configured to use modern and secure cryptographic algorithms, in accordance with FIPS activation.</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+        <!-- Livereload script (if served using the cli tool) -->
+        <script>
+            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
+            const socket = new WebSocket(wsAddress);
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload();
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+        <script>
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+
+    </div>
+    </body>
+</html>
