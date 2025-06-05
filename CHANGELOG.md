@@ -37,24 +37,6 @@ All notable changes to this project will be documented in this file.
 
 - Remove default virtual-machines reference version from workflow ([#237](https://github.com/wazuh/wazuh-virtual-machines/pull/237))
 
-## [4.12.1]
-
-### Added
-
-- None
-
-### Changed
-
-- None
-
-### Fixed
-
-- None
-
-### Deleted
-
-- None
-
 ## [4.12.0]
 
 ### Added
