@@ -1,23 +1,23 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
-## [4.12.1]
+## [4.13.0]
 
 ### Added
 
-- None
+- Added repository_bumper.sh script. ([#271](https://github.com/wazuh/wazuh-virtual-machines/pull/271))
 
 ### Changed
 
-- None
+- Updated the regular expression for the new indexes ([#240](https://github.com/wazuh/wazuh-virtual-machines/pull/240))
 
 ### Fixed
 
-- None
+- Fix obtaining the tag in case the INSTALLATION_ASSISTANT_BRANCH variable contains the HEAD ([#239](https://github.com/wazuh/wazuh-virtual-machines/pull/239))
 
 ### Deleted
 
-- None
+- Remove default virtual-machines reference version from workflow ([#237](https://github.com/wazuh/wazuh-virtual-machines/pull/237))
 
 ## [4.12.0]
 
