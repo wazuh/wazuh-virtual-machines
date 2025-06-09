@@ -9,9 +9,12 @@ def deactivate_selinux():
     with open("/etc/selinux/config", "w") as file:
         for line in lines:
             if line.strip().startswith("SELINUX="):
-                file.write("SELINUX=disabled\n")
+                file.write("SELINUX=permissive\n")
             else:
                 file.write(line)
+    
+    subprocess.run("sudo setenforce 0", shell=True, check=True)
+    subprocess.run("sudo grubby --update-kernel ALL --args selinux=0", shell=True, check=True)
     
 def set_hostname():
     """
