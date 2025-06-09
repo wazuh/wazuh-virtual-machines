@@ -20,8 +20,8 @@ def clone_repositories():
     Clones the wazuh-installation-assistant and wazuh-virtual-machines repositories
     """
     repos = [
-        {"url": "https://github.com/wazuh/wazuh-virtual-machines.git", "dest": "/home/ec2-user/wazuh-virtual-machines"},
-        {"url": "https://github.com/wazuh/wazuh-installation-assistant.git", "dest": "/home/ec2-user/wazuh-installation-assistant"}
+        {"url": "https://github.com/wazuh/wazuh-virtual-machines.git", "dest": "/home/vagrant/wazuh-virtual-machines"},
+        {"url": "https://github.com/wazuh/wazuh-installation-assistant.git", "dest": "/home/vagrant/wazuh-installation-assistant"}
     ]
 
     for repo in repos:
@@ -54,10 +54,19 @@ def run_provision_script(wvm_branch, repository, debug):
         repository (str): Production or development repository
         debug (str): Debug mode
     """
-    os.chdir("/home/ec2-user/wazuh-virtual-machines/ova")
+    os.chdir("/home/vagrant/wazuh-virtual-machines/ova")
     subprocess.run(f"git checkout {wvm_branch}", shell=True, check=True)
     subprocess.run(f"sudo bash provision.sh {repository} {debug}", shell=True, check=True)
 
+def deactivate_network_manager():
+    """
+    Deactivates the NetworkManager service
+    """
+    subprocess.run("sudo systemctl stop NetworkManager", shell=True, check=True)
+    subprocess.run("sudo systemctl disable NetworkManager", shell=True, check=True)
+    subprocess.run("sudo systemctl enable systemd-networkd", shell=True, check=True)
+    subprocess.run("sudo systemctl start systemd-networkd", shell=True, check=True)
+    subprocess.run("sudo systemctl start systemd-resolved", shell=True, check=True)
 
 def create_network_config():
     """
@@ -70,6 +79,9 @@ DHCP=ipv4
 """
 
     config_path = "/etc/systemd/network/20-eth1.network"
+    
+    if not os.path.exists("/etc/systemd/network"):
+        os.makedirs("/etc/systemd/network")
     
     with open(config_path, "w") as config_file:
         config_file.write(config_content)
@@ -109,7 +121,7 @@ def clean():
     
     os.remove("/tmp/wazuh-install.sh")
     
-    subprocess.run("sudo rm -rf /home/ec2-user/wazuh-virtual-machines /home/ec2-user/wazuh-installation-assistant", shell=True, check=True)
+    subprocess.run("sudo rm -rf /home/vagrant/wazuh-virtual-machines /home/vagrant/wazuh-installation-assistant", shell=True, check=True)
     
     log_clean_commands = [
         "find /var/log/ -type f -exec bash -c 'cat /dev/null > {}' \\;",
@@ -153,8 +165,9 @@ def main():
     set_hostname()
     install_git()
     clone_repositories()
-    build_wazuh_install("/home/ec2-user/wazuh-installation-assistant", args.wia_branch)
+    build_wazuh_install("/home/vagrant/wazuh-installation-assistant", args.wia_branch)
     run_provision_script(args.wvm_branch, args.repository, args.debug)
+    deactivate_network_manager()
     create_network_config()
     change_ssh_config()
     clean()
