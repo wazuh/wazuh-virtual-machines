@@ -9,7 +9,7 @@ def deactivate_selinux():
     with open("/etc/selinux/config", "w") as file:
         for line in lines:
             if line.strip().startswith("SELINUX="):
-                file.write("SELINUX=permissive\n")
+                file.write("SELINUX=disabled\n")
             else:
                 file.write(line)
     
