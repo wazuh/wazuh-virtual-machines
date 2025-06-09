@@ -2,7 +2,17 @@ import os
 import subprocess
 import argparse
 
-
+def deactivate_selinux():
+    with open("/etc/selinux/config", "r") as file:
+        lines = file.readlines()
+    
+    with open("/etc/selinux/config", "w") as file:
+        for line in lines:
+            if line.strip().startswith("SELINUX="):
+                file.write("SELINUX=disabled\n")
+            else:
+                file.write(line)
+    
 def set_hostname():
     """
     Sets the hostname of the machine
@@ -162,6 +172,7 @@ def main():
     parser.add_argument("--debug", required=True, help="Debug mode")
     args = parser.parse_args()
     
+    deactivate_selinux()
     set_hostname()
     install_git()
     clone_repositories()
