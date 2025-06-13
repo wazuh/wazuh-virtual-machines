@@ -19,10 +19,29 @@ All notable changes to this project will be documented in this file.
 
 - None
 
+## [4.13.1]
+
+### Added
+
+- None
+
+### Changed
+
+- None
+
+### Fixed
+
+- None
+
+### Deleted
+
+- None
+
 ## [4.13.0]
 
 ### Added
 
+- Integrate bumper script via GitHub action. ([#331](https://github.com/wazuh/wazuh-virtual-machines/pull/331))
 - Added repository_bumper.sh script. ([#271](https://github.com/wazuh/wazuh-virtual-machines/pull/271))
 
 ### Changed
