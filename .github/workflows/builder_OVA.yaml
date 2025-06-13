@@ -14,11 +14,11 @@ on:
       wazuh_installation_assistant_reference:
         description: 'Branch or tag of the wazuh-installation-assistant repository'
         required: true
-        default: '4.13.0'
+        default: '4.13.1'
       wazuh_automation_reference:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
-        default: '4.13.0'
+        default: '4.13.1'
       wazuh_package_repository:
         type: choice
         description: 'Wazuh package repository from which to download the packages'
