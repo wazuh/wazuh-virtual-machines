@@ -14,35 +14,13 @@ on:
       wazuh_automation_reference:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
-<<<<<<< HEAD
-        default: '4.13.0'
-      wazuh_installation_assistant_reference:
-        description: 'Branch or tag of the wazuh-installation-assistant repository'
-        required: true
-        default: '4.13.0'
-      debug:
-        description: 'Verbosity level on playbooks execution'
-        required: true
-        default: '-v'
-        type: choice
-        options:
-          - -v
-          - -vv
-          - -vvv
-          - -vvvv
-=======
         default: '6.0.0'
->>>>>>> 46c7f05b674b2de000e7b6c3fa33ff44677d9206
       ami_revision:
         description: |
           'For AMI candidates must be a number, e,g: -1.'
           'To build a development AMI, use another revision format, e.g: -dev'
         required: false
         default: '-1'
-<<<<<<< HEAD
-      destroy:
-        type: boolean
-=======
       wazuh_package_type:
         description: 'Wazuh package type to be used in the AMI'
         required: true
@@ -60,7 +38,6 @@ on:
         default: '["latest", "latest", "latest", "latest"]'
         type: string
       destroy:
->>>>>>> 46c7f05b674b2de000e7b6c3fa33ff44677d9206
         description: 'Destroy the base instance after the AMI is created'
         required: false
         default: true
@@ -72,11 +49,7 @@ on:
         required: false
 
 env:
-<<<<<<< HEAD
-    COMPOSITE_NAME: "linux-amazon-2023ami-amd64"
-=======
     COMPOSITE_NAME: "linux-amazon-2023-amd64"
->>>>>>> 46c7f05b674b2de000e7b6c3fa33ff44677d9206
     ALLOCATOR_PATH: "/tmp/allocatorvm_ami"
     WORKFLOW_VENV: "${{ github.workspace }}/workflow_venv"
     COMMIT_LIST: ${{ inputs.commit_list }}
@@ -102,8 +75,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.wazuh_virtual_machines_reference }}
-<<<<<<< HEAD
-=======
 
       - name: Checkout wazuh/wazuh-automation repository
         uses: actions/checkout@v4
@@ -112,7 +83,6 @@ jobs:
           ref: ${{ inputs.wazuh_automation_reference }}
           token: ${{ secrets.GH_CLONE_TOKEN }}
           path: wazuh-automation
->>>>>>> 46c7f05b674b2de000e7b6c3fa33ff44677d9206
 
       - name: Configure aws credentials
         uses: aws-actions/configure-aws-credentials@v3
@@ -120,10 +90,6 @@ jobs:
           role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
           aws-region: us-east-1
 
-<<<<<<< HEAD
-      - name: Install jq
-        run: sudo apt-get install jq
-=======
       - name: Install and configure python and workflow dependencies
         run: |
           sudo apt-get update
@@ -135,42 +101,10 @@ jobs:
           source ${{ env.WORKFLOW_VENV }}/bin/activate
           pip install --upgrade pip
           pip install hatch pyyaml
->>>>>>> 46c7f05b674b2de000e7b6c3fa33ff44677d9206
 
       - name: Get Wazuh version
         run: |
             WAZUH_VERSION=$(jq -r '.version' VERSION.json)
-<<<<<<< HEAD
-            echo WAZUH_VERSION=$WAZUH_VERSION >> $GITHUB_ENV
-
-      - name: Install Python and create virtual environment
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y python3 python3-pip
-          python3 -m venv ami_env
-          source ami_env/bin/activate
-          python3 -m pip install --upgrade pip
-          echo PATH=$PATH >> $GITHUB_ENV
-
-      - name: Install Ansible
-        run: |
-          python3 -m pip install ansible-core==2.16
-
-      - name: Ansible version
-        run: ansible --version
-
-      - name: Checkout wazuh/wazuh-automation repository
-        uses: actions/checkout@v4
-        with:
-          repository: wazuh/wazuh-automation
-          ref: ${{ inputs.wazuh_automation_reference }}
-          token: ${{ secrets.GH_CLONE_TOKEN }}
-          path: wazuh-automation
-
-      - name: Install and set allocator requirements
-        run: |
-          python3 -m pip install -r wazuh-automation/deployability/deps/requirements.txt
-=======
             WAZUH_MINOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1-2)
             echo WAZUH_VERSION=$WAZUH_VERSION >> $GITHUB_ENV
             echo WAZUH_MINOR=$WAZUH_MINOR >> $GITHUB_ENV
@@ -178,7 +112,6 @@ jobs:
       - name: Install and set allocator requirements
         run: |
           pip install -r wazuh-automation/deployability/deps/requirements.txt
->>>>>>> 46c7f05b674b2de000e7b6c3fa33ff44677d9206
 
       - name: Execute allocator module that will create the base instance
         id: alloc_vm_ami
@@ -186,29 +119,10 @@ jobs:
           python wazuh-automation/deployability/modules/allocation/main.py --action create --provider aws --size large --composite-name ${{ env.COMPOSITE_NAME }} --working-dir ${{ env.ALLOCATOR_PATH }} \
             --track-output ${{ env.ALLOCATOR_PATH }}/track.yml --inventory-output ${{ env.ALLOCATOR_PATH }}/inventory.yml --instance-name gha_${{ github.run_id }}_ami_build \
             --label-team devops --label-termination-date 1d
-<<<<<<< HEAD
-          sed -n '/hosts:/,/^[^ ]/p' ${{ env.ALLOCATOR_PATH }}/inventory.yml | grep "ansible_" | sed 's/^[ ]*//g' > ${{ env.ALLOCATOR_PATH }}/inventory_mod.yml
-
-          sed 's/: */=/g' ${{ env.ALLOCATOR_PATH }}/inventory_mod.yml > ${{ env.ALLOCATOR_PATH }}/inventory_vars.yml
-          sed -n 's/^identifier: \(.*\)$/identifier=\1/p' ${{ env.ALLOCATOR_PATH }}/track.yml >> ${{ env.ALLOCATOR_PATH }}/inventory_vars.yml
-          source ${{ env.ALLOCATOR_PATH }}/inventory_vars.yml
-
-          echo "::add-mask::$ansible_host"
-          echo "::add-mask::$ansible_port"
-          echo "::add-mask::$ansible_user"
-          echo "::add-mask::$ansible_ssh_private_key_file"
-          echo "::add-mask::$ansible_ssh_common_args"
-          echo "::add-mask::$identifier"
-
-          cat "${{ env.ALLOCATOR_PATH }}/inventory_vars.yml" >> $GITHUB_ENV
-
-      - name: Generate inventory
-=======
           INSTANCE_ID=$(yq '.all.hosts | keys | .[0]' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
           echo INSTANCE_ID=$INSTANCE_ID >> $GITHUB_ENV
 
       - name: Get artifacts URLs file
->>>>>>> 46c7f05b674b2de000e7b6c3fa33ff44677d9206
         run: |
           LOCAL_ARTIFACTS_URLS_FILEPATH=${{ github.workspace }}/${{ env.ARTIFACTS_URLS_FILENAME }}
           echo LOCAL_ARTIFACTS_URLS_FILEPATH=$LOCAL_ARTIFACTS_URLS_FILEPATH >> $GITHUB_ENV
@@ -222,15 +136,6 @@ jobs:
             aws s3api get-object --bucket ${{ env.DEV_ARTIFACTS_URLS_BUCKET }} --key $PARSED_DEV_ARTIFACTS_URLS_PATH/${{ env.ARTIFACTS_URLS_FILENAME }} $LOCAL_ARTIFACTS_URLS_FILEPATH
           fi
 
-<<<<<<< HEAD
-      - name: Run Ansible playbook to install Wazuh components
-        run: |
-          ansible-playbook -i ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini \
-          ${{ env.PLAYBOOKS_PATH }}/build_ami_packages.yaml \
-          --extra-vars "installation_assistant_reference=${{ inputs.wazuh_installation_assistant_reference }}" \
-          "${{ inputs.debug }}"
-
-=======
       - name: Generate presigned URLs for artifacts for dev packages
         if: inputs.wazuh_package_type == 'dev'
         run: |
@@ -240,7 +145,6 @@ jobs:
         run: |
           source ${{ env.WORKFLOW_VENV }}/bin/activate
           hatch run dev:run --inventory ${{ env.ALLOCATOR_PATH }}/inventory.yml --packages-url-path ${{ env.LOCAL_ARTIFACTS_URLS_FILEPATH }} --execute all-ami
->>>>>>> 46c7f05b674b2de000e7b6c3fa33ff44677d9206
 
       - name: Stop instance
         run: |
@@ -276,11 +180,7 @@ jobs:
         if: success()
         run: |
           AMI_NAME="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.ami_revision }}"
-<<<<<<< HEAD
-          aws ec2 create-image --instance-id ${{ env.identifier }} --name "$AMI_NAME" --no-reboot
-=======
           aws ec2 create-image --instance-id ${{ env.INSTANCE_ID }} --name "$AMI_NAME" --no-reboot
->>>>>>> 46c7f05b674b2de000e7b6c3fa33ff44677d9206
           AMI_ID=$(aws ec2 describe-images --filters "Name=name,Values=$AMI_NAME" --query 'Images[*].ImageId' --output text)
           echo "AMI_ID=$AMI_ID" >> $GITHUB_ENV
           echo "AMI creation started with name $AMI_NAME"
