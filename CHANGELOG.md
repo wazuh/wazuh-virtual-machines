@@ -1,6 +1,57 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [6.0.0]
+
+### Added
+
+- Add wget as a package dependency ([#309](https://github.com/wazuh/wazuh-virtual-machines/pull/309))
+- Create build process for local ova and fix certificates default path for Wazuh Server ([#299](https://github.com/wazuh/wazuh-virtual-machines/pull/299))
+- Added OVA test to VM framework test module ([#276](https://github.com/wazuh/wazuh-virtual-machines/pull/276))
+- Add OVA documentation ([#275](https://github.com/wazuh/wazuh-virtual-machines/pull/275))
+- Add AMI and global modules ref documentation ([#272](https://github.com/wazuh/wazuh-virtual-machines/pull/272))
+- Add AMI ref documentation ([#269](https://github.com/wazuh/wazuh-virtual-machines/pull/269))
+- Add AMI dev documentation ([#267](https://github.com/wazuh/wazuh-virtual-machines/pull/267))
+- Added AMI test framework ([#266](https://github.com/wazuh/wazuh-virtual-machines/pull/266))
+- Update the OVA creation workflow using the new python modules ([#262](https://github.com/wazuh/wazuh-virtual-machines/pull/262))
+- Update the AMI creation workflow using the new python modules ([#260](https://github.com/wazuh/wazuh-virtual-machines/pull/260))
+- Create the AMI PostConfigure submodule ([#255](https://github.com/wazuh/wazuh-virtual-machines/pull/255))
+- Create the OVA PostConfigurer module ([#249](https://github.com/wazuh/wazuh-virtual-machines/pull/249))
+- Add the AMI pre_configurer submodule ([#242](https://github.com/wazuh/wazuh-virtual-machines/pull/242))
+- Create the PreConfigurer for the OVA ([#241](https://github.com/wazuh/wazuh-virtual-machines/pull/241))
+- Create the Core Configurer Module for OVA and AMI ([#236](https://github.com/wazuh/wazuh-virtual-machines/pull/236))
+- Create the Provisioner Module for OVA and AMI ([#224](https://github.com/wazuh/wazuh-virtual-machines/pull/224))
+
+### Changed
+
+- Updated VERSION file to the new standard. ([#213](https://github.com/wazuh/wazuh-virtual-machines/pull/213))
+
+### Fixed
+
+- Fixed several OVA workflow and creation process errors ([#270](https://github.com/wazuh/wazuh-virtual-machines/pull/270))
+
+### Deleted
+
+- Removed VERSION file from main branch. ([#221](https://github.com/wazuh/wazuh-virtual-machines/pull/221))
+
+## [5.0.0]
+
+### Added
+
+- None
+
+### Changed
+
+- None
+
+### Fixed
+
+- None
+
+### Deleted
+
+- None
+
 ## [4.13.0]
 
 ### Added
@@ -20,27 +71,7 @@ All notable changes to this project will be documented in this file.
 
 - Remove default virtual-machines reference version from workflow ([#237](https://github.com/wazuh/wazuh-virtual-machines/pull/237))
 
-## [4.12.0]
-
-### Added
-
-- None
-
-### Changed
-
-- Adapt existing workflows to new allocator YAML inventory ([#220](https://github.com/wazuh/wazuh-virtual-machines/pull/220))
-- Updated VERSION file to the new standard. ([#212](https://github.com/wazuh/wazuh-virtual-machines/pull/212))
-- Change runners in GHA workflows to Ubuntu 22.04 ([#145](https://github.com/wazuh/wazuh-virtual-machines/pull/145))
-
-### Fixed
-
-- None
-
-### Deleted
-
-- None
-
-## [4.11.2]
+## [4.10.2]
 
 ### Added
 

@@ -193,18 +193,7 @@
     ###############################
 
     - name: Run {{ installer_script_name }} script
-      command: "bash {{ installation_assistant_directory }}/{{ installer_script_name }} -a -v -o -d"
-      async: 1800
-      poll: 0
-      register: install_result
-
-    - name: Wait for installation to finish
-      async_status:
-        jid: "{{ install_result.ansible_job_id }}"
-      register: job_result
-      until: job_result.finished
-      retries: 30
-      delay: 60
+      command: "bash {{ installation_assistant_directory }}/{{ installer_script_name }} -a -v -o -d --install-dependencies"
 
     ###############################
     # Post-install stage
