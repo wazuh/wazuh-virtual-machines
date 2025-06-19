@@ -52,6 +52,25 @@ All notable changes to this project will be documented in this file.
 
 - None
 
+## [4.13.0]
+
+### Added
+
+- Integrate bumper script via GitHub action. ([#331](https://github.com/wazuh/wazuh-virtual-machines/pull/331))
+- Added repository_bumper.sh script. ([#271](https://github.com/wazuh/wazuh-virtual-machines/pull/271))
+
+### Changed
+
+- Updated the regular expression for the new indexes ([#240](https://github.com/wazuh/wazuh-virtual-machines/pull/240))
+
+### Fixed
+
+- Fix obtaining the tag in case the INSTALLATION_ASSISTANT_BRANCH variable contains the HEAD ([#239](https://github.com/wazuh/wazuh-virtual-machines/pull/239))
+
+### Deleted
+
+- Remove default virtual-machines reference version from workflow ([#237](https://github.com/wazuh/wazuh-virtual-machines/pull/237))
+
 ## [4.10.2]
 
 ### Added
@@ -70,6 +89,54 @@ All notable changes to this project will be documented in this file.
 
 - None
 
+## [4.11.1]
+
+### Added
+
+- None
+
+### Changed
+
+- None
+
+### Fixed
+
+- None
+
+### Deleted
+
+- None
+
+## [4.11.0]
+
+### Added
+
+- None
+
+### Changed
+
+- Reworked the OVA workflow, creation process and upgraded base OS. ([#170](https://github.com/wazuh/wazuh-virtual-machines/pull/170))
+- Change OS base for Wazuh AMI to Amazon Linux 2023. ([#150](https://github.com/wazuh/wazuh-virtual-machines/pull/150))
+- Added venv to AMI and OVA workflows. ([#112](https://github.com/wazuh/wazuh-virtual-machines/pull/112))
+- Improvements to AMI customization script. ([#98](https://github.com/wazuh/wazuh-virtual-machines/pull/98))
+
+### Fixed
+
+- Fix Wazuh dashboard errors in OVA. ([#209](https://github.com/wazuh/wazuh-virtual-machines/pull/209))
+- Fixed local build for OVA. ([#208](https://github.com/wazuh/wazuh-virtual-machines/pull/208))
+- Fixed Wazuh Dashboard issues when the AMI boots up. ([#205](https://github.com/wazuh/wazuh-virtual-machines/pull/205))
+- Fix Wazuh dashboard certificate verification failure ([#198](https://github.com/wazuh/wazuh-virtual-machines/pull/198))
+- Fixed Wazuh ASCII art logo display in OVA. ([#192](https://github.com/wazuh/wazuh-virtual-machines/pull/192))
+- Fixed video in grub configuration for the OVA. ([#190](https://github.com/wazuh/wazuh-virtual-machines/pull/190))
+- Changed ssh config file to allow ssh while FIPS is activated. ([#184](https://github.com/wazuh/wazuh-virtual-machines/pull/184))
+- Fixed Vagrant synced folder error in OVA. ([#183](https://github.com/wazuh/wazuh-virtual-machines/pull/183))
+- Fix the ova workflow for stages support and AWS instance deletion. ([#175](https://github.com/wazuh/wazuh-virtual-machines/pull/176))
+- Fixed the OVA workflow to add support in stages. ([#173](https://github.com/wazuh/wazuh-virtual-machines/pull/173))
+
+### Deleted
+
+- None
+
 ## [4.10.1]
 
 ### Added
@@ -78,7 +145,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Improvements to AMI customization script. ([#98](https://github.com/wazuh/wazuh-virtual-machines/pull/98))
+- None
 
 ### Fixed
 
@@ -101,6 +168,8 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Change inputs parameters in AMI and OVA workflows ([#118](https://github.com/wazuh/wazuh-virtual-machines/pull/118))
+- Change ami and ova workflows input upper_case to lower_case ([#114](https://github.com/wazuh/wazuh-virtual-machines/pull/114))
 - Changed the SSH port of the AMI to 22 ([#83](https://github.com/wazuh/wazuh-virtual-machines/pull/83))
 - Migrated certificates and passwords changes for AMI. ([#73](https://github.com/wazuh/wazuh-virtual-machines/pull/73))
 - Add a new input for wazuh-virtual-machines reference to the OVA and AMI workflows ([#70](https://github.com/wazuh/wazuh-virtual-machines/pull/70))

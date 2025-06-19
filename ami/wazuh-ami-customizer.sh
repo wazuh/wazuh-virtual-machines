@@ -4,6 +4,10 @@
 # Variables
 logfile="/var/log/wazuh-ami-customizer.log"
 debug="| tee -a ${logfile}"
+
+###########################################
+# Utility Functions
+###########################################
 function logger(){
   now=$(date +'%d/%m/%Y %H:%M:%S')
   mtype="INFO:"
@@ -28,20 +32,26 @@ function logger(){
   printf "%s\n" "${now} ${mtype} ${message}" | tee -a "${logfile}"
 }
 
-logger "Starting Wazuh AMI Customizer"
+function create_certificates() {
+  logger "Creating certificates"
+  eval "bash /etc/.wazuh-certs-tool.sh -A ${debug}"
+}
 
-logger "Moving authorized_keys file to a temporary location"
+function systemctl_execution(){
+  eval "systemctl $1 $2 $3"
+}
 
-mv /home/wazuh-user/.ssh/authorized_keys /home/wazuh-user/.ssh/.authorized_keys_ori
-
-logger "Waiting for Wazuh indexer to be ready"
-
-until $(sudo curl -XGET https://localhost:9200/ -uadmin:admin -k --max-time 120 --silent --output /dev/null); do
-  logger -w "Wazuh indexer is not ready yet, waiting 10 seconds"
-  sleep 10
-done
+###########################################
+# Configuration Functions
+###########################################
 
 function configure_indexer(){
+  logger "Stopping all services"
+  systemctl_execution "stop" "filebeat" "${debug}"
+  systemctl_execution "stop" "wazuh-dashboard" "${debug}"
+  systemctl_execution "stop" "wazuh-manager" "${debug}"
+  systemctl_execution "stop" "wazuh-indexer" "${debug}"
+  eval "sleep 5"
   logger "Configuring Wazuh Indexer"
   eval "rm -f /etc/wazuh-indexer/certs/* ${debug}"
   eval "cp /etc/wazuh-certificates/wazuh-indexer.pem /etc/wazuh-indexer/certs/wazuh-indexer.pem ${debug}"
@@ -52,8 +62,26 @@ function configure_indexer(){
   eval "chmod 500 /etc/wazuh-indexer/certs ${debug}"
   eval "chmod 400 /etc/wazuh-indexer/certs/* ${debug}"
   eval "chown -R wazuh-indexer:wazuh-indexer /etc/wazuh-indexer/certs ${debug}"
-  eval "systemctl restart wazuh-indexer ${debug}"
+  systemctl_execution "start" "wazuh-indexer" "${debug}"
   eval "/usr/share/wazuh-indexer/bin/indexer-security-init.sh ${debug}"
+}
+
+function verify_indexer() {
+  logger "Waiting for Wazuh indexer to be ready"
+  indexer_security_admin_comm="curl -XGET https://localhost:9200/ -uadmin:admin -k --max-time 120 --silent -w \"%{http_code}\" --output /dev/null"
+  http_status=$(eval "${indexer_security_admin_comm}")
+  retries=0
+  max_retries=5
+  while [ "${http_status}" -ne 200 ]; do
+      logger -w "Wazuh indexer is not ready yet, waiting 5 seconds"
+      sleep 5
+      retries=$((retries+1))
+      if [ "${retries}" -eq "${max_retries}" ]; then
+          logger -e "Wazuh indexer is not ready yet, trying to configure it again"
+          configure_indexer
+      fi
+      http_status=$(eval "${indexer_security_admin_comm}")
+  done
 }
 
 function configure_filebeat(){
@@ -65,14 +93,23 @@ function configure_filebeat(){
   eval "chmod 500 /etc/filebeat/certs ${debug}"
   eval "chmod 400 /etc/filebeat/certs/* ${debug}"
   eval "chown -R root:root /etc/filebeat/certs ${debug}"
-  eval "systemctl restart filebeat ${debug}"
+  systemctl_execution "start" "filebeat" "${debug}"
+}
+
+function verify_filebeat() {
+  logger "Waiting for Filebeat to be ready"
+  if  filebeat test output | grep -q -i -w "ERROR"; then
+    logger -e "Filebeat is not ready yet, trying to configure it again"
+    eval "filebeat test output x ${debug}"
+    configure_filebeat
+  fi
 }
 
 function configure_manager(){
   logger "Configuring Wazuh Manager"
   eval "rm /var/ossec/api/configuration/security/*_key.pem ${debug}"
   eval "rm /var/ossec/api/configuration/ssl/server.* ${debug}"
-  eval "systemctl restart wazuh-manager ${debug}"
+  systemctl_execution "start" "wazuh-manager" "${debug}"
 }
 
 function configure_dashboard(){
@@ -84,87 +121,92 @@ function configure_dashboard(){
   eval "chmod 500 /etc/wazuh-dashboard/certs ${debug}"
   eval "chmod 400 /etc/wazuh-dashboard/certs/* ${debug}"
   eval "chown -R wazuh-dashboard:wazuh-dashboard /etc/wazuh-dashboard/certs ${debug}"
-  eval "systemctl restart wazuh-dashboard ${debug}"
+  systemctl_execution "start" "wazuh-dashboard" "${debug}"
 }
+
+function verify_dashboard() {
+  logger "Waiting for Wazuh dashboard to be ready"
+  dashboard_check_comm="curl -XGET https://localhost:443/status -uadmin:admin -k -w \"%{http_code}\" -s -o /dev/null"
+  http_code=$(eval "${dashboard_check_comm}")
+  retries=0
+  max_dashboard_initialize_retries=20
+  while [ "${http_code}" -ne "200" ];do
+      logger -w "Wazuh dashboard is not ready yet, waiting 15 seconds"
+      retries=$((retries+1))
+      sleep 15
+      if [ "${retries}" -eq "${max_dashboard_initialize_retries}" ]; then
+          logger -e "Wazuh dashboard is not ready yet, trying to configure it again"
+          configure_dashboard
+      fi
+      http_code=$(eval "${dashboard_check_comm}")
+  done
+}
+
+###########################################
+# Cleanup and Finalization Functions
+###########################################
 
 function clean_configuration(){
   logger "Cleaning configuration files"
   eval "rm -rf /etc/wazuh-certificates /etc/.wazuh-certs-tool.sh /etc/config.yml /etc/wazuh-certificates-tool.log /var/log/wazuh-ami-customizer.log"
   eval "rm -f /etc/.changePasswords.sh /etc/.wazuh-passwords-tool.sh /etc/.wazuh-install-files/wazuh-passwords.txt /var/log/wazuh-passwords-tool.log"
   eval "rmdir /etc/.wazuh-install-files"
-  eval "sed -i '/#Ansible: Change Passwords/,//d' /var/spool/cron/root"
+  eval "rm -f /etc/.wazuh-ami-customizer.sh /etc/systemd/system/wazuh-ami-customizer.service /etc/systemd/system/wazuh-ami-customizer.timer"
 }
 
 function change_passwords(){
   logger "Changing passwords"
   new_password=$(ec2-metadata | grep "instance-id" | cut -d":" -f2 | tr -d " "| awk '{print toupper(substr($0,1,1)) substr($0,2)}')
   eval "sed -i 's/password:.*/password: ${new_password}/g' /etc/.wazuh-install-files/wazuh-passwords.txt ${debug}"
-  eval "bash /etc/.wazuh-passwords-tool.sh -a -A -au wazuh -ap wazuh -f /etc/.wazuh-install-files/wazuh-passwords.txt ${debug}"
-  eval "systemctl restart wazuh-dashboard ${debug}"
+  eval "bash /etc/.wazuh-passwords-tool.sh -a -A -au wazuh -ap wazuh -f /etc/.wazuh-install-files/wazuh-passwords.txt >> /dev/null"
 }
 
-function restore_authorized_keys(){
-  logger "Restoring authorized_keys file"
-  eval "mv /home/wazuh-user/.ssh/.authorized_keys_ori /home/wazuh-user/.ssh/authorized_keys ${debug}"
+function restart_ssh_service(){
+  logger "Starting SSH service"
+  eval "systemctl start sshd.service"
 }
 
-logger "Creating certificates"
-eval "bash /etc/.wazuh-certs-tool.sh -A ${debug}"
+###########################################
+# Main
+###########################################
 
-configure_indexer
+logger "Starting Wazuh AMI Customizer"
+
+logger "Stopping SSH service to avoid connections during the configuration"
+eval "systemctl stop sshd.service"
 
 logger "Waiting for Wazuh indexer to be ready"
-indexer_security_admin_comm="sudo curl -XGET https://localhost:9200/ -uadmin:admin -k --max-time 120 --silent -w \"%{http_code}\" --output /dev/null"
-http_status=$(eval "${indexer_security_admin_comm}")
-retries=0
-max_retries=5
-while [ "${http_status}" -ne 200 ]; do
-    logger -w "Wazuh indexer is not ready yet, waiting 5 seconds"
-    sleep 5
-    retries=$((retries+1))
-    if [ "${retries}" -eq "${max_retries}" ]; then
-        logger -e "Wazuh indexer is not ready yet, trying to configure it again"
-        configure_indexer
-    fi
-    http_status=$(eval "${indexer_security_admin_comm}")
+until $(curl -XGET https://localhost:9200/ -uadmin:admin -k --max-time 120 --silent --output /dev/null); do
+  logger -w "Wazuh indexer is not ready yet, waiting 10 seconds"
+  sleep 10
 done
 
-configure_filebeat
+create_certificates
 
-logger "Waiting for Filebeat to be ready"
-if  filebeat test output | grep -q -i -w "ERROR"; then
-  logger -e "Filebeat is not ready yet, trying to configure it again"
-  eval "filebeat test output x ${debug}"
-  configure_filebeat
-fi
+configure_indexer
+verify_indexer
+
+configure_filebeat
+verify_filebeat
 
 configure_manager
 
 configure_dashboard
+verify_dashboard
 
-logger "Waiting for Wazuh dashboard to be ready"
-dashboard_check_comm="curl -XGET https://localhost:443/status -uadmin:admin -k -w \"%{http_code}\" -s -o /dev/null"
-http_code=$(eval "${dashboard_check_comm}")
-retries=0
-max_dashboard_initialize_retries=20
-while [ "${http_code}" -ne "200" ];do
-    logger -w "Wazuh dashboard is not ready yet, waiting 15 seconds"
-    retries=$((retries+1))
-    sleep 15
-    if [ "${retries}" -eq "${max_dashboard_initialize_retries}" ]; then
-        logger -e "Wazuh dashboard is not ready yet, trying to configure it again"
-        configure_dashboard
-    fi
-    http_code=$(eval "${dashboard_check_comm}")
-done
+systemctl_execution "stop" "wazuh-dashboard" "${debug}"
+eval "sleep 5"
 
 change_passwords
 
 logger "Waiting for Wazuh indexer to be ready with new password"
-until $(sudo curl -XGET https://localhost:9200/ -uadmin:${new_password} -k --max-time 120 --silent --output /dev/null); do
+until $(curl -XGET https://localhost:9200/ -uadmin:${new_password} -k --max-time 120 --silent --output /dev/null); do
   sleep 10
 done
 
-restore_authorized_keys
+systemctl_execution "start" "wazuh-dashboard" "${debug}"
+systemctl_execution "enable" "wazuh-dashboard" "${debug}"
+
+restart_ssh_service
 
 clean_configuration
