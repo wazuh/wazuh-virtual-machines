@@ -24,6 +24,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Update bucket references to corresponding new resources ([#358](https://github.com/wazuh/wazuh-virtual-machines/pull/358))
 - Updated VERSION file to the new standard. ([#213](https://github.com/wazuh/wazuh-virtual-machines/pull/213))
 
 ### Fixed
