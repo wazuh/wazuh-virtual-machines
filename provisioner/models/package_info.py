@@ -55,6 +55,7 @@ class PackageInfo(BaseModel):
             KeyError: If the packages for the specified component or package type are not found.
         """
         component_packages = self.packages_url_content.get(component)
+        logger.debug(f"Using component_packages {component_packages}...")
         if component_packages is None:
             raise KeyError(f"Packages for {component} not found.")
 
@@ -90,6 +91,8 @@ class PackageInfo(BaseModel):
         package_url = self.get_component_packages(component, package_type=package_type).get(component_arch, None)
         if package_url is None:
             raise ValueError(f"Arch {component_arch} not found in {component} packages. Expected an URL but got None.")
+
+        logger.debug(f"Using package_url {package_url}...")
 
         try:
             package_url = AnyUrl(package_url)
