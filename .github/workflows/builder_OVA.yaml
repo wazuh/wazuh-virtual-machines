@@ -273,7 +273,7 @@ jobs:
         if: ${{ inputs.checksum == true }}
         run: |
           sha512sum ${{ github.workspace }}/${{ env.FILENAME_OVA }} > ${{ github.workspace }}/${{ env.FILENAME_SHA }}
-          aws s3 cp --quiet /tmp/${{ env.FILENAME_SHA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_SHA }}
+          aws s3 cp --quiet ${{ github.workspace }}/${{ env.FILENAME_SHA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_SHA }}
           s3uri="s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_SHA }}"
           echo "S3 sha512 OVA URI: ${s3uri}"
 
