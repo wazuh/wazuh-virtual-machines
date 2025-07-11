@@ -4,7 +4,7 @@ from enum import StrEnum, auto
 class AllowedUrlHost(StrEnum):
     RELEASE = "packages.wazuh.com"
     PRE_RELEASE = "packages-dev.wazuh.com"
-    INTERNAL = "packages-dev.internal.wazuh.com"
+    INTERNAL = "xdrsiem-packages-dev-internal"
 
 
 class Package_manager(StrEnum):

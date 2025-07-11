@@ -10,10 +10,10 @@ from provisioner.utils import AllowedUrlHost
     [
         "https://packages.wazuh.com/4.x/yum/",
         "https://packages-dev.wazuh.com/doing/tests"
-        "htts://packages-dev.internal.wazuh.com"
+        "htts://xdrsiem-packages-dev-internal"
         "https://packages.wazuh.com"
         "https://packages-dev.wazuh.com",
-        "https://packages-dev.internal.wazuh.com",
+        "https://xdrsiem-packages-dev-internal",
     ],
 )
 def test_check_correct_url_with_correct_url(url: str):
