@@ -103,16 +103,17 @@ jobs:
           python3 wazuh-automation/deployability/modules/allocation/main.py --action create --provider aws --size large --composite-name ${{ env.COMPOSITE_NAME }} --working-dir ${{ env.ALLOCATOR_PATH }} \
             --track-output ${{ env.ALLOCATOR_PATH }}/track.yml --inventory-output ${{ env.ALLOCATOR_PATH }}/inventory.yml --instance-name gha_${{ github.run_id }}_ami_build \
             --label-team devops --label-termination-date 1d
-          sed 's/: */=/g' ${{ env.ALLOCATOR_PATH }}/inventory.yml > ${{ env.ALLOCATOR_PATH }}/inventory_mod.yml
-          sed -n 's/^identifier: \(.*\)$/identifier=\1/p' ${{ env.ALLOCATOR_PATH }}/track.yml >> ${{ env.ALLOCATOR_PATH }}/inventory_mod.yml
-          source ${{ env.ALLOCATOR_PATH }}/inventory_mod.yml
+          sed -n '/hosts:/,/^[^ ]/p' ${{ env.ALLOCATOR_PATH }}/inventory.yml | grep "ansible_" | sed 's/^[ ]*//g' > ${{ env.ALLOCATOR_PATH }}/inventory_mod.yml
+          sed 's/: */=/g' ${{ env.ALLOCATOR_PATH }}/inventory_mod.yml > ${{ env.ALLOCATOR_PATH }}/inventory_vars.yml
+          sed -n 's/^identifier: \(.*\)$/identifier=\1/p' ${{ env.ALLOCATOR_PATH }}/track.yml >> ${{ env.ALLOCATOR_PATH }}/inventory_vars.yml
+          source ${{ env.ALLOCATOR_PATH }}/inventory_vars.yml
           echo "::add-mask::$ansible_host"
           echo "::add-mask::$ansible_port"
           echo "::add-mask::$ansible_user"
           echo "::add-mask::$ansible_ssh_private_key_file"
           echo "::add-mask::$ansible_ssh_common_args"
           echo "::add-mask::$identifier"
-          cat "${{ env.ALLOCATOR_PATH }}/inventory_mod.yml" >> $GITHUB_ENV;
+          cat "${{ env.ALLOCATOR_PATH }}/inventory_vars.yml" >> $GITHUB_ENV;
 
       - name: Generate inventory
         run: |
