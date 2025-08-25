@@ -47,7 +47,7 @@ on:
         required: false
 
 env:
-    COMPOSITE_NAME: "linux-amazon-2023ami-amd64"
+    COMPOSITE_NAME: "linux-amazon-2023-ami-amd64"
     ALLOCATOR_PATH: "/tmp/allocatorvm_ami"
     PLAYBOOKS_PATH: "${{ github.workspace }}/ami/playbooks/"
 
