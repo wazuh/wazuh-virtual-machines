@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- AMI composite name update ([#399](https://github.com/wazuh/wazuh-virtual-machines/pull/399))
 - Fix obtaining the tag in case the INSTALLATION_ASSISTANT_BRANCH variable contains the HEAD ([#239](https://github.com/wazuh/wazuh-virtual-machines/pull/239))
 
 ### Deleted
