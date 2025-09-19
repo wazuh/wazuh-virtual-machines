@@ -14,11 +14,11 @@ on:
       wazuh_installation_assistant_reference:
         description: 'Branch or tag of the wazuh-installation-assistant repository'
         required: true
-        default: '4.14.1'
+        default: '5.0.0'
       wazuh_automation_reference:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
-        default: '4.14.1'
+        default: '5.0.0'
       wazuh_package_repository:
         type: choice
         description: 'Wazuh package repository from which to download the packages'
@@ -62,7 +62,7 @@ on:
 env:
     INSTANCE_TYPE: "metal"
     S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
-    S3_PATH: "development/wazuh/4.x/secondary/ova"
+    S3_PATH: "development/wazuh/5.x/secondary/ova"
     COMPOSITE_NAME: "linux-amazon-2023-amd64"
     ALLOCATOR_PATH: "/tmp/allocatorvm_ova"
     AWS_REGION: "us-east-1"
