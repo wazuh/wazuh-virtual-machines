@@ -115,7 +115,7 @@
       register: vagrant_up_result
       become: true
 
-    - name: Run vagrant up 
+    - name: Run vagrant up
       shell: |
         #!/bin/bash
         MAX_RETRIES=100
@@ -179,15 +179,71 @@
       retries: 30
       delay: 60
 
-    - name: Stop the VM
-      shell: "vagrant halt"
-      args:
-        chdir: "/tmp/wazuh-virtual-machines/ova/workflow_assets"
+     # ==========================================
+    # NUEVO: AÑADIR RED PRIVADA AQUÍ
+    # ==========================================
 
-    - name: Configure VM network in VirtualBox
+    - name: Add private network to VM (two-step approach)
       shell: |
+        echo "=== Checking for host-only network ==="
+        if ! vboxmanage list hostonlyifs | grep -q vboxnet0; then
+          echo "Creating host-only network interface..."
+          vboxmanage hostonlyif create
+        fi
+
+        echo ""
+        echo "=== Adding NIC2 to ova_base VM ==="
         vboxmanage modifyvm ova_base --nic2 hostonly
         vboxmanage modifyvm ova_base --cableconnected2 on
+
+        echo ""
+        echo "=== Verifying network configuration ==="
+        vboxmanage showvminfo ova_base | grep "NIC 2"
+
+        echo ""
+        echo "✓ Private network added successfully"
+      register: add_network_result
+
+    - name: Show network addition results
+      debug:
+        var: add_network_result.stdout_lines
+
+    # ==========================================
+    # OPCIONAL: VERIFICAR QUE FUNCIONA
+    # ==========================================
+
+    - name: Quick test - Start VM and verify eth1
+      shell: |
+        cd /tmp/wazuh-virtual-machines/ova/workflow_assets
+
+        echo "=== Starting VM to test network ==="
+        vagrant up
+
+        echo ""
+        echo "=== Waiting 20 seconds for network initialization ==="
+        sleep 20
+
+        echo ""
+        echo "=== Checking eth1 inside VM ==="
+        vagrant ssh -c "ip addr show eth1 || echo 'eth1 exists but no IP yet (normal)'"
+
+        echo ""
+        echo "=== Stopping VM ==="
+        vagrant halt
+
+        echo ""
+        echo "✓ Network test completed"
+      args:
+        chdir: "/tmp/wazuh-virtual-machines/ova/workflow_assets"
+      register: network_test_result
+
+    - name: Show network test results
+      debug:
+        var: network_test_result.stdout_lines
+
+    # ==========================================
+    # CONTINUAR CON EXPORT NORMAL
+    # ==========================================
 
     - name: Export the VM to OVA
       shell: "vboxmanage export ova_base --output /home/ec2-user/{{ filename_ova }}"
@@ -202,7 +258,7 @@
       until: job_result.finished
       retries: 30
       delay: 60
-    
+
     - name: Change permissions to the OVA file
       file:
         path: /home/ec2-user/{{ filename_ova }}
