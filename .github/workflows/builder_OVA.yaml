@@ -175,6 +175,10 @@ jobs:
           echo "[gha_instance]" > ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini
           echo "${{ env.ansible_host }} ansible_port=${{ env.ansible_port }} ansible_user=${{ env.ansible_user }} ansible_ssh_private_key_file=${{ env.ansible_ssh_private_key_file }} ansible_ssh_common_args='${{ env.ansible_ssh_common_args }}'" >> ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini
 
+      - name: Show inventory
+        run: |
+          cat ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini
+
       - name: Install Python3 in the AWS instance
         run: |
           ssh -p ${{ env.ansible_port }} -i ${{ env.ansible_ssh_private_key_file }} -o 'StrictHostKeyChecking no' ${{ env.ansible_user }}@${{ env.ansible_host }} "sudo yum install -y python3"
@@ -218,6 +222,6 @@ jobs:
           s3uri="s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_SHA }}"
           echo "S3 sha512 OVA URI: ${s3uri}"
 
-      - name: Delete allocated VM
-        if: always() && steps.alloc_vm.outcome == 'success'
-        run: python3 wazuh-automation/deployability/modules/allocation/main.py --action delete --track-output ${{ env.ALLOCATOR_PATH }}/track.yml
+      #- name: Delete allocated VM
+      #  if: always() && steps.alloc_vm.outcome == 'success'
+      #  run: python3 wazuh-automation/deployability/modules/allocation/main.py --action delete --track-output ${{ env.ALLOCATOR_PATH }}/track.yml
