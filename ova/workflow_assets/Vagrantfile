@@ -15,6 +15,7 @@ Vagrant.configure("2") do |config|
   # using a specific IP.
   #config.vm.network "private_network", ip: "192.168.56.22", interface: "2"
   config.vm.hostname = "wazuh-server"
+  config.vm.boot_timeout = 900
 
   # Example for VirtualBox:
   #
