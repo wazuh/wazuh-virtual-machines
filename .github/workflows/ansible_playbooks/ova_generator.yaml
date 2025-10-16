@@ -112,204 +112,153 @@
         fi
       args:
         executable: /bin/bash
-      register: vagrant_cleanup_result
       become: true
 
     # ==========================================
-    # DIAGNÓSTICO ANTES DE VAGRANT UP
+    # VAGRANT UP - CAMBIO MÍNIMO: SOLO LOG A ARCHIVO
     # ==========================================
 
-    - name: Pre-vagrant diagnostics
-      shell: |
-        echo "=========================================="
-        echo "PRE-VAGRANT UP DIAGNOSTICS"
-        echo "=========================================="
-        echo ""
-
-        echo "=== System Resources ==="
-        free -h
-        echo ""
-        df -h /tmp
-        echo ""
-
-        echo "=== VirtualBox Status ==="
-        vboxmanage --version
-        lsmod | grep vbox
-        echo ""
-
-        echo "=== Vagrant Info ==="
-        vagrant --version
-        vagrant box list
-        echo ""
-
-        echo "=== Vagrantfile Content ==="
-        cd /tmp/wazuh-virtual-machines/ova/workflow_assets
-        cat Vagrantfile
-        echo ""
-
-        echo "=== Existing VMs ==="
-        vboxmanage list vms
-        vboxmanage list runningvms
-        echo ""
-
-      register: pre_vagrant_diag
-
-    - name: Show pre-vagrant diagnostics
-      debug:
-        var: pre_vagrant_diag.stdout_lines
-
-    # ==========================================
-    # VAGRANT UP CON LOGGING DETALLADO
-    # ==========================================
-
-    - name: Run vagrant up with detailed logging and timeout monitoring
+    - name: Run vagrant up
       shell: |
         #!/bin/bash
-        set -x
-
+        MAX_RETRIES=5
+        attempts=0
         cd /tmp/wazuh-virtual-machines/ova/workflow_assets
 
-        echo "=========================================="
-        echo "STARTING VAGRANT UP WITH DETAILED LOGGING"
-        echo "Started at: $(date)"
-        echo "=========================================="
+        while true; do
+          ((attempts++))
+          echo "Attempt $attempts at $(date)"
 
-        # Start vagrant up in background with full debug logging
-        VAGRANT_LOG=debug vagrant up > /tmp/vagrant_debug.log 2>&1 &
-        VAGRANT_PID=$!
-
-        echo "Vagrant PID: $VAGRANT_PID"
-
-        # Monitor for 10 minutes with detailed status updates
-        elapsed=0
-        max_wait=600  # 10 minutes
-
-        while kill -0 $VAGRANT_PID 2>/dev/null; do
-          sleep 30
-          elapsed=$((elapsed + 30))
-
-          echo ""
-          echo "=== Status at ${elapsed} seconds ==="
-          echo "Time: $(date)"
-
-          # Check VirtualBox VM status
-          if vboxmanage showvminfo ova_base >/dev/null 2>&1; then
-            echo "VM exists, checking state:"
-            vboxmanage showvminfo ova_base | grep -E "State:|Session name:"
-
-            # Check if SSH port is open
-            vm_state=$(vboxmanage showvminfo ova_base | grep "State:" | head -1)
-            if echo "$vm_state" | grep -q "running"; then
-              echo "VM is running, checking SSH port:"
-              ss -tln | grep :2222 || echo "SSH port 2222 not listening yet"
-            fi
+          # Log to file sin saturar SSH
+          if VAGRANT_LOG=info vagrant up > /tmp/vagrant_${attempts}.log 2>&1; then
+            echo "Success on attempt $attempts"
+            break
           else
-            echo "VM 'ova_base' does not exist yet"
-          fi
-
-          # Show last 10 lines of vagrant output
-          echo ""
-          echo "Last 10 lines of vagrant log:"
-          tail -10 /tmp/vagrant_debug.log | sed 's/^/  /'
-
-          # Check for specific error patterns
-          if grep -q "Timed out" /tmp/vagrant_debug.log; then
-            echo "⚠ WARNING: Found 'Timed out' in logs"
-          fi
-          if grep -q "SSH auth method" /tmp/vagrant_debug.log; then
-            echo "⚠ WARNING: SSH authentication issue detected"
-          fi
-          if grep -q "Waiting for machine to boot" /tmp/vagrant_debug.log; then
-            echo "ℹ INFO: Waiting for machine to boot (this is normal)"
-          fi
-
-          # Timeout check
-          if [ $elapsed -ge $max_wait ]; then
-            echo ""
-            echo "=========================================="
-            echo "TIMEOUT after ${max_wait} seconds"
-            echo "=========================================="
-
-            echo ""
-            echo "=== Killing vagrant process ==="
-            kill -TERM $VAGRANT_PID 2>/dev/null
-            sleep 5
-            kill -9 $VAGRANT_PID 2>/dev/null || true
-
-            echo ""
-            echo "=== Last 100 lines of vagrant debug log ==="
-            tail -100 /tmp/vagrant_debug.log
-
-            echo ""
-            echo "=== VirtualBox final state ==="
-            vboxmanage list vms
-            vboxmanage list runningvms
-            if vboxmanage showvminfo ova_base >/dev/null 2>&1; then
-              vboxmanage showvminfo ova_base
+            echo "Failed on attempt $attempts"
+            if [ $attempts -eq $MAX_RETRIES ]; then
+              echo "Max attempts reached"
+              echo "Last 30 lines of log:"
+              tail -30 /tmp/vagrant_${attempts}.log
+              exit 1
             fi
-
-            exit 1
+            vagrant destroy -f
           fi
         done
-
-        # Vagrant process finished, check result
-        wait $VAGRANT_PID
-        exit_code=$?
-
-        echo ""
-        echo "=========================================="
-        if [ $exit_code -eq 0 ]; then
-          echo "SUCCESS - Vagrant up completed"
-          echo "Duration: ${elapsed} seconds"
-        else
-          echo "FAILED - Vagrant up failed with exit code: $exit_code"
-          echo "Duration: ${elapsed} seconds"
-          echo ""
-          echo "=== Full vagrant debug log ==="
-          cat /tmp/vagrant_debug.log
-        fi
-        echo "=========================================="
-
-        exit $exit_code
-
       args:
         executable: /bin/bash
+      async: 3600  # 1 hora
+      poll: 0
       register: vagrant_up_result
-      ignore_errors: yes
-      timeout: 900  # 15 minutes hard limit
+      become: true
 
-    - name: Show vagrant up results
+    - name: Wait for vagrant up to finish
+      async_status:
+        jid: "{{ vagrant_up_result.ansible_job_id }}"
+      register: job_result
+      until: job_result.finished
+      retries: 60  # 60 minutos
+      delay: 60
+
+    - name: Show vagrant up result
       debug:
-        var: vagrant_up_result.stdout_lines
+        var: job_result.stdout_lines
+      when: job_result.stdout_lines is defined
 
-    - name: Save vagrant debug log for analysis
+    # ==========================================
+    # GUARDAR LOGS PARA ANÁLISIS (SOLO SI FALLA)
+    # ==========================================
+
+    - name: Collect vagrant logs if failed
       shell: |
-        if [ -f /tmp/vagrant_debug.log ]; then
-          echo "=== VAGRANT DEBUG LOG AVAILABLE ==="
-          echo "Log size: $(wc -l /tmp/vagrant_debug.log | awk '{print $1}') lines"
+        if [ -f /tmp/vagrant_*.log ]; then
+          echo "=== Vagrant logs available ==="
+          ls -lh /tmp/vagrant_*.log
           echo ""
-          echo "=== Searching for key patterns ==="
-          echo ""
-          echo "Boot timeouts:"
-          grep -i "timed out\|timeout" /tmp/vagrant_debug.log | head -20 || echo "None found"
-          echo ""
-          echo "SSH issues:"
-          grep -i "ssh\|authentication" /tmp/vagrant_debug.log | grep -i "error\|fail\|timeout" | head -20 || echo "None found"
-          echo ""
-          echo "Network issues:"
-          grep -i "network\|interface\|adapter" /tmp/vagrant_debug.log | grep -i "error\|fail" | head -20 || echo "None found"
-          echo ""
-          echo "Last 50 lines:"
-          tail -50 /tmp/vagrant_debug.log
+          echo "=== Last attempt log (last 50 lines) ==="
+          tail -50 /tmp/vagrant_*.log | tail -1
         fi
-      register: log_analysis
+      register: vagrant_logs
+      when: job_result.rc != 0
       ignore_errors: yes
 
-    - name: Show log analysis
+    - name: Show vagrant logs
       debug:
-        var: log_analysis.stdout_lines
+        var: vagrant_logs.stdout_lines
+      when:
+        - job_result.rc != 0
+        - vagrant_logs.stdout_lines is defined
 
-    - name: Fail playbook if vagrant up failed
-      fail:
-        msg: "Vagrant up failed. Check logs above for details."
-      when: vagrant_up_result.rc != 0
+    # ==========================================
+    # CONTINUAR NORMAL SI VAGRANT UP FUNCIONÓ
+    # ==========================================
+
+    - name: Copy the Python script to the VM
+      shell: |
+        cd /tmp/wazuh-virtual-machines/ova/workflow_assets
+        vagrant plugin install vagrant-scp
+        vagrant scp ova_configurer.py :/tmp/ova_configurer.py
+      args:
+        chdir: "/tmp/wazuh-virtual-machines/ova/workflow_assets"
+      become: true
+
+    - name: Execute Python script in the VM
+      shell: "vagrant ssh -c 'sudo python3 /tmp/ova_configurer.py --wia_branch {{ wia_branch }} --wvm_branch {{ wvm_branch }} --repository {{ repository }} --debug {{ debug}}'"
+      args:
+        chdir: "/tmp/wazuh-virtual-machines/ova/workflow_assets"
+      register: python_script_result
+      async: 1800
+      poll: 0
+
+    - name: Wait for the Python script to finish
+      async_status:
+        jid: "{{ python_script_result.ansible_job_id }}"
+      register: job_result
+      until: job_result.finished
+      retries: 30
+      delay: 60
+
+    - name: Stop the VM
+      shell: "vagrant halt"
+      args:
+        chdir: "/tmp/wazuh-virtual-machines/ova/workflow_assets"
+
+    # ==========================================
+    # AÑADIR RED PRIVADA DESPUÉS DE HALT
+    # ==========================================
+
+    - name: Add private network to VM
+      shell: |
+        # Verificar/crear host-only interface
+        if ! vboxmanage list hostonlyifs | grep -q vboxnet0; then
+          vboxmanage hostonlyif create
+        fi
+
+        # Añadir NIC2
+        vboxmanage modifyvm ova_base --nic2 hostonly
+        vboxmanage modifyvm ova_base --cableconnected2 on
+
+        echo "Network configured"
+        vboxmanage showvminfo ova_base | grep "NIC 2"
+
+    # ==========================================
+    # EXPORT OVA
+    # ==========================================
+
+    - name: Export the VM to OVA
+      shell: "vboxmanage export ova_base --output /home/ec2-user/{{ filename_ova }}"
+      register: export_result
+      async: 1800
+      poll: 0
+
+    - name: Wait for export the OVA
+      async_status:
+        jid: "{{ export_result.ansible_job_id }}"
+      register: job_result
+      until: job_result.finished
+      retries: 30
+      delay: 60
+
+    - name: Change permissions to the OVA file
+      file:
+        path: /home/ec2-user/{{ filename_ova }}
+        mode: '0755'
