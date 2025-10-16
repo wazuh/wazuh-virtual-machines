@@ -162,12 +162,12 @@ jobs:
           source ${{ env.ALLOCATOR_PATH }}/inventory_vars.yml
 
           # Enmascarar las variables sensibles
-          echo "::add-mask::$ansible_host"
-          echo "::add-mask::$ansible_port"
-          echo "::add-mask::$ansible_user"
-          echo "::add-mask::$ansible_ssh_private_key_file"
-          echo "::add-mask::$ansible_ssh_common_args"
-          echo "::add-mask::$identifier"
+
+
+
+
+
+
           cat "${{ env.ALLOCATOR_PATH }}/inventory_vars.yml" >> $GITHUB_ENV
 
       - name: Generate inventory
@@ -177,7 +177,10 @@ jobs:
 
       - name: Show inventory
         run: |
-          cat ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini
+          echo ${{ env.ansible_ssh_private_key_file }}
+          echo ${{ env.ansible_port }}
+          echo  ${{ env.ansible_user }}
+          echo ${{ env.ansible_host }}
 
       - name: Install Python3 in the AWS instance
         run: |
