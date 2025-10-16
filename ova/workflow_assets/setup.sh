@@ -54,13 +54,51 @@ install_guest_additions() {
     /etc/kernel/postinst.d/vboxadd ${KERNEL_VERSION}
     /sbin/depmod ${KERNEL_VERSION}
 
-    if ! lsmod | grep -q vboxguest; then
-        echo "ERROR: VirtualBox Guest Additions not loaded"
-        exit 1
+    # ==========================================
+    # NUEVO: Intentar cargar módulos explícitamente
+    # ==========================================
+
+    echo "Attempting to load VirtualBox kernel modules..."
+
+    # Cargar módulos manualmente
+    /sbin/modprobe vboxguest 2>/dev/null || echo "⚠ vboxguest not loaded yet (will load on boot)"
+    /sbin/modprobe vboxsf 2>/dev/null || echo "⚠ vboxsf not loaded yet (will load on boot)"
+    /sbin/modprobe vboxvideo 2>/dev/null || echo "⚠ vboxvideo not loaded yet (will load on boot)"
+
+    # Verificar si se cargaron
+    if lsmod | grep -q vboxguest; then
+        echo "✓ Guest Additions modules loaded successfully"
+    else
+        echo "⚠ Guest Additions modules not loaded in current session"
+        echo "  This is normal when building in chroot environment"
+        echo "  Modules will load on next boot"
+
+        # Verificar que los archivos del módulo existen
+        if [ -f "/lib/modules/${KERNEL_VERSION}/misc/vboxguest.ko" ]; then
+            echo "✓ vboxguest.ko exists in /lib/modules/${KERNEL_VERSION}/misc/"
+        else
+            echo "✗ ERROR: vboxguest.ko not found!"
+            exit 1
+        fi
+
+        # Verificar que vboxadd service existe
+        if [ -f "/etc/init.d/vboxadd" ] || [ -f "/usr/lib/systemd/system/vboxadd.service" ]; then
+            echo "✓ VBoxAdd service files exist"
+        else
+            echo "✗ ERROR: VBoxAdd service not installed!"
+            exit 1
+        fi
     fi
 
-    echo "✓ Guest Additions verified"
+    # Asegurar que el servicio se ejecuta en el boot
+    if [ -f "/usr/lib/systemd/system/vboxadd.service" ]; then
+        systemctl enable vboxadd.service 2>/dev/null || true
+        systemctl enable vboxadd-service.service 2>/dev/null || true
+    fi
+
+    echo "✓ Guest Additions installation validated"
 }
+
 
 # Enable SSH password authentication
 configure_ssh() {
