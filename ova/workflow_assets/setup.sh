@@ -60,12 +60,10 @@ install_guest_additions() {
 
     echo "Attempting to load VirtualBox kernel modules..."
 
-    # Cargar módulos manualmente
     /sbin/modprobe vboxguest 2>/dev/null || echo "⚠ vboxguest not loaded yet (will load on boot)"
     /sbin/modprobe vboxsf 2>/dev/null || echo "⚠ vboxsf not loaded yet (will load on boot)"
     /sbin/modprobe vboxvideo 2>/dev/null || echo "⚠ vboxvideo not loaded yet (will load on boot)"
 
-    # Verificar si se cargaron
     if lsmod | grep -q vboxguest; then
         echo "✓ Guest Additions modules loaded successfully"
     else

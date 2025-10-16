@@ -18,9 +18,8 @@ Vagrant.configure("2") do |config|
   config.vm.boot_timeout = 420
 
   # SSH configuration for reliability
-  config.ssh.connect_timeout = 300   # 5 minutes to establish connection
-  config.ssh.max_tries = 40          # 40 connection attempts
-  config.ssh.retry_delay = 5         # 5 seconds between retries
+  config.ssh.connect_timeout = 180   # Seconds to wait for SSH connection (default: 60)
+  config.ssh.timeout = 300            # Seconds before timing out a single SSH command (default: 300)
 
   # Example for VirtualBox:
   #

@@ -97,6 +97,64 @@
       retries: 30
       delay: 60
 
+    # ==========================================
+    # NUEVO: MOSTRAR LOGS COMPLETOS DE GENERATE_BASE_BOX
+    # ==========================================
+
+    - name: Show generate_base_box.sh stdout (full output)
+      debug:
+        var: job_result.stdout_lines
+      when: job_result.stdout_lines is defined
+
+    - name: Show generate_base_box.sh stderr (errors/warnings)
+      debug:
+        var: job_result.stderr_lines
+      when: job_result.stderr_lines is defined
+
+    - name: Search for Guest Additions messages in output
+      shell: |
+        echo "=== Searching for Guest Additions related messages ==="
+        echo ""
+
+        # Buscar en stdout
+        if [ -f "/root/.ansible_async/{{ job_result.ansible_job_id }}" ]; then
+          echo "=== Guest Additions installation messages ==="
+          grep -i "guest additions\|vboxguest\|vboxadd\|vboxservice" "/root/.ansible_async/{{ job_result.ansible_job_id }}" || echo "No Guest Additions messages found in async output"
+
+          echo ""
+          echo "=== Module verification messages ==="
+          grep -i "module.*load\|modprobe\|\.ko exists" "/root/.ansible_async/{{ job_result.ansible_job_id }}" || echo "No module messages found"
+
+          echo ""
+          echo "=== Validation messages ==="
+          grep -i "validated\|✓\|✗\|ERROR:" "/root/.ansible_async/{{ job_result.ansible_job_id }}" || echo "No validation messages found"
+        else
+          echo "Async results file not found"
+        fi
+      register: guest_additions_search
+      ignore_errors: yes
+
+    - name: Show Guest Additions search results
+      debug:
+        var: guest_additions_search.stdout_lines
+      when: guest_additions_search.stdout_lines is defined
+
+    - name: Verify base box was created successfully
+      shell: |
+        cd /tmp/wazuh-virtual-machines/ova/workflow_assets
+
+        echo "=== Base box file ==="
+        ls -lh al2023.box
+
+        echo ""
+        echo "=== Box file size ==="
+        du -h al2023.box
+      register: box_verification
+
+    - name: Show box verification
+      debug:
+        var: box_verification.stdout_lines
+
     - name: Add the created box
       shell: "vagrant box add --name al2023 /tmp/wazuh-virtual-machines/ova/workflow_assets/al2023.box"
 
@@ -114,33 +172,38 @@
         executable: /bin/bash
       become: true
 
-    # ==========================================
-    # AUMENTAR BOOT TIMEOUT EN VAGRANTFILE
-    # ==========================================
-
-    - name: Increase Vagrant boot timeout
+    - name: Verify Vagrantfile configuration
       shell: |
         cd /tmp/wazuh-virtual-machines/ova/workflow_assets
 
-        # Backup original
-        cp Vagrantfile Vagrantfile.original
+        echo "=== Current Vagrantfile Configuration ==="
+        echo ""
 
-        # Add boot_timeout configuration
-        sed -i '/config.vm.hostname = "wazuh-server"/a \  \n  # Increase boot timeout for reliability\n  config.vm.boot_timeout = 900  # 15 minutes' Vagrantfile
+        echo "Boot timeout setting:"
+        grep -n "boot_timeout" Vagrantfile || echo "  No boot_timeout found (will use default 300s)"
 
-        echo "=== Modified Vagrantfile ==="
-        cat Vagrantfile
-      register: vagrantfile_mod
+        echo ""
+        echo "SSH configuration:"
+        grep -n "ssh\." Vagrantfile | head -10
 
-    - name: Show Vagrantfile modification
+        echo ""
+        echo "Network configuration:"
+        grep -n "vm.network" Vagrantfile || echo "  Private network is commented (as expected)"
+
+        echo ""
+        echo "Provider settings:"
+        grep -n -A8 "vm.provider" Vagrantfile
+      register: vagrantfile_check
+
+    - name: Show Vagrantfile configuration
       debug:
-        var: vagrantfile_mod.stdout_lines
+        var: vagrantfile_check.stdout_lines
 
     # ==========================================
-    # VAGRANT UP CON LOGGING MEJORADO
+    # VAGRANT UP CON DIAGNÓSTICO DETALLADO
     # ==========================================
 
-    - name: Run vagrant up with detailed failure logging
+    - name: Run vagrant up with detailed diagnostics
       shell: |
         #!/bin/bash
         MAX_RETRIES=5
@@ -148,24 +211,25 @@
         cd /tmp/wazuh-virtual-machines/ova/workflow_assets
 
         echo "=========================================="
-        echo "Starting vagrant up attempts"
-        echo "Time: $(date)"
+        echo "Vagrant Up - Diagnostic Mode"
+        echo "Started: $(date)"
         echo "=========================================="
 
         while true; do
           ((attempts++))
           start_time=$(date +%s)
+
           echo ""
           echo "=== Attempt $attempts started at $(date) ==="
 
-          # Run vagrant up with logging
+          # Run vagrant up with detailed logging
           if VAGRANT_LOG=info vagrant up > /tmp/vagrant_${attempts}.log 2>&1; then
             end_time=$(date +%s)
             duration=$((end_time - start_time))
 
             echo "✓ SUCCESS on attempt $attempts"
-            echo "  Duration: ${duration} seconds"
-            echo "  Completed at: $(date)"
+            echo "  Duration: ${duration} seconds ($(($duration / 60)) min $(($duration % 60)) sec)"
+            echo "  Completed: $(date)"
 
             # Show success details
             echo ""
@@ -173,8 +237,8 @@
             vagrant status
 
             echo ""
-            echo "=== VM Info ==="
-            vboxmanage showvminfo ova_base | grep -E "State:|Memory|CPUs|NIC"
+            echo "=== Log size ==="
+            ls -lh /tmp/vagrant_${attempts}.log
 
             break
           else
@@ -182,36 +246,55 @@
             duration=$((end_time - start_time))
 
             echo "✗ FAILED on attempt $attempts"
-            echo "  Duration: ${duration} seconds"
-            echo "  Failed at: $(date)"
+            echo "  Duration: ${duration} seconds ($(($duration / 60)) min $(($duration % 60)) sec)"
+            echo "  Failed: $(date)"
+            echo "  Log size: $(ls -lh /tmp/vagrant_${attempts}.log | awk '{print $5}')"
 
-            # Analyze failure
+            # Detailed failure analysis
             echo ""
             echo "=== Failure Analysis ==="
 
-            # Check for common error patterns
+            # Check for Vagrantfile errors
+            if grep -q "shouldn't exist" /tmp/vagrant_${attempts}.log; then
+              echo "  ⚠ Vagrantfile configuration error detected"
+              grep "shouldn't exist\|deprecated\|invalid" /tmp/vagrant_${attempts}.log | head -5
+            fi
+
+            # Check for specific error patterns
             if grep -q "Timed out while waiting for the machine to boot" /tmp/vagrant_${attempts}.log; then
-              echo "  Error: Boot timeout - VM didn't respond in time"
+              echo "  ⚠ Boot timeout detected"
+
+              # Find when timeout occurred
+              echo ""
+              echo "  Timeline of boot attempt:"
+              grep -n "Waiting for machine to boot\|Checking if box\|SSH address:\|Timed out" /tmp/vagrant_${attempts}.log | head -10
             fi
 
             if grep -q "SSH authentication failed" /tmp/vagrant_${attempts}.log; then
-              echo "  Error: SSH authentication issue"
+              echo "  ⚠ SSH authentication issue"
             fi
 
-            if grep -q "The following SSH command responded with a non-zero exit status" /tmp/vagrant_${attempts}.log; then
-              echo "  Error: SSH command execution failed"
+            if grep -q "Guest Additions" /tmp/vagrant_${attempts}.log; then
+              echo "  ℹ Guest Additions messages found"
+              grep -n "Guest Additions" /tmp/vagrant_${attempts}.log | head -3
             fi
 
-            # Show last lines of log
+            # Check for VirtualBox errors
+            if grep -q "VBoxManage\|VERR_\|NS_ERROR" /tmp/vagrant_${attempts}.log; then
+              echo "  ⚠ VirtualBox errors detected"
+              grep -n "VBoxManage\|VERR_\|NS_ERROR" /tmp/vagrant_${attempts}.log | head -5
+            fi
+
+            # Show last significant lines before timeout
             echo ""
-            echo "=== Last 25 lines of vagrant log ==="
-            tail -25 /tmp/vagrant_${attempts}.log
+            echo "=== Last 30 lines before failure ==="
+            tail -30 /tmp/vagrant_${attempts}.log
 
-            # Check VM state
+            # Check VM state in VirtualBox
             echo ""
             echo "=== VirtualBox VM State ==="
             if vboxmanage showvminfo ova_base >/dev/null 2>&1; then
-              vboxmanage showvminfo ova_base | grep "State:"
+              vboxmanage showvminfo ova_base | grep -E "State:|Session"
             else
               echo "  VM does not exist"
             fi
@@ -219,40 +302,44 @@
             if [ $attempts -eq $MAX_RETRIES ]; then
               echo ""
               echo "=========================================="
-              echo "Max attempts ($MAX_RETRIES) reached"
+              echo "Max attempts reached ($MAX_RETRIES)"
               echo "=========================================="
 
-              # Create summary
+              # Generate failure summary
               echo ""
               echo "=== Failure Summary ==="
               for i in $(seq 1 $attempts); do
-                echo "Attempt $i:"
                 if [ -f /tmp/vagrant_${i}.log ]; then
-                  log_size=$(wc -l < /tmp/vagrant_${i}.log)
-                  echo "  Log lines: $log_size"
+                  size=$(ls -lh /tmp/vagrant_${i}.log | awk '{print $5}')
+                  lines=$(wc -l < /tmp/vagrant_${i}.log)
 
-                  # Check for specific errors
-                  if grep -q "Timed out" /tmp/vagrant_${i}.log; then
+                  echo ""
+                  echo "Attempt $i:"
+                  echo "  Log size: $size ($lines lines)"
+
+                  if grep -q "shouldn't exist" /tmp/vagrant_${i}.log; then
+                    echo "  Issue: Vagrantfile configuration error"
+                    grep "shouldn't exist" /tmp/vagrant_${i}.log | head -2
+                  elif grep -q "Timed out" /tmp/vagrant_${i}.log; then
                     echo "  Issue: Boot timeout"
-                  elif grep -q "SSH" /tmp/vagrant_${i}.log && grep -q "auth\|fail" /tmp/vagrant_${i}.log; then
-                    echo "  Issue: SSH authentication"
+                  elif grep -q "SSH" /tmp/vagrant_${i}.log && grep -q -i "fail\|refuse" /tmp/vagrant_${i}.log; then
+                    echo "  Issue: SSH connection/authentication"
                   else
-                    echo "  Issue: Unknown"
+                    echo "  Issue: Unknown - check log file"
                   fi
                 fi
               done
 
               echo ""
-              echo "All logs saved to: /tmp/vagrant_*.log"
+              echo "All logs available at: /tmp/vagrant_*.log"
               exit 1
             fi
 
-            # Cleanup and retry
+            # Cleanup and prepare for retry
             echo ""
             echo "=== Cleaning up for retry ==="
             vagrant destroy -f 2>&1 | head -5
 
-            # Small delay before retry
             echo "Waiting 5 seconds before retry..."
             sleep 5
           fi
@@ -260,8 +347,9 @@
 
         echo ""
         echo "=========================================="
-        echo "Vagrant up completed successfully"
-        echo "Total attempts needed: $attempts"
+        echo "SUCCESS - Vagrant up completed"
+        echo "Total attempts: $attempts"
+        echo "Completed: $(date)"
         echo "=========================================="
       args:
         executable: /bin/bash
@@ -275,21 +363,56 @@
         jid: "{{ vagrant_up_result.ansible_job_id }}"
       register: job_result
       until: job_result.finished
-      retries: 60  # 60 minutes
+      retries: 60
       delay: 60
 
     - name: Show vagrant up results
       debug:
         var: job_result.stdout_lines
-      when: job_result.stdout_lines is defined
-
-    - name: Verify vagrant up succeeded
-      fail:
-        msg: "Vagrant up failed after all retries"
-      when: job_result.rc != 0
 
     # ==========================================
-    # CONTINUAR CON CONFIGURACIÓN
+    # VERIFICAR GUEST ADDITIONS EN VM CORRIENDO
+    # ==========================================
+
+    - name: Check Guest Additions in running VM
+      shell: |
+        cd /tmp/wazuh-virtual-machines/ova/workflow_assets
+
+        echo "=== Checking Guest Additions in running VM ==="
+        echo ""
+
+        echo "Kernel modules loaded:"
+        vagrant ssh -c "lsmod | grep vbox" || echo "⚠ No VirtualBox modules loaded"
+
+        echo ""
+        echo "VBoxControl version:"
+        vagrant ssh -c "VBoxControl --version" || echo "⚠ VBoxControl not available"
+
+        echo ""
+        echo "VBoxAdd service status:"
+        vagrant ssh -c "systemctl status vboxadd.service --no-pager" || echo "⚠ vboxadd service not running"
+
+        echo ""
+        echo "VBoxAdd-service status:"
+        vagrant ssh -c "systemctl status vboxadd-service.service --no-pager" || echo "⚠ vboxadd-service not running"
+
+        echo ""
+        echo "VM Boot messages (VirtualBox related):"
+        vagrant ssh -c "dmesg | grep -i 'vbox\|guest'" | tail -20 || echo "No VirtualBox messages in dmesg"
+
+        echo ""
+        echo "Check if module files exist:"
+        vagrant ssh -c "ls -lh /lib/modules/\$(uname -r)/misc/vbox*.ko" || echo "⚠ Module files not found"
+      register: guest_additions_check
+      when: job_result.rc == 0
+
+    - name: Show Guest Additions check results
+      debug:
+        var: guest_additions_check.stdout_lines
+      when: guest_additions_check.stdout_lines is defined
+
+    # ==========================================
+    # CONTINUAR CON RESTO DEL BUILD
     # ==========================================
 
     - name: Copy the Python script to the VM
@@ -322,13 +445,9 @@
       args:
         chdir: "/tmp/wazuh-virtual-machines/ova/workflow_assets"
 
-    # ==========================================
-    # AÑADIR RED PRIVADA DESPUÉS DE HALT
-    # ==========================================
-
-    - name: Add private network to VM (two-step approach)
+    - name: Add private network to VM
       shell: |
-        echo "=== Checking for host-only network ==="
+        echo "=== Adding host-only network ==="
         if ! vboxmanage list hostonlyifs | grep -q vboxnet0; then
           echo "Creating host-only network interface..."
           vboxmanage hostonlyif create
@@ -337,38 +456,25 @@
         fi
 
         echo ""
-        echo "=== Adding NIC2 to ova_base VM ==="
+        echo "=== Configuring NIC2 ==="
         vboxmanage modifyvm ova_base --nic2 hostonly
         vboxmanage modifyvm ova_base --hostonlyadapter2 vboxnet0
         vboxmanage modifyvm ova_base --cableconnected2 on
 
         echo ""
-        echo "=== Verifying network configuration ==="
+        echo "=== Verifying configuration ==="
         vboxmanage showvminfo ova_base | grep "NIC 2"
 
         echo ""
-        echo "✓ Private network added successfully"
-      register: add_network_result
+        echo "✓ Private network configured"
+      register: network_config
 
-    - name: Show network addition results
+    - name: Show network configuration
       debug:
-        var: add_network_result.stdout_lines
-
-    # ==========================================
-    # EXPORT OVA
-    # ==========================================
+        var: network_config.stdout_lines
 
     - name: Export the VM to OVA
-      shell: |
-        echo "=== Starting OVA export ==="
-        echo "Timestamp: $(date)"
-
-        vboxmanage export ova_base --output /home/ec2-user/{{ filename_ova }}
-
-        echo ""
-        echo "=== Export completed ==="
-        echo "Timestamp: $(date)"
-        ls -lh /home/ec2-user/{{ filename_ova }}
+      shell: "vboxmanage export ova_base --output /home/ec2-user/{{ filename_ova }}"
       register: export_result
       async: 1800
       poll: 0
@@ -387,44 +493,53 @@
         mode: '0755'
 
     # ==========================================
-    # FINAL VALIDATION AND SUMMARY
+    # RESUMEN FINAL
     # ==========================================
 
-    - name: Validate OVA and generate build summary
+    - name: Generate build summary
       shell: |
         echo "=========================================="
-        echo "  OVA BUILD SUMMARY"
+        echo "  BUILD SUMMARY"
         echo "=========================================="
         echo ""
 
         echo "=== Build Information ==="
-        echo "OVA File: {{ filename_ova }}"
+        echo "OVA: {{ filename_ova }}"
         ls -lh /home/ec2-user/{{ filename_ova }}
+        echo "Completed: $(date)"
 
         echo ""
-        echo "=== OVA Validation ==="
-        cd /tmp
-        tar -xOf /home/ec2-user/{{ filename_ova }} '*.ovf' > /tmp/final_check.ovf
+        echo "=== Vagrant Attempts ==="
+        vagrant_logs=$(ls -1 /tmp/vagrant_*.log 2>/dev/null | wc -l)
+        echo "Total attempts: $vagrant_logs"
 
-        nic_count=$(grep -c "rasd:ResourceType>10<" /tmp/final_check.ovf || echo "0")
-        echo "Network adapters in OVA: $nic_count"
-
-        if [ "$nic_count" -ge 2 ]; then
-          echo "✓ OVA contains required NICs (eth0 + eth1)"
-        else
-          echo "⚠ WARNING: OVA may be missing eth1"
+        if [ $vagrant_logs -gt 0 ]; then
+          echo ""
+          echo "Attempt details:"
+          for log in /tmp/vagrant_*.log; do
+            attempt=$(basename $log | sed 's/vagrant_\(.*\)\.log/\1/')
+            size=$(ls -lh $log | awk '{print $5}')
+            lines=$(wc -l < $log)
+            echo "  Attempt $attempt: $size ($lines lines)"
+          done
         fi
 
         echo ""
-        echo "=== Vagrant Logs Available ==="
-        ls -lh /tmp/vagrant_*.log 2>/dev/null || echo "No vagrant logs found"
+        echo "=== Key Findings ==="
+        if [ -f /tmp/vagrant_1.log ]; then
+          if grep -q "shouldn't exist" /tmp/vagrant_1.log; then
+            echo "⚠ Vagrantfile had configuration errors (fixed in later attempts)"
+          fi
+
+          if grep -q "Guest Additions" /tmp/vagrant_1.log; then
+            echo "ℹ Guest Additions activity detected in logs"
+          fi
+        fi
 
         echo ""
-        echo "=== Build Completed ==="
-        echo "Timestamp: $(date)"
         echo "=========================================="
-      register: final_summary
+      register: build_summary
 
-    - name: Show final summary
+    - name: Show build summary
       debug:
-        var: final_summary.stdout_lines
+        var: build_summary.stdout_lines
