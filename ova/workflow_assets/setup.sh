@@ -28,6 +28,21 @@ setup_user() {
 
     echo 'wazuh-user ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/wazuh-user
     chmod 440 /etc/sudoers.d/wazuh-user
+
+    # ==========================================
+    # NUEVO: VALIDAR QUE EL USUARIO SE CREÓ
+    # ==========================================
+    if ! id wazuh-user >/dev/null 2>&1; then
+        echo "✗ ERROR: wazuh-user was not created!"
+        exit 1
+    fi
+
+    if [ ! -f /home/wazuh-user/.ssh/authorized_keys ]; then
+        echo "✗ ERROR: SSH authorized_keys not created!"
+        exit 1
+    fi
+
+    echo "✓ wazuh-user configured successfully"
 }
 
 # Install legacy network-scripts required by Vagrant and git required to generate the OVA
@@ -46,24 +61,19 @@ install_guest_additions() {
 
     wget -nv https://download.virtualbox.org/virtualbox/${VIRTUALBOX_VERSION}/VBoxGuestAdditions_${VIRTUALBOX_VERSION}.iso -O /root/VBoxGuestAdditions.iso
     mount -o ro,loop /root/VBoxGuestAdditions.iso /mnt
-    sh /mnt/VBoxLinuxAdditions.run || true  # Allow script to proceed despite potential errors
+    sh /mnt/VBoxLinuxAdditions.run || true
     umount /mnt
     rm -f /root/VBoxGuestAdditions.iso
 
-    # Run VBox guest additions setup for the Amazon provided kernel
     /etc/kernel/postinst.d/vboxadd ${KERNEL_VERSION}
     /sbin/depmod ${KERNEL_VERSION}
 
-    # ==========================================
-    # NUEVO: Intentar cargar módulos explícitamente
-    # ==========================================
-
-    echo "Attempting to load VirtualBox kernel modules..."
-
+    # Intentar cargar módulos
     /sbin/modprobe vboxguest 2>/dev/null || echo "⚠ vboxguest not loaded yet (will load on boot)"
     /sbin/modprobe vboxsf 2>/dev/null || echo "⚠ vboxsf not loaded yet (will load on boot)"
     /sbin/modprobe vboxvideo 2>/dev/null || echo "⚠ vboxvideo not loaded yet (will load on boot)"
 
+    # Validación
     if lsmod | grep -q vboxguest; then
         echo "✓ Guest Additions modules loaded successfully"
     else
@@ -71,7 +81,6 @@ install_guest_additions() {
         echo "  This is normal when building in chroot environment"
         echo "  Modules will load on next boot"
 
-        # Verificar que los archivos del módulo existen
         if [ -f "/lib/modules/${KERNEL_VERSION}/misc/vboxguest.ko" ]; then
             echo "✓ vboxguest.ko exists in /lib/modules/${KERNEL_VERSION}/misc/"
         else
@@ -79,7 +88,6 @@ install_guest_additions() {
             exit 1
         fi
 
-        # Verificar que vboxadd service existe
         if [ -f "/etc/init.d/vboxadd" ] || [ -f "/usr/lib/systemd/system/vboxadd.service" ]; then
             echo "✓ VBoxAdd service files exist"
         else
@@ -88,15 +96,42 @@ install_guest_additions() {
         fi
     fi
 
-    # Asegurar que el servicio se ejecuta en el boot
+    # ==========================================
+    # NUEVO: FORZAR HABILITACIÓN DE SERVICIOS
+    # ==========================================
+
+    # Habilitar servicios de Guest Additions
     if [ -f "/usr/lib/systemd/system/vboxadd.service" ]; then
-        systemctl enable vboxadd.service 2>/dev/null || true
-        systemctl enable vboxadd-service.service 2>/dev/null || true
+        # Crear enlaces simbólicos manualmente para asegurar que se ejecuten
+        mkdir -p /etc/systemd/system/multi-user.target.wants
+        ln -sf /usr/lib/systemd/system/vboxadd.service /etc/systemd/system/multi-user.target.wants/vboxadd.service
+        ln -sf /usr/lib/systemd/system/vboxadd-service.service /etc/systemd/system/multi-user.target.wants/vboxadd-service.service
+        echo "✓ VBoxAdd services enabled via symlinks"
     fi
 
-    echo "✓ Guest Additions installation validated"
-}
+    # CRÍTICO: Asegurar que vboxadd.sh se ejecute en el boot
+    # Añadir a rc.local como fallback
+    if [ ! -f /etc/rc.d/rc.local ]; then
+        touch /etc/rc.d/rc.local
+        chmod +x /etc/rc.d/rc.local
+    fi
 
+    # Añadir comando para cargar módulos al inicio
+    cat >> /etc/rc.d/rc.local << 'EOF'
+# VirtualBox Guest Additions - ensure modules are loaded
+if [ -f /etc/init.d/vboxadd ]; then
+    /etc/init.d/vboxadd start || true
+fi
+EOF
+    chmod +x /etc/rc.d/rc.local
+
+    # Habilitar rc-local.service
+    if [ -f /usr/lib/systemd/system/rc-local.service ]; then
+        ln -sf /usr/lib/systemd/system/rc-local.service /etc/systemd/system/multi-user.target.wants/rc-local.service
+    fi
+
+    echo "✓ Guest Additions installation validated and boot scripts configured"
+}
 
 # Enable SSH password authentication
 configure_ssh() {
