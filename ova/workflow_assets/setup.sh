@@ -38,7 +38,7 @@ install_dependencies() {
 # Install the VirtualBox guest additions
 install_guest_additions() {
     yum -y install gcc elfutils-libelf-devel kernel-devel libX11 libXt libXext libXmu
-    
+
     dnf remove $(dnf repoquery --installonly --latest-limit=-1)
 
     KERNEL_VERSION=$(ls /lib/modules)
@@ -53,6 +53,13 @@ install_guest_additions() {
     # Run VBox guest additions setup for the Amazon provided kernel
     /etc/kernel/postinst.d/vboxadd ${KERNEL_VERSION}
     /sbin/depmod ${KERNEL_VERSION}
+
+    if ! lsmod | grep -q vboxguest; then
+        echo "ERROR: VirtualBox Guest Additions not loaded"
+        exit 1
+    fi
+
+    echo "✓ Guest Additions verified"
 }
 
 # Enable SSH password authentication

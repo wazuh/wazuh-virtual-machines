@@ -15,7 +15,12 @@ Vagrant.configure("2") do |config|
   # using a specific IP.
   #config.vm.network "private_network", ip: "192.168.56.22", interface: "2"
   config.vm.hostname = "wazuh-server"
-  config.vm.boot_timeout = 900
+  config.vm.boot_timeout = 420
+
+  # SSH configuration for reliability
+  config.ssh.connect_timeout = 300   # 5 minutes to establish connection
+  config.ssh.max_tries = 40          # 40 connection attempts
+  config.ssh.retry_delay = 5         # 5 seconds between retries
 
   # Example for VirtualBox:
   #
@@ -25,6 +30,11 @@ Vagrant.configure("2") do |config|
     vb.cpus = 4
     vb.customize ["setextradata", :id, "VBoxInternal/Devices/VMMDev/0/Config/GetHostTimeDisabled", 1]
     vb.name = "ova_base"
+
+    # Additional reliability settings
+    # Disable UART to reduce potential boot issues
+    vb.customize ["modifyvm", :id, "--uart1", "0x3F8", "4"]
+    vb.customize ["modifyvm", :id, "--uartmode1", "disconnected"]
   end
   #
 end
