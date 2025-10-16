@@ -28,21 +28,6 @@ setup_user() {
 
     echo 'wazuh-user ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/wazuh-user
     chmod 440 /etc/sudoers.d/wazuh-user
-
-    # ==========================================
-    # NUEVO: VALIDAR QUE EL USUARIO SE CREÓ
-    # ==========================================
-    if ! id wazuh-user >/dev/null 2>&1; then
-        echo "✗ ERROR: wazuh-user was not created!"
-        exit 1
-    fi
-
-    if [ ! -f /home/wazuh-user/.ssh/authorized_keys ]; then
-        echo "✗ ERROR: SSH authorized_keys not created!"
-        exit 1
-    fi
-
-    echo "✓ wazuh-user configured successfully"
 }
 
 # Install legacy network-scripts required by Vagrant and git required to generate the OVA
@@ -61,19 +46,20 @@ install_guest_additions() {
 
     wget -nv https://download.virtualbox.org/virtualbox/${VIRTUALBOX_VERSION}/VBoxGuestAdditions_${VIRTUALBOX_VERSION}.iso -O /root/VBoxGuestAdditions.iso
     mount -o ro,loop /root/VBoxGuestAdditions.iso /mnt
-    sh /mnt/VBoxLinuxAdditions.run || true
+    sh /mnt/VBoxLinuxAdditions.run || true  # Allow script to proceed despite potential errors
     umount /mnt
     rm -f /root/VBoxGuestAdditions.iso
 
+    # Run VBox guest additions setup for the Amazon provided kernel
     /etc/kernel/postinst.d/vboxadd ${KERNEL_VERSION}
     /sbin/depmod ${KERNEL_VERSION}
 
-    # Intentar cargar módulos
+    # Try to load modules
     /sbin/modprobe vboxguest 2>/dev/null || echo "⚠ vboxguest not loaded yet (will load on boot)"
     /sbin/modprobe vboxsf 2>/dev/null || echo "⚠ vboxsf not loaded yet (will load on boot)"
     /sbin/modprobe vboxvideo 2>/dev/null || echo "⚠ vboxvideo not loaded yet (will load on boot)"
 
-    # Validación
+    # Validation
     if lsmod | grep -q vboxguest; then
         echo "✓ Guest Additions modules loaded successfully"
     else
@@ -96,27 +82,26 @@ install_guest_additions() {
         fi
     fi
 
-    # ==========================================
-    # NUEVO: FORZAR HABILITACIÓN DE SERVICIOS
-    # ==========================================
+    # ============================================
+    # NEW: FORCE ENABLE SERVICES
+    # ============================================
 
-    # Habilitar servicios de Guest Additions
+    # Enable Guest Additions services
     if [ -f "/usr/lib/systemd/system/vboxadd.service" ]; then
-        # Crear enlaces simbólicos manualmente para asegurar que se ejecuten
+        # Create symlinks manually to ensure they are executed
         mkdir -p /etc/systemd/system/multi-user.target.wants
         ln -sf /usr/lib/systemd/system/vboxadd.service /etc/systemd/system/multi-user.target.wants/vboxadd.service
         ln -sf /usr/lib/systemd/system/vboxadd-service.service /etc/systemd/system/multi-user.target.wants/vboxadd-service.service
         echo "✓ VBoxAdd services enabled via symlinks"
     fi
 
-    # CRÍTICO: Asegurar que vboxadd.sh se ejecute en el boot
-    # Añadir a rc.local como fallback
+    # Add to rc.local as fallback
     if [ ! -f /etc/rc.d/rc.local ]; then
         touch /etc/rc.d/rc.local
         chmod +x /etc/rc.d/rc.local
     fi
 
-    # Añadir comando para cargar módulos al inicio
+    # Add command to load modules on boot
     cat >> /etc/rc.d/rc.local << 'EOF'
 # VirtualBox Guest Additions - ensure modules are loaded
 if [ -f /etc/init.d/vboxadd ]; then
@@ -125,7 +110,7 @@ fi
 EOF
     chmod +x /etc/rc.d/rc.local
 
-    # Habilitar rc-local.service
+    # Enable rc-local.service
     if [ -f /usr/lib/systemd/system/rc-local.service ]; then
         ln -sf /usr/lib/systemd/system/rc-local.service /etc/systemd/system/multi-user.target.wants/rc-local.service
     fi
@@ -135,8 +120,19 @@ EOF
 
 # Enable SSH password authentication
 configure_ssh() {
+    # Modify the main config
     sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
     sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+
+    # Create an explicit override file
+    mkdir -p /etc/ssh/sshd_config.d/
+    cat > /etc/ssh/sshd_config.d/50-vagrant-password-auth.conf << 'EOF'
+PasswordAuthentication yes
+PubkeyAuthentication yes
+ChallengeResponseAuthentication no
+EOF
+
+    chmod 600 /etc/ssh/sshd_config.d/50-vagrant-password-auth.conf
     systemctl restart sshd
 }
 
