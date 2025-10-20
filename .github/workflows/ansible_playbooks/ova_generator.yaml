@@ -115,10 +115,10 @@
       register: vagrant_up_result
       become: true
 
-    - name: Run vagrant up 
+    - name: Run vagrant up
       shell: |
         #!/bin/bash
-        MAX_RETRIES=100
+        MAX_RETRIES=10
         attempts=0
         cd /tmp/wazuh-virtual-machines/ova/workflow_assets
         while true; do
@@ -146,7 +146,7 @@
         jid: "{{ vagrant_up_result.ansible_job_id }}"
       register: job_result
       until: job_result.finished
-      retries: 120
+      retries: 30
       delay: 60
 
     - name: Show the result of the vagrant up command
@@ -202,7 +202,7 @@
       until: job_result.finished
       retries: 30
       delay: 60
-    
+
     - name: Change permissions to the OVA file
       file:
         path: /home/ec2-user/{{ filename_ova }}

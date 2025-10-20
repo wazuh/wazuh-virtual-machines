@@ -13,7 +13,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- None
+- Fix vagrant up inconsistencies at the start. ([#434](https://github.com/wazuh/wazuh-virtual-machines/pull/434))
 
 ### Deleted
 
