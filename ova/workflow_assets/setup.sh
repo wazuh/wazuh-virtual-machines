@@ -38,7 +38,7 @@ install_dependencies() {
 # Install the VirtualBox guest additions
 install_guest_additions() {
     yum -y install gcc elfutils-libelf-devel kernel-devel libX11 libXt libXext libXmu
-    
+
     dnf remove $(dnf repoquery --installonly --latest-limit=-1)
 
     KERNEL_VERSION=$(ls /lib/modules)
@@ -53,12 +53,86 @@ install_guest_additions() {
     # Run VBox guest additions setup for the Amazon provided kernel
     /etc/kernel/postinst.d/vboxadd ${KERNEL_VERSION}
     /sbin/depmod ${KERNEL_VERSION}
+
+    # Try to load modules
+    /sbin/modprobe vboxguest 2>/dev/null || echo "⚠ vboxguest not loaded yet (will load on boot)"
+    /sbin/modprobe vboxsf 2>/dev/null || echo "⚠ vboxsf not loaded yet (will load on boot)"
+    /sbin/modprobe vboxvideo 2>/dev/null || echo "⚠ vboxvideo not loaded yet (will load on boot)"
+
+    # Validation
+    if lsmod | grep -q vboxguest; then
+        echo "✓ Guest Additions modules loaded successfully"
+    else
+        echo "⚠ Guest Additions modules not loaded in current session"
+        echo "  This is normal when building in chroot environment"
+        echo "  Modules will load on next boot"
+
+        if [ -f "/lib/modules/${KERNEL_VERSION}/misc/vboxguest.ko" ]; then
+            echo "✓ vboxguest.ko exists in /lib/modules/${KERNEL_VERSION}/misc/"
+        else
+            echo "✗ ERROR: vboxguest.ko not found!"
+            exit 1
+        fi
+
+        if [ -f "/etc/init.d/vboxadd" ] || [ -f "/usr/lib/systemd/system/vboxadd.service" ]; then
+            echo "✓ VBoxAdd service files exist"
+        else
+            echo "✗ ERROR: VBoxAdd service not installed!"
+            exit 1
+        fi
+    fi
+
+    # ============================================
+    # NEW: FORCE ENABLE SERVICES
+    # ============================================
+
+    # Enable Guest Additions services
+    if [ -f "/usr/lib/systemd/system/vboxadd.service" ]; then
+        # Create symlinks manually to ensure they are executed
+        mkdir -p /etc/systemd/system/multi-user.target.wants
+        ln -sf /usr/lib/systemd/system/vboxadd.service /etc/systemd/system/multi-user.target.wants/vboxadd.service
+        ln -sf /usr/lib/systemd/system/vboxadd-service.service /etc/systemd/system/multi-user.target.wants/vboxadd-service.service
+        echo "✓ VBoxAdd services enabled via symlinks"
+    fi
+
+    # Add to rc.local as fallback
+    if [ ! -f /etc/rc.d/rc.local ]; then
+        touch /etc/rc.d/rc.local
+        chmod +x /etc/rc.d/rc.local
+    fi
+
+    # Add command to load modules on boot
+    cat >> /etc/rc.d/rc.local << 'EOF'
+# VirtualBox Guest Additions - ensure modules are loaded
+if [ -f /etc/init.d/vboxadd ]; then
+    /etc/init.d/vboxadd start || true
+fi
+EOF
+    chmod +x /etc/rc.d/rc.local
+
+    # Enable rc-local.service
+    if [ -f /usr/lib/systemd/system/rc-local.service ]; then
+        ln -sf /usr/lib/systemd/system/rc-local.service /etc/systemd/system/multi-user.target.wants/rc-local.service
+    fi
+
+    echo "✓ Guest Additions installation validated and boot scripts configured"
 }
 
 # Enable SSH password authentication
 configure_ssh() {
+    # Modify the main config
     sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
     sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+
+    # Create an explicit override file
+    mkdir -p /etc/ssh/sshd_config.d/
+    cat > /etc/ssh/sshd_config.d/50-vagrant-password-auth.conf << 'EOF'
+PasswordAuthentication yes
+PubkeyAuthentication yes
+ChallengeResponseAuthentication no
+EOF
+
+    chmod 600 /etc/ssh/sshd_config.d/50-vagrant-password-auth.conf
     systemctl restart sshd
 }
 
