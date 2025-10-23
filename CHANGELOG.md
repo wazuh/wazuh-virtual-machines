@@ -31,7 +31,7 @@ Fix vagrant up inconsistencies at the start. ([#435](https://github.com/wazuh/wa
 
 ### Fixed
 
-- None
+- Fix vagrant up inconsistencies at the start. ([#434](https://github.com/wazuh/wazuh-virtual-machines/pull/434))
 
 ### Deleted
 
