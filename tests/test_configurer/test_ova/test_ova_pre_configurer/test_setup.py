@@ -83,11 +83,11 @@ def test_install_dependencies(mock_run_command):
     mock_run_command.assert_called_once_with("yum install -y network-scripts git")
 
 
+@patch("os.path.isfile")
 @patch("os.listdir")
 @patch("os.remove")
-def test_install_guest_additions(mock_remove, mock_listdir, mock_run_command):
+def test_install_guest_additions_success_vboxguest_loaded(mock_remove, mock_listdir, mock_isfile, mock_run_command, mock_open_file):
     mock_listdir.return_value = ["5.10.0"]
-
     mock_run_command.side_effect = [
         (None, None, None),
         (["7.1.6"], None, None),
@@ -95,64 +95,425 @@ def test_install_guest_additions(mock_remove, mock_listdir, mock_run_command):
         (None, None, None),
         (None, None, None),
         (None, None, None),
+        (None, None, None),
+        (None, None, [0]),
+        (None, None, None),
+        (None, None, None),
     ]
-
+    
+    def isfile_side_effect(path):
+        if path == "/etc/rc.d/rc.local" or path == "/usr/lib/systemd/system/rc-local.service":
+            return False
+        return False
+    
+    mock_isfile.side_effect = isfile_side_effect
+    mock_open_file.return_value.read.return_value = ""
+    
     install_guest_additions()
-
-    mock_run_command.assert_any_call(
-        [
-            "yum install -y gcc elfutils-libelf-devel kernel-devel libX11 libXt libXext libXmu",
-            "dnf remove $(dnf repoquery --installonly --latest-limit=-1)",
-        ]
-    )
-
-    mock_listdir.assert_called_once_with("/lib/modules")
-
+    
+    mock_run_command.assert_any_call([
+        "yum install -y gcc elfutils-libelf-devel kernel-devel libX11 libXt libXext libXmu",
+        "dnf remove $(dnf repoquery --installonly --latest-limit=-1)",
+    ])
     mock_run_command.assert_any_call("wget -q http://download.virtualbox.org/virtualbox/LATEST.TXT -O -", output=True)
-
-    mock_run_command.assert_any_call(
-        [
-            "wget -nv https://download.virtualbox.org/virtualbox/7.1.6/VBoxGuestAdditions_7.1.6.iso -O /root/VBoxGuestAdditions.iso",
-            "mount -o ro,loop /root/VBoxGuestAdditions.iso /mnt",
-        ]
-    )
-
-    mock_run_command.assert_any_call("sh /mnt/VBoxLinuxAdditions.run")
-
-    mock_run_command.assert_any_call("umount /mnt")
+    mock_run_command.assert_any_call("lsmod | grep -q vboxguest", check=False, output=True)
     mock_remove.assert_called_once_with("/root/VBoxGuestAdditions.iso")
 
-    mock_run_command.assert_any_call(["/etc/kernel/postinst.d/vboxadd 5.10.0", "/sbin/depmod 5.10.0"])
+
+@patch("os.path.isfile")
+@patch("os.listdir")
+@patch("os.remove")
+def test_install_guest_additions_vboxguest_check_failure_missing_ko_file(mock_remove, mock_listdir, mock_isfile, mock_run_command):
+    mock_listdir.return_value = ["5.10.0"]
+    mock_run_command.side_effect = [
+        (None, None, None),
+        (["7.1.6"], None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, [1]),
+    ]
+    mock_isfile.return_value = False
+
+    with patch("sys.exit", side_effect=lambda code: (_ for _ in ()).throw(SystemExit(code))) as mock_exit:
+        with pytest.raises(SystemExit) as exc:
+            install_guest_additions()
+        assert exc.value.code == 1
+        mock_isfile.assert_any_call("/lib/modules/5.10.0/misc/vboxguest.ko")
+        mock_exit.assert_called_once_with(1)
 
 
+@patch("os.path.isfile")
+@patch("os.listdir")
+@patch("os.remove")
+def test_install_guest_additions_vboxguest_check_failure_missing_service(mock_remove, mock_listdir, mock_isfile, mock_run_command):
+    mock_listdir.return_value = ["5.10.0"]
+    mock_run_command.side_effect = [
+        (None, None, None),
+        (["7.1.6"], None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, [1]),
+    ]
+
+    def isfile_side_effect(path):
+        if path == "/lib/modules/5.10.0/misc/vboxguest.ko":
+            return True
+        if path in ("/etc/init.d/vboxadd", "/usr/lib/systemd/system/vboxadd.service"):
+            return False
+        return False
+    mock_isfile.side_effect = isfile_side_effect
+
+    with patch("sys.exit", side_effect=lambda code: (_ for _ in ()).throw(SystemExit(code))) as mock_exit:
+        with pytest.raises(SystemExit) as exc:
+            install_guest_additions()
+        assert exc.value.code == 1
+        mock_isfile.assert_any_call("/lib/modules/5.10.0/misc/vboxguest.ko")
+        mock_isfile.assert_any_call("/etc/init.d/vboxadd")
+        mock_isfile.assert_any_call("/usr/lib/systemd/system/vboxadd.service")
+        mock_exit.assert_called_once_with(1)
+
+@patch("os.path.isfile")
+@patch("os.listdir")
+@patch("os.remove")
+def test_install_guest_additions_vboxguest_check_passes_with_init_service(mock_remove, mock_listdir, mock_isfile, mock_run_command, mock_open_file):
+    mock_listdir.return_value = ["5.10.0"]
+    mock_run_command.side_effect = [
+        (None, None, None),
+        (["7.1.6"], None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, [1]),
+        (None, None, None),
+        (None, None, None),
+    ]
+    
+    def isfile_side_effect(path):
+        if path == "/lib/modules/5.10.0/misc/vboxguest.ko" or path == "/etc/init.d/vboxadd":
+            return True
+        elif path == "/usr/lib/systemd/system/vboxadd.service" or path == "/etc/rc.d/rc.local" or path == "/usr/lib/systemd/system/rc-local.service":
+            return False
+        return False
+    
+    mock_isfile.side_effect = isfile_side_effect
+    mock_open_file.return_value.read.return_value = ""
+    
+    install_guest_additions()
+    
+    mock_isfile.assert_any_call("/lib/modules/5.10.0/misc/vboxguest.ko")
+    mock_isfile.assert_any_call("/etc/init.d/vboxadd")
+
+@patch("os.path.isfile")
+@patch("os.listdir")
+@patch("os.remove")
+def test_install_guest_additions_vboxguest_check_passes_with_systemd_service(mock_remove, mock_listdir, mock_isfile, mock_run_command, mock_open_file):
+    mock_listdir.return_value = ["5.10.0"]
+    mock_run_command.side_effect = [
+        (None, None, None),
+        (["7.1.6"], None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, [1]),
+        (None, None, None),
+        (None, None, None),
+        (None, None, None),
+    ]
+    
+    def isfile_side_effect(path):
+        if path == "/lib/modules/5.10.0/misc/vboxguest.ko":
+            return True
+        elif path == "/etc/init.d/vboxadd":
+            return False
+        elif path == "/usr/lib/systemd/system/vboxadd.service":
+            return True
+        elif path == "/etc/rc.d/rc.local" or path == "/usr/lib/systemd/system/rc-local.service":
+            return False
+        return False
+    
+    mock_isfile.side_effect = isfile_side_effect
+    mock_open_file.return_value.read.return_value = ""
+    
+    install_guest_additions()
+    
+    mock_isfile.assert_any_call("/lib/modules/5.10.0/misc/vboxguest.ko")
+    mock_isfile.assert_any_call("/usr/lib/systemd/system/vboxadd.service")
+    mock_run_command.assert_any_call([
+        "mkdir -p /etc/systemd/system/multi-user.target.wants",
+        "ln -sf /usr/lib/systemd/system/vboxadd.service /etc/systemd/system/multi-user.target.wants/vboxadd.service",
+        "ln -sf /usr/lib/systemd/system/vboxadd-service.service /etc/systemd/system/multi-user.target.wants/vboxadd-service.service",
+    ])
+
+@patch("os.path.isfile")
+@patch("os.listdir")
+@patch("os.remove")
+def test_install_guest_additions_rc_local_exists_with_content(mock_remove, mock_listdir, mock_isfile, mock_run_command, mock_open_file):
+    mock_listdir.return_value = ["5.10.0"]
+    mock_run_command.side_effect = [
+        (None, None, None),
+        (["7.1.6"], None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, [0]),
+        (None, None, None),
+    ]
+    
+    def isfile_side_effect(path):
+        if path == "/etc/rc.d/rc.local":
+            return True
+        elif path == "/usr/lib/systemd/system/rc-local.service":
+            return False
+        return False
+    
+    mock_isfile.side_effect = isfile_side_effect
+    mock_open_file.return_value.read.return_value = "# VirtualBox Guest Additions - ensure modules are loaded\n"
+    
+    install_guest_additions()
+    
+    mock_run_command.assert_any_call("chmod +x /etc/rc.d/rc.local")
+
+@patch("os.path.isfile")
+@patch("os.listdir")
+@patch("os.remove")
+def test_install_guest_additions_with_rc_local_service(mock_remove, mock_listdir, mock_isfile, mock_run_command, mock_open_file):
+    mock_listdir.return_value = ["5.10.0"]
+    mock_run_command.side_effect = [
+        (None, None, None),
+        (["7.1.6"], None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, [0]),
+        (None, None, None),
+        (None, None, None),
+        (None, None, None),
+    ]
+    
+    def isfile_side_effect(path):
+        if path == "/etc/rc.d/rc.local":
+            return False
+        elif path == "/usr/lib/systemd/system/rc-local.service":
+            return True
+        return False
+    
+    mock_isfile.side_effect = isfile_side_effect
+    mock_open_file.return_value.read.return_value = ""
+    
+    install_guest_additions()
+    
+    mock_run_command.assert_any_call("ln -sf /usr/lib/systemd/system/rc-local.service /etc/systemd/system/multi-user.target.wants/rc-local.service")
+
+@patch("os.path.isfile")
+@patch("os.listdir")
+@patch("os.remove")
+def test_install_guest_additions_complete_systemd_scenario(mock_remove, mock_listdir, mock_isfile, mock_run_command, mock_open_file):
+    mock_listdir.return_value = ["5.10.0"]
+    mock_run_command.side_effect = [
+        (None, None, None),
+        (["7.1.6"], None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, [1]),
+        (None, None, None),
+        (None, None, None),
+        (None, None, None),
+        (None, None, None),
+    ]
+    
+    def isfile_side_effect(path):
+        mapping = {
+            "/lib/modules/5.10.0/misc/vboxguest.ko": True,
+            "/etc/init.d/vboxadd": False,
+            "/usr/lib/systemd/system/vboxadd.service": True,
+            "/etc/rc.d/rc.local": False,
+            "/usr/lib/systemd/system/rc-local.service": True
+        }
+        return mapping.get(path, False)
+    
+    mock_isfile.side_effect = isfile_side_effect
+    mock_open_file.return_value.read.return_value = ""
+    
+    install_guest_additions()
+    
+    mock_run_command.assert_any_call([
+        "mkdir -p /etc/systemd/system/multi-user.target.wants",
+        "ln -sf /usr/lib/systemd/system/vboxadd.service /etc/systemd/system/multi-user.target.wants/vboxadd.service",
+        "ln -sf /usr/lib/systemd/system/vboxadd-service.service /etc/systemd/system/multi-user.target.wants/vboxadd-service.service",
+    ])
+    
+    mock_run_command.assert_any_call("ln -sf /usr/lib/systemd/system/rc-local.service /etc/systemd/system/multi-user.target.wants/rc-local.service")
+    
+    mock_open_file.assert_any_call("/etc/rc.d/rc.local", "a+", encoding="utf-8")    
+
+
+@patch("os.path.isdir")
+@patch("os.path.join")
 @patch("builtins.open", new_callable=mock_open, read_data="PasswordAuthentication no\n")
-def test_configure_ssh_update_password_authentication(mock_open_file, mock_run_command):
+def test_configure_ssh_update_password_authentication(mock_open_file, mock_join, mock_isdir, mock_run_command):
+    mock_isdir.return_value = True
+    mock_join.return_value = "/etc/ssh/sshd_config.d/50-vagrant-password-auth.conf"
+    
+    mock_sshd_config = mock_open(read_data="PasswordAuthentication no\n")
+    mock_override_file = mock_open()
+    
+    def open_side_effect(filename, *args, **kwargs):
+        if filename == "/etc/ssh/sshd_config":
+            return mock_sshd_config.return_value
+        elif filename == "/etc/ssh/sshd_config.d/50-vagrant-password-auth.conf":
+            return mock_override_file.return_value
+        else:
+            return mock_open_file.return_value
+    
+    mock_open_file.side_effect = open_side_effect
+    
     configure_ssh()
 
     mock_open_file.assert_any_call("/etc/ssh/sshd_config")
-    mock_open_file().write.assert_called_once_with("PasswordAuthentication yes\n")
+    
+    mock_sshd_config().write.assert_any_call("PasswordAuthentication yes\n")
+    
+    mock_open_file.assert_any_call("/etc/ssh/sshd_config.d/50-vagrant-password-auth.conf", "w", encoding="utf-8")
+    
+    expected_override_content = (
+        "PasswordAuthentication yes\n"
+        "PubkeyAuthentication yes\n"
+        "ChallengeResponseAuthentication no\n"
+    )
+    mock_override_file().write.assert_called_once_with(expected_override_content)
+    
+    mock_run_command.assert_any_call("chmod 600 /etc/ssh/sshd_config.d/50-vagrant-password-auth.conf")
+    mock_run_command.assert_any_call("systemctl restart sshd")
 
-    mock_run_command.assert_called_once_with("systemctl restart sshd")
 
-
+@patch("os.path.isdir")
+@patch("os.path.join")
 @patch("builtins.open", new_callable=mock_open, read_data="#PasswordAuthentication yes\n")
-def test_configure_ssh_uncomment_password_authentication(mock_open_file, mock_run_command):
+def test_configure_ssh_uncomment_password_authentication(mock_open_file, mock_join, mock_isdir, mock_run_command):
+    mock_isdir.return_value = True
+    mock_join.return_value = "/etc/ssh/sshd_config.d/50-vagrant-password-auth.conf"
+    
+    mock_sshd_config = mock_open(read_data="#PasswordAuthentication yes\n")
+    mock_override_file = mock_open()
+    
+    def open_side_effect(filename, *args, **kwargs):
+        if filename == "/etc/ssh/sshd_config":
+            return mock_sshd_config.return_value
+        elif filename == "/etc/ssh/sshd_config.d/50-vagrant-password-auth.conf":
+            return mock_override_file.return_value
+        else:
+            return mock_open_file.return_value
+    
+    mock_open_file.side_effect = open_side_effect
+    
     configure_ssh()
 
     mock_open_file.assert_any_call("/etc/ssh/sshd_config")
-    mock_open_file().write.assert_called_once_with("PasswordAuthentication yes\n")
+    mock_sshd_config().write.assert_any_call("PasswordAuthentication yes\n")
+    
+    mock_open_file.assert_any_call("/etc/ssh/sshd_config.d/50-vagrant-password-auth.conf", "w", encoding="utf-8")
+    
+    expected_override_content = (
+        "PasswordAuthentication yes\n"
+        "PubkeyAuthentication yes\n"
+        "ChallengeResponseAuthentication no\n"
+    )
+    mock_override_file().write.assert_called_once_with(expected_override_content)
+    
+    mock_run_command.assert_any_call("chmod 600 /etc/ssh/sshd_config.d/50-vagrant-password-auth.conf")
+    mock_run_command.assert_any_call("systemctl restart sshd")
 
-    mock_run_command.assert_called_once_with("systemctl restart sshd")
 
-
+@patch("os.path.isdir")
+@patch("os.path.join")
 @patch("builtins.open", new_callable=mock_open, read_data="OtherConfiguration yes\n")
-def test_configure_ssh_no_password_authentication(mock_open_file, mock_run_command):
+def test_configure_ssh_no_password_authentication(mock_open_file, mock_join, mock_isdir, mock_run_command):
+    mock_isdir.return_value = True
+    mock_join.return_value = "/etc/ssh/sshd_config.d/50-vagrant-password-auth.conf"
+    
+    mock_sshd_config = mock_open(read_data="OtherConfiguration yes\n")
+    mock_override_file = mock_open()
+    
+    def open_side_effect(filename, *args, **kwargs):
+        if filename == "/etc/ssh/sshd_config":
+            return mock_sshd_config.return_value
+        elif filename == "/etc/ssh/sshd_config.d/50-vagrant-password-auth.conf":
+            return mock_override_file.return_value
+        else:
+            return mock_open_file.return_value
+    
+    mock_open_file.side_effect = open_side_effect
+    
     configure_ssh()
 
     mock_open_file.assert_any_call("/etc/ssh/sshd_config")
-    mock_open_file().write.assert_called_once_with("OtherConfiguration yes\n")
+    mock_sshd_config().write.assert_any_call("OtherConfiguration yes\n")
+    
+    mock_open_file.assert_any_call("/etc/ssh/sshd_config.d/50-vagrant-password-auth.conf", "w", encoding="utf-8")
+    
+    expected_override_content = (
+        "PasswordAuthentication yes\n"
+        "PubkeyAuthentication yes\n"
+        "ChallengeResponseAuthentication no\n"
+    )
+    mock_override_file().write.assert_called_once_with(expected_override_content)
+    
+    mock_run_command.assert_any_call("chmod 600 /etc/ssh/sshd_config.d/50-vagrant-password-auth.conf")
+    mock_run_command.assert_any_call("systemctl restart sshd")
 
-    mock_run_command.assert_called_once_with("systemctl restart sshd")
+
+@patch("os.path.isdir")
+@patch("os.path.join")
+@patch("builtins.open", new_callable=mock_open, read_data="PasswordAuthentication no\n")
+def test_configure_ssh_creates_sshd_config_dir(mock_open_file, mock_join, mock_isdir, mock_run_command):
+    mock_isdir.return_value = False
+    mock_join.return_value = "/etc/ssh/sshd_config.d/50-vagrant-password-auth.conf"
+    
+    mock_sshd_config = mock_open(read_data="PasswordAuthentication no\n")
+    mock_override_file = mock_open()
+    
+    def open_side_effect(filename, *args, **kwargs):
+        if filename == "/etc/ssh/sshd_config":
+            return mock_sshd_config.return_value
+        elif filename == "/etc/ssh/sshd_config.d/50-vagrant-password-auth.conf":
+            return mock_override_file.return_value
+        else:
+            return mock_open_file.return_value
+    
+    mock_open_file.side_effect = open_side_effect
+    
+    configure_ssh()
+
+    mock_run_command.assert_any_call("mkdir -p /etc/ssh/sshd_config.d")
+    
+    mock_open_file.assert_any_call("/etc/ssh/sshd_config.d/50-vagrant-password-auth.conf", "w", encoding="utf-8")
+    
+    expected_override_content = (
+        "PasswordAuthentication yes\n"
+        "PubkeyAuthentication yes\n"
+        "ChallengeResponseAuthentication no\n"
+    )
+    mock_override_file().write.assert_called_once_with(expected_override_content)
+    
+    mock_run_command.assert_any_call("chmod 600 /etc/ssh/sshd_config.d/50-vagrant-password-auth.conf")
+    mock_run_command.assert_any_call("systemctl restart sshd")
 
 
 @patch("os.path.exists")
