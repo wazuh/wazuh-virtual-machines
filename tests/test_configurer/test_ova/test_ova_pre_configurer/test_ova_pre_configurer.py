@@ -7,6 +7,7 @@ from configurer.ova.ova_pre_configurer.ova_pre_configurer import (
     add_vagrant_box,
     deploy_vm,
     main,
+    prepare_vm,
     run_vagrant_up,
 )
 
@@ -103,6 +104,62 @@ def test_deploy_vm_custom_path(mock_add_vagrant_box, mock_run_vagrant_up, mock_l
     mock_run_command.assert_called_once_with(f"cp {custom_path} .", check=True)
     mock_add_vagrant_box.assert_called_once()
     mock_run_vagrant_up.assert_called_once()
+
+
+@patch("configurer.ova.ova_pre_configurer.ova_pre_configurer.os")
+def test_prepare_vm(mock_os, mock_logger, mock_run_command):
+    mock_os.listdir.return_value = ["al2023.box", "al2023.log", "other_file.txt", "Vagrantfile"]
+    mock_os.path.isfile.side_effect = lambda x: x in ["al2023.box", "al2023.log", "other_file.txt", "Vagrantfile"]
+    
+    prepare_vm()
+    
+    expected_debug_calls = [
+        "Installing python3-pip on the VM.",
+        "Installing Hatch on the VM.",
+        "Removing unnecessary files before copying the repository.",
+        "Copying the wazuh-virtual-machines repository to the VM."
+    ]
+    
+    for call in expected_debug_calls:
+        mock_logger.debug.assert_any_call(call)
+    
+    mock_run_command.assert_any_call('vagrant ssh -c "sudo yum install -y python3-pip"')
+    mock_run_command.assert_any_call('vagrant ssh -c "sudo pip3 install hatch"')
+    mock_run_command.assert_any_call([
+        "vagrant ssh-config > ssh-config",
+        "scp -r -F ssh-config ../wazuh-virtual-machines default:/tmp/wazuh-virtual-machines",
+    ], check=True)
+    
+    mock_os.remove.assert_any_call("al2023.box")
+    mock_os.remove.assert_any_call("al2023.log")
+    assert mock_os.remove.call_count == 2
+
+
+@patch("configurer.ova.ova_pre_configurer.ova_pre_configurer.os")
+def test_prepare_vm_no_al2023_files(mock_os, mock_logger, mock_run_command):
+    mock_os.listdir.return_value = ["other_file.txt", "Vagrantfile", "some_box.box"]
+    mock_os.path.isfile.side_effect = lambda x: x in ["other_file.txt", "Vagrantfile", "some_box.box"]
+    
+    prepare_vm()
+    
+    mock_os.remove.assert_not_called()
+    
+    mock_run_command.assert_any_call('vagrant ssh -c "sudo yum install -y python3-pip"')
+    mock_run_command.assert_any_call('vagrant ssh -c "sudo pip3 install hatch"')
+    mock_run_command.assert_any_call([
+        "vagrant ssh-config > ssh-config",
+        "scp -r -F ssh-config ../wazuh-virtual-machines default:/tmp/wazuh-virtual-machines",
+    ], check=True)
+
+
+@patch("configurer.ova.ova_pre_configurer.ova_pre_configurer.os")
+def test_prepare_vm_al2023_directories_not_removed(mock_os, mock_logger, mock_run_command):
+    mock_os.listdir.return_value = ["al2023_dir", "al2023.box", "other_file.txt"]
+    mock_os.path.isfile.side_effect = lambda x: x == "al2023.box" or x == "other_file.txt"
+    
+    prepare_vm()
+    
+    mock_os.remove.assert_called_once_with("al2023.box")
 
 
 @patch("configurer.ova.ova_pre_configurer.ova_pre_configurer.prepare_vm")
