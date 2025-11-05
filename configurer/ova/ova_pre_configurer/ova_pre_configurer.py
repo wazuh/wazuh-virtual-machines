@@ -27,7 +27,7 @@ def add_vagrant_box(box_path: str = VAGRANT_BOX_PATH) -> None:
     run_command(f"vagrant box add --name al2023 {box_path}")
 
 
-def run_vagrant_up(max_retries: int = 100, vagrantfile: Path | None = None) -> bool | None:
+def run_vagrant_up(max_retries: int = 10, vagrantfile: Path | None = None) -> bool | None:
     """
     Attempts to start a Vagrant virtual machine by running the 'vagrant up' command.
     If it fails, it destroys the Vagrant machine and retries the operation up to a specified number of times.
