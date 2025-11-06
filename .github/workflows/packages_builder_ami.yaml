@@ -14,7 +14,7 @@ on:
       wazuh_automation_reference:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
-        default: '6.0.0'
+        default: '5.0.0'
       ami_revision:
         description: |
           'For AMI candidates must be a number, e,g: -1.'

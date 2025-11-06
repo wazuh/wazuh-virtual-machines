@@ -61,7 +61,7 @@ The tool provides a CLI for running tests:
 
 ```bash
 # Test a new instance launched from an AMI
-wazuh-vm-test --test-type ami --ami-id ami-12345 --ssh-key-path ~/.ssh/my-key.pem --version 6.0.0
+wazuh-vm-test --test-type ami --ami-id ami-12345 --ssh-key-path ~/.ssh/my-key.pem --version 5.0.0
 
 # Test an OVA file by importing it into VirtualBox on an allocator instance
 wazuh-vm-test --test-type ova --ova-s3-path s3://bucket-name/path/to/wazuh.ova --vm-memory 4096 --vm-cpus 2
@@ -109,7 +109,7 @@ pytest -v --use-local
 pytest -v --use-local -k "services"
 
 # Run tests with expected version
-pytest -v --use-local --expected-version=6.0.0
+pytest -v --use-local --expected-version=5.0.0
 ```
 
 ## Test Types and Their Specific Tests
@@ -299,7 +299,7 @@ Example of the configuration structure:
 services = [
     WazuhServiceConfig(
         name="wazuh-server",
-        version="6.0.0",
+        version="5.0.0",
         revision="latest",
         port=[27000, 55000],
         process_name="wazuh-server",

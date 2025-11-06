@@ -20,7 +20,7 @@ on:
       wazuh_automation_reference:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
-        default: '6.0.0'
+        default: '5.0.0'
       is_stage:
         description: "Is stage?"
         type: boolean
@@ -67,7 +67,7 @@ env:
     ALLOCATOR_PATH: "/tmp/allocatorvm_ova"
     WORKFLOW_VENV: "${{ github.workspace }}/workflow_venv"
     S3_BUCKET_TO_STORE_OVA: ${{ vars.AWS_S3_BUCKET }}
-    S3_PATH_TO_STORE_OVA: "development/wazuh/6.x/secondary/ova"
+    S3_PATH_TO_STORE_OVA: "development/wazuh/5.x/secondary/ova"
     COMMIT_LIST: ${{ inputs.commit_list }}
     PROD_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PROD }}
     PRE_PROD_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PRE }}

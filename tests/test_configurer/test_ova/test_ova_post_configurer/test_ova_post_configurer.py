@@ -180,7 +180,7 @@ def test_steps_system_config(
     mock_set_hostname,
     mock_run_command,
 ):
-    mock_json_load.return_value = {"version": "6.0.0", "stage": "alpha0"}
+    mock_json_load.return_value = {"version": "5.0.0", "stage": "alpha0"}
 
     steps_system_config()
 
@@ -213,7 +213,7 @@ def test_steps_system_config(
     mock_open.return_value.__enter__().write.assert_called_once_with("\nPermitRootLogin no\n")
 
     mock_open.assert_any_call("VERSION.json")
-    mock_run_command.assert_any_call(f"sudo bash {SCRIPTS_PATH}/messages.sh no 6.0.0-alpha0 wazuh-user")
+    mock_run_command.assert_any_call(f"sudo bash {SCRIPTS_PATH}/messages.sh no 5.0.0-alpha0 wazuh-user")
 
 
 def test_steps_clean(mock_run_command):

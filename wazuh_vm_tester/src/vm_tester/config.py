@@ -281,13 +281,13 @@ def get_default_wazuh_services() -> list[WazuhServiceConfig]:
     """Get default configuration for Wazuh services."""
 
     server_version, server_revision = parse_version_with_revision(
-        os.getenv("WAZUH_SERVER_EXPECTED_VERSION", default="6.0.0-latest")
+        os.getenv("WAZUH_SERVER_EXPECTED_VERSION", default="5.0.0-latest")
     )
     indexer_version, indexer_revision = parse_version_with_revision(
-        os.getenv("WAZUH_INDEXER_EXPECTED_VERSION", default="6.0.0-latest")
+        os.getenv("WAZUH_INDEXER_EXPECTED_VERSION", default="5.0.0-latest")
     )
     dashboard_version, dashboard_revision = parse_version_with_revision(
-        os.getenv("WAZUH_DASHBOARD_EXPECTED_VERSION", default="6.0.0-latest")
+        os.getenv("WAZUH_DASHBOARD_EXPECTED_VERSION", default="5.0.0-latest")
     )
 
     return [
