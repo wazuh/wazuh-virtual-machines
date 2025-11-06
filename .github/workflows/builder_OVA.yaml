@@ -20,7 +20,7 @@ on:
       wazuh_automation_reference:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
-        default: '5.0.0'
+        default: 'main'
       is_stage:
         description: "Is stage?"
         type: boolean
