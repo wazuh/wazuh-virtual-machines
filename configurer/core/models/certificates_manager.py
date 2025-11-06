@@ -109,7 +109,8 @@ class CertsManager:
         Args:
             key (str): The key to search for in the YAML file.
             file (str): The path to the YAML file.
-            flattened_key (bool, optional): Whether the key is flattened (default is True).
+            flattened_key (bool, optional): Whether the key uses dot notation (e.g., "a.b.c") instead of
+                hierarchical/nested YAML structure (e.g., a: b: c:). Default is True.
             client (paramiko.SSHClient, optional): An SSH client to execute the command remotely (default is None).
 
         Returns:
@@ -120,7 +121,15 @@ class CertsManager:
         >>> return: "wazuh-server.pem"
         """
 
-        yq_query = f"sudo yq '.[\"{key}\"]' {file}" if flattened_key else f"sudo yq '.{key}' {file}"
+        yq_xml_suffix = ""
+        if Path(file).suffix == ".conf":  # This file is XML, not YAML
+            yq_xml_suffix = "-p xml -o xml"
+
+        yq_query = (
+            f"sudo yq {yq_xml_suffix} '.[\"{key}\"]' {file}"
+            if flattened_key
+            else f"sudo yq {yq_xml_suffix} '.{key}' {file}"
+        )
 
         output, error_output = exec_command(command=yq_query, client=client)
         if error_output:
@@ -145,7 +154,8 @@ class CertsManager:
         Args:
             component (Component): The component for which to retrieve certificate names.
             component_config_file (str): The path to the component's configuration file.
-            flattened_key (bool, optional): Whether to flatten the key. Defaults to True.
+            flattened_key (bool, optional): Whether the key uses dot notation (e.g., "a.b.c") instead of
+                hierarchical/nested YAML structure (e.g., a: b: c:). Default is True.
             client (paramiko.SSHClient | None, optional): An SSH client for remote operations. Defaults to None.
 
         Returns:
@@ -221,7 +231,7 @@ class CertsManager:
                     else ComponentConfigFile.WAZUH_SERVER
                     if component == Component.WAZUH_SERVER
                     else ComponentConfigFile.WAZUH_DASHBOARD,
-                    flattened_key=component != Component.WAZUH_SERVER,  # Flatten key only for server
+                    flattened_key=component != Component.WAZUH_SERVER,  # Flatten key only for indexer and dashboard
                     client=client,
                 )
 
