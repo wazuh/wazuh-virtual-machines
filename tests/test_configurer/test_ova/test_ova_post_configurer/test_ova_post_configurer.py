@@ -330,15 +330,7 @@ def test_main(
 
     mock_run_command.assert_any_call("systemctl stop wazuh-server")
 
-    expected_indexes = [
-        "wazuh-alerts-*",
-        "wazuh-archives-*",
-        "wazuh-states-vulnerabilities-*",
-        "wazuh-statistics-*",
-        "wazuh-monitoring-*",
-    ]
-    for index in expected_indexes:
-        mock_run_command.assert_any_call(f"curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/{index}' -k")
+    mock_run_command.assert_any_call("curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/wazuh-*' -k")
 
     mock_run_command.assert_any_call("bash /usr/share/wazuh-indexer/bin/indexer-security-init.sh -ho 127.0.0.1")
 
