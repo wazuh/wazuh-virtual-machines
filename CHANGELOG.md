@@ -9,11 +9,11 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- None
+- Update indexes deleted in OVA and AMI builds. ([#459](https://github.com/wazuh/wazuh-virtual-machines/pull/459))
 
 ### Fixed
 
-Fix vagrant up inconsistencies at the start. ([#435](https://github.com/wazuh/wazuh-virtual-machines/pull/435))
+- Fix vagrant up inconsistencies at the start. ([#435](https://github.com/wazuh/wazuh-virtual-machines/pull/435))
 
 ### Deleted
 
