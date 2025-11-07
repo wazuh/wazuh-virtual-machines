@@ -1,6 +1,24 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [5.0.0]
+
+### Added
+
+- None
+
+### Changed
+
+- None
+
+### Fixed
+
+Fix vagrant up inconsistencies at the start. ([#435](https://github.com/wazuh/wazuh-virtual-machines/pull/435))
+
+### Deleted
+
+- None
+
 ## [4.14.1]
 
 ### Added
