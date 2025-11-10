@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Fix deprecated Ansible YAML callback plugin in OVA build workflow ([#463](https://github.com/wazuh/wazuh-virtual-machines/pull/463))
 - Fix vagrant up inconsistencies at the start. ([#434](https://github.com/wazuh/wazuh-virtual-machines/pull/434))
 
 ### Deleted

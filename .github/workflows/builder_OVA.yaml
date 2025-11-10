@@ -70,7 +70,6 @@ env:
     WIA_DIR: "wazuh-installation-assistant"
     WIA_REPOSITORY: "https://github.com/wazuh/wazuh-installation-assistant"
     WVM_REPOSITORY: "https://github.com/wazuh/wazuh-virtual-machines"
-    ANSIBLE_CALLBACK: "yaml"
 
 permissions:
   id-token: write   # This is required for requesting the JWT
