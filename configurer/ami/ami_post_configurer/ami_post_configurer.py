@@ -183,35 +183,22 @@ class AmiPostConfigurer:
 
         self.stop_service("wazuh-server", client=client)
 
-    def remove_indexer_index_list(self, client: paramiko.SSHClient) -> None:
+    def remove_wazuh_indexes(self, client: paramiko.SSHClient) -> None:
         """
-        Remove the indexer index list.
+        Remove all wazuh-* indexes.
         """
 
-        logger.debug("Removing indexer index list")
+        logger.debug("Removing all wazuh- indexes")
 
-        index_list: list[str] = [
-            "wazuh-alerts",
-            "wazuh-archives",
-            "wazuh-states-vulnerabilities",
-            "wazuh-statistics",
-            "wazuh-monitoring",
-        ]
-        base_url = "https://localhost:9200"
-        commands = []
-        for index in index_list:
-            commands.append(
-                f'curl -s -o /dev/null -w "%{{http_code}}" -X DELETE -u "admin:admin" -k "{base_url}/{index}-*"'
-            )
+        base_url = "https://127.0.0.1:9200"
 
-        command = " && sudo ".join(commands)
-        command = f"sudo {command}"
+        command = f'sudo curl -s -o /dev/null -w "%{{http_code}}" -X DELETE -u "admin:admin" -k "{base_url}/wazuh-*"'
         _, error_output = exec_command(command=command, client=client)
         if error_output:
-            logger.error("Error removing the indexer index list")
-            raise RuntimeError(f"Error removing the indexer index list: {error_output}")
+            logger.error("Error removing wazuh- indexes")
+            raise RuntimeError(f"Error removing wazuh- indexes: {error_output}")
 
-        logger.debug("Indexer index list removed successfully")
+        logger.debug("wazuh- indexes removed successfully")
 
     def run_security_init_script(self, client: paramiko.SSHClient) -> None:
         """
@@ -245,7 +232,7 @@ class AmiPostConfigurer:
             None
         """
 
-        self.remove_indexer_index_list(client=client)
+        self.remove_wazuh_indexes(client=client)
         self.run_security_init_script(client=client)
         self.stop_service("wazuh-indexer", client=client)
 
