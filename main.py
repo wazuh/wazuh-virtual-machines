@@ -25,7 +25,7 @@ def parse_arguments():
         --package-type (str): Type of package to provision (optional, default: "rpm", choices: ["rpm", "deb"]).
         --arch (str): Architecture type (optional, default: "x86_64", choices: ["x86_64", "amd64", "arm64", "aarch64"]).
         --dependencies (str): Path to the dependencies file (optional, default: DEPENDENCIES_FILE_PATH).
-        --component (str): Component to provision (optional, default: "all", choices: ["wazuh_indexer", "wazuh_server", "wazuh_dashboard", "all"]).
+        --component (str): Component to provision (optional, default: "all", choices: ["wazuh_indexer", "wazuh_manager", "wazuh_dashboard", "all"]).
         --execute (str): Module to execute (required, choices: ["provisioner", "core-configurer", "ova-pre-configurer", "ova-post-configurer", "ami-pre-configurer", "ami-post-configurer", "all-ami"]).
     """
     parser = argparse.ArgumentParser(description="Component Provisioner")
@@ -61,7 +61,7 @@ def parse_arguments():
         "--component",
         required=False,
         default="all",
-        choices=["wazuh_indexer", "wazuh_server", "wazuh_dashboard", "all"],
+        choices=["wazuh_indexer", "wazuh_manager", "wazuh_dashboard", "all"],
         help="Component to provision",
     )
 

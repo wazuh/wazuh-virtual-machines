@@ -266,29 +266,38 @@ class CertsManager:
 
         if component == Component.WAZUH_INDEXER:
             command = f"""
+                sudo rm -rf {ComponentCertsDirectory.WAZUH_INDEXER}
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_INDEXER}
                 sudo tar -xf {certs_path}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_INDEXER} ./{" ./".join(self.components_certs_default_name[Component.WAZUH_INDEXER].values())}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_INDEXER}/{self.components_certs_default_name[Component.WAZUH_INDEXER]["cert"]} {ComponentCertsDirectory.WAZUH_INDEXER}/{certs_name[ComponentCertsConfigParameter.WAZUH_INDEXER_CERT.name]}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_INDEXER}/{self.components_certs_default_name[Component.WAZUH_INDEXER]["key"]} {ComponentCertsDirectory.WAZUH_INDEXER}/{certs_name[ComponentCertsConfigParameter.WAZUH_INDEXER_KEY.name]}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_INDEXER}/{self.components_certs_default_name[Component.WAZUH_INDEXER]["ca"]} {ComponentCertsDirectory.WAZUH_INDEXER}/{certs_name[ComponentCertsConfigParameter.WAZUH_INDEXER_CA.name]}
+                sudo chmod 500 {ComponentCertsDirectory.WAZUH_INDEXER}
+                sudo find {ComponentCertsDirectory.WAZUH_INDEXER} -type f -exec chmod 400 {{}} \\;
                 sudo chown -R wazuh-indexer:wazuh-indexer {ComponentCertsDirectory.WAZUH_INDEXER}/
                 """
         elif component == Component.WAZUH_SERVER:
             command = f"""
+                sudo rm -rf {ComponentCertsDirectory.WAZUH_SERVER}
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_SERVER}
                 sudo tar -xf {certs_path}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_SERVER} ./{" ./".join(self.components_certs_default_name[Component.WAZUH_SERVER].values())}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_SERVER}/{self.components_certs_default_name[Component.WAZUH_SERVER]["cert"]} {ComponentCertsDirectory.WAZUH_SERVER}/{certs_name[ComponentCertsConfigParameter.WAZUH_SERVER_CERT.name]}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_SERVER}/{self.components_certs_default_name[Component.WAZUH_SERVER]["key"]} {ComponentCertsDirectory.WAZUH_SERVER}/{certs_name[ComponentCertsConfigParameter.WAZUH_SERVER_KEY.name]}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_SERVER}/{self.components_certs_default_name[Component.WAZUH_SERVER]["ca"]} {ComponentCertsDirectory.WAZUH_SERVER}/{certs_name[ComponentCertsConfigParameter.WAZUH_SERVER_CA.name]}
-                sudo chown -R wazuh-server:wazuh-server {ComponentCertsDirectory.WAZUH_SERVER}/
+                sudo chmod 500 {ComponentCertsDirectory.WAZUH_SERVER}
+                sudo find {ComponentCertsDirectory.WAZUH_SERVER} -type f -exec chmod 400 {{}} \\;
+                sudo chown -R root:root {ComponentCertsDirectory.WAZUH_SERVER}/
                 """
         elif component == Component.WAZUH_DASHBOARD:
             command = f"""
+                sudo rm -rf {ComponentCertsDirectory.WAZUH_DASHBOARD}
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_DASHBOARD}
                 sudo tar -xf {certs_path}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_DASHBOARD} ./{" ./".join(self.components_certs_default_name[Component.WAZUH_DASHBOARD].values())}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_DASHBOARD}/{self.components_certs_default_name[Component.WAZUH_DASHBOARD]["cert"]} {ComponentCertsDirectory.WAZUH_DASHBOARD}/{certs_name[ComponentCertsConfigParameter.WAZUH_DASHBOARD_CERT.name]}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_DASHBOARD}/{self.components_certs_default_name[Component.WAZUH_DASHBOARD]["key"]} {ComponentCertsDirectory.WAZUH_DASHBOARD}/{certs_name[ComponentCertsConfigParameter.WAZUH_DASHBOARD_KEY.name]}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_DASHBOARD}/{self.components_certs_default_name[Component.WAZUH_DASHBOARD]["ca"]} {ComponentCertsDirectory.WAZUH_DASHBOARD}/{certs_name[ComponentCertsConfigParameter.WAZUH_DASHBOARD_CA.name]}
+                sudo chmod 500 {ComponentCertsDirectory.WAZUH_DASHBOARD}
+                sudo find {ComponentCertsDirectory.WAZUH_DASHBOARD} -type f -exec chmod 400 {{}} \\;
                 sudo chown -R wazuh-dashboard:wazuh-dashboard {ComponentCertsDirectory.WAZUH_DASHBOARD}/
                 """
 

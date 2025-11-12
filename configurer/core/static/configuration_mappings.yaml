@@ -3,5 +3,24 @@ wazuh_indexer:
     replace:
       keys:
         - .["network.host"]
+        - .["node.name"]
+        - .["cluster.initial_cluster_manager_nodes"][0]
+        - .["plugins.security.nodes_dn"][0]
       values:
         - \"127.0.0.1\"
+        - \"__indexer_node_name__\" # Placeholder for indexer node name that will be replaced during configuration
+        - \"__indexer_node_name__\"
+        - \"CN=__indexer_node_name__,OU=Wazuh,O=Wazuh,L=California,C=US\"
+wazuh_manager:
+  - path: /var/ossec/etc/ossec.conf
+    replace:
+      keys:
+        - .ossec_config[0].indexer.hosts.host
+        - .ossec_config[0].indexer.ssl.certificate_authorities.ca
+        - .ossec_config[0].indexer.ssl.certificate
+        - .ossec_config[0].indexer.ssl.key
+      values:
+        - https://127.0.0.1:9200
+        - /var/ossec/etc/certs/root-ca.pem
+        - /var/ossec/etc/certs/manager.pem
+        - /var/ossec/etc/certs/manager-key.pem

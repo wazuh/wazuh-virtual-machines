@@ -381,13 +381,13 @@ def test_generate_certificates_error_during_copy(mock_get_certs_name, mock_copy_
 
     with pytest.raises(
         Exception,
-        match="Error while copying certificates to wazuh server directory: Error: Failed to copy certificates",
+        match="Error while copying certificates to wazuh manager directory: Error: Failed to copy certificates",
     ):
         certs_manager.generate_certificates()
 
     mock_copy_certs.assert_called()
 
-    mock_logger.error.assert_any_call("Error while copying certificates to wazuh server directory")
+    mock_logger.error.assert_any_call("Error while copying certificates to wazuh manager directory")
 
 
 @pytest.mark.parametrize(
@@ -401,11 +401,14 @@ def test_generate_certificates_error_during_copy(mock_get_certs_name, mock_copy_
                 ComponentCertsConfigParameter.WAZUH_INDEXER_CA.name: "indexer-ca.pem",
             },
             f"""
+                sudo rm -rf {ComponentCertsDirectory.WAZUH_INDEXER}
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_INDEXER}
                 sudo tar -xf {CERTS_TOOL_PATH.parent}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_INDEXER} ./indexer-cert.pem ./indexer-key.pem ./indexer-ca.pem
                 sudo mv -n {ComponentCertsDirectory.WAZUH_INDEXER}/indexer-cert.pem {ComponentCertsDirectory.WAZUH_INDEXER}/indexer-cert.pem
                 sudo mv -n {ComponentCertsDirectory.WAZUH_INDEXER}/indexer-key.pem {ComponentCertsDirectory.WAZUH_INDEXER}/indexer-key.pem
                 sudo mv -n {ComponentCertsDirectory.WAZUH_INDEXER}/indexer-ca.pem {ComponentCertsDirectory.WAZUH_INDEXER}/indexer-ca.pem
+                sudo chmod 500 {ComponentCertsDirectory.WAZUH_INDEXER}
+                sudo find {ComponentCertsDirectory.WAZUH_INDEXER} -type f -exec chmod 400 {{}} \\;
                 sudo chown -R wazuh-indexer:wazuh-indexer {ComponentCertsDirectory.WAZUH_INDEXER}/
             """,
         ),
@@ -417,12 +420,15 @@ def test_generate_certificates_error_during_copy(mock_get_certs_name, mock_copy_
                 ComponentCertsConfigParameter.WAZUH_SERVER_CA.name: "server-ca.pem",
             },
             f"""
+                sudo rm -rf {ComponentCertsDirectory.WAZUH_SERVER}
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_SERVER}
                 sudo tar -xf {CERTS_TOOL_PATH.parent}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_SERVER} ./server-cert.pem ./server-key.pem ./server-ca.pem
                 sudo mv -n {ComponentCertsDirectory.WAZUH_SERVER}/server-cert.pem {ComponentCertsDirectory.WAZUH_SERVER}/server-cert.pem
                 sudo mv -n {ComponentCertsDirectory.WAZUH_SERVER}/server-key.pem {ComponentCertsDirectory.WAZUH_SERVER}/server-key.pem
                 sudo mv -n {ComponentCertsDirectory.WAZUH_SERVER}/server-ca.pem {ComponentCertsDirectory.WAZUH_SERVER}/server-ca.pem
-                sudo chown -R wazuh-server:wazuh-server {ComponentCertsDirectory.WAZUH_SERVER}/
+                sudo chmod 500 {ComponentCertsDirectory.WAZUH_SERVER}
+                sudo find {ComponentCertsDirectory.WAZUH_SERVER} -type f -exec chmod 400 {{}} \\;
+                sudo chown -R root:root {ComponentCertsDirectory.WAZUH_SERVER}/
             """,
         ),
         (
@@ -433,11 +439,14 @@ def test_generate_certificates_error_during_copy(mock_get_certs_name, mock_copy_
                 ComponentCertsConfigParameter.WAZUH_DASHBOARD_CA.name: "dashboard-ca.pem",
             },
             f"""
+                sudo rm -rf {ComponentCertsDirectory.WAZUH_DASHBOARD}
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_DASHBOARD}
                 sudo tar -xf {CERTS_TOOL_PATH.parent}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_DASHBOARD} ./dashboard-cert.pem ./dashboard-key.pem ./dashboard-ca.pem
                 sudo mv -n {ComponentCertsDirectory.WAZUH_DASHBOARD}/dashboard-cert.pem {ComponentCertsDirectory.WAZUH_DASHBOARD}/dashboard-cert.pem
                 sudo mv -n {ComponentCertsDirectory.WAZUH_DASHBOARD}/dashboard-key.pem {ComponentCertsDirectory.WAZUH_DASHBOARD}/dashboard-key.pem
                 sudo mv -n {ComponentCertsDirectory.WAZUH_DASHBOARD}/dashboard-ca.pem {ComponentCertsDirectory.WAZUH_DASHBOARD}/dashboard-ca.pem
+                sudo chmod 500 {ComponentCertsDirectory.WAZUH_DASHBOARD}
+                sudo find {ComponentCertsDirectory.WAZUH_DASHBOARD} -type f -exec chmod 400 {{}} \\;
                 sudo chown -R wazuh-dashboard:wazuh-dashboard {ComponentCertsDirectory.WAZUH_DASHBOARD}/
             """,
         ),

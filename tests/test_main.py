@@ -59,7 +59,7 @@ def test_parse_arguments_optional():
         "--dependencies",
         "custom_dependencies.yaml",
         "--component",
-        "wazuh_server",
+        "wazuh_manager",
     ]
     sys.argv = test_args
     args = parse_arguments()
@@ -69,7 +69,7 @@ def test_parse_arguments_optional():
     assert args.package_type == "deb"
     assert args.arch == "arm64"
     assert args.dependencies == "custom_dependencies.yaml"
-    assert args.component == "wazuh_server"
+    assert args.component == "wazuh_manager"
 
 
 @pytest.mark.parametrize(
