@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Update AWS S3 OVA path ([#465](https://github.com/wazuh/wazuh-virtual-machines/pull/465))
 - Update indexes deleted in OVA and AMI builds. ([#459](https://github.com/wazuh/wazuh-virtual-machines/pull/459))
 
 ### Fixed
