@@ -22,6 +22,7 @@ def example_config_file():
         ],
     }
 
+
 @pytest.fixture
 def example_config_file_with_placeholders():
     return {
@@ -93,15 +94,24 @@ def test_component_mapping_without_data(mock_open_file, component_without_mappin
     "component, command_to_execute",
     [
         (Component.WAZUH_INDEXER, "sudo yq -i  '.key1 = \"value1\" ' /path/indexer/config"),
-        (Component.WAZUH_SERVER, 'sudo yq -i -p xml -o xml \'.key2 = ""value2"" | .key2 style="double"\' /path/server/config'),
+        (
+            Component.WAZUH_SERVER,
+            'sudo yq -i -p xml -o xml \'.key2 = ""value2"" | .key2 style="double"\' /path/server/config',
+        ),
         (Component.WAZUH_DASHBOARD, "sudo yq -i  '.key3 = \"value3\" ' /path/dashboard/config"),
     ],
 )
 def test_replace_file_entries(component, command_to_execute, mock_logger, mock_open_file, mock_exec_command):
     config_manager = WazuhComponentConfigManager(Path("test_path"))
-    component_path = getattr(config_manager, f"{component.name.lower().split('_')[1]}_mapping").replace_content[0]["path"]
-    component_key = getattr(config_manager, f"{component.name.lower().split('_')[1]}_mapping").replace_content[0]["keys"][0]
-    component_value = getattr(config_manager, f"{component.name.lower().split('_')[1]}_mapping").replace_content[0]["values"][0]
+    component_path = getattr(config_manager, f"{component.name.lower().split('_')[1]}_mapping").replace_content[0][
+        "path"
+    ]
+    component_key = getattr(config_manager, f"{component.name.lower().split('_')[1]}_mapping").replace_content[0][
+        "keys"
+    ][0]
+    component_value = getattr(config_manager, f"{component.name.lower().split('_')[1]}_mapping").replace_content[0][
+        "values"
+    ][0]
 
     config_manager.replace_file_entries(component)
     assert command_to_execute in mock_exec_command.call_args_list[0].kwargs["command"]
@@ -137,7 +147,9 @@ def test_replace_file_fails_to_execute_command(mock_logger, mock_open_file, mock
         )
 
 
-def test_replace_placeholders(mock_logger, example_config_file_with_placeholders, mock_open_file_with_placeholders, mock_exec_command):
+def test_replace_placeholders(
+    mock_logger, example_config_file_with_placeholders, mock_open_file_with_placeholders, mock_exec_command
+):
     config_manager = WazuhComponentConfigManager(Path("test_path"))
     print(example_config_file_with_placeholders)
     value_indexer = example_config_file_with_placeholders[Component.WAZUH_INDEXER][0]["replace"]["values"][0]

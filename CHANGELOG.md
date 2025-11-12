@@ -9,11 +9,11 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- None
+- Update certificate handling and configuration ([#468](https://github.com/wazuh/wazuh-virtual-machines/pull/468))
 
 ### Fixed
 
-Fix vagrant up inconsistencies at the start. ([#435](https://github.com/wazuh/wazuh-virtual-machines/pull/435))
+- Fix vagrant up inconsistencies at the start. ([#435](https://github.com/wazuh/wazuh-virtual-machines/pull/435))
 
 ### Deleted
 

@@ -119,7 +119,9 @@ class WazuhComponentConfigManager:
             replace_content (list): List of file configurations with keys and values
             component (Component): The component to get values from
         """
-        logger.debug(f"Replacing placeholders in configuration values for the {component.replace('_', ' ').capitalize()} component")
+        logger.debug(
+            f"Replacing placeholders in configuration values for the {component.replace('_', ' ').capitalize()} component"
+        )
 
         placeholders_map = (
             self._indexer_placeholder
@@ -128,7 +130,7 @@ class WazuhComponentConfigManager:
             if component == Component.WAZUH_SERVER
             else self._dashboard_placeholder
         )
-        
+
         if placeholders_map == {}:
             logger.debug("No placeholders to replace for this component")
             return
