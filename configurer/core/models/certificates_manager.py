@@ -109,7 +109,8 @@ class CertsManager:
         Args:
             key (str): The key to search for in the YAML file.
             file (str): The path to the YAML file.
-            flattened_key (bool, optional): Whether the key is flattened (default is True).
+            flattened_key (bool, optional): Whether the key uses dot notation (e.g., "a.b.c") instead of
+                hierarchical/nested YAML structure (e.g., a: b: c:). Default is True.
             client (paramiko.SSHClient, optional): An SSH client to execute the command remotely (default is None).
 
         Returns:
@@ -120,7 +121,15 @@ class CertsManager:
         >>> return: "wazuh-server.pem"
         """
 
-        yq_query = f"sudo yq '.[\"{key}\"]' {file}" if flattened_key else f"sudo yq '.{key}' {file}"
+        yq_xml_suffix = ""
+        if Path(file).suffix == ".conf":  # This file is XML, not YAML
+            yq_xml_suffix = "-p xml -o xml"
+
+        yq_query = (
+            f"sudo yq {yq_xml_suffix} '.[\"{key}\"]' {file}"
+            if flattened_key
+            else f"sudo yq {yq_xml_suffix} '.{key}' {file}"
+        )
 
         output, error_output = exec_command(command=yq_query, client=client)
         if error_output:
@@ -145,7 +154,8 @@ class CertsManager:
         Args:
             component (Component): The component for which to retrieve certificate names.
             component_config_file (str): The path to the component's configuration file.
-            flattened_key (bool, optional): Whether to flatten the key. Defaults to True.
+            flattened_key (bool, optional): Whether the key uses dot notation (e.g., "a.b.c") instead of
+                hierarchical/nested YAML structure (e.g., a: b: c:). Default is True.
             client (paramiko.SSHClient | None, optional): An SSH client for remote operations. Defaults to None.
 
         Returns:
@@ -221,7 +231,7 @@ class CertsManager:
                     else ComponentConfigFile.WAZUH_SERVER
                     if component == Component.WAZUH_SERVER
                     else ComponentConfigFile.WAZUH_DASHBOARD,
-                    flattened_key=component != Component.WAZUH_SERVER,  # Flatten key only for server
+                    flattened_key=component != Component.WAZUH_SERVER,  # Flatten key only for indexer and dashboard
                     client=client,
                 )
 
@@ -256,29 +266,38 @@ class CertsManager:
 
         if component == Component.WAZUH_INDEXER:
             command = f"""
+                sudo rm -rf {ComponentCertsDirectory.WAZUH_INDEXER}
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_INDEXER}
                 sudo tar -xf {certs_path}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_INDEXER} ./{" ./".join(self.components_certs_default_name[Component.WAZUH_INDEXER].values())}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_INDEXER}/{self.components_certs_default_name[Component.WAZUH_INDEXER]["cert"]} {ComponentCertsDirectory.WAZUH_INDEXER}/{certs_name[ComponentCertsConfigParameter.WAZUH_INDEXER_CERT.name]}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_INDEXER}/{self.components_certs_default_name[Component.WAZUH_INDEXER]["key"]} {ComponentCertsDirectory.WAZUH_INDEXER}/{certs_name[ComponentCertsConfigParameter.WAZUH_INDEXER_KEY.name]}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_INDEXER}/{self.components_certs_default_name[Component.WAZUH_INDEXER]["ca"]} {ComponentCertsDirectory.WAZUH_INDEXER}/{certs_name[ComponentCertsConfigParameter.WAZUH_INDEXER_CA.name]}
+                sudo chmod 500 {ComponentCertsDirectory.WAZUH_INDEXER}
+                sudo find {ComponentCertsDirectory.WAZUH_INDEXER} -type f -exec chmod 400 {{}} \\;
                 sudo chown -R wazuh-indexer:wazuh-indexer {ComponentCertsDirectory.WAZUH_INDEXER}/
                 """
         elif component == Component.WAZUH_SERVER:
             command = f"""
+                sudo rm -rf {ComponentCertsDirectory.WAZUH_SERVER}
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_SERVER}
                 sudo tar -xf {certs_path}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_SERVER} ./{" ./".join(self.components_certs_default_name[Component.WAZUH_SERVER].values())}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_SERVER}/{self.components_certs_default_name[Component.WAZUH_SERVER]["cert"]} {ComponentCertsDirectory.WAZUH_SERVER}/{certs_name[ComponentCertsConfigParameter.WAZUH_SERVER_CERT.name]}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_SERVER}/{self.components_certs_default_name[Component.WAZUH_SERVER]["key"]} {ComponentCertsDirectory.WAZUH_SERVER}/{certs_name[ComponentCertsConfigParameter.WAZUH_SERVER_KEY.name]}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_SERVER}/{self.components_certs_default_name[Component.WAZUH_SERVER]["ca"]} {ComponentCertsDirectory.WAZUH_SERVER}/{certs_name[ComponentCertsConfigParameter.WAZUH_SERVER_CA.name]}
-                sudo chown -R wazuh-server:wazuh-server {ComponentCertsDirectory.WAZUH_SERVER}/
+                sudo chmod 500 {ComponentCertsDirectory.WAZUH_SERVER}
+                sudo find {ComponentCertsDirectory.WAZUH_SERVER} -type f -exec chmod 400 {{}} \\;
+                sudo chown -R root:root {ComponentCertsDirectory.WAZUH_SERVER}/
                 """
         elif component == Component.WAZUH_DASHBOARD:
             command = f"""
+                sudo rm -rf {ComponentCertsDirectory.WAZUH_DASHBOARD}
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_DASHBOARD}
                 sudo tar -xf {certs_path}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_DASHBOARD} ./{" ./".join(self.components_certs_default_name[Component.WAZUH_DASHBOARD].values())}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_DASHBOARD}/{self.components_certs_default_name[Component.WAZUH_DASHBOARD]["cert"]} {ComponentCertsDirectory.WAZUH_DASHBOARD}/{certs_name[ComponentCertsConfigParameter.WAZUH_DASHBOARD_CERT.name]}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_DASHBOARD}/{self.components_certs_default_name[Component.WAZUH_DASHBOARD]["key"]} {ComponentCertsDirectory.WAZUH_DASHBOARD}/{certs_name[ComponentCertsConfigParameter.WAZUH_DASHBOARD_KEY.name]}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_DASHBOARD}/{self.components_certs_default_name[Component.WAZUH_DASHBOARD]["ca"]} {ComponentCertsDirectory.WAZUH_DASHBOARD}/{certs_name[ComponentCertsConfigParameter.WAZUH_DASHBOARD_CA.name]}
+                sudo chmod 500 {ComponentCertsDirectory.WAZUH_DASHBOARD}
+                sudo find {ComponentCertsDirectory.WAZUH_DASHBOARD} -type f -exec chmod 400 {{}} \\;
                 sudo chown -R wazuh-dashboard:wazuh-dashboard {ComponentCertsDirectory.WAZUH_DASHBOARD}/
                 """
 

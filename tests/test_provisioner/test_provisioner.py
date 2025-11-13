@@ -69,8 +69,8 @@ def test_provision_success(mock_paramiko, mock_logger, component_info_valid, moc
     ]
 
     package_expect_commands = [
-        "mkdir -p ~/wazuh-configure/packages && curl -s -o ~/wazuh-configure/packages/wazuh_server.rpm 'http://packages-dev.wazuh.com/'",
-        "sudo dnf install -y ~/wazuh-configure/packages/wazuh_server.rpm",
+        "mkdir -p ~/wazuh-configure/packages && curl -s -o ~/wazuh-configure/packages/wazuh_manager.rpm 'http://packages-dev.wazuh.com/'",
+        "sudo dnf install -y ~/wazuh-configure/packages/wazuh_manager.rpm",
     ]
 
     component_info_valid.provision()
@@ -103,7 +103,7 @@ def test_provision_success(mock_paramiko, mock_logger, component_info_valid, moc
 
     mock_logger.debug_title.assert_any_call("Starting provisioning")
     mock_logger.debug_title.assert_any_call("Provisioning certificates files")
-    mock_logger.debug_title.assert_any_call("Starting provisioning for wazuh server")
+    mock_logger.debug_title.assert_any_call("Starting provisioning for wazuh manager")
 
 
 @pytest.mark.parametrize(
@@ -199,8 +199,8 @@ def test_dependencies_provision(
 @pytest.mark.parametrize(
     "package_manager, expected_command, expected_path",
     [
-        (Package_manager.YUM, "sudo dnf install -y ", "~/wazuh-configure/packages/wazuh_server.rpm"),
-        (Package_manager.APT, "sudo dpkg -i ", "~/wazuh-configure/packages/wazuh_server.deb"),
+        (Package_manager.YUM, "sudo dnf install -y ", "~/wazuh-configure/packages/wazuh_manager.rpm"),
+        (Package_manager.APT, "sudo dpkg -i ", "~/wazuh-configure/packages/wazuh_manager.deb"),
     ],
 )
 @patch("paramiko.SSHClient")
@@ -234,7 +234,7 @@ def test_packages_provision_success(
     )
 
     mock_logger.debug_title.assert_any_call("Provisioning packages")
-    mock_logger.debug.assert_any_call("Downloading wazuh server package")
+    mock_logger.debug.assert_any_call("Downloading wazuh manager package")
 
 
 @pytest.mark.parametrize(
@@ -243,8 +243,8 @@ def test_packages_provision_success(
         (
             Package_manager.YUM,
             Component.WAZUH_SERVER,
-            "http://packages-dev.wazuh.com/wazuh_server.rpm",
-            "wazuh_server.rpm",
+            "http://packages-dev.wazuh.com/wazuh_manager.rpm",
+            "wazuh_manager.rpm",
         ),
         (
             Package_manager.APT,
@@ -282,7 +282,7 @@ def test_get_package_by_url_success(
 @pytest.mark.parametrize(
     "component_name, package_url, error_output",
     [
-        (Component.WAZUH_SERVER, "http://packages-dev.wazuh.com/wazuh_server.rpm", "Error output"),
+        (Component.WAZUH_SERVER, "http://packages-dev.wazuh.com/wazuh_manager.rpm", "Error output"),
         (Component.WAZUH_INDEXER, "http://packages-dev.wazuh.com/wazuh_indexer.deb", "Error output"),
     ],
 )

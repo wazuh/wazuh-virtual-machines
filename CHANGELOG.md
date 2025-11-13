@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Update certificate handling and configuration ([#468](https://github.com/wazuh/wazuh-virtual-machines/pull/468))
 - Update indexes deleted in OVA and AMI builds. ([#459](https://github.com/wazuh/wazuh-virtual-machines/pull/459))
 
 ### Fixed

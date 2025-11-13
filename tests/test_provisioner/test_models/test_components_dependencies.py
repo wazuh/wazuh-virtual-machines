@@ -35,7 +35,7 @@ def test_get_component_dependencies_key_error():
         dependencies_content=dependencies_content, package_type=Package_type.RPM
     )
 
-    with pytest.raises(KeyError, match="Dependencies for wazuh_server not found"):
+    with pytest.raises(KeyError, match="Dependencies for wazuh_manager not found"):
         components_dependencies.get_component_dependencies(Component.WAZUH_SERVER)
 
 
