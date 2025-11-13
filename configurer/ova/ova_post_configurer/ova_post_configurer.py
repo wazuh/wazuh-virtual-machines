@@ -343,15 +343,7 @@ def main() -> None:
     steps_system_config()
 
     run_command("systemctl stop wazuh-server")
-    indexes = [
-        "wazuh-alerts-*",
-        "wazuh-archives-*",
-        "wazuh-states-vulnerabilities-*",
-        "wazuh-statistics-*",
-        "wazuh-monitoring-*",
-    ]
-    for index in indexes:
-        run_command(f"curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/{index}' -k")
+    run_command("curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/wazuh-*' -k")
 
     run_command("bash /usr/share/wazuh-indexer/bin/indexer-security-init.sh -ho 127.0.0.1")
 

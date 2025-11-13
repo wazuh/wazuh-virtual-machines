@@ -10,10 +10,29 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - Update certificate handling and configuration ([#468](https://github.com/wazuh/wazuh-virtual-machines/pull/468))
+- Update indexes deleted in OVA and AMI builds. ([#459](https://github.com/wazuh/wazuh-virtual-machines/pull/459))
 
 ### Fixed
 
 - Fix vagrant up inconsistencies at the start. ([#435](https://github.com/wazuh/wazuh-virtual-machines/pull/435))
+
+### Deleted
+
+- None
+
+## [4.14.2]
+
+### Added
+
+- None
+
+### Changed
+
+- None
+
+### Fixed
+
+- None
 
 ### Deleted
 
@@ -31,6 +50,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Fix deprecated Ansible YAML callback plugin in OVA build workflow ([#463](https://github.com/wazuh/wazuh-virtual-machines/pull/463))
 - Fix vagrant up inconsistencies at the start. ([#434](https://github.com/wazuh/wazuh-virtual-machines/pull/434))
 
 ### Deleted
