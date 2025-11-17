@@ -51,47 +51,47 @@ def test_configure(mock_paramiko, mock_start_services, mock_open_file, mock_exec
     core_configurer_instance.configure()
 
     # Replace file entries
-    mock_exec_command.assert_any_call(command="sudo yq -i '.key1 = \"value1\" ' /path/indexer/config", client=None)
+    mock_exec_command.assert_any_call(command="sudo yq -i  '.key1 = \"value1\" ' /path/indexer/config", client=None)
     mock_exec_command.assert_any_call(
-        command='sudo yq -i \'.key2 = ""value2"" | .key2 style="double"\' /path/server/config', client=None
+        command='sudo yq -i  \'.key2 = ""value2"" | .key2 style="double"\' /path/server/config', client=None
     )
-    mock_exec_command.assert_any_call(command="sudo yq -i '.key3 = \"value3\" ' /path/dashboard/config", client=None)
+    mock_exec_command.assert_any_call(command="sudo yq -i  '.key3 = \"value3\" ' /path/dashboard/config", client=None)
 
     # Generate certifates and copy them to the current component certs directory
     mock_exec_command.assert_any_call(
-        command=f"sudo yq '.[\"{ComponentCertsConfigParameter.WAZUH_INDEXER_KEY}\"]' {ComponentConfigFile.WAZUH_INDEXER}",
+        command=f"sudo yq  '.[\"{ComponentCertsConfigParameter.WAZUH_INDEXER_KEY}\"]' {ComponentConfigFile.WAZUH_INDEXER}",
         client=None,
     )
     mock_exec_command.assert_any_call(
-        command=f"sudo yq '.[\"{ComponentCertsConfigParameter.WAZUH_INDEXER_CERT}\"]' {ComponentConfigFile.WAZUH_INDEXER}",
+        command=f"sudo yq  '.[\"{ComponentCertsConfigParameter.WAZUH_INDEXER_CERT}\"]' {ComponentConfigFile.WAZUH_INDEXER}",
         client=None,
     )
     mock_exec_command.assert_any_call(
-        command=f"sudo yq '.[\"{ComponentCertsConfigParameter.WAZUH_INDEXER_CA}\"]' {ComponentConfigFile.WAZUH_INDEXER}",
+        command=f"sudo yq  '.[\"{ComponentCertsConfigParameter.WAZUH_INDEXER_CA}\"]' {ComponentConfigFile.WAZUH_INDEXER}",
         client=None,
     )
     mock_exec_command.assert_any_call(
-        command=f"sudo yq '.{ComponentCertsConfigParameter.WAZUH_SERVER_KEY}' {ComponentConfigFile.WAZUH_SERVER}",
+        command=f"sudo yq -p xml -o xml '.{ComponentCertsConfigParameter.WAZUH_SERVER_KEY}' {ComponentConfigFile.WAZUH_SERVER}",
         client=None,
     )
     mock_exec_command.assert_any_call(
-        command=f"sudo yq '.{ComponentCertsConfigParameter.WAZUH_SERVER_CERT}' {ComponentConfigFile.WAZUH_SERVER}",
+        command=f"sudo yq -p xml -o xml '.{ComponentCertsConfigParameter.WAZUH_SERVER_CERT}' {ComponentConfigFile.WAZUH_SERVER}",
         client=None,
     )
     mock_exec_command.assert_any_call(
-        command=f"sudo yq '.{ComponentCertsConfigParameter.WAZUH_SERVER_CA}' {ComponentConfigFile.WAZUH_SERVER}",
+        command=f"sudo yq -p xml -o xml '.{ComponentCertsConfigParameter.WAZUH_SERVER_CA}' {ComponentConfigFile.WAZUH_SERVER}",
         client=None,
     )
     mock_exec_command.assert_any_call(
-        command=f"sudo yq '.[\"{ComponentCertsConfigParameter.WAZUH_DASHBOARD_KEY}\"]' {ComponentConfigFile.WAZUH_DASHBOARD}",
+        command=f"sudo yq  '.[\"{ComponentCertsConfigParameter.WAZUH_DASHBOARD_KEY}\"]' {ComponentConfigFile.WAZUH_DASHBOARD}",
         client=None,
     )
     mock_exec_command.assert_any_call(
-        command=f"sudo yq '.[\"{ComponentCertsConfigParameter.WAZUH_DASHBOARD_CERT}\"]' {ComponentConfigFile.WAZUH_DASHBOARD}",
+        command=f"sudo yq  '.[\"{ComponentCertsConfigParameter.WAZUH_DASHBOARD_CERT}\"]' {ComponentConfigFile.WAZUH_DASHBOARD}",
         client=None,
     )
     mock_exec_command.assert_any_call(
-        command=f"sudo yq '.[\"{ComponentCertsConfigParameter.WAZUH_DASHBOARD_CA}\"]' {ComponentConfigFile.WAZUH_DASHBOARD}",
+        command=f"sudo yq  '.[\"{ComponentCertsConfigParameter.WAZUH_DASHBOARD_CA}\"]' {ComponentConfigFile.WAZUH_DASHBOARD}",
         client=None,
     )
 
@@ -129,7 +129,7 @@ def test_start_services_success(mock_exec_command, mock_logger):
         client=None,
     )
     mock_exec_command.assert_any_call(
-        command=start_service_command_template.format(component="wazuh-server").replace("\n", "").replace(" ", ""),
+        command=start_service_command_template.format(component="wazuh-manager").replace("\n", "").replace(" ", ""),
         client=None,
     )
     mock_exec_command.assert_any_call(
@@ -138,7 +138,7 @@ def test_start_services_success(mock_exec_command, mock_logger):
     )
 
     mock_logger.debug.assert_any_call("wazuh indexer service started")
-    mock_logger.debug.assert_any_call("wazuh server service started")
+    mock_logger.debug.assert_any_call("wazuh manager service started")
     mock_logger.debug.assert_any_call("wazuh dashboard service started")
     mock_logger.info_success.assert_any_call("All services started")
     mock_logger.error.assert_not_called()

@@ -65,6 +65,7 @@ class CoreConfigurer:
                     sudo systemctl --quiet enable {component.replace("_", "-").lower()}
                     sudo systemctl start {component.replace("_", "-").lower()}
                     """
+
                 if component == Component.WAZUH_INDEXER:
                     command += "sudo /usr/share/wazuh-indexer/bin/indexer-security-init.sh"
 

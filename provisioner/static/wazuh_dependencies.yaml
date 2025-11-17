@@ -6,7 +6,7 @@ wazuh_indexer:
   yum: 
     - coreutils
 
-wazuh_server:
+wazuh_manager:
   apt: 
     - gnupg
     - apt-transport-https
