@@ -3,3 +3,4 @@ from .component_info import ComponentInfo
 from .components_dependencies import ComponentsDependencies
 from .input import Input
 from .package_info import PackageInfo
+from .password_tool_info import PasswordToolInfo

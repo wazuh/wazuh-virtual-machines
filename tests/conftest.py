@@ -41,6 +41,7 @@ def mock_logger(autouse=True):
     logger_paths = [
         "provisioner.provisioner.logger",
         "provisioner.models.certs_info.logger",
+        "provisioner.models.password_tool_info.logger",
         "generic.remote_connection.logger",
         "configurer.core.models.wazuh_components_config_manager.logger",
         "configurer.core.models.certificates_manager.logger",

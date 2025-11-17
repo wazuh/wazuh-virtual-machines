@@ -13,8 +13,8 @@ Wants=wazuh-ami-customizer.timer
 
 [Service]
 Type=oneshot
-WorkingDirectory=/etc/wazuh-ami-certs-customize/custom_certificates
-ExecStart=/etc/wazuh-ami-certs-customize/certs-env/bin/python -m custom_certificates
+WorkingDirectory=/etc/wazuh-ami-customizer/src
+ExecStart=/etc/wazuh-ami-customizer/customizer-env/bin/python -m wazuh-ami-customizer
 
 [Install]
 WantedBy=multi-user.target

@@ -95,6 +95,7 @@ def main(
     Provisioner(
         inventory=input.inventory_content,
         certs=input.certificates_content,
+        password_tool=input.password_tool_url,
         components=components,
         arch=input.arch,
         package_type=input.package_type,

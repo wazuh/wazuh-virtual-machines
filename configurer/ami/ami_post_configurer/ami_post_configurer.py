@@ -7,7 +7,7 @@ import paramiko
 from configurer.ami.ami_post_configurer.create_service_directory import create_directory_structure, generate_yaml
 from generic import exec_command, modify_file, remote_connection
 from models import Inventory
-from utils import CertificatesComponent, Logger, RemoteDirectories
+from utils import CertificatesComponent, Logger, PasswordToolComponent, RemoteDirectories
 
 logger = Logger("AmiPostConfigurer")
 
@@ -15,21 +15,21 @@ logger = Logger("AmiPostConfigurer")
 @dataclass
 class AmiPostConfigurer:
     inventory: Inventory
-    environment_name: str = "certs-env"
+    environment_name: str = "customizer-env"
     enviroment_python_version: str = "3.11"
     custom_env_dependencies: ClassVar[list[str]] = [
         "pydantic",
         "pyyaml",
         "paramiko",
     ]
-    custom_dir_name: str = "wazuh-ami-certs-customize"
+    custom_dir_name: str = "wazuh-ami-customizer"
     custom_dir_base_path: str = "/etc"
     cloud_instances_path: Path = Path("/var/lib/cloud/instances")
     journal_logs_path: Path = Path("/var/log/journal")
     journald__config_file_path: Path = Path("/etc/systemd/journald.conf")
     log_directory_path: Path = Path("/var/log")
     wazuh_indexer_log_path: Path = Path("/var/log/wazuh-indexer")
-    wazuh_server_log_path: Path = Path("/var/log/wazuh-server")
+    wazuh_server_log_path: Path = Path("/var/ossec/logs")
     wazuh_dashboard_log_path: Path = Path("/var/log/wazuh-dashboard")
 
     @remote_connection
@@ -105,6 +105,8 @@ class AmiPostConfigurer:
             "remote_certs_path": RemoteDirectories.CERTS,
             "certs_tool": CertificatesComponent.CERTS_TOOL,
             "certs_config": CertificatesComponent.CONFIG,
+            "password_tool_path": RemoteDirectories.PASSWORD_TOOL,
+            "password_tool": PasswordToolComponent.PASSWORD_TOOL,
         }
         directory_template = generate_yaml(
             context=context,
@@ -181,7 +183,7 @@ class AmiPostConfigurer:
             None
         """
 
-        self.stop_service("wazuh-server", client=client)
+        self.stop_service("wazuh-manager", client=client)
 
     def remove_wazuh_indexes(self, client: paramiko.SSHClient) -> None:
         """
