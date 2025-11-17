@@ -72,8 +72,8 @@ env:
     PROD_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PROD }}
     PRE_PROD_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PRE }}
     DEV_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_ARTIFACTS }}
-    ARTIFACTS_URLS_FILENAME: "artifacts_urls.yml"
-    DEV_ARTIFACTS_URLS_PATH: "deployment/WAZUH_MINOR"
+    ARTIFACTS_URLS_FILENAME: "artifact_urls.yml"
+    DEV_ARTIFACTS_URLS_PATH: "deployment"
     GENERATE_PRESIGNED_URLS_SCRIPT_PATH: ${{ github.workspace }}/.github/scripts/generate_presigned_dev_urls.py
     WVM_REPO_NAME: ${{ github.event.repository.name }}
     WVM_REPOSITORY_PATH: "https://github.com/${{ github.repository }}.git"
@@ -128,8 +128,10 @@ jobs:
       - name: Get Wazuh version
         run: |
           WAZUH_VERSION=$(jq -r '.version' VERSION.json)
+          WAZUH_MAJOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1)
           WAZUH_MINOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1-2)
           echo WAZUH_VERSION=$WAZUH_VERSION >> $GITHUB_ENV
+          echo WAZUH_MAJOR=$WAZUH_MAJOR >> $GITHUB_ENV
           echo WAZUH_MINOR=$WAZUH_MINOR >> $GITHUB_ENV
 
       - name: Setting FILENAME var
@@ -177,8 +179,9 @@ jobs:
           elif [ "${{ inputs.wazuh_package_type }}" == "pre-prod" ]; then
             aws s3api get-object --bucket ${{ env.PRE_PROD_ARTIFACTS_URLS_BUCKET }} --key ${{ env.WAZUH_MINOR }}/${{ env.ARTIFACTS_URLS_FILENAME }} $LOCAL_ARTIFACTS_URLS_FILEPATH
           else
-            PARSED_DEV_ARTIFACTS_URLS_PATH=$(echo "${{ env.DEV_ARTIFACTS_URLS_PATH }}" | sed "s|WAZUH_MINOR|${{ env.WAZUH_MINOR }}|")
-            aws s3api get-object --bucket ${{ env.DEV_ARTIFACTS_URLS_BUCKET }} --key $PARSED_DEV_ARTIFACTS_URLS_PATH/${{ env.ARTIFACTS_URLS_FILENAME }} $LOCAL_ARTIFACTS_URLS_FILEPATH
+            LOCAL_AWS_S3_BUCKET_DEV=${{ vars.AWS_S3_BUCKET_DEV }}
+            echo LOCAL_AWS_S3_BUCKET_DEV=$LOCAL_AWS_S3_BUCKET_DEV >> $GITHUB_ENV
+            aws s3api get-object --bucket ${{ env.DEV_ARTIFACTS_URLS_BUCKET }} --key ${{ env.DEV_ARTIFACTS_URLS_PATH }}/${{ env.ARTIFACTS_URLS_FILENAME }} $LOCAL_ARTIFACTS_URLS_FILEPATH
           fi
 
       - name: Generate presigned URLs for artifacts for dev packages
