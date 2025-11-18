@@ -6,6 +6,7 @@ from pydantic import AnyUrl
 
 from provisioner.models.certs_info import CertsInfo
 from provisioner.models.component_info import ComponentInfo
+from provisioner.models.password_tool_info import PasswordToolInfo
 from provisioner.provisioner import Provisioner
 from provisioner.utils import Package_manager, Package_type
 from utils.enums import Component
@@ -32,10 +33,13 @@ def component_info_valid(valid_inventory):
             "config": "http://packages-dev.wazuh.com/example/config.yml",
         }
     )
+    password_tool = PasswordToolInfo(url=AnyUrl("http://packages-dev.wazuh.com/example/password-tool.sh"))
+
     package_type = Package_type.RPM
     return Provisioner(
         inventory=valid_inventory,
         certs=certs,
+        password_tool=password_tool,
         components=[component_server],
         package_type=package_type,
     )
@@ -56,9 +60,10 @@ def test_provision_success(mock_paramiko, mock_logger, component_info_valid, moc
     mock_client_instance = MagicMock()
     mock_paramiko.return_value = mock_client_instance
 
-    certs_expect_commands = [
-        "mkdir -p ~/wazuh-configure/certs && curl -s -o ~/wazuh-configure/certs/certs-tool.sh 'http://packages-dev.wazuh.com/example/certs-tool.sh'",
-        "mkdir -p ~/wazuh-configure/certs && curl -s -o ~/wazuh-configure/certs/config.yml 'http://packages-dev.wazuh.com/example/config.yml'",
+    tools_expect_commands = [
+        "mkdir -p ~/wazuh-configure/tools/certs && curl -s -o ~/wazuh-configure/tools/certs/certs-tool.sh 'http://packages-dev.wazuh.com/example/certs-tool.sh'",
+        "mkdir -p ~/wazuh-configure/tools/certs && curl -s -o ~/wazuh-configure/tools/certs/config.yml 'http://packages-dev.wazuh.com/example/config.yml'",
+        "mkdir -p ~/wazuh-configure/tools && curl -s -o ~/wazuh-configure/tools/password-tool.sh 'http://packages-dev.wazuh.com/example/password-tool.sh'",
     ]
 
     dependencies_expect_commands = [
@@ -85,22 +90,24 @@ def test_provision_success(mock_paramiko, mock_logger, component_info_valid, moc
         key_filename=str(component_info_valid.inventory.ansible_ssh_private_key_file),
     )
 
-    assert mock_exec_command.call_count == 7  # 3 for dependencies, 2 for certs, 1 download package, 1 install package
+    assert (
+        mock_exec_command.call_count == 8
+    )  # 3 for dependencies, 3 for tools (certs-tool and password-tool), 1 download package, 1 install package
 
-    # certs
-    assert certs_expect_commands[0] in mock_exec_command.call_args_list[0].kwargs["command"]
-    assert certs_expect_commands[1] in mock_exec_command.call_args_list[1].kwargs["command"]
+    # tools
+    assert tools_expect_commands[0] in mock_exec_command.call_args_list[0].kwargs["command"]
+    assert tools_expect_commands[1] in mock_exec_command.call_args_list[1].kwargs["command"]
+    assert tools_expect_commands[2] in mock_exec_command.call_args_list[2].kwargs["command"]
 
     # dependencies
-    assert dependencies_expect_commands[0] in mock_exec_command.call_args_list[2].kwargs["command"]
-    assert dependencies_expect_commands[1] in mock_exec_command.call_args_list[2].kwargs["command"]
-    assert dependencies_expect_commands[2] in mock_exec_command.call_args_list[3].kwargs["command"]
-    assert dependencies_expect_commands[3] in mock_exec_command.call_args_list[4].kwargs["command"]
+    assert dependencies_expect_commands[0] in mock_exec_command.call_args_list[3].kwargs["command"]
+    assert dependencies_expect_commands[1] in mock_exec_command.call_args_list[3].kwargs["command"]
+    assert dependencies_expect_commands[2] in mock_exec_command.call_args_list[4].kwargs["command"]
+    assert dependencies_expect_commands[3] in mock_exec_command.call_args_list[5].kwargs["command"]
 
     # package
-    assert package_expect_commands[0] in mock_exec_command.call_args_list[5].kwargs["command"]
-    assert package_expect_commands[1] in mock_exec_command.call_args_list[6].kwargs["command"]
-
+    assert package_expect_commands[0] in mock_exec_command.call_args_list[6].kwargs["command"]
+    assert package_expect_commands[1] in mock_exec_command.call_args_list[7].kwargs["command"]
     mock_logger.debug_title.assert_any_call("Starting provisioning")
     mock_logger.debug_title.assert_any_call("Provisioning certificates files")
     mock_logger.debug_title.assert_any_call("Starting provisioning for wazuh manager")
@@ -120,7 +127,7 @@ def test_certs_tool_provision_success(
     getattr(component_info_valid, certs_method)(mock_client_instance)
 
     mock_exec_command.assert_called_once_with(
-        command=f"mkdir -p ~/wazuh-configure/certs && curl -s -o ~/wazuh-configure/certs/{certs_component} 'http://packages-dev.wazuh.com/example/{certs_component}'",
+        command=f"mkdir -p ~/wazuh-configure/tools/certs && curl -s -o ~/wazuh-configure/tools/certs/{certs_component} 'http://packages-dev.wazuh.com/example/{certs_component}'",
         client=mock_client_instance,
     )
     mock_logger.debug.assert_any_call(f"Provisioning {certs_component}")
@@ -142,7 +149,7 @@ def test_certs_tool_provision_failure(
         getattr(component_info_valid, certs_method)(mock_client_instance)
 
     mock_exec_command.assert_called_once_with(
-        command=f"mkdir -p ~/wazuh-configure/certs && curl -s -o ~/wazuh-configure/certs/{certs_component} 'http://packages-dev.wazuh.com/example/{certs_component}'",
+        command=f"mkdir -p ~/wazuh-configure/tools/certs && curl -s -o ~/wazuh-configure/tools/certs/{certs_component} 'http://packages-dev.wazuh.com/example/{certs_component}'",
         client=mock_client_instance,
     )
     mock_logger.debug.assert_any_call(f"Provisioning {certs_component}")
@@ -346,7 +353,10 @@ def test_install_package(
         mock_logger.info_success.assert_called_once_with(f"{package_name} {expected_log}")
     elif "is already installed" in expected_log:
         mock_logger.debug.assert_has_calls(
-            [mock.call(f"Installing {package_name}"), mock.call(f"{package_name} {expected_log}")]
+            [
+                mock.call(f"Installing {package_name}"),
+                mock.call(f"{package_name} {expected_log}"),
+            ]
         )
     elif "installed successfully" in expected_log and "WARNING" in error_output:
         mock_logger.warning.assert_called_once_with(f"{error_output}")

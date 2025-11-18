@@ -1,12 +1,13 @@
 from pathlib import Path
 
 import yaml
+from pydantic import AnyUrl
 
 from provisioner.utils import (
     Component_arch,
     Package_type,
 )
-from utils import CertificatesComponent, Component
+from utils import CertificatesComponent, Component, PasswordToolComponent
 
 
 def file_to_dict(raw_urls_path: Path) -> dict:
@@ -155,6 +156,31 @@ def format_certificates_urls_file(raw_urls_path: Path) -> dict:
             if certs_component.name.lower() in component_name:
                 certificates_urls[certs_component.name.lower()] = url
     return certificates_urls
+
+
+def format_password_tool_urls_file(raw_urls_path: Path) -> AnyUrl | None:
+    """
+    Formats a file containing raw URLs into a string of password tool URL.
+
+    This function reads a file containing raw URLs and retrieves the URL
+    for the password tool.
+
+    >>> raw_urls_path = Path("password_tool_urls.yaml")
+    >>> format_password_tool_urls_file(raw_urls_path)
+    'https://packages.wazuh.com/password-tool-example/password_tool'
+
+    Args:
+        raw_urls_path (Path): The path to the file containing the raw URLs.
+
+    Returns:
+        str: The URL for the password tool.
+    """
+    raw_urls_content = file_to_dict(raw_urls_path)
+
+    for component_name, url in raw_urls_content.items():
+        if PasswordToolComponent.PASSWORD_TOOL.name.lower() in component_name.lower():
+            return AnyUrl(url)
+    return None
 
 
 def format_component_urls_file(raw_urls_path: Path) -> dict:

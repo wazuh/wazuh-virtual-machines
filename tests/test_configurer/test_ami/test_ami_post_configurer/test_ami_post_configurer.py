@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from configurer.ami.ami_post_configurer.ami_post_configurer import AmiPostConfigurer
-from utils.enums import CertificatesComponent, RemoteDirectories
+from utils.enums import CertificatesComponent, PasswordToolComponent, RemoteDirectories
 
 
 @pytest.fixture()
@@ -13,7 +13,7 @@ def main_methods() -> list[str]:
     return [
         "create_custom_dir",
         "create_certs_env",
-        "stop_wazuh_server",
+        "stop_wazuh_manager",
         "stop_wazuh_indexer",
         "stop_wazuh_dashboard",
         "change_ssh_port_to_default",
@@ -78,6 +78,8 @@ def test_create_custom_dir_success(mock_create_structure, mock_generate_yaml, mo
         "remote_certs_path": RemoteDirectories.CERTS,
         "certs_tool": CertificatesComponent.CERTS_TOOL,
         "certs_config": CertificatesComponent.CONFIG,
+        "password_tool_path": RemoteDirectories.PASSWORD_TOOL,
+        "password_tool": PasswordToolComponent.PASSWORD_TOOL,
     }
 
     mock_generate_yaml.return_value = {"template": "test_value"}
@@ -143,13 +145,13 @@ def test_stop_service_fails(mock_ami_post_configurer, mock_exec_command, mock_pa
     mock_logger.error.assert_called_once_with("Error stopping the testing-service service")
 
 
-def test_stop_wazuh_server(mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger):
-    mock_ami_post_configurer.stop_wazuh_server(mock_paramiko.return_value)
-    command = "sudo systemctl stop wazuh-server"
+def test_stop_wazuh_manager(mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger):
+    mock_ami_post_configurer.stop_wazuh_manager(mock_paramiko.return_value)
+    command = "sudo systemctl stop wazuh-manager"
     mock_exec_command.assert_called_once_with(command=command, client=mock_paramiko.return_value)
 
-    mock_logger.debug.assert_called_once_with("Stopping wazuh-server service")
-    mock_logger.info_success.assert_called_once_with("wazuh-server service stopped successfully")
+    mock_logger.debug.assert_called_once_with("Stopping wazuh-manager service")
+    mock_logger.info_success.assert_called_once_with("wazuh-manager service stopped successfully")
 
 
 def test_stop_wazuh_indexer(mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger):
@@ -176,7 +178,9 @@ def test_stop_wazuh_indexer(mock_ami_post_configurer, mock_exec_command, mock_pa
 def test_remove_wazuh_indexes(mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger):
     mock_ami_post_configurer.remove_wazuh_indexes(mock_paramiko.return_value)
 
-    command = 'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/wazuh-*"'
+    command = (
+        'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/wazuh-*"'
+    )
 
     mock_exec_command.assert_called_once_with(command=command, client=mock_paramiko.return_value)
 
@@ -191,6 +195,7 @@ def test_remove_wazuh_indexes_fail(mock_ami_post_configurer, mock_exec_command, 
         mock_ami_post_configurer.remove_wazuh_indexes(mock_paramiko.return_value)
 
     mock_logger.error.assert_called_once_with("Error removing wazuh- indexes")
+
 
 def test_run_security_init_script(mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger):
     mock_ami_post_configurer.run_security_init_script(mock_paramiko.return_value)
@@ -408,8 +413,8 @@ def test_clean_generated_logs(mock_ami_post_configurer, mock_exec_command, mock_
     if [ -d {mock_ami_post_configurer.wazuh_indexer_log_path} ] && sudo find {mock_ami_post_configurer.wazuh_indexer_log_path} -type f | read; then
         sudo find {mock_ami_post_configurer.wazuh_indexer_log_path} -type f -exec sudo bash -c 'cat /dev/null > "$1"' _ {{}} \\;
     fi
-    if [ -d {mock_ami_post_configurer.wazuh_server_log_path} ] && sudo find {mock_ami_post_configurer.wazuh_server_log_path} -type f | read; then
-        sudo find {mock_ami_post_configurer.wazuh_server_log_path} -type f -exec sudo bash -c 'cat /dev/null > "$1"' _ {{}} \\;
+    if [ -d {mock_ami_post_configurer.wazuh_manager_log_path} ] && sudo find {mock_ami_post_configurer.wazuh_manager_log_path} -type f | read; then
+        sudo find {mock_ami_post_configurer.wazuh_manager_log_path} -type f -exec sudo bash -c 'cat /dev/null > "$1"' _ {{}} \\;
     fi
     if [ -d {mock_ami_post_configurer.wazuh_dashboard_log_path} ] && sudo find {mock_ami_post_configurer.wazuh_dashboard_log_path} -type f | read; then
         sudo find {mock_ami_post_configurer.wazuh_dashboard_log_path} -type f -exec sudo bash -c 'cat /dev/null > "$1"' _ {{}} \\;

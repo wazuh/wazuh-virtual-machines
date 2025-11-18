@@ -10,7 +10,8 @@ from utils import Component
 from .certs_info import CertsInfo
 from .components_dependencies import ComponentsDependencies
 from .package_info import PackageInfo
-from .utils import format_certificates_urls_file, format_component_urls_file
+from .password_tool_info import PasswordToolInfo
+from .utils import format_certificates_urls_file, format_component_urls_file, format_password_tool_urls_file
 
 
 class Input(BaseModel):
@@ -66,6 +67,16 @@ class Input(BaseModel):
             return CertsInfo(certs_url_content=certs_data)
         except FileNotFoundError as err:
             raise FileNotFoundError(f"Certificates file not found at {self.packages_url_path}") from err
+
+    @property
+    def password_tool_content(self) -> PasswordToolInfo:
+        try:
+            password_tool_data = format_password_tool_urls_file(self.packages_url_path)
+            if password_tool_data is None:
+                raise ValueError("Password tool URL not found in the packages URL file.")
+            return PasswordToolInfo(url=password_tool_data)
+        except FileNotFoundError as err:
+            raise FileNotFoundError(f"Password tool file not found at {self.packages_url_path}") from err
 
     @property
     def inventory_content(self, host_name: str | None = None) -> Inventory | None:

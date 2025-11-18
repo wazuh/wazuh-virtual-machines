@@ -1,10 +1,12 @@
-from unittest.mock import Mock
+from pathlib import Path
+from unittest.mock import Mock, patch
 
 import pytest
 from pydantic import AnyUrl
 
 from provisioner.main import (
     get_component_info,
+    main,
     parse_componets,
 )
 from provisioner.models import ComponentInfo, Input
@@ -132,3 +134,87 @@ def test_parse_componets(component, expected_components, package_type, arch):
         )
     assert result == expected_components
     assert isinstance(result, list)
+
+
+@pytest.mark.parametrize(
+    "packages_url_path, component, package_type, arch, dependencies, inventory",
+    [
+        (
+            "/path/to/packages",
+            Component.WAZUH_SERVER,
+            "rpm",
+            "x86_64",
+            "/path/to/dependencies",
+            "/path/to/inventory",
+        ),
+        (
+            "/path/to/packages",
+            Component.WAZUH_DASHBOARD,
+            "deb",
+            "arm64",
+            "/path/to/dependencies",
+            None,
+        ),
+        (
+            "/path/to/packages",
+            Component.ALL,
+            "rpm",
+            "x86_64",
+            "/path/to/dependencies",
+            "/path/to/inventory",
+        ),
+    ],
+)
+@patch("provisioner.main.Provisioner")
+@patch("provisioner.main.parse_componets")
+@patch("provisioner.main.Input")
+def test_main(
+    mock_input_class,
+    mock_parse_componets,
+    mock_provisioner_class,
+    packages_url_path,
+    component,
+    package_type,
+    arch,
+    dependencies,
+    inventory,
+):
+    mock_input_instance = Mock()
+    mock_input_class.return_value = mock_input_instance
+
+    mock_components = [Mock(), Mock()]
+    mock_parse_componets.return_value = mock_components
+
+    mock_provisioner_instance = Mock()
+    mock_provisioner_class.return_value = mock_provisioner_instance
+
+    main(
+        packages_url_path=Path(packages_url_path),
+        component=component,
+        package_type=package_type,
+        arch=arch,
+        dependencies=Path(dependencies),
+        inventory=Path(inventory) if inventory else None,
+    )
+
+    mock_input_class.assert_called_once_with(
+        component=component,
+        inventory_path=Path(inventory) if inventory else None,
+        packages_url_path=Path(packages_url_path),
+        package_type=package_type,
+        arch=arch,
+        dependencies_path=Path(dependencies),
+    )
+
+    mock_parse_componets.assert_called_once_with(mock_input_instance)
+
+    mock_provisioner_class.assert_called_once_with(
+        inventory=mock_input_instance.inventory_content,
+        certs=mock_input_instance.certificates_content,
+        password_tool=mock_input_instance.password_tool_content,
+        components=mock_components,
+        arch=mock_input_instance.arch,
+        package_type=mock_input_instance.package_type,
+    )
+
+    mock_provisioner_instance.provision.assert_called_once()
