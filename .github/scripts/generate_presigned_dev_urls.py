@@ -108,8 +108,6 @@ if __name__ == "__main__":
     if not INPUT_FILE:
         raise ValueError("LOCAL_ARTIFACTS_URLS_FILEPATH environment variable is not set.")
 
-    commit_list = json.loads(COMMIT_LIST)
-
-    expand_github_variables(input_file=INPUT_FILE, commit_list=commit_list)
+    expand_github_variables(input_file=INPUT_FILE, commit_list=json.loads(COMMIT_LIST))
 
     replace_url_by_its_signed(input_file=INPUT_FILE)
