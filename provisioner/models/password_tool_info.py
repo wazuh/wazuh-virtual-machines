@@ -13,12 +13,12 @@ class PasswordToolInfo(BaseModel):
     PasswordToolInfo is a model that holds information about password tool URL.
 
     Attributes:
-        password_tool_url (str): A string containing the URL for the password-tool.
+        url (str): A string containing the URL for the password-tool.
     """
 
-    password_tool_url: AnyUrl
+    url: AnyUrl
 
-    @field_validator("password_tool_url")
+    @field_validator("url")
     def validate_password_tool_url(cls, url: AnyUrl) -> AnyUrl:
         logger.debug("Validating password tool URL...")
         if not check_correct_url(

@@ -64,7 +64,7 @@ class Provisioner:
 
         self.certs_tool_provision(client)
         self.certs_config_provision(client)
-        
+
         logger.debug_title("Provisioning password tool")
 
         self.password_tool_provision(client)
@@ -121,7 +121,7 @@ class Provisioner:
             client (paramiko.SSHClient): The SSH client used to connect to the remote machine.
         """
         self.tool_provision(
-            self.password_tool.password_tool_url,
+            self.password_tool.url,
             f"{RemoteDirectories.PASSWORD_TOOL}",
             PasswordToolComponent.PASSWORD_TOOL,
             client,

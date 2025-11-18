@@ -212,7 +212,7 @@ def verify_indexer_connection(password: str = "admin") -> None:
         None
     """
 
-    command = f"curl -XGET https://localhost:9200/ -uadmin:{password} -k --max-time 120 --silent -w \"%{{http_code}}\" --output /dev/null"
+    command = f'curl -XGET https://localhost:9200/ -uadmin:{password} -k --max-time 120 --silent -w "%{{http_code}}" --output /dev/null'
     verify_component_connection(Component.WAZUH_INDEXER, command)
 
 
@@ -318,18 +318,18 @@ def change_passwords() -> None:
     instance_id = get_instance_id()
 
     generate_password_file()
-    
+
     logger.debug("Changing passwords to instance ID")
     command = f"""
         sudo sed -i 's/password:.*/password: {instance_id}/g' {PASWORDS_FILE_NAME}
         bash {PASSWORD_TOOL_PATH} -a -A -au wazuh -ap wazuh -f {PASWORDS_FILE_NAME}
     """
-    
+
     _, error_output = exec_command(command=command)
     if error_output:
         logger.error(f"Error changing passwords: {error_output}")
         raise RuntimeError("Error changing passwords")
-    
+
     logger.debug("Passwords changed. Verifying indexer connection with new password")
     verify_indexer_connection(password=instance_id)
     logger.debug("Changing passwords finished successfully")

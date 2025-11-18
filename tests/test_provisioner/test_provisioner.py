@@ -33,7 +33,7 @@ def component_info_valid(valid_inventory):
             "config": "http://packages-dev.wazuh.com/example/config.yml",
         }
     )
-    password_tool = PasswordToolInfo(password_tool_url=AnyUrl("http://packages-dev.wazuh.com/example/password-tool.sh"))
+    password_tool = PasswordToolInfo(url=AnyUrl("http://packages-dev.wazuh.com/example/password-tool.sh"))
 
     package_type = Package_type.RPM
     return Provisioner(
@@ -63,7 +63,7 @@ def test_provision_success(mock_paramiko, mock_logger, component_info_valid, moc
     tools_expect_commands = [
         "mkdir -p ~/wazuh-configure/tools/certs && curl -s -o ~/wazuh-configure/tools/certs/certs-tool.sh 'http://packages-dev.wazuh.com/example/certs-tool.sh'",
         "mkdir -p ~/wazuh-configure/tools/certs && curl -s -o ~/wazuh-configure/tools/certs/config.yml 'http://packages-dev.wazuh.com/example/config.yml'",
-        "mkdir -p ~/wazuh-configure/tools && curl -s -o ~/wazuh-configure/tools/password-tool.sh 'http://packages-dev.wazuh.com/example/password-tool.sh'"
+        "mkdir -p ~/wazuh-configure/tools && curl -s -o ~/wazuh-configure/tools/password-tool.sh 'http://packages-dev.wazuh.com/example/password-tool.sh'",
     ]
 
     dependencies_expect_commands = [
@@ -90,7 +90,9 @@ def test_provision_success(mock_paramiko, mock_logger, component_info_valid, moc
         key_filename=str(component_info_valid.inventory.ansible_ssh_private_key_file),
     )
 
-    assert mock_exec_command.call_count == 8  # 3 for dependencies, 3 for tools (certs-tool and password-tool), 1 download package, 1 install package
+    assert (
+        mock_exec_command.call_count == 8
+    )  # 3 for dependencies, 3 for tools (certs-tool and password-tool), 1 download package, 1 install package
 
     # tools
     assert tools_expect_commands[0] in mock_exec_command.call_args_list[0].kwargs["command"]
@@ -350,10 +352,12 @@ def test_install_package(
     if "installed successfully" in expected_log and "WARNING" not in error_output:
         mock_logger.info_success.assert_called_once_with(f"{package_name} {expected_log}")
     elif "is already installed" in expected_log:
-        mock_logger.debug.assert_has_calls([
-            mock.call(f"Installing {package_name}"),
-            mock.call(f"{package_name} {expected_log}"),
-        ])
+        mock_logger.debug.assert_has_calls(
+            [
+                mock.call(f"Installing {package_name}"),
+                mock.call(f"{package_name} {expected_log}"),
+            ]
+        )
     elif "installed successfully" in expected_log and "WARNING" in error_output:
         mock_logger.warning.assert_called_once_with(f"{error_output}")
         mock_logger.info_success.assert_called_once_with(f"{package_name} {expected_log}")
