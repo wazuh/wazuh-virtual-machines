@@ -7,10 +7,12 @@ from configurer.core.utils import ComponentCertsDirectory
 from generic import exec_command
 from utils import Component, Logger
 
-LOGFILE = Path("/var/log/wazuh-ami-custom-certificates.log")
-TEMP_DIR = Path("/etc/wazuh-ami-certs-customize")
+LOGFILE = Path("/var/log/wazuh-ami-customizer.log")
+TEMP_DIR = Path("/etc/wazuh-ami-customizer")
 CERTS_TOOL_PATH = Path(f"{TEMP_DIR}/certs-tool.sh")
 CERTS_TOOL_CONFIG_PATH = Path(f"{TEMP_DIR}/config.yml")
+PASSWORD_TOOL_PATH = Path(f"{TEMP_DIR}/password-tool.sh")
+PASWORDS_FILE_NAME = Path("/etc/wazuh-ami-customizer/passwords.txt")
 SERVICE_PATH = "/etc/systemd/system"
 SERVICE_NAME = f"{SERVICE_PATH}/wazuh-ami-customizer.service"
 SERVICE_TIMER_NAME = f"{SERVICE_PATH}/wazuh-ami-customizer.timer"
@@ -63,7 +65,7 @@ def stop_service(name: str) -> None:
     logger.debug(f"{name} service stopped")
 
 
-def verify_component_connection(component: Component, command: str, retries: int = 5, wait_time: int = 5) -> None:
+def verify_component_connection(component: Component, command: str, retries: int = 5, wait_time: int = 10) -> None:
     """
     Verifies the component connection by sending a request to the component's endpoint.
     Args:
@@ -194,13 +196,13 @@ def stop_components_services() -> None:
     logger.debug("Stopping Wazuh components services...")
 
     stop_service("wazuh-indexer")
-    stop_service("wazuh-server")
+    stop_service("wazuh-manager")
     stop_service("wazuh-dashboard")
 
     logger.debug("Wazuh components services stopped")
 
 
-def verify_indexer_connection() -> None:
+def verify_indexer_connection(password: str = "admin") -> None:
     """
     Verifies the connection to the Wazuh indexer.
     This function sends a request to the Wazuh indexer endpoint and checks the response.
@@ -210,7 +212,7 @@ def verify_indexer_connection() -> None:
         None
     """
 
-    command = 'curl -XGET https://localhost:9200/ -uadmin:admin -k --max-time 120 --silent -w "%{http_code}" --output /dev/null'
+    command = f'curl -XGET https://localhost:9200/ -uadmin:{password} -k --max-time 120 --silent -w "%{{http_code}}" --output /dev/null'
     verify_component_connection(Component.WAZUH_INDEXER, command)
 
 
@@ -259,14 +261,78 @@ def start_components_services() -> None:
     run_indexer_security_init()
     verify_indexer_connection()
 
-    enable_service("wazuh-server")
-    start_service("wazuh-server")
+    enable_service("wazuh-manager")
+    start_service("wazuh-manager")
 
     enable_service("wazuh-dashboard")
     start_service("wazuh-dashboard")
     verify_dashboard_connection()
 
     logger.debug("Wazuh components services started")
+
+
+def get_instance_id() -> str:
+    """
+    Retrieves the instance ID of the current machine capitalized.
+
+    Returns:
+        str: The instance ID of the current machine.
+    """
+
+    logger.debug("Retrieving instance ID")
+
+    command = "ec2-metadata | grep 'instance-id' | cut -d':' -f2"
+    output, error_output = exec_command(command=command)
+    if error_output:
+        logger.error(f"Error retrieving instance ID: {error_output}")
+        raise RuntimeError("Error retrieving instance ID")
+    return output.strip().capitalize()
+
+
+def generate_password_file() -> None:
+    """
+    Generates a password file using the password tool.
+
+    Args:
+        path (Path): The path where the password file will be created.
+
+    Returns:
+        None
+    """
+
+    logger.debug("Generating password file")
+
+    command = f"bash {PASSWORD_TOOL_PATH} -gf {PASWORDS_FILE_NAME}"
+    _, error_output = exec_command(command=command)
+    if error_output:
+        logger.error(f"Error generating password file: {error_output}")
+        raise RuntimeError("Error generating password file")
+
+    logger.debug("Password file generated")
+
+
+def change_passwords() -> None:
+    logger.name = "CustomPasswords"
+    logger.debug("Changing passwords started")
+    logger.debug("Getting instance ID")
+    instance_id = get_instance_id()
+
+    generate_password_file()
+
+    logger.debug("Changing passwords to instance ID")
+    command = f"""
+        sudo sed -i 's/password:.*/password: {instance_id}/g' {PASWORDS_FILE_NAME}
+        bash {PASSWORD_TOOL_PATH} -a -A -au wazuh -ap wazuh -f {PASWORDS_FILE_NAME}
+    """
+
+    _, error_output = exec_command(command=command)
+    if error_output:
+        logger.error(f"Error changing passwords: {error_output}")
+        raise RuntimeError("Error changing passwords")
+
+    logger.debug("Passwords changed. Verifying indexer connection with new password")
+    verify_indexer_connection(password=instance_id)
+    logger.debug("Changing passwords finished successfully")
 
 
 def clean_up() -> None:
@@ -301,11 +367,14 @@ if __name__ == "__main__":
         remove_certificates()
         create_certificates()
         start_components_services()
+        stop_service("wazuh-dashboard")
+        change_passwords()
+        start_service("wazuh-dashboard")
         start_ssh_service()
         clean_up()
     except Exception as e:
-        logger.error(f"An error occurred during the custom certificates configuration process: {e}")
+        logger.error(f"An error occurred during the customization process: {e}")
         start_ssh_service()
-        raise RuntimeError("An error occurred during the custom certificates configuration process") from e
+        raise RuntimeError("An error occurred during the customization process") from e
 
-    logger.info("Custom certificates configuration process finished")
+    logger.info("Customization process finished")

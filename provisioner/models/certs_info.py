@@ -40,7 +40,7 @@ class CertsInfo(BaseModel):
         """
         logger.debug(f"Getting URL for {name}...")
         try:
-            url = AnyUrl(self.certs_url_content.get(name, None))
+            url = AnyUrl(self.certs_url_content.get(name, None))  # type: ignore
         except pydantic_core._pydantic_core.ValidationError as err:
             raise ValueError(f"URL for {name} has an invalid format: {err}") from err
 

@@ -5,9 +5,9 @@ from pydantic import AnyUrl
 
 from generic import exec_command, remote_connection
 from models import Inventory
-from provisioner.models import CertsInfo, ComponentInfo
+from provisioner.models import CertsInfo, ComponentInfo, PasswordToolInfo
 from provisioner.utils import Component_arch, Package_manager, Package_type
-from utils import CertificatesComponent, Component, Logger, RemoteDirectories
+from utils import CertificatesComponent, Component, Logger, PasswordToolComponent, RemoteDirectories
 
 logger = Logger("Provisioner")
 
@@ -30,6 +30,7 @@ class Provisioner:
 
     inventory: Inventory | None
     certs: CertsInfo
+    password_tool: PasswordToolInfo
     components: list[ComponentInfo]
     arch: Component_arch = Component_arch.X86_64
     package_type: Package_type = Package_type.RPM
@@ -49,7 +50,8 @@ class Provisioner:
         1. Logs the start of the provisioning process.
         2. Provisions the certs_tool using `certs_tool_provision`.
         3. Provision the config file using `certs_config_provision`.
-        4. Iterates over each component and performs the following:
+        4. Provisions the password tool using `password_tool_provision`.
+        5. Iterates over each component and performs the following:
             a. Logs the start of provisioning for the component.
             b. Provisions dependencies for the component using `dependencies_provision`.
             c. Provisions packages for the component using `packages_provision`.
@@ -62,6 +64,10 @@ class Provisioner:
 
         self.certs_tool_provision(client)
         self.certs_config_provision(client)
+
+        logger.debug_title("Provisioning password tool")
+
+        self.password_tool_provision(client)
 
         logger.debug_title("Provisioning special dependencies")
 
@@ -77,20 +83,22 @@ class Provisioner:
         Provisions the certs_tool on the specified client.
 
         This method uses the provided SSH client to connect to a remote machine
-        and provision the certs_tool by calling the `certificates_provision`
+        and provision the certs_tool by calling the `tool_provision`
         method with the appropriate URL.
 
         Args:
             client (paramiko.SSHClient): The SSH client used to connect to the remote machine.
         """
-        self.certificates_provision(self.certs.certs_tool_url, CertificatesComponent.CERTS_TOOL, client)
+        self.tool_provision(
+            self.certs.certs_tool_url, f"{RemoteDirectories.CERTS}", CertificatesComponent.CERTS_TOOL, client
+        )
 
     def certs_config_provision(self, client: paramiko.SSHClient | None = None) -> None:
         """
         Provisions the certs config file on the remote client.
 
         This method uses the provided SSH client to connect to a remote machine
-        and provision the certs config file by calling the `certificates_provision`
+        and provision the certs config file by calling the `tool_provision`
         method with the appropriate URL.
 
         Args:
@@ -99,7 +107,25 @@ class Provisioner:
         Returns:
             None
         """
-        self.certificates_provision(self.certs.config_url, CertificatesComponent.CONFIG, client)
+        self.tool_provision(self.certs.config_url, f"{RemoteDirectories.CERTS}", CertificatesComponent.CONFIG, client)
+
+    def password_tool_provision(self, client: paramiko.SSHClient | None = None) -> None:
+        """
+        Provisions the password tool on the specified client.
+
+        This method uses the provided SSH client to connect to a remote machine
+        and provision the password tool by calling the `tool_provision`
+        method with the appropriate URL.
+
+        Args:
+            client (paramiko.SSHClient): The SSH client used to connect to the remote machine.
+        """
+        self.tool_provision(
+            self.password_tool.url,
+            f"{RemoteDirectories.PASSWORD_TOOL}",
+            PasswordToolComponent.PASSWORD_TOOL,
+            client,
+        )
 
     def special_dependencies_provision(self, client: paramiko.SSHClient | None = None) -> None:
         """
@@ -177,39 +203,33 @@ class Provisioner:
             component.name.replace("_", " ").capitalize(),
         )
 
-    def certificates_provision(
-        self, certs_file_url: AnyUrl, filename: str, client: paramiko.SSHClient | None = None
+    def tool_provision(
+        self, tool_url: AnyUrl, tool_dir: str, tool_filename: str, client: paramiko.SSHClient | None = None
     ) -> None:
         """
-        Downloads a certificate file (certs_tool or config) from a given URL and saves it to a remote directory on a server.
-
+        Provisions a tool (certs_tool, config file, or password tool) on the remote client.
         Args:
-            certs_file_url (AnyUrl): The URL of the certificate file to be downloaded.
-            client (paramiko.SSHClient): An active SSH client connected to the remote server.
-
-        Raises:
-            Exception: If there is an error during the download process.
-
-        Logs:
-            Error message if the download fails.
-            Success message if the download is successful.
+            tool_url (AnyUrl): The URL of the tool to be provisioned.
+            tool_dir (str): The directory on the remote client where the tool will be stored.
+            tool_filename (str): The filename of the tool to be provisioned.
+            client (paramiko.SSHClient): The SSH client used to connect to the remote machine.
         """
-        logger.debug(f"Provisioning {filename}")
+        logger.debug(f"Provisioning {tool_filename}")
 
-        command_template = "mkdir -p {dir} && curl -s -o {path} '{certs_file_url}'"
+        command_template = "mkdir -p {directory} && curl -s -o {path} '{tool_file_url}'"
 
         command = command_template.format(
-            dir=f"{RemoteDirectories.CERTS}",
-            path=f"{RemoteDirectories.CERTS}/{filename}",
-            certs_file_url=certs_file_url,
+            directory=tool_dir,
+            path=f"{tool_dir}/{tool_filename}",
+            tool_file_url=tool_url,
         )
-        output, error_output = exec_command(command=command, client=client)
+        _, error_output = exec_command(command=command, client=client)
 
         if error_output:
-            logger.error(f"Error downloading {filename}: {error_output}")
-            raise RuntimeError(f"Error downloading {filename}")
+            logger.error(f"Error downloading {tool_filename}: {error_output}")
+            raise RuntimeError(f"Error downloading {tool_filename}")
 
-        logger.info_success(f"{filename} downloaded successfully")
+        logger.info_success(f"{tool_filename} downloaded successfully")
 
     def list_dependencies(self, elements: list[str], component_name: str) -> None:
         """

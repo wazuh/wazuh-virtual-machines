@@ -8,6 +8,10 @@ class Component(StrEnum):
     ALL = auto()
 
 
+class PasswordToolComponent(StrEnum):
+    PASSWORD_TOOL = "password-tool.sh"
+
+
 class CertificatesComponent(StrEnum):
     CERTS_TOOL = "certs-tool.sh"
     CONFIG = "config.yml"
@@ -15,5 +19,7 @@ class CertificatesComponent(StrEnum):
 
 class RemoteDirectories(StrEnum):
     WAZUH_ROOT_DIR = "~/wazuh-configure"
+    TOOLS_DIR = f"{WAZUH_ROOT_DIR}/tools"
     PACKAGES = f"{WAZUH_ROOT_DIR}/packages"
-    CERTS = f"{WAZUH_ROOT_DIR}/certs"
+    CERTS = f"{TOOLS_DIR}/certs"
+    PASSWORD_TOOL = f"{TOOLS_DIR}"

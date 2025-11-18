@@ -1,13 +1,22 @@
-name: "wazuh-ami-certs-customize"
+# The structure contains name, files, and directories:
+#   - name: name of the directory to be created
+#   - files: list of files to be created.
+#     - path: path where the file to be copied is located. (not the destination path, but the source. The destination path is constructed automatically)
+#     - local: indicates whether the file is on the local machine (true) or on the remote instance (false).
+#   - directories: list of subdirectories to be created within the current directory. Each subdirectory can contain its own files and subdirectories.
+
+name: "wazuh-ami-customizer"
 files:
   - path: "{{ remote_certs_path }}/{{ certs_tool }}"
     local: false
   - path: "{{ remote_certs_path }}/{{ certs_config }}"
     local: false
+  - path: "{{ password_tool_path }}/{{ password_tool }}"
+    local: false
 directories:
-  - name: "custom_certificates"
+  - name: "src"
     files:
-      - path: "configurer/ami/ami_post_configurer/custom_certificates.py"
+      - path: "configurer/ami/ami_post_configurer/wazuh-ami-customizer.py"
         local: true
     directories:
       - name: "configurer"
