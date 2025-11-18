@@ -50,7 +50,7 @@ def mock_shutil_copy():
 
 def test_set_hostname(mock_run_command):
     set_hostname()
-    mock_run_command.assert_called_once_with("sudo hostnamectl set-hostname wazuh-server", check=True)
+    mock_run_command.assert_called_once_with("sudo hostnamectl set-hostname wazuh", check=True)
 
 
 def test_config_grub(mock_run_command, mock_os_path_exists, mock_os_remove, mock_shutil_copy):
@@ -328,7 +328,7 @@ def test_main(
 
     mock_steps_system_config.assert_called_once()
 
-    mock_run_command.assert_any_call("systemctl stop wazuh-server")
+    mock_run_command.assert_any_call("systemctl stop wazuh-manager")
 
     mock_run_command.assert_any_call("curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/wazuh-*' -k")
 
@@ -337,7 +337,7 @@ def test_main(
     mock_run_command.assert_any_call(
         [
             "systemctl stop wazuh-indexer wazuh-dashboard",
-            "systemctl disable wazuh-server",
+            "systemctl disable wazuh-manager",
             "systemctl disable wazuh-dashboard",
         ]
     )

@@ -17,13 +17,13 @@ UTILS_PATH = "utils"
 
 def set_hostname() -> None:
     """
-    Sets the hostname of the VM to 'wazuh-server'.
+    Sets the hostname of the VM to 'wazuh'.
 
     Returns:
         None
     """
-    logger.debug("Setting hostname to 'wazuh-server'.")
-    run_command("sudo hostnamectl set-hostname wazuh-server", check=True)
+    logger.debug("Setting hostname to 'wazuh'.")
+    run_command("sudo hostnamectl set-hostname wazuh", check=True)
 
 
 def config_grub() -> None:
@@ -342,14 +342,14 @@ def main() -> None:
     logger.debug("Running system configuration.")
     steps_system_config()
 
-    run_command("systemctl stop wazuh-server")
+    run_command("systemctl stop wazuh-manager")
     run_command("curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/wazuh-*' -k")
 
     run_command("bash /usr/share/wazuh-indexer/bin/indexer-security-init.sh -ho 127.0.0.1")
 
     commands = [
         "systemctl stop wazuh-indexer wazuh-dashboard",
-        "systemctl disable wazuh-server",
+        "systemctl disable wazuh-manager",
         "systemctl disable wazuh-dashboard",
     ]
     run_command(commands)

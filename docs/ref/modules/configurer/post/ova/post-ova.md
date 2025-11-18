@@ -12,18 +12,18 @@ Once the **Provisioner and Core Configurer** have been executed, the Wazuh compo
 3. **JVM** heap size is updated to half of the total RAM.  
 4. Added `wazuh-starter` service which is responsible for raising each Wazuh component correctly.  
 5. Changed the `root` password to `wazuh`.  
-6. Changed the VM hostname to `wazuh-server`.  
+6. Changed the VM hostname to `wazuh`.  
 7. Disable the SSH connection to the `root` user.  
 8. Enable SSH connection via password.  
 9. Execute the `messages.sh` script which adds welcome messages both at machine startup and login.  
-10. Afterwards the `wazuh-server` is stopped and the following indexes are deleted:  
+10. Afterwards the `wazuh-manager` is stopped and the following indexes are deleted:  
     - `wazuh-alerts-*`  
     - `wazuh-archives-*`  
     - `wazuh-states-vulnerabilities-*`  
     - `wazuh-statistics-*`  
     - `wazuh-monitoring-*`  
 11. The `security-init.sh` is executed.  
-12. Stop `wazuh-indexer` and `wazuh-dashboard` services and disable `wazuh-server` and `wazuh-dashboard`.  
+12. Stop `wazuh-indexer` and `wazuh-dashboard` services and disable `wazuh-manager` and `wazuh-dashboard`.  
 13. Cleanup tasks are executed.  
 14. A network configuration file is created which ensures that a network interface is raised with **DHCP** on **IPv4** accessible.  
 15. **SSH** is configured to use modern and secure cryptographic algorithms, in accordance with **FIPS** activation.  
