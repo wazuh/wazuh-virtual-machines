@@ -29,7 +29,7 @@ class AmiPostConfigurer:
     journald__config_file_path: Path = Path("/etc/systemd/journald.conf")
     log_directory_path: Path = Path("/var/log")
     wazuh_indexer_log_path: Path = Path("/var/log/wazuh-indexer")
-    wazuh_server_log_path: Path = Path("/var/ossec/logs")
+    wazuh_manager_log_path: Path = Path("/var/ossec/logs")
     wazuh_dashboard_log_path: Path = Path("/var/log/wazuh-dashboard")
 
     @remote_connection
@@ -68,7 +68,7 @@ class AmiPostConfigurer:
 
         self.create_custom_dir(client=client)
         self.create_certs_env(client=client)
-        self.stop_wazuh_server(client=client)
+        self.stop_wazuh_manager(client=client)
         self.stop_wazuh_indexer(client=client)
         self.stop_wazuh_dashboard(client=client)
         self.change_ssh_port_to_default(client=client)
@@ -172,7 +172,7 @@ class AmiPostConfigurer:
 
         logger.info_success(f"{service_name} service stopped successfully")
 
-    def stop_wazuh_server(self, client: paramiko.SSHClient) -> None:
+    def stop_wazuh_manager(self, client: paramiko.SSHClient) -> None:
         """
         Stop the Wazuh server service.
 
@@ -424,8 +424,8 @@ class AmiPostConfigurer:
             if [ -d {self.wazuh_indexer_log_path} ] && sudo find {self.wazuh_indexer_log_path} -type f | read; then
                 sudo find {self.wazuh_indexer_log_path} -type f -exec sudo bash -c 'cat /dev/null > "$1"' _ {{}} \\;
             fi
-            if [ -d {self.wazuh_server_log_path} ] && sudo find {self.wazuh_server_log_path} -type f | read; then
-                sudo find {self.wazuh_server_log_path} -type f -exec sudo bash -c 'cat /dev/null > "$1"' _ {{}} \\;
+            if [ -d {self.wazuh_manager_log_path} ] && sudo find {self.wazuh_manager_log_path} -type f | read; then
+                sudo find {self.wazuh_manager_log_path} -type f -exec sudo bash -c 'cat /dev/null > "$1"' _ {{}} \\;
             fi
             if [ -d {self.wazuh_dashboard_log_path} ] && sudo find {self.wazuh_dashboard_log_path} -type f | read; then
                 sudo find {self.wazuh_dashboard_log_path} -type f -exec sudo bash -c 'cat /dev/null > "$1"' _ {{}} \\;

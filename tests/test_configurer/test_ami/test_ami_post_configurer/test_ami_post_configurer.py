@@ -13,7 +13,7 @@ def main_methods() -> list[str]:
     return [
         "create_custom_dir",
         "create_certs_env",
-        "stop_wazuh_server",
+        "stop_wazuh_manager",
         "stop_wazuh_indexer",
         "stop_wazuh_dashboard",
         "change_ssh_port_to_default",
@@ -145,8 +145,8 @@ def test_stop_service_fails(mock_ami_post_configurer, mock_exec_command, mock_pa
     mock_logger.error.assert_called_once_with("Error stopping the testing-service service")
 
 
-def test_stop_wazuh_server(mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger):
-    mock_ami_post_configurer.stop_wazuh_server(mock_paramiko.return_value)
+def test_stop_wazuh_manager(mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger):
+    mock_ami_post_configurer.stop_wazuh_manager(mock_paramiko.return_value)
     command = "sudo systemctl stop wazuh-manager"
     mock_exec_command.assert_called_once_with(command=command, client=mock_paramiko.return_value)
 
@@ -413,8 +413,8 @@ def test_clean_generated_logs(mock_ami_post_configurer, mock_exec_command, mock_
     if [ -d {mock_ami_post_configurer.wazuh_indexer_log_path} ] && sudo find {mock_ami_post_configurer.wazuh_indexer_log_path} -type f | read; then
         sudo find {mock_ami_post_configurer.wazuh_indexer_log_path} -type f -exec sudo bash -c 'cat /dev/null > "$1"' _ {{}} \\;
     fi
-    if [ -d {mock_ami_post_configurer.wazuh_server_log_path} ] && sudo find {mock_ami_post_configurer.wazuh_server_log_path} -type f | read; then
-        sudo find {mock_ami_post_configurer.wazuh_server_log_path} -type f -exec sudo bash -c 'cat /dev/null > "$1"' _ {{}} \\;
+    if [ -d {mock_ami_post_configurer.wazuh_manager_log_path} ] && sudo find {mock_ami_post_configurer.wazuh_manager_log_path} -type f | read; then
+        sudo find {mock_ami_post_configurer.wazuh_manager_log_path} -type f -exec sudo bash -c 'cat /dev/null > "$1"' _ {{}} \\;
     fi
     if [ -d {mock_ami_post_configurer.wazuh_dashboard_log_path} ] && sudo find {mock_ami_post_configurer.wazuh_dashboard_log_path} -type f | read; then
         sudo find {mock_ami_post_configurer.wazuh_dashboard_log_path} -type f -exec sudo bash -c 'cat /dev/null > "$1"' _ {{}} \\;
