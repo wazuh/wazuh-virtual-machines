@@ -33,7 +33,7 @@ class AmiPreConfigurer:
     systemd_services_path = Path("/etc/systemd/system/")
     ram_service_script_destination_path = Path("/etc")
     instance_username: str = "ec2-user"
-    wazuh_hostname: str = "wazuh-server"
+    wazuh_hostname: str = "wazuh"
     wazuh_user: str = "wazuh-user"
     wazuh_password: str = "wazuh"
     ssh_default_port: int = 22
