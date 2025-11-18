@@ -17,7 +17,7 @@ The provisioner module accepts the following options:
 - `--package-type`: Type of package to provision (`rpm`, `deb`).
 - `--arch`: Target architecture (`x86_64`, `amd64`, `arm64`, `aarch64`).
 - `--dependencies`: Path to the dependencies file.
-- `--component`: Component to provision (`wazuh-server`, `wazuh-indexer`, `wazuh-dashboard`, `all`).
+- `--component`: Component to provision (`wazuh-manager`, `wazuh-indexer`, `wazuh-dashboard`, `all`).
 
 ### Required Parameters
 

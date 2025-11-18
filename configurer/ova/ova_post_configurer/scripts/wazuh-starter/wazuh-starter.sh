@@ -102,12 +102,12 @@ logger "Starting Wazuh services in order"
 starter_service wazuh-indexer
 verify_indexer
 
-starter_service wazuh-server
+starter_service wazuh-manager
 
 starter_service wazuh-dashboard
 remove_kibana_index
 verify_dashboard
-systemctl enable wazuh-server
+systemctl enable wazuh-manager
 systemctl enable wazuh-dashboard
 
 clean_configuration
