@@ -50,24 +50,33 @@ def check_dependencies() -> None:
         raise Exception(f"Commands {', '.join(missing_cmds)} not found in PATH")
 
 
-def download_and_extract_ova(version: str, vmdk_filename: str, ova_filename: str) -> None:
+def download_and_extract_ova(version: str, ova_filename: str) -> str:
     """
-    Downloads and extracts a specified OVA file if the VMDK file does not already exist.
+    Downloads and extracts the OVA file, then finds and returns the VMDK filename.
 
     Args:
         version (str): The version of the Amazon Linux OVA to download.
-        vmdk_filename (str): The name of the VMDK file to check for existence and extract from the OVA.
         ova_filename (str): The name of the OVA file to download and extract.
 
     Returns:
-        None
+        str: The name of the extracted VMDK file.
     """
-    if not os.path.exists(vmdk_filename):
-        commands = [
-            f"wget https://cdn.amazonlinux.com/al2023/os-images/{version}/vmware/{ova_filename}",
-            f"tar -xvf {ova_filename} {vmdk_filename}",
-        ]
-        run_command(commands)
+    existing_vmdk_files = [f for f in os.listdir('.') if f.endswith('.vmdk')]
+    if existing_vmdk_files:
+        logger.info(f"Found existing VMDK file: {existing_vmdk_files[0]}")
+        return existing_vmdk_files[0]
+
+    commands = [
+        f"wget https://cdn.amazonlinux.com/al2023/os-images/{version}/vmware/{ova_filename}",
+        f"tar -xvf {ova_filename}",
+    ]
+    run_command(commands)
+
+    vmdk_files = [f for f in os.listdir('.') if f.endswith('.vmdk')]
+    if not vmdk_files:
+        raise RuntimeError("No VMDK file found after extracting OVA")
+
+    return vmdk_files[0]
 
 
 def convert_vmdk_to_raw(vmdk_filename: str, raw_file: str) -> None:
@@ -230,7 +239,6 @@ def main() -> None:
     check_dependencies()
     version = get_os_version()
     ova_filename = f"{OS}-vmware_esx-{version}-kernel-6.1-x86_64.xfs.gpt.ova"
-    vmdk_filename = f"{OS}-vmware_esx-{version}-kernel-6.1-x86_64.xfs.gpt-disk1.vmdk"
 
     raw_file = os.path.join(tempfile.mkdtemp(), f"{OS}.raw")
     vdi_file = os.path.join(tempfile.mkdtemp(), f"{OS}.vdi")
@@ -240,7 +248,7 @@ def main() -> None:
     temp_dirs = [os.path.dirname(raw_file), os.path.dirname(vdi_file), mount_dir]
 
     try:
-        download_and_extract_ova(version, vmdk_filename, ova_filename)
+        vmdk_filename = download_and_extract_ova(version, ova_filename)
         convert_vmdk_to_raw(vmdk_filename, raw_file)
         mount_and_setup_image(raw_file, mount_dir)
         convert_raw_to_vdi(raw_file, vdi_file)
