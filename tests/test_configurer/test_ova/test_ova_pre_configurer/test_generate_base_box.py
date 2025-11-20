@@ -193,35 +193,48 @@ def test_check_dependencies_missing_command():
         mock_logger_error.assert_called_once_with("Command wget not found in PATH")
 
 
-def test_download_and_extract_ova_vmdk_exists(mock_os_path_exists, mock_run_command):
+def test_download_and_extract_ova_vmdk_exists(mock_run_command):
     version = "2023.6.20250303.0"
-    vmdk_filename = "/path/to/existing.vmdk"
     ova_filename = "al2023-vmware_esx-2023.6.20250303.0-kernel-6.1-x86_64.xfs.gpt.ova"
+    expected_vmdk = "existing-vmdk-file.vmdk"
 
-    mock_os_path_exists.return_value = True
+    with patch("os.listdir", return_value=[expected_vmdk, "other-file.ovf"]):
+        result = download_and_extract_ova(version, ova_filename)
 
-    download_and_extract_ova(version, vmdk_filename, ova_filename)
-
+    assert result == expected_vmdk
     mock_run_command.assert_not_called()
-    mock_os_path_exists.assert_called_once_with(vmdk_filename)
 
 
-def test_download_and_extract_ova_vmdk_not_exists(mock_os_path_exists, mock_run_command):
+def test_download_and_extract_ova_vmdk_not_exists(mock_run_command):
     version = "2023.6.20250303.0"
-    vmdk_filename = "/path/to/nonexistent.vmdk"
     ova_filename = "al2023-vmware_esx-2023.6.20250303.0-kernel-6.1-x86_64.xfs.gpt.ova"
+    expected_vmdk = "extracted-vmdk-file.vmdk"
 
-    mock_os_path_exists.return_value = False
+    with patch("os.listdir", side_effect=[[], [expected_vmdk, "other-file.ovf"]]):
+        result = download_and_extract_ova(version, ova_filename)
 
     expected_commands = [
         f"wget https://cdn.amazonlinux.com/al2023/os-images/{version}/vmware/{ova_filename}",
-        f"tar -xvf {ova_filename} {vmdk_filename}",
+        f"tar -xvf {ova_filename}",
     ]
 
-    download_and_extract_ova(version, vmdk_filename, ova_filename)
+    assert result == expected_vmdk
+    mock_run_command.assert_called_once_with(expected_commands)
+
+
+def test_download_and_extract_ova_no_vmdk_found(mock_run_command):
+    version = "2023.6.20250303.0"
+    ova_filename = "al2023-vmware_esx-2023.6.20250303.0-kernel-6.1-x86_64.xfs.gpt.ova"
+
+    with patch("os.listdir", side_effect=[[], ["other-file.ovf", "another-file.mf"]]), pytest.raises(RuntimeError, match="No VMDK file found after extracting OVA"):
+        download_and_extract_ova(version, ova_filename)
+
+    expected_commands = [
+        f"wget https://cdn.amazonlinux.com/al2023/os-images/{version}/vmware/{ova_filename}",
+        f"tar -xvf {ova_filename}",
+    ]
 
     mock_run_command.assert_called_once_with(expected_commands)
-    mock_os_path_exists.assert_called_once_with(vmdk_filename)
 
 
 @patch("configurer.ova.ova_pre_configurer.generate_base_box.logger.info_success")
@@ -253,6 +266,8 @@ def test_main_success(
     mock_mkdtemp.side_effect = ["/tmp/raw_dir", "/tmp/vdi_dir", "/tmp/mount_dir"]
 
     mock_get_os_version.return_value = "2023.6.20250303.0"
+    expected_vmdk_filename = "al2023-vmware_esx-2023.6.20250303.0-kernel-6.1-x86_64.xfs.gpt-disk1.vmdk"
+    mock_download_and_extract_ova.return_value = expected_vmdk_filename
 
     main()
 
@@ -262,12 +277,11 @@ def test_main_success(
 
     mock_download_and_extract_ova.assert_called_once_with(
         "2023.6.20250303.0",
-        "al2023-vmware_esx-2023.6.20250303.0-kernel-6.1-x86_64.xfs.gpt-disk1.vmdk",
         "al2023-vmware_esx-2023.6.20250303.0-kernel-6.1-x86_64.xfs.gpt.ova",
     )
 
     mock_convert_vmdk_to_raw.assert_called_once_with(
-        "al2023-vmware_esx-2023.6.20250303.0-kernel-6.1-x86_64.xfs.gpt-disk1.vmdk",
+        expected_vmdk_filename,
         "/tmp/raw_dir/al2023.raw",
     )
 

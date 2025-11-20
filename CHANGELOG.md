@@ -29,6 +29,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Fix vagrant up inconsistencies at the OVA build process ([#454](https://github.com/wazuh/wazuh-virtual-machines/pull/454))
 - Fixed SHA file reference ([#365](https://github.com/wazuh/wazuh-virtual-machines/pull/365))
 - Fixed several OVA workflow and creation process errors ([#270](https://github.com/wazuh/wazuh-virtual-machines/pull/270))
 
