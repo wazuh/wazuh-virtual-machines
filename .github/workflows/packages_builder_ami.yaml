@@ -143,7 +143,7 @@ jobs:
       - name: Is stage check
         run: |
           if [ ${{ inputs.is_stage }} == true ]; then
-            LAST_STAGE=$(echo ${{ inputs.wazuh_virtual_machines_reference }} | cut -d '-' -f 2)
+            LAST_STAGE=$(jq -r '.stage' VERSION.json)
             echo "LAST_STAGE=$LAST_STAGE" >> $GITHUB_ENV
           fi
 
