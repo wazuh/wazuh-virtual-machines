@@ -13,7 +13,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- None
+- Fix Amazon Linux 2023 OVA download and extraction in OVA Build ([#490](https://github.com/wazuh/wazuh-virtual-machines/pull/490))
 
 ### Deleted
 
