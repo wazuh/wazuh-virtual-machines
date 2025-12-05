@@ -8,6 +8,10 @@ on:
         description: "ID used to identify the workflow uniquely."
         type: string
         required: false
+      is_stage:
+        description: "Is stage?"
+        type: boolean
+        default: false
       wazuh_virtual_machines_reference:
         description: 'Branch or tag of the wazuh-virtual-machines repository'
         required: true
@@ -47,6 +51,7 @@ on:
         required: false
 
 env:
+    LAST_STAGE: ""
     COMPOSITE_NAME: "linux-amazon-2023ami-amd64"
     ALLOCATOR_PATH: "/tmp/allocatorvm_ami"
     PLAYBOOKS_PATH: "${{ github.workspace }}/ami/playbooks/"
@@ -135,11 +140,20 @@ jobs:
           echo "[gha_instance]" > ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini
           echo "${{ env.ansible_host }} ansible_port=${{ env.ansible_port }} ansible_user=${{ env.ansible_user }} ansible_ssh_private_key_file=${{ env.ansible_ssh_private_key_file }} ansible_ssh_common_args='${{ env.ansible_ssh_common_args }}'" >> ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini
 
+      - name: Is stage check
+        run: |
+          if [ ${{ inputs.is_stage }} == true ]; then
+            LAST_STAGE=$(echo ${{ inputs.wazuh_virtual_machines_reference }} | cut -d '-' -f 2)
+            echo "LAST_STAGE=$LAST_STAGE" >> $GITHUB_ENV
+          fi
+
       - name: Run Ansible playbook to install Wazuh components
         run: |
           ansible-playbook -i ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini \
           ${{ env.PLAYBOOKS_PATH }}/build_ami_packages.yaml \
-          --extra-vars "installation_assistant_reference=${{ inputs.wazuh_installation_assistant_reference }}" \
+          --extra-vars \
+          "installation_assistant_reference=${{ inputs.wazuh_installation_assistant_reference }}" \
+          "last_stage=${{ env.LAST_STAGE }}" \
           "${{ inputs.debug }}"
 
 
