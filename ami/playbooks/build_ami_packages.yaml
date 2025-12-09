@@ -3,6 +3,7 @@
 
   vars:
     installation_assistant_reference: "{{ installation_assistant_reference }}"
+    last_stage: "{{ last_stage }}"
 
     provision_path: '/var/provision'
     username: 'wazuh-user'
@@ -187,6 +188,9 @@
 
     - name: Modify install script
       shell: cat {{ installation_assistant_directory }}/{{ installer_script_name }}
+
+    - name: Set last_stage variable
+      shell: sed -i 's/last_stage=""/last_stage="{{ last_stage }}"/g' {{ installation_assistant_directory }}/{{ installer_script_name }}
 
     ###############################
     # Install stage
