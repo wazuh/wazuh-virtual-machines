@@ -20,6 +20,28 @@ All notable changes to this project will be documented in this file.
 - Fix vagrant up inconsistencies at the renewed OVA build process ([#474](https://github.com/wazuh/wazuh-virtual-machines/pull/474))
 - Fix vagrant up inconsistencies at the start. ([#435](https://github.com/wazuh/wazuh-virtual-machines/pull/435))
 
+### Fixed
+
+- None
+
+### Deleted
+
+- None
+
+## [4.14.3]
+
+### Added
+
+- None
+
+### Changed
+
+- None
+
+### Fixed
+
+- None
+
 ### Deleted
 
 - None
@@ -36,7 +58,8 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- None
+- Fixed Wazuh template download error due to missing stage reference. ([#491](https://github.com/wazuh/wazuh-virtual-machines/pull/491))
+- Fix Amazon Linux 2023 OVA download and extraction in OVA Build ([#490](https://github.com/wazuh/wazuh-virtual-machines/pull/490))
 
 ### Deleted
 
