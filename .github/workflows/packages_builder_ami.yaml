@@ -8,10 +8,6 @@ on:
         description: "ID used to identify the workflow uniquely."
         type: string
         required: false
-      is_stage:
-        description: "Is stage?"
-        type: boolean
-        default: false
       wazuh_virtual_machines_reference:
         description: 'Branch or tag of the wazuh-virtual-machines repository'
         required: true
