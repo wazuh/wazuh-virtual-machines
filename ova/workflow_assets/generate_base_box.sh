@@ -18,7 +18,7 @@ if [ "${AL2023_VERSION}" == "latest" ]; then
 fi
 
 OVA_FILENAME="al2023-vmware_esx-${AL2023_VERSION}-kernel-6.1-x86_64.xfs.gpt.ova"
-VMDK_FILENAME="al2023-vmware_esx-${AL2023_VERSION}-kernel-6.1-x86_64.xfs.gpt-disk1.vmdk"
+VMDK_FILENAME=""  # Will be determined dynamically after extraction
 AL2023_OVA_OUTPUT="al2023.ova"
 # Temporary directories for raw, mount, and VDI files
 RAW_DIR="$(mktemp -d -t al2023_raw_XXXXXXXX)"
@@ -47,10 +47,24 @@ check_dependencies() {
 }
 
 download_and_extract_ova() {
-    if [ ! -f "${VMDK_FILENAME}" ]; then
-        wget "https://cdn.amazonlinux.com/al2023/os-images/${AL2023_VERSION}/vmware/${OVA_FILENAME}"
-        tar xvf "${OVA_FILENAME}" "${VMDK_FILENAME}"
+    # Check if VMDK already exists
+    local existing_vmdk=$(find . -maxdepth 1 -name "*.vmdk" -type f | head -n 1)
+    if [ -n "${existing_vmdk}" ]; then
+        VMDK_FILENAME=$(basename "${existing_vmdk}")
+        return
     fi
+    
+    # Download and extract OVA
+    wget "https://cdn.amazonlinux.com/al2023/os-images/${AL2023_VERSION}/vmware/${OVA_FILENAME}"
+    tar xvf "${OVA_FILENAME}"
+    
+    # Find the extracted VMDK file
+    existing_vmdk=$(find . -maxdepth 1 -name "*.vmdk" -type f | head -n 1)
+    if [ -z "${existing_vmdk}" ]; then
+        echo "Error: No VMDK file found after extracting OVA"
+        exit 1
+    fi
+    VMDK_FILENAME=$(basename "${existing_vmdk}")
 }
 
 convert_vmdk_to_raw() {
