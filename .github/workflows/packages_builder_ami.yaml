@@ -49,7 +49,7 @@ on:
         required: false
 
 env:
-    COMPOSITE_NAME: "linux-amazon-2023-amd64"
+    COMPOSITE_NAME: "amazon-2023-arm64"
     ALLOCATOR_PATH: "/tmp/allocatorvm_ami"
     WORKFLOW_VENV: "${{ github.workspace }}/workflow_venv"
     COMMIT_LIST: ${{ inputs.commit_list }}
@@ -147,7 +147,7 @@ jobs:
       - name: Execute configuration AMI process
         run: |
           source ${{ env.WORKFLOW_VENV }}/bin/activate
-          hatch run dev:run --inventory ${{ env.ALLOCATOR_PATH }}/inventory.yml --packages-url-path ${{ env.LOCAL_ARTIFACTS_URLS_FILEPATH }} --execute all-ami
+          hatch run dev:run --inventory ${{ env.ALLOCATOR_PATH }}/inventory.yml --packages-url-path ${{ env.LOCAL_ARTIFACTS_URLS_FILEPATH }} --execute all-ami --arch aarch64
 
       - name: Stop instance
         run: |
