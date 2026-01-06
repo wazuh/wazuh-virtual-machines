@@ -118,6 +118,8 @@ jobs:
             WAZUH_VERSION=$(jq -r '.version' VERSION.json)
             WAZUH_MAJOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1)
             WAZUH_MINOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1-2)
+            AMI_NAME="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.ami_revision }}_x86_64"
+            echo AMI_NAME=$AMI_NAME >> $GITHUB_ENV
             echo WAZUH_VERSION=$WAZUH_VERSION >> $GITHUB_ENV
             echo WAZUH_MAJOR=$WAZUH_MAJOR >> $GITHUB_ENV
             echo WAZUH_MINOR=$WAZUH_MINOR >> $GITHUB_ENV
@@ -193,11 +195,10 @@ jobs:
       - name: Build AMI from instance
         if: success()
         run: |
-          AMI_NAME="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.ami_revision }}"
-          aws ec2 create-image --instance-id ${{ env.INSTANCE_ID }} --name "$AMI_NAME" --no-reboot
-          AMI_ID=$(aws ec2 describe-images --filters "Name=name,Values=$AMI_NAME" --query 'Images[*].ImageId' --output text)
+          aws ec2 create-image --instance-id ${{ env.INSTANCE_ID }} --name "${{ env.AMI_NAME }}" --no-reboot
+          AMI_ID=$(aws ec2 describe-images --filters "Name=name,Values=${{ env.AMI_NAME }}" --query 'Images[*].ImageId' --output text)
           echo "AMI_ID=$AMI_ID" >> $GITHUB_ENV
-          echo "AMI creation started with name $AMI_NAME"
+          echo "AMI creation started with name ${{ env.AMI_NAME }}"
 
       - name: Check AMI status until available
         id: check_ami_status
@@ -228,7 +229,7 @@ jobs:
       - name: Tag AMI
         if: success()
         run: |
-          aws ec2 create-tags --resources ${{ env.AMI_ID }} --tags Key=Name,Value="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.ami_revision }}_x86_64"
+          aws ec2 create-tags --resources ${{ env.AMI_ID }} --tags Key=Name,Value="${{ env.AMI_NAME }}"
 
       - name: Delete allocated VM
         if: always() && steps.alloc_vm_ami.outcome == 'success' && inputs.destroy == true
@@ -290,6 +291,8 @@ jobs:
             WAZUH_VERSION=$(jq -r '.version' VERSION.json)
             WAZUH_MAJOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1)
             WAZUH_MINOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1-2)
+            AMI_NAME="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.ami_revision }}_aarch64"
+            echo AMI_NAME=$AMI_NAME >> $GITHUB_ENV
             echo WAZUH_VERSION=$WAZUH_VERSION >> $GITHUB_ENV
             echo WAZUH_MAJOR=$WAZUH_MAJOR >> $GITHUB_ENV
             echo WAZUH_MINOR=$WAZUH_MINOR >> $GITHUB_ENV
@@ -365,11 +368,10 @@ jobs:
       - name: Build AMI from instance
         if: success()
         run: |
-          AMI_NAME="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.ami_revision }}"
-          aws ec2 create-image --instance-id ${{ env.INSTANCE_ID }} --name "$AMI_NAME" --no-reboot
-          AMI_ID=$(aws ec2 describe-images --filters "Name=name,Values=$AMI_NAME" --query 'Images[*].ImageId' --output text)
+          aws ec2 create-image --instance-id ${{ env.INSTANCE_ID }} --name "${{ env.AMI_NAME }}" --no-reboot
+          AMI_ID=$(aws ec2 describe-images --filters "Name=name,Values=${{ env.AMI_NAME }}" --query 'Images[*].ImageId' --output text)
           echo "AMI_ID=$AMI_ID" >> $GITHUB_ENV
-          echo "AMI creation started with name $AMI_NAME"
+          echo "AMI creation started with name ${{ env.AMI_NAME }}"
 
       - name: Check AMI status until available
         id: check_ami_status
@@ -400,7 +402,7 @@ jobs:
       - name: Tag AMI
         if: success()
         run: |
-          aws ec2 create-tags --resources ${{ env.AMI_ID }} --tags Key=Name,Value="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.ami_revision }}_aarch64"
+          aws ec2 create-tags --resources ${{ env.AMI_ID }} --tags Key=Name,Value="${{ env.AMI_NAME }}"
 
       - name: Delete allocated VM
         if: always() && steps.alloc_vm_ami.outcome == 'success' && inputs.destroy == true
