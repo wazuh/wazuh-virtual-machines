@@ -204,7 +204,7 @@ until $(curl -XGET https://localhost:9200/ -uadmin:${new_password} -k --max-time
   sleep 10
 done
 
-systemctl_execution "start" "wazuh-dashboard" "${debug}"
+systemctl_execution "restart" "wazuh-dashboard" "${debug}"
 systemctl_execution "enable" "wazuh-dashboard" "${debug}"
 
 restart_ssh_service
