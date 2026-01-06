@@ -118,7 +118,7 @@ jobs:
             WAZUH_VERSION=$(jq -r '.version' VERSION.json)
             WAZUH_MAJOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1)
             WAZUH_MINOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1-2)
-            AMI_NAME="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.ami_revision }}_x86_64"
+            AMI_NAME="Wazuh_v${WAZUH_VERSION}${{ inputs.ami_revision }}_x86_64"
             echo AMI_NAME=$AMI_NAME >> $GITHUB_ENV
             echo WAZUH_VERSION=$WAZUH_VERSION >> $GITHUB_ENV
             echo WAZUH_MAJOR=$WAZUH_MAJOR >> $GITHUB_ENV
@@ -291,7 +291,7 @@ jobs:
             WAZUH_VERSION=$(jq -r '.version' VERSION.json)
             WAZUH_MAJOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1)
             WAZUH_MINOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1-2)
-            AMI_NAME="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.ami_revision }}_aarch64"
+            AMI_NAME="Wazuh_v${WAZUH_VERSION}${{ inputs.ami_revision }}_aarch64"
             echo AMI_NAME=$AMI_NAME >> $GITHUB_ENV
             echo WAZUH_VERSION=$WAZUH_VERSION >> $GITHUB_ENV
             echo WAZUH_MAJOR=$WAZUH_MAJOR >> $GITHUB_ENV
