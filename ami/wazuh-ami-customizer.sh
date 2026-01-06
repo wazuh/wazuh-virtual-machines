@@ -195,7 +195,7 @@ configure_dashboard
 verify_dashboard
 
 systemctl_execution "stop" "wazuh-dashboard" "${debug}"
-eval "sleep 5"
+eval "sleep 20"
 
 change_passwords
 
@@ -204,7 +204,7 @@ until $(curl -XGET https://localhost:9200/ -uadmin:${new_password} -k --max-time
   sleep 10
 done
 
-systemctl_execution "restart" "wazuh-dashboard" "${debug}"
+systemctl_execution "start" "wazuh-dashboard" "${debug}"
 systemctl_execution "enable" "wazuh-dashboard" "${debug}"
 
 restart_ssh_service
