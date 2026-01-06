@@ -141,7 +141,9 @@ class AmiPreConfigurer:
         logger.debug(f"Removing default instance user: {self.instance_username}")
 
         command = f"""
-        sudo pkill -u {self.instance_username}
+        sudo pkill -9 -u {self.instance_username}
+        sleep 2
+        sudo pkill -9 -u {self.instance_username} 2>/dev/null || true
         sudo userdel -r {self.instance_username}
         """
 
