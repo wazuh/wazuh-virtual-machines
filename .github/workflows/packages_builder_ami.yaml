@@ -249,7 +249,7 @@ jobs:
           path: ${{ env.ALLOCATOR_PATH }}.zip
 
   Build_ARM_AMI:
-    if: inputs.architecture == 'amd64' || inputs.architecture == 'both'
+    if: inputs.architecture == 'arm64' || inputs.architecture == 'both'
     runs-on: ubuntu-22.04
     steps:
       - name: View parameters
