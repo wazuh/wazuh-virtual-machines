@@ -275,6 +275,7 @@ def start_components_services() -> None:
 
     enable_service("wazuh-manager")
     start_service("wazuh-manager")
+    verify_server_connection()
 
     enable_service("wazuh-dashboard")
     start_service("wazuh-dashboard")
@@ -386,7 +387,7 @@ if __name__ == "__main__":
         change_passwords()
         start_service("wazuh-dashboard")
         start_ssh_service()
-        clean_up()
+        #clean_up()
     except Exception as e:
         logger.error(f"An error occurred during the customization process: {e}")
         start_ssh_service()
