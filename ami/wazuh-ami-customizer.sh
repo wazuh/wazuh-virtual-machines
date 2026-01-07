@@ -195,7 +195,7 @@ configure_dashboard
 verify_dashboard
 
 systemctl_execution "stop" "wazuh-dashboard" "${debug}"
-eval "sleep 20"
+eval "sleep 5"
 
 change_passwords
 
