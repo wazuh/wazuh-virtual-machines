@@ -30,11 +30,11 @@ on:
           - prod
           - pre-prod
           - dev
-      composite_names:
+      architecture:
         description: |
-          'Define base AMI to build Wazuh AMI, this selection will determine the OS and architecture. It must be a string list (JSON format). E.g: ["amazon-2023-amd64", "amazon-2023-arm64"]'
+          'Determine the architecture. It must be a string list (JSON format). E.g: ["amd64", "arm64"]'
         required: true
-        default: '["amazon-2023-amd64", "amazon-2023-arm64"]'
+        default: '["amd64", "arm64"]'
         type: string
       commit_list:
         description: |
@@ -75,7 +75,7 @@ jobs:
     strategy:
       fail-fast: false    # If a job fails, the rest of jobs will not be canceled
       matrix:
-        composite_name: ${{ fromJson(inputs.composite_names) }}
+        arch: ${{ fromJson(inputs.architecture) }}
 
     steps:
       - name: View parameters
@@ -115,15 +115,17 @@ jobs:
       - name: Get Wazuh version
         run: |
             ARCH_FLAG=""
-            if [[ "${{ matrix.composite_name }}" == *"arm"* ]]; then
+            if [[ "${{ matrix.arch }}" == "arm64" ]]; then
               ARCH_FLAG="--arch aarch64"
               AMI_NAME="Wazuh_v${WAZUH_VERSION}${{ inputs.ami_revision }}_aarch64"
             else
               AMI_NAME="Wazuh_v${WAZUH_VERSION}${{ inputs.ami_revision }}_x86_64"
             fi
+            COMPOSITE_NAME="amazon-2023-${{ matrix.arch }}"
             WAZUH_VERSION=$(jq -r '.version' VERSION.json)
             WAZUH_MAJOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1)
             WAZUH_MINOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1-2)
+            echo COMPOSITE_NAME=$COMPOSITE_NAME >> $GITHUB_ENV
             echo ARCH_FLAG=$ARCH_FLAG >> $GITHUB_ENV
             echo AMI_NAME=$AMI_NAME >> $GITHUB_ENV
             echo WAZUH_VERSION=$WAZUH_VERSION >> $GITHUB_ENV
@@ -137,7 +139,7 @@ jobs:
       - name: Execute allocator module that will create the base instance
         id: alloc_vm_ami
         run: |
-          python wazuh-automation/deployability/modules/allocation/main.py --action create --provider aws --size large --composite-name ${{ env.AMD_COMPOSITE_NAME }} --working-dir ${{ env.ALLOCATOR_PATH }} \
+          python wazuh-automation/deployability/modules/allocation/main.py --action create --provider aws --size large --composite-name ${{ env.COMPOSITE_NAME }} --working-dir ${{ env.ALLOCATOR_PATH }} \
             --track-output ${{ env.ALLOCATOR_PATH }}/track.yml --inventory-output ${{ env.ALLOCATOR_PATH }}/inventory.yml --instance-name gha_${{ github.run_id }}_ami_build \
             --label-team devops --label-termination-date 1d
           INSTANCE_ID=$(yq '.all.hosts | keys | .[0]' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
