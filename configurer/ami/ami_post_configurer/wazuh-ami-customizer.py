@@ -65,7 +65,7 @@ def stop_service(name: str) -> None:
     logger.debug(f"{name} service stopped")
 
 
-def verify_component_connection(component: Component, command: str, retries: int = 5, wait_time: int = 10) -> None:
+def verify_component_connection(component: Component, command: str, retries: int = 10, wait_time: int = 10) -> None:
     """
     Verifies the component connection by sending a request to the component's endpoint.
     Args:
@@ -345,7 +345,6 @@ def change_passwords() -> None:
 
     logger.debug("Passwords changed. Verifying indexer connection with new password")
     verify_indexer_connection(password=instance_id)
-    logger.debug("Indexer connection verified with new password")
     logger.debug("Verifying server API connection with new password")
     verify_server_connection(password=instance_id)
     logger.debug("Changing passwords finished successfully")
@@ -387,7 +386,7 @@ if __name__ == "__main__":
         change_passwords()
         start_service("wazuh-dashboard")
         start_ssh_service()
-        #clean_up()
+        clean_up()
     except Exception as e:
         logger.error(f"An error occurred during the customization process: {e}")
         start_ssh_service()
