@@ -225,7 +225,7 @@ def verify_server_connection(password: str = "wazuh-wui") -> None:
         None
     """
 
-    command = f'curl -XPOST "https://localhost:55000/security/user/authenticate -uwazuh-wui:{password} -k --max-time 120 --silent -w "%{{http_code}}" --output /dev/null'
+    command = 'curl -XPOST https://localhost:55000/security/user/authenticate -uwazuh-wui:{password} -k --max-time 120 -w "%{http_code}" -s -o /dev/null'
     verify_component_connection(Component.WAZUH_SERVER, command)
 
 def verify_dashboard_connection() -> None:
@@ -386,7 +386,7 @@ if __name__ == "__main__":
         change_passwords()
         start_service("wazuh-dashboard")
         start_ssh_service()
-        clean_up()
+        #clean_up()
     except Exception as e:
         logger.error(f"An error occurred during the customization process: {e}")
         start_ssh_service()
