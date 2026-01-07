@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Adapted Wazuh AMI generation code for ARM64 support. ([#507](https://github.com/wazuh/wazuh-virtual-machines/pull/507))
 - Change signing script and rework AMI and OVA workflow ([#472](https://github.com/wazuh/wazuh-virtual-machines/pull/472))
 - Add password-tool to the AMI configuration process ([#473](https://github.com/wazuh/wazuh-virtual-machines/pull/473))
 - Update AWS S3 OVA path ([#465](https://github.com/wazuh/wazuh-virtual-machines/pull/465))

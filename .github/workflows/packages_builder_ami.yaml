@@ -30,6 +30,12 @@ on:
           - prod
           - pre-prod
           - dev
+      architecture:
+        description: |
+          'Determine the architecture. It must be a string list (JSON format). E.g: ["amd64", "arm64"]'
+        required: true
+        default: '["amd64", "arm64"]'
+        type: string
       commit_list:
         description: |
           'Wazuh components revisions (comma-separated string list) ["indexer-revision", "server-revision", "dashboard-revision"]'
@@ -49,7 +55,6 @@ on:
         required: false
 
 env:
-    COMPOSITE_NAME: "linux-amazon-2023-amd64"
     ALLOCATOR_PATH: "/tmp/allocatorvm_ami"
     WORKFLOW_VENV: "${{ github.workspace }}/workflow_venv"
     COMMIT_LIST: ${{ inputs.commit_list }}
@@ -67,6 +72,11 @@ permissions:
 jobs:
   Build_AMI:
     runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false    # If a job fails, the rest of jobs will not be canceled
+      matrix:
+        arch: ${{ fromJson(inputs.architecture) }}
+
     steps:
       - name: View parameters
         run: echo "${{ toJson(inputs) }}"
@@ -107,6 +117,17 @@ jobs:
             WAZUH_VERSION=$(jq -r '.version' VERSION.json)
             WAZUH_MAJOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1)
             WAZUH_MINOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1-2)
+            ARCH_FLAG=""
+            if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+              ARCH_FLAG="--arch aarch64"
+              AMI_NAME="Wazuh_v${WAZUH_VERSION}${{ inputs.ami_revision }}_aarch64"
+            else
+              AMI_NAME="Wazuh_v${WAZUH_VERSION}${{ inputs.ami_revision }}_x86_64"
+            fi
+            COMPOSITE_NAME="amazon-2023-${{ matrix.arch }}"
+            echo COMPOSITE_NAME=$COMPOSITE_NAME >> $GITHUB_ENV
+            echo ARCH_FLAG=$ARCH_FLAG >> $GITHUB_ENV
+            echo AMI_NAME=$AMI_NAME >> $GITHUB_ENV
             echo WAZUH_VERSION=$WAZUH_VERSION >> $GITHUB_ENV
             echo WAZUH_MAJOR=$WAZUH_MAJOR >> $GITHUB_ENV
             echo WAZUH_MINOR=$WAZUH_MINOR >> $GITHUB_ENV
@@ -147,7 +168,7 @@ jobs:
       - name: Execute configuration AMI process
         run: |
           source ${{ env.WORKFLOW_VENV }}/bin/activate
-          hatch run dev:run --inventory ${{ env.ALLOCATOR_PATH }}/inventory.yml --packages-url-path ${{ env.LOCAL_ARTIFACTS_URLS_FILEPATH }} --execute all-ami
+          hatch run dev:run --inventory ${{ env.ALLOCATOR_PATH }}/inventory.yml --packages-url-path ${{ env.LOCAL_ARTIFACTS_URLS_FILEPATH }} --execute all-ami ${{ env.ARCH_FLAG }}
 
       - name: Stop instance
         run: |
@@ -182,11 +203,10 @@ jobs:
       - name: Build AMI from instance
         if: success()
         run: |
-          AMI_NAME="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.ami_revision }}"
-          aws ec2 create-image --instance-id ${{ env.INSTANCE_ID }} --name "$AMI_NAME" --no-reboot
-          AMI_ID=$(aws ec2 describe-images --filters "Name=name,Values=$AMI_NAME" --query 'Images[*].ImageId' --output text)
+          aws ec2 create-image --instance-id ${{ env.INSTANCE_ID }} --name "${{ env.AMI_NAME }}" --no-reboot
+          AMI_ID=$(aws ec2 describe-images --filters "Name=name,Values=${{ env.AMI_NAME }}" --query 'Images[*].ImageId' --output text)
           echo "AMI_ID=$AMI_ID" >> $GITHUB_ENV
-          echo "AMI creation started with name $AMI_NAME"
+          echo "AMI creation started with name ${{ env.AMI_NAME }}"
 
       - name: Check AMI status until available
         id: check_ami_status
@@ -217,7 +237,7 @@ jobs:
       - name: Tag AMI
         if: success()
         run: |
-          aws ec2 create-tags --resources ${{ env.AMI_ID }} --tags Key=Name,Value="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.ami_revision }}"
+          aws ec2 create-tags --resources ${{ env.AMI_ID }} --tags Key=Name,Value="${{ env.AMI_NAME }}"
 
       - name: Delete allocated VM
         if: always() && steps.alloc_vm_ami.outcome == 'success' && inputs.destroy == true
