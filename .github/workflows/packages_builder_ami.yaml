@@ -114,6 +114,9 @@ jobs:
 
       - name: Get Wazuh version
         run: |
+            WAZUH_VERSION=$(jq -r '.version' VERSION.json)
+            WAZUH_MAJOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1)
+            WAZUH_MINOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1-2)
             ARCH_FLAG=""
             if [[ "${{ matrix.arch }}" == "arm64" ]]; then
               ARCH_FLAG="--arch aarch64"
@@ -122,9 +125,6 @@ jobs:
               AMI_NAME="Wazuh_v${WAZUH_VERSION}${{ inputs.ami_revision }}_x86_64"
             fi
             COMPOSITE_NAME="amazon-2023-${{ matrix.arch }}"
-            WAZUH_VERSION=$(jq -r '.version' VERSION.json)
-            WAZUH_MAJOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1)
-            WAZUH_MINOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1-2)
             echo COMPOSITE_NAME=$COMPOSITE_NAME >> $GITHUB_ENV
             echo ARCH_FLAG=$ARCH_FLAG >> $GITHUB_ENV
             echo AMI_NAME=$AMI_NAME >> $GITHUB_ENV
