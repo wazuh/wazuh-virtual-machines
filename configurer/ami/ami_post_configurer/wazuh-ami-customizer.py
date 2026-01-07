@@ -215,6 +215,18 @@ def verify_indexer_connection(password: str = "admin") -> None:
     command = f'curl -XGET https://localhost:9200/ -uadmin:{password} -k --max-time 120 --silent -w "%{{http_code}}" --output /dev/null'
     verify_component_connection(Component.WAZUH_INDEXER, command)
 
+def verify_server_connection(password: str = "wazuh-wui") -> None:
+    """
+    Verifies the connection to the Wazuh server API.
+    This function sends a request to the Wazuh server API endpoint and checks the response.
+    It ensures that the Wazuh server API is running and accessible after the custom certificates have been configured.
+
+    Returns:
+        None
+    """
+
+    command = f'curl -XPOST "https://localhost:55000/security/user/authenticate -uwazuh-wui:{password} -k --max-time 120 --silent -w "%{{http_code}}" --output /dev/null'
+    verify_component_connection(Component.WAZUH_SERVER, command)
 
 def verify_dashboard_connection() -> None:
     """
@@ -332,6 +344,9 @@ def change_passwords() -> None:
 
     logger.debug("Passwords changed. Verifying indexer connection with new password")
     verify_indexer_connection(password=instance_id)
+    logger.debug("Indexer connection verified with new password")
+    logger.debug("Verifying server API connection with new password")
+    verify_server_connection(password=instance_id)
     logger.debug("Changing passwords finished successfully")
 
 
