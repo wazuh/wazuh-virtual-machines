@@ -17,6 +17,7 @@ PASWORDS_FILE_NAME = Path("/etc/wazuh-ami-customizer/passwords.txt")
 SERVICE_PATH = "/etc/systemd/system"
 SERVICE_NAME = f"{SERVICE_PATH}/wazuh-ami-customizer.service"
 SERVICE_TIMER_NAME = f"{SERVICE_PATH}/wazuh-ami-customizer.timer"
+WAZUH_WARNING_SCRIPT = Path("/etc/profile.d/wazuh-debug-warning.sh")
 
 logger = Logger("CustomCertificates")
 file_handler = logging.FileHandler(LOGFILE)
@@ -65,6 +66,12 @@ def stop_service(name: str) -> None:
 
     logger.debug(f"{name} service stopped")
 
+def debug_ssh_message() -> None:
+    exec_command(command="""
+    mkdir -p /var/lib/wazuh
+    touch /var/lib/wazuh/DEBUG_MODE
+    """)
+
 
 def verify_component_connection(component: Component, command: str, retries: int = 5, wait_time: int = 10) -> None:
     """
@@ -92,10 +99,7 @@ def verify_component_connection(component: Component, command: str, retries: int
             time.sleep(wait)
         else:
             logger.error(f"{component.replace('_', ' ')} connection failed after {retries} attempts")
-            exec_command(command="""
-            mkdir -p /var/lib/wazuh
-            touch /var/lib/wazuh/DEBUG_MODE
-            """)
+            debug_ssh_message()  # Enable debug mode
             start_ssh_service()  # Restore SSH service for debugging
             raise RuntimeError(f"{component.replace('_', ' ')} connection failed")
 
@@ -375,6 +379,7 @@ def clean_up() -> None:
     rm -rf {LOGFILE}
     rm -rf {SERVICE_NAME}
     rm -rf {SERVICE_TIMER_NAME}
+    rm -rf {WAZUH_WARNING_SCRIPT}
     """
     _, error_output = exec_command(command=command)
     if error_output:
@@ -394,6 +399,9 @@ if __name__ == "__main__":
     logger.info("Starting custom certificates configuration process")
 
     try:
+        if args.debug:
+            logger.info("Wazuh customizer is running in debug mode.")
+            debug_ssh_message()
         stop_ssh_service()
         stop_components_services()
         remove_certificates()
@@ -406,8 +414,7 @@ if __name__ == "__main__":
 
         if not args.debug:
             clean_up()
-        else:
-            logger.info("Skipping cleanup due to debug mode")
+
     except Exception as e:
         logger.error(f"An error occurred during the customization process: {e}")
         start_ssh_service()
