@@ -1,3 +1,4 @@
+import argparse
 import logging
 import time
 from pathlib import Path
@@ -383,6 +384,13 @@ def clean_up() -> None:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Wazuh AMI Customizer")
+    parser.add_argument("-d", "--debug", action="store_true", help="Enable debug mode (skips cleanup)")
+    args = parser.parse_args()
+
+    if args.debug:
+        logger.info("Debug mode enabled. Cleanup will be skipped.")
+
     logger.info("Starting custom certificates configuration process")
 
     try:
@@ -395,7 +403,11 @@ if __name__ == "__main__":
         change_passwords()
         start_service("wazuh-dashboard")
         start_ssh_service()
-        clean_up()
+
+        if not args.debug:
+            clean_up()
+        else:
+            logger.info("Skipping cleanup due to debug mode")
     except Exception as e:
         logger.error(f"An error occurred during the customization process: {e}")
         start_ssh_service()

@@ -43,6 +43,11 @@ on:
         required: true
         default: '["latest", "latest", "latest", "latest"]'
         type: string
+      customizer_debug:
+        description: 'Enable debug mode in the AMI customizer'
+        required: false
+        default: false
+        type: boolean
       destroy:
         description: 'Destroy the base instance after the AMI is created'
         required: false
@@ -64,6 +69,7 @@ env:
     ARTIFACTS_URLS_FILENAME: "artifact_urls.yml"
     DEV_ARTIFACTS_URLS_PATH: "deployment"
     GENERATE_PRESIGNED_URLS_SCRIPT_PATH: ${{ github.workspace }}/.github/scripts/generate_presigned_dev_urls.py
+    CUSTOMIZER_SERVICE_FILE: ${{ github.workspace }}/configurer/ami/ami_pre_configurer/scripts/wazuh-ami-customizer.service
 
 permissions:
   id-token: write
@@ -164,6 +170,12 @@ jobs:
         if: inputs.wazuh_package_type == 'dev'
         run: |
           python ${{ env.GENERATE_PRESIGNED_URLS_SCRIPT_PATH }}
+
+      - name: Set customizer debug mode environment variable
+        run: |
+          if [ "${{ inputs.customizer_debug }}" == "true" ]; then
+            sed -i 's|ExecStart=.* -m wazuh-ami-customizer$|& --debug|' ${{ env.CUSTOMIZER_SERVICE_FILE }}
+          fi
 
       - name: Execute configuration AMI process
         run: |

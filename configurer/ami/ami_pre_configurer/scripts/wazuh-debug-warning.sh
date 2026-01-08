@@ -17,6 +17,7 @@ WARNING: WAZUH AMI IN DEBUG MODE
 The Wazuh AMI started in debug mode.
 Some services may not be ready yet.
 Please check the logs for more information.
+/var/log/wazuh-ami-customizer.log
 ==========================================
 ${NC}
 EOF
