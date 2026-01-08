@@ -65,7 +65,7 @@ def stop_service(name: str) -> None:
     logger.debug(f"{name} service stopped")
 
 
-def verify_component_connection(component: Component, command: str, retries: int = 10, wait_time: int = 10) -> None:
+def verify_component_connection(component: Component, command: str, retries: int = 5, wait_time: int = 10) -> None:
     """
     Verifies the component connection by sending a request to the component's endpoint.
     Args:
@@ -86,8 +86,30 @@ def verify_component_connection(component: Component, command: str, retries: int
             return
 
         if attempt < retries - 1:
-            logger.debug(f"Attempt {attempt + 1} failed, retrying in {wait_time} seconds...")
-            time.sleep(wait_time)
+            wait = wait_time * (attempt + 1)  # Incremental wait time
+            logger.debug(f"Attempt {attempt + 1} failed, retrying in {wait} seconds...")
+            time.sleep(wait)
+        else:
+            logger.error(f"{component.replace('_', ' ')} connection failed after {retries} attempts")
+            # Update MOTD banner to show debug mode warning
+            command_update_motd = """
+            cat > /etc/update-motd.d/80-wazuh-banner << 'EOF'
+            #!/bin/bash
+            echo -e "\033[0;31m"
+            echo "=========================================="
+            echo "WARNING: WAZUH AMI IN DEBUG MODE"
+            echo "=========================================="
+            echo "The Wazuh AMI started in debug mode."
+            echo "Some services may not be ready yet."
+            echo "Please check the logs for more information."
+            echo "=========================================="
+            echo -e "\033[0m"
+            EOF
+            chmod +x /etc/update-motd.d/80-wazuh-banner
+            """
+            exec_command(command=command_update_motd)
+            start_ssh_service()  # Restore SSH service for debugging
+            raise RuntimeError(f"{component.replace('_', ' ')} connection failed")
 
 
 def enable_service(name: str) -> None:
@@ -386,7 +408,7 @@ if __name__ == "__main__":
         change_passwords()
         start_service("wazuh-dashboard")
         start_ssh_service()
-        #clean_up()
+        clean_up()
     except Exception as e:
         logger.error(f"An error occurred during the customization process: {e}")
         start_ssh_service()
