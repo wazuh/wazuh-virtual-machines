@@ -91,23 +91,10 @@ def verify_component_connection(component: Component, command: str, retries: int
             time.sleep(wait)
         else:
             logger.error(f"{component.replace('_', ' ')} connection failed after {retries} attempts")
-            # Update MOTD banner to show debug mode warning
-            command_update_motd = """
-            cat > /etc/update-motd.d/80-wazuh-banner << 'EOF'
-            #!/bin/bash
-            echo -e "\033[0;31m"
-            echo "=========================================="
-            echo "WARNING: WAZUH AMI IN DEBUG MODE"
-            echo "=========================================="
-            echo "The Wazuh AMI started in debug mode."
-            echo "Some services may not be ready yet."
-            echo "Please check the logs for more information."
-            echo "=========================================="
-            echo -e "\033[0m"
-            EOF
-            chmod +x /etc/update-motd.d/80-wazuh-banner
-            """
-            exec_command(command=command_update_motd)
+            exec_command(command="""
+            mkdir -p /var/lib/wazuh
+            touch /var/lib/wazuh/DEBUG_MODE
+            """)
             start_ssh_service()  # Restore SSH service for debugging
             raise RuntimeError(f"{component.replace('_', ' ')} connection failed")
 
@@ -247,7 +234,7 @@ def verify_server_connection(password: str = "wazuh-wui") -> None:
         None
     """
 
-    command = 'curl -XPOST https://localhost:55000/security/user/authenticate -uwazuh-wui:{password} -k --max-time 120 -w "%{http_code}" -s -o /dev/null'
+    command = f'curl -XPOST https://localhost:55000/security/user/authenticate -uwazuh-wui:{password} -k --max-time 120 -w "%{{http_code}}" -s -o /dev/null'
     verify_component_connection(Component.WAZUH_SERVER, command)
 
 def verify_dashboard_connection() -> None:

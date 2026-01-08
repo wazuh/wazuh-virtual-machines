@@ -24,6 +24,7 @@ class AmiPreConfigurer:
     local_update_indexer_heap_service_path: Path
     local_customize_certs_service_path: Path
     local_customize_certs_timer_path: Path
+    local_customize_debug_script_path: Path
     cloud_config_path: Path = Path("/etc/cloud/cloud.cfg")
     ssh_config_path: Path = Path("/etc/ssh/sshd_config")
     instance_update_logo_path: Path = Path("/etc/update-motd.d/70-available-updates")
@@ -31,6 +32,7 @@ class AmiPreConfigurer:
     default_motd_file_path = Path("/usr/lib/motd.d/30-banner")
     journald_file_path = Path("/etc/systemd/journald.conf")
     systemd_services_path = Path("/etc/systemd/system/")
+    debug_script_path = Path("/etc/profile.d/")
     ram_service_script_destination_path = Path("/etc")
     instance_username: str = "ec2-user"
     wazuh_hostname: str = "wazuh"
@@ -72,6 +74,7 @@ class AmiPreConfigurer:
         self.stop_journald_log_storage(client=client)
         self.create_service_to_set_ram(client=client)
         self.create_customize_certs_service_files(client=client)
+        self.create_customize_debug_script_file(client=client)
 
         logger.info_success("AMI customization process finished")
 
@@ -456,5 +459,53 @@ class AmiPreConfigurer:
         )
         self.create_ami_custom_service(
             file_local_path=self.local_customize_certs_timer_path,
+            client=client,
+        )
+
+    def create_ami_debug_script(self, file_local_path: Path, client: paramiko.SSHClient) -> None:
+        """
+        Creates a debug script on the remote host using the provided local script file.
+        This method uploads the script file to the remote host, moves it to the appropriate
+        directory, and sets the necessary permissions and ownership.
+        Args:
+            file_local_path (Path): The local path of the script file to be uploaded.
+            client (paramiko.SSHClient): An active SSH client connected to the remote host.
+        Returns:
+            None
+        """
+        logger.debug(f'Creating "{file_local_path.name}" debug script')
+
+        sftp = client.open_sftp()
+        tmp_script_path = f"/tmp/{file_local_path.name}"
+        try:
+            sftp.put(str(file_local_path), tmp_script_path)
+        except Exception as e:
+            logger.error("Error uploading debug script to the remote host")
+            raise RuntimeError(f"Error uploading debug script to the remote host: {str(e)}") from e
+        finally:
+            sftp.close()
+
+        command = f"""
+        sudo mv {tmp_script_path} {self.debug_script_path}/{file_local_path.name}
+        sudo chmod 755 {self.debug_script_path}/{file_local_path.name}
+        sudo chown root:root {self.debug_script_path}/{file_local_path.name}
+        """
+        _, error_output = exec_command(command=command, client=client)
+        if error_output:
+            logger.error(f"Error creating debug script {file_local_path.name}")
+            raise RuntimeError(f"Error creating debug script {file_local_path.name}: {error_output}")
+
+        logger.info_success(f'"{file_local_path.name}" debug script created successfully')
+
+    def create_customize_debug_script_file(self, client: paramiko.SSHClient) -> None:
+        """
+        Create the customize certificates service and timer files on the remote server.
+        This method uploads the service and timer files to the remote server and enables them.
+        Args:
+            client (paramiko.SSHClient): The SSH client used for the connection.
+        """
+
+        self.create_ami_debug_script(
+            file_local_path=self.local_customize_debug_script_path,
             client=client,
         )

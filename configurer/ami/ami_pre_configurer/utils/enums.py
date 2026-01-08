@@ -15,3 +15,6 @@ class AmiLocalFilePath(StrEnum):
     CUSTOMIZE_CERTS_TIMER = str(
         Path(os.getcwd()) / "configurer" / "ami" / "ami_pre_configurer" / "scripts" / "wazuh-ami-customizer.timer"
     )
+    CUSTOMIZE_DEBUG_SCRIPT = str(
+        Path(os.getcwd()) / "configurer" / "ami" / "ami_pre_configurer" / "scripts" / "wazuh-debug-warning.sh"
+    )

@@ -36,6 +36,7 @@ def ami_pre_configurer(inventory: Inventory) -> str:
         local_update_indexer_heap_service_path=Path(AmiLocalFilePath.UPDATE_INDEXER_HEAP_SERVICE),
         local_customize_certs_service_path=Path(AmiLocalFilePath.CUSTOMIZE_CERTS_SERVICE),
         local_customize_certs_timer_path=Path(AmiLocalFilePath.CUSTOMIZE_CERTS_TIMER),
+        local_customize_debug_script_path=Path(AmiLocalFilePath.CUSTOMIZE_DEBUG_SCRIPT),
     )
 
     wazuh_user = ami_customizer.create_wazuh_user()
