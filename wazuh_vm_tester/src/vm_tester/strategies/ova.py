@@ -121,7 +121,7 @@ class OVAStrategy(ConnectionStrategy):
             self.vm_inventory_path = os.path.join(self.allocator_path, "inventory.yml")
 
             instance_name = f"gha_{os.environ.get('GITHUB_RUN_ID', str(int(time.time())))}_ova_test"
-            composite_name = "linux-amazon-2023-amd64"
+            composite_name = "amazon-2023-amd64"
 
             allocator_cmd = [
                 "python3",

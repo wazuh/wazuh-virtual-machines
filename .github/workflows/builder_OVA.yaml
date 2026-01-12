@@ -61,7 +61,7 @@ on:
         required: false
 
 env:
-    COMPOSITE_NAME: "linux-amazon-2023-amd64"
+    COMPOSITE_NAME: "amazon-2023-amd64"
     INSTANCE_TYPE: "metal"
     AWS_REGION: "us-east-1"
     ALLOCATOR_PATH: "/tmp/allocatorvm_ova"
