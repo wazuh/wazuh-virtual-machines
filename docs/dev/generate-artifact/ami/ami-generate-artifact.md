@@ -9,9 +9,7 @@ You can generate the AMI artifact in two different ways:
 
 ## Manual Execution
 
-To generate the AMI manually, you will need two things:
-
-1. An **inventory file** in Ansible inventory format, like the following:
+1. Generate the **inventory file** in Ansible inventory format, like the following:
 
     ```yaml
     all:
@@ -25,9 +23,14 @@ To generate the AMI manually, you will need two things:
           ansible_user: <instance-user>
     ```
 
-2. A **file containing the URLs** to the Wazuh component packages.
+2. Get the **file containing the URLs** to the Wazuh component packages.
 
 Once you have both files ready, you can configure the AMI using either **Hatch** or the **command line**:
+
+3. Configure the AMI. These command will configure the AMI on the instance specified in your inventory.
+Once the execution is complete, **you must export the AMI manually from the AWS Console**.
+
+3.a Build Wazuh AMI in `x86_64` architecture.
 
 - **Using Hatch**
 
@@ -41,14 +44,19 @@ Once you have both files ready, you can configure the AMI using either **Hatch**
   python -m main --execute all-ami --inventory <inventory path> --packages-url-path <urls file path>
   ```
 
-- **Build ARM Wazuh AMI**
+3.b Build Wazuh Ami in `aarch64` architecture.
+
+- **Using Hatch**
 
   ```bash
   hatch run dev-ami-configurer:run --inventory <inventory path> --packages-url-path <urls file path> --arch aarch64
   ```
 
-This command will configure the AMI on the instance specified in your inventory.
-Once the execution is complete, **you must export the AMI manually from the AWS Console**.
+- **Using the Command Line**
+
+  ```bash
+  python -m main --execute all-ami --inventory <inventory path> --packages-url-path <urls file path> --arch aarch64
+  ```
 
 ## Automatic Execution with GitHub Actions
 
