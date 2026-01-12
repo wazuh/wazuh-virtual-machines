@@ -8,7 +8,7 @@ There are two alternatives for deploying a Wazuh instance. You can launch the Wa
 2. Review the information and accept the terms for the software. Click **Continue to Configuration** to confirm subscribing to our Server product.
 3. Select a **Software Version** and the **Region** where the instance is going to be deployed. Then, click **Continue to Launch**.
 4. Review your configuration, making sure that all settings are correct before launching the software. Adapt the default configuration values to your needs.
-    1. **Instance Type**: When selecting the EC2 Instance Type, we recommend that you use an instance type `c5a.xlarge`.
+    1. **Instance Type**: When selecting the EC2 Instance Type, we recommend that you use an instance type `c5a.xlarge` for `x86_64` arch  or `c6g.xlarge`for `aarch64` arch.
     2. **Network Settings**: When selecting the **Security Group**, it must be one with the appropriate settings for your Wazuh instance to guarantee the correct operation. You can create a new security group by choosing **Create new based on seller** settings. This new group will have the appropriate settings by default.
 5. Click **Launch** to start the instance.
 
@@ -22,7 +22,7 @@ Once your instance is successfully launched and a few minutes have elapsed, you 
 
 3. Review the Server product characteristics, then click **Continue**. This allows subscribing to our Server product.
 
-4. Select the instance type according to your needs, then click Next: Configure Instance Details. We recommend that you use an instance type `c5a.xlarge`.
+4. Select the instance type according to your needs, then click Next: Configure Instance Details. We recommend that you use an instance type `c5a.xlarge` for `x86_64` arch  or `c6g.xlarge`for `aarch64` arch.
 
 5. Configure your instance as needed, then click Next: **Add Storage**.
 
