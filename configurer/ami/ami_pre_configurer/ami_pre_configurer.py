@@ -74,7 +74,7 @@ class AmiPreConfigurer:
         self.stop_journald_log_storage(client=client)
         self.create_service_to_set_ram(client=client)
         self.create_customize_certs_service_files(client=client)
-        self.create_customize_debug_script_file(client=client)
+        self.create_ami_debug_script(file_local_path=self.local_customize_debug_script_path, client=client)
 
         logger.info_success("AMI customization process finished")
 
@@ -496,16 +496,3 @@ class AmiPreConfigurer:
             raise RuntimeError(f"Error creating debug script {file_local_path.name}: {error_output}")
 
         logger.info_success(f'"{file_local_path.name}" debug script created successfully')
-
-    def create_customize_debug_script_file(self, client: paramiko.SSHClient) -> None:
-        """
-        Create the customize certificates service and timer files on the remote server.
-        This method uploads the service and timer files to the remote server and enables them.
-        Args:
-            client (paramiko.SSHClient): The SSH client used for the connection.
-        """
-
-        self.create_ami_debug_script(
-            file_local_path=self.local_customize_debug_script_path,
-            client=client,
-        )
