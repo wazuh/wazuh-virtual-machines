@@ -23,10 +23,6 @@ All notable changes to this project will be documented in this file.
 - Fix vagrant up inconsistencies at the renewed OVA build process ([#474](https://github.com/wazuh/wazuh-virtual-machines/pull/474))
 - Fix vagrant up inconsistencies at the start. ([#435](https://github.com/wazuh/wazuh-virtual-machines/pull/435))
 
-### Fixed
-
-- None
-
 ### Deleted
 
 - None
