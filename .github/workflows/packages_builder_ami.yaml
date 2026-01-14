@@ -172,10 +172,9 @@ jobs:
           python ${{ env.GENERATE_PRESIGNED_URLS_SCRIPT_PATH }}
 
       - name: Set customizer debug mode environment variable
+        if: inputs.customizer_debug == true
         run: |
-          if [ "${{ inputs.customizer_debug }}" == "true" ]; then
-            sed -i 's|ExecStart=.* -m wazuh-ami-customizer$|& --debug|' ${{ env.CUSTOMIZER_SERVICE_FILE }}
-          fi
+          sed -i 's|ExecStart=.* -m wazuh-ami-customizer$|& --debug|' ${{ env.CUSTOMIZER_SERVICE_FILE }}
 
       - name: Execute configuration AMI process
         run: |
