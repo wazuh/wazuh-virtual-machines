@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Wazuh AMI Documentation updated with ARM support. ([#515](https://github.com/wazuh/wazuh-virtual-machines/pull/515))
 - OVA composite names update ([#510](https://github.com/wazuh/wazuh-virtual-machines/pull/510))
 - Adapted Wazuh AMI generation code for ARM64 support. ([#507](https://github.com/wazuh/wazuh-virtual-machines/pull/507))
 - Change signing script and rework AMI and OVA workflow ([#472](https://github.com/wazuh/wazuh-virtual-machines/pull/472))
@@ -21,10 +22,6 @@ All notable changes to this project will be documented in this file.
 
 - Fix vagrant up inconsistencies at the renewed OVA build process ([#474](https://github.com/wazuh/wazuh-virtual-machines/pull/474))
 - Fix vagrant up inconsistencies at the start. ([#435](https://github.com/wazuh/wazuh-virtual-machines/pull/435))
-
-### Fixed
-
-- None
 
 ### Deleted
 

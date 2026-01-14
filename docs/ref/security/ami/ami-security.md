@@ -12,4 +12,4 @@
 
 ## Access the Wazuh dashboard
 
-> 🚧 Details on how to access to the Wazuh Dashboard UI will be provided later.
+To access the Wazuh dashboard through a browser, you must use the public IP address provided by AWS, or the private IP address if you are within a VPC without internet access. To log in to the Wazuh dashboard, use the username `admin` and the password will be the instance ID, replacing the `i` with an `I`, for example: `I-09b7e3e4b5e89b0a0`

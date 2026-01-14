@@ -4,8 +4,8 @@ Wazuh provides a pre-built **Amazon Machine Image (AMI)**. An AMI is a ready-to-
 
 The latest Wazuh AMI includes the Wazuh central components:
 
-- Wazuh Server  
-- Wazuh Indexer  
+- Wazuh Server
+- Wazuh Indexer
 - Wazuh Dashboard
 
 It is designed to be deployed in an **All-in-One** configuration, which means that all components are installed on a single instance.
@@ -14,6 +14,6 @@ It is designed to be deployed in an **All-in-One** configuration, which means th
 
 ## Compatibility
 
-- **Operating System**: Amazon Linux 2023  
-- **Architecture**: 64-bit  
+- **Operating System**: Amazon Linux 2023
+- **Architecture**: x86_64/aarch64
 - **VM Format**: AWS AMI
