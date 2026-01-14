@@ -15,6 +15,7 @@ def mock_ami_customizer(valid_inventory) -> AmiPreConfigurer:
         local_update_indexer_heap_service_path=Path("/path/to/update_indexer_heap_service"),
         local_customize_certs_service_path=Path("/path/to/customize_certs_service"),
         local_customize_certs_timer_path=Path("/path/to/customize_certs_timer"),
+        local_customize_debug_script_path=Path("/path/to/customize_debug_script"),
     )
 
 
@@ -47,7 +48,9 @@ def test_customize_success(mock_ami_customizer, mock_logger, mock_exec_command, 
 
     commands = [
         f"""
-        sudo pkill -u {mock_ami_customizer.instance_username}
+        sudo pkill -9 -u {mock_ami_customizer.instance_username}
+        sleep 2
+        sudo pkill -9 -u {mock_ami_customizer.instance_username} 2>/dev/null || true
         sudo userdel -r {mock_ami_customizer.instance_username}
         """,
         """
@@ -91,6 +94,11 @@ def test_customize_success(mock_ami_customizer, mock_logger, mock_exec_command, 
         sudo chmod 755 {mock_ami_customizer.systemd_services_path}/{mock_ami_customizer.local_customize_certs_timer_path.name}
         sudo chown root:root {mock_ami_customizer.systemd_services_path}/{mock_ami_customizer.local_customize_certs_timer_path.name}
         sudo systemctl --quiet enable {mock_ami_customizer.local_customize_certs_timer_path.name}
+        """,
+        f"""
+        sudo mv /tmp/{mock_ami_customizer.local_customize_debug_script_path.name} {mock_ami_customizer.debug_script_path}/{mock_ami_customizer.local_customize_debug_script_path.name}
+        sudo chmod 755 {mock_ami_customizer.debug_script_path}/{mock_ami_customizer.local_customize_debug_script_path.name}
+        sudo chown root:root {mock_ami_customizer.debug_script_path}/{mock_ami_customizer.local_customize_debug_script_path.name}
         """,
     ]
     for command_call in mock_exec_command.call_args_list:
@@ -155,7 +163,9 @@ def test_remove_default_instance_user_success(mock_ami_customizer, mock_logger, 
     mock_ami_customizer.remove_default_instance_user(mock_paramiko.return_value)
 
     command = f"""
-        sudo pkill -u {mock_ami_customizer.instance_username}
+        sudo pkill -9 -u {mock_ami_customizer.instance_username}
+        sleep 2
+        sudo pkill -9 -u {mock_ami_customizer.instance_username} 2>/dev/null || true
         sudo userdel -r {mock_ami_customizer.instance_username}
         """.replace("\n", "").replace(" ", "")
 
@@ -618,3 +628,49 @@ def test_create_ami_custom_service_command_failure(mock_ami_customizer, mock_log
 
     mock_exec_command.assert_called_once_with(command=command, client=mock_paramiko.return_value)
     mock_logger.error.assert_any_call(f"Error creating service {file_local_path.name}")
+
+def test_create_ami_debug_script_success(mock_ami_customizer, mock_logger, mock_exec_command, mock_paramiko):
+    file_local_path = Path("/path/to/wazuh-debug-warning.sh")
+    mock_ami_customizer.create_ami_debug_script(file_local_path, mock_paramiko.return_value)
+
+    sftp = mock_paramiko.return_value.open_sftp.return_value
+    tmp_service_path = f"/tmp/{file_local_path.name}"
+    commands = [
+        f"""
+        sudo mv {tmp_service_path} {mock_ami_customizer.debug_script_path}/{file_local_path.name}
+        sudo chmod 755 {mock_ami_customizer.debug_script_path}/{file_local_path.name}
+        sudo chown root:root {mock_ami_customizer.debug_script_path}/{file_local_path.name}
+        """.replace("\n", "").replace(" ", "")
+    ]
+
+    for command_call in mock_exec_command.call_args_list:
+        command_call.kwargs["command"] = command_call.kwargs["command"].replace("\n", "").replace(" ", "")
+
+    sftp.put.assert_called_once_with(str(file_local_path), tmp_service_path)
+    sftp.close.assert_called_once()
+    for command in commands:
+        command = command.replace("\n", "").replace(" ", "")
+        mock_exec_command.assert_any_call(command=command, client=mock_paramiko.return_value)
+
+    mock_logger.debug.assert_any_call(f'Creating "{file_local_path.name}" debug script')
+    mock_logger.info_success.assert_any_call(f'"{file_local_path.name}" debug script created successfully')
+
+def test_create_ami_debug_script_failure(mock_ami_customizer, mock_logger, mock_exec_command, mock_paramiko):
+    file_local_path = Path("/path/to/wazuh-debug-warning.sh")
+    mock_exec_command.return_value = ("", "command not found")
+
+    with pytest.raises(RuntimeError, match=f"Error creating debug script {file_local_path.name}: command not found"):
+        mock_ami_customizer.create_ami_debug_script(file_local_path, mock_paramiko.return_value)
+
+    tmp_service_path = f"/tmp/{file_local_path.name}"
+    command = f"""
+        sudo mv {tmp_service_path} {mock_ami_customizer.debug_script_path}/{file_local_path.name}
+        sudo chmod 755 {mock_ami_customizer.debug_script_path}/{file_local_path.name}
+        sudo chown root:root {mock_ami_customizer.debug_script_path}/{file_local_path.name}
+        """.replace("\n", "").replace(" ", "")
+
+    for command_call in mock_exec_command.call_args_list:
+        command_call.kwargs["command"] = command_call.kwargs["command"].replace("\n", "").replace(" ", "")
+
+    mock_exec_command.assert_called_once_with(command=command, client=mock_paramiko.return_value)
+    mock_logger.error.assert_any_call(f"Error creating debug script {file_local_path.name}")

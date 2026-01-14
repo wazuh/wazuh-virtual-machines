@@ -44,6 +44,7 @@ def test_ami_pre_configurer(mock_ami_pre_configurer_class, mock_inventory, valid
         local_update_indexer_heap_service_path=Path(AmiLocalFilePath.UPDATE_INDEXER_HEAP_SERVICE),
         local_customize_certs_service_path=Path(AmiLocalFilePath.CUSTOMIZE_CERTS_SERVICE),
         local_customize_certs_timer_path=Path(AmiLocalFilePath.CUSTOMIZE_CERTS_TIMER),
+        local_customize_debug_script_path=Path(AmiLocalFilePath.CUSTOMIZE_DEBUG_SCRIPT),
     )
 
     mock_ami_pre_configurer_class.return_value.create_wazuh_user.assert_called_once()

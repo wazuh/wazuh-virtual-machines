@@ -1,3 +1,4 @@
+import argparse
 import logging
 import time
 from pathlib import Path
@@ -16,6 +17,7 @@ PASWORDS_FILE_NAME = Path("/etc/wazuh-ami-customizer/passwords.txt")
 SERVICE_PATH = "/etc/systemd/system"
 SERVICE_NAME = f"{SERVICE_PATH}/wazuh-ami-customizer.service"
 SERVICE_TIMER_NAME = f"{SERVICE_PATH}/wazuh-ami-customizer.timer"
+WAZUH_WARNING_SCRIPT = Path("/etc/profile.d/wazuh-debug-warning.sh")
 
 logger = Logger("CustomCertificates")
 file_handler = logging.FileHandler(LOGFILE)
@@ -64,6 +66,12 @@ def stop_service(name: str) -> None:
 
     logger.debug(f"{name} service stopped")
 
+def debug_ssh_message() -> None:
+    exec_command(command="""
+    mkdir -p /var/lib/wazuh
+    touch /var/lib/wazuh/DEBUG_MODE
+    """)
+
 
 def verify_component_connection(component: Component, command: str, retries: int = 5, wait_time: int = 10) -> None:
     """
@@ -86,8 +94,14 @@ def verify_component_connection(component: Component, command: str, retries: int
             return
 
         if attempt < retries - 1:
-            logger.debug(f"Attempt {attempt + 1} failed, retrying in {wait_time} seconds...")
-            time.sleep(wait_time)
+            wait = wait_time * (attempt + 1)  # Incremental wait time
+            logger.debug(f"Attempt {attempt + 1} failed, retrying in {wait} seconds...")
+            time.sleep(wait)
+        else:
+            logger.error(f"{component.replace('_', ' ')} connection failed after {retries} attempts")
+            debug_ssh_message()  # Enable debug mode
+            start_ssh_service()  # Restore SSH service for debugging
+            raise RuntimeError(f"{component.replace('_', ' ')} connection failed")
 
 
 def enable_service(name: str) -> None:
@@ -215,6 +229,18 @@ def verify_indexer_connection(password: str = "admin") -> None:
     command = f'curl -XGET https://localhost:9200/ -uadmin:{password} -k --max-time 120 --silent -w "%{{http_code}}" --output /dev/null'
     verify_component_connection(Component.WAZUH_INDEXER, command)
 
+def verify_server_connection(password: str = "wazuh-wui") -> None:
+    """
+    Verifies the connection to the Wazuh server API.
+    This function sends a request to the Wazuh server API endpoint and checks the response.
+    It ensures that the Wazuh server API is running and accessible after the custom certificates have been configured.
+
+    Returns:
+        None
+    """
+
+    command = f'curl -XPOST https://localhost:55000/security/user/authenticate -uwazuh-wui:{password} -k --max-time 120 -w "%{{http_code}}" -s -o /dev/null'
+    verify_component_connection(Component.WAZUH_SERVER, command)
 
 def verify_dashboard_connection() -> None:
     """
@@ -263,6 +289,7 @@ def start_components_services() -> None:
 
     enable_service("wazuh-manager")
     start_service("wazuh-manager")
+    verify_server_connection()
 
     enable_service("wazuh-dashboard")
     start_service("wazuh-dashboard")
@@ -332,7 +359,63 @@ def change_passwords() -> None:
 
     logger.debug("Passwords changed. Verifying indexer connection with new password")
     verify_indexer_connection(password=instance_id)
+    logger.debug("Verifying server API connection with new password")
+    verify_server_connection(password=instance_id)
     logger.debug("Changing passwords finished successfully")
+
+def dashboard_wazuh_api_check() -> None:
+    """
+    Checks if the Wazuh dashboard has started successfully by looking for a specific log entry.
+
+    Returns:
+        None
+    """
+
+    logger.debug("Checking Wazuh dashboard startup...")
+
+    command = 'systemctl status wazuh-dashboard'
+    retries = 5
+    wait_time = 10
+
+    for attempt in range(retries):
+        output, _ = exec_command(command=command)
+        # Check if error logs exist
+        if 'error","healthcheck","server-api:connection-compatibility' in output:
+            logger.debug("Found server API connection error in dashboard logs. Restarting wazuh-dashboard...")
+            stop_service("wazuh-dashboard")
+            time.sleep(10)
+            start_service("wazuh-dashboard")
+            logger.debug("Waiting 10 seconds after restart...")
+            time.sleep(10)
+
+            # Verify successful startup with compatibility message
+            verify_retries = 5
+            verify_wait = 10
+            for verify_attempt in range(verify_retries):
+                verify_output, _ = exec_command(command=command)
+                if 'info","healthcheck","server-api:connection-compatibility' in verify_output and 'is compatible with the dashboard version' in verify_output:
+                    logger.debug("Wazuh dashboard started successfully with server API compatibility confirmed")
+                    return
+
+                if verify_attempt < verify_retries - 1:
+                    logger.debug(f"Compatibility message not found, retrying in {verify_wait} seconds...")
+                    time.sleep(verify_wait)
+
+            logger.error("Wazuh dashboard restart did not result in successful server API connection")
+            raise RuntimeError("Wazuh dashboard failed to connect to server API after restart")
+
+        # Check if success log already exists
+        if 'info","healthcheck","server-api:connection-compatibility' in output and 'is compatible with the dashboard version' in output:
+            logger.debug("Wazuh dashboard has started successfully")
+            return
+
+        if attempt < retries - 1:
+            wait = wait_time * (attempt + 1)
+            logger.debug(f"Dashboard not ready, retrying in {wait} seconds...")
+            time.sleep(wait)
+        else:
+            logger.error("Wazuh dashboard startup check failed after all retries")
+            raise RuntimeError("Wazuh dashboard startup check failed")
 
 
 def clean_up() -> None:
@@ -350,6 +433,7 @@ def clean_up() -> None:
     rm -rf {LOGFILE}
     rm -rf {SERVICE_NAME}
     rm -rf {SERVICE_TIMER_NAME}
+    rm -rf {WAZUH_WARNING_SCRIPT}
     """
     _, error_output = exec_command(command=command)
     if error_output:
@@ -359,9 +443,19 @@ def clean_up() -> None:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Wazuh AMI Customizer")
+    parser.add_argument("-d", "--debug", action="store_true", help="Enable debug mode (skips cleanup)")
+    args = parser.parse_args()
+
+    if args.debug:
+        logger.info("Debug mode enabled. Cleanup will be skipped.")
+
     logger.info("Starting custom certificates configuration process")
 
     try:
+        if args.debug:
+            logger.info("Wazuh customizer is running in debug mode.")
+            debug_ssh_message()
         stop_ssh_service()
         stop_components_services()
         remove_certificates()
@@ -370,8 +464,13 @@ if __name__ == "__main__":
         stop_service("wazuh-dashboard")
         change_passwords()
         start_service("wazuh-dashboard")
+        time.sleep(10)  # Wait for dashboard to initialize
+        dashboard_wazuh_api_check()
         start_ssh_service()
-        clean_up()
+
+        if not args.debug:
+            clean_up()
+
     except Exception as e:
         logger.error(f"An error occurred during the customization process: {e}")
         start_ssh_service()
