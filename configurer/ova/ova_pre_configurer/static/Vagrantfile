@@ -1,0 +1,30 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# All Vagrant configuration is done below. The "2" in Vagrant.configure
+# configures the configuration version (we support older styles for
+# backwards compatibility). Please don't change it unless you know what
+# you're doing.
+Vagrant.configure("2") do |config|
+    config.vm.box = "al2023"
+    config.vm.synced_folder ".", "/vagrant/", disabled: true
+    config.ssh.username = "wazuh-user"
+    config.ssh.password = "wazuh"
+    config.vm.boot_timeout = 420 # 7 minutes
+  
+    # Create a private network, which allows host-only access to the machine
+    # using a specific IP.
+    config.vm.network "private_network", ip: "192.168.56.22", interface: "2"
+    config.vm.hostname = "wazuh"
+  
+    # Example for VirtualBox:
+    #
+    config.vm.provider "virtualbox" do |vb|
+    #   # Customize the amount of memory on the VM:
+      vb.memory = "8192"
+      vb.cpus = 4
+      vb.customize ["setextradata", :id, "VBoxInternal/Devices/VMMDev/0/Config/GetHostTimeDisabled", 1]
+      vb.name = "ova_base"
+    end
+    #
+  end

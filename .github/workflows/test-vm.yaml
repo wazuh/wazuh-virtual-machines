@@ -1,0 +1,187 @@
+run-name: Wazuh VM Test - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
+name: Wazuh VM Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      WAZUH_VIRTUAL_MACHINES_REFERENCE:
+        description: 'Branch or tag of the wazuh-virtual-machines repository'
+        required: true
+        default: 'master'
+      test_type:
+        description: 'Test type'
+        required: true
+        default: 'ami'
+        type: choice
+        options:
+          - ami
+          - ova
+      host:
+        description: 'AMI ID to create ami or OVA path'
+        required: false
+        type: string
+      WAZUH_SERVER_VERSION_REVISION:
+        description: 'Expected Wazuh server version-revision'
+        required: false
+        type: string
+      WAZUH_INDEXER_VERSION_REVISION:
+        description: 'Expected Wazuh indexer version-revision'
+        required: false
+        type: string
+      WAZUH_DASHBOARD_VERSION_REVISION:
+        description: 'Expected Wazuh dashboard version-revision'
+        required: false
+        type: string
+      TESTS:
+        description: 'Test to run'
+        required: false
+        default: 'ALL'
+        type: choice
+        options:
+          - ALL
+          - CERTIFICATES
+          - CONNECTIVITY
+          - LOGS
+          - SERVICE
+          - VERSION
+          - OVA
+      log_level:
+        description: 'Log level'
+        required: false
+        default: 'INFO'
+        type: choice
+        options:
+          - INFO
+          - DEBUG
+          - TRACE
+
+env:
+  AWS_IAM_OVA_ROLE: ${{ secrets.AWS_IAM_OVA_ROLE }}
+  WAZUH_SERVER_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_SERVER_VERSION_REVISION }}
+  WAZUH_INDEXER_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_INDEXER_VERSION_REVISION }}
+  WAZUH_DASHBOARD_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_DASHBOARD_VERSION_REVISION }}
+  WAZUH_AUTOMATION_TOKEN: ${{ secrets.GH_CLONE_TOKEN }}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: View parameters
+        run: echo "${{ toJson(inputs) }}"
+      - name: Checkout wazuh/wazuh-virtual-machines repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.WAZUH_VIRTUAL_MACHINES_REFERENCE }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          apt-get update && apt-get install -y git
+          python -m pip install --upgrade pip
+          pip install -r wazuh_vm_tester/requirements.txt
+          pip install -e wazuh_vm_tester/
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
+          aws-region: us-east-1
+
+      - name: Run tests with AMI mode
+        if: ${{ github.event.inputs.test_type == 'ami' }}
+        run: |
+          # Find the executable dynamically and store its path in a variable
+          WAZUH_VM_TEST_PATH=$(find /opt/hostedtoolcache/Python -name "wazuh-vm-test" | head -n 1)
+
+          # Exit if executable not found
+          if [ -z "$WAZUH_VM_TEST_PATH" ]; then
+            echo "Error: wazuh-vm-test executable not found"
+            exit 1
+          fi
+
+          echo "Found executable at: $WAZUH_VM_TEST_PATH"
+
+          # Run the tests using the dynamically found path
+          $WAZUH_VM_TEST_PATH \
+            --test-type ${{ github.event.inputs.test_type }} \
+            --ami-id ${{ github.event.inputs.host }} \
+            --test-pattern "${{ github.event.inputs.TESTS }}" \
+            --log-level ${{ github.event.inputs.log_level || 'INFO' }} \
+            --output github \
+            --output-file test-results.github
+
+      - name: Run tests with OVA mode
+        if: ${{ github.event.inputs.test_type == 'ova' }}
+        run: |
+          # Find the executable dynamically and store its path in a variable
+          WAZUH_VM_TEST_PATH=$(find /opt/hostedtoolcache/Python -name "wazuh-vm-test" | head -n 1)
+
+          # Exit if executable not found
+          if [ -z "$WAZUH_VM_TEST_PATH" ]; then
+            echo "Error: wazuh-vm-test executable not found"
+            exit 1
+          fi
+
+          echo "Found executable at: $WAZUH_VM_TEST_PATH"
+
+          # Run the tests using the dynamically found path
+          $WAZUH_VM_TEST_PATH \
+            --test-type ${{ github.event.inputs.test_type }} \
+            --ova-s3-path ${{ github.event.inputs.host }} \
+            --test-pattern "${{ github.event.inputs.TESTS }}" \
+            --log-level ${{ github.event.inputs.log_level || 'INFO' }} \
+            --output github \
+            --output-file test-results.github
+
+      - name: Parse test results
+        if: always()
+        id: parse-results
+        run: |
+          if [ -f test-results.github ]; then
+            # Set environment variables from test results file
+            while IFS= read -r line; do
+              if [[ $line == *=* ]]; then
+                echo $line >> $GITHUB_ENV
+              fi
+            done < test-results.github
+          else
+            echo "No test results file found!"
+            echo "test_status=ERROR" >> $GITHUB_ENV
+            echo "total_tests=0" >> $GITHUB_ENV
+            echo "passed_tests=0" >> $GITHUB_ENV
+            echo "failed_tests=0" >> $GITHUB_ENV
+            echo "warning_tests=0" >> $GITHUB_ENV
+            echo "skipped_tests=0" >> $GITHUB_ENV
+            echo "short_summary=Failed to generate test results" >> $GITHUB_ENV
+          fi
+
+      - name: Create GitHub Summary
+        if: always()
+        run: |
+          # Extract multiline summary from the test results
+          awk '/summary<<EOF/{flag=1;next}/EOF/{flag=0}flag' test-results.github > summary.md
+          cat summary.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Set job status
+        if: always()
+        run: |
+          if [[ "${{ env.test_status }}" == "PASS" ]]; then
+            echo "Tests passed successfully!"
+            exit 0
+          elif [[ "${{ env.test_status }}" == "WARNING" ]]; then
+            echo "Tests passed with warnings!"
+            exit 0
+          else
+            echo "Tests failed with status: ${{ env.test_status }}"
+            exit 1
+          fi
