@@ -298,6 +298,7 @@ def start_components_services() -> None:
 
     enable_service("wazuh-dashboard")
     start_service("wazuh-dashboard")
+    time.sleep(20)  # Wait for dashboard to initialize
     verify_dashboard_connection()
 
     logger.debug("Wazuh components services started")
