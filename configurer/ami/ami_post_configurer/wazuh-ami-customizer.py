@@ -1,4 +1,5 @@
 import argparse
+import json
 import logging
 import time
 from pathlib import Path
@@ -13,7 +14,6 @@ TEMP_DIR = Path("/etc/wazuh-ami-customizer")
 CERTS_TOOL_PATH = Path(f"{TEMP_DIR}/certs-tool.sh")
 CERTS_TOOL_CONFIG_PATH = Path(f"{TEMP_DIR}/config.yml")
 PASSWORD_TOOL_PATH = Path(f"{TEMP_DIR}/password-tool.sh")
-PASWORDS_FILE_NAME = Path("/etc/wazuh-ami-customizer/passwords.txt")
 SERVICE_PATH = "/etc/systemd/system"
 SERVICE_NAME = f"{SERVICE_PATH}/wazuh-ami-customizer.service"
 SERVICE_TIMER_NAME = f"{SERVICE_PATH}/wazuh-ami-customizer.timer"
@@ -66,11 +66,14 @@ def stop_service(name: str) -> None:
 
     logger.debug(f"{name} service stopped")
 
+
 def debug_ssh_message() -> None:
-    exec_command(command="""
+    exec_command(
+        command="""
     mkdir -p /var/lib/wazuh
     touch /var/lib/wazuh/DEBUG_MODE
-    """)
+    """
+    )
 
 
 def verify_component_connection(component: Component, command: str, retries: int = 5, wait_time: int = 10) -> None:
@@ -229,6 +232,7 @@ def verify_indexer_connection(password: str = "admin") -> None:
     command = f'curl -XGET https://localhost:9200/ -uadmin:{password} -k --max-time 120 --silent -w "%{{http_code}}" --output /dev/null'
     verify_component_connection(Component.WAZUH_INDEXER, command)
 
+
 def verify_server_connection(password: str = "wazuh-wui") -> None:
     """
     Verifies the connection to the Wazuh server API.
@@ -241,6 +245,7 @@ def verify_server_connection(password: str = "wazuh-wui") -> None:
 
     command = f'curl -XPOST https://localhost:55000/security/user/authenticate -uwazuh-wui:{password} -k --max-time 120 -w "%{{http_code}}" -s -o /dev/null'
     verify_component_connection(Component.WAZUH_SERVER, command)
+
 
 def verify_dashboard_connection() -> None:
     """
@@ -316,26 +321,48 @@ def get_instance_id() -> str:
     return output.strip().capitalize()
 
 
-def generate_password_file() -> None:
+def retrieve_users(component: str) -> list:
     """
-    Generates a password file using the password tool.
-
-    Args:
-        path (Path): The path where the password file will be created.
+    Retrieves a list with all Wazuh users of the selected component.
 
     Returns:
-        None
+        List of users.
     """
 
-    logger.debug("Generating password file")
+    logger.debug(f"Retrieving users from Wazuh {component}")
 
-    command = f"bash {PASSWORD_TOOL_PATH} -gf {PASWORDS_FILE_NAME}"
-    _, error_output = exec_command(command=command)
-    if error_output:
-        logger.error(f"Error generating password file: {error_output}")
-        raise RuntimeError("Error generating password file")
+    if component == "indexer":
+        command = "curl -XGET 'https://127.0.0.1:9200/_plugins/_security/api/internalusers/' -ks -u admin:admin"
+        output, error_output = exec_command(command=command)
+        if error_output:
+            logger.error(f"Error retrieving indexer users: {error_output}")
+            raise RuntimeError("Error retrieving indexer users")
 
-    logger.debug("Password file generated")
+        users_data = json.loads(output)
+        users = list(users_data.keys())
+        logger.debug(f"Indexer users retrieved: {users}")
+
+    elif component == "server":
+        token_command = "curl -s -u wazuh:wazuh -k -X POST 'https://127.0.0.1:55000/security/user/authenticate?raw=true' --max-time 300 --retry 5 --retry-delay 5"
+        token, token_error = exec_command(command=token_command)
+        if token_error:
+            logger.error(f"Error retrieving server token: {token_error}")
+            raise RuntimeError("Error retrieving server token")
+
+        command = f'curl -XGET -H "Authorization: Bearer {token}" -H "Content-Type: application/json" "https://127.0.0.1:55000/security/users" -ks -u wazuh:wazuh'
+        output, error_output = exec_command(command=command)
+        if error_output:
+            logger.error(f"Error retrieving server users: {error_output}")
+            raise RuntimeError("Error retrieving server users")
+
+        users_data = json.loads(output)
+        users = [user["username"] for user in users_data["data"]["affected_items"]]
+        logger.debug(f"Server users retrieved: {users}")
+
+    else:
+        raise ValueError("Invalid component specified. Use 'indexer' or 'server'.")
+
+    return users
 
 
 def change_passwords() -> None:
@@ -344,24 +371,37 @@ def change_passwords() -> None:
     logger.debug("Getting instance ID")
     instance_id = get_instance_id()
 
-    generate_password_file()
+    indexer_users = retrieve_users("indexer")
+    server_users = retrieve_users("server")
 
     logger.debug("Changing passwords to instance ID")
-    command = f"""
-        sudo sed -i 's/password:.*/password: {instance_id}/g' {PASWORDS_FILE_NAME}
-        bash {PASSWORD_TOOL_PATH} -a -A -au wazuh -ap wazuh -f {PASWORDS_FILE_NAME}
-    """
 
-    _, error_output = exec_command(command=command)
-    if error_output:
-        logger.error(f"Error changing passwords: {error_output}")
-        raise RuntimeError("Error changing passwords")
+    for user in indexer_users:
+        logger.debug(f"Changing password for indexer user: {user}")
+        command = f"""
+        bash {PASSWORD_TOOL_PATH} -u {user} -p {instance_id}
+        """
+        _, error_output = exec_command(command=command)
+        if error_output:
+            logger.error(f"Error changing password for indexer user {user}: {error_output}")
+            raise RuntimeError(f"Error changing password for indexer user {user}")
+
+    for user in server_users:
+        logger.debug(f"Changing password for server user: {user}")
+        command = f"""
+        bash {PASSWORD_TOOL_PATH} -A -au {user} -ap {user} -u {user} -p {instance_id}
+        """
+        _, error_output = exec_command(command=command)
+        if error_output:
+            logger.error(f"Error changing password for server user {user}: {error_output}")
+            raise RuntimeError(f"Error changing password for server user {user}")
 
     logger.debug("Passwords changed. Verifying indexer connection with new password")
     verify_indexer_connection(password=instance_id)
     logger.debug("Verifying server API connection with new password")
     verify_server_connection(password=instance_id)
     logger.debug("Changing passwords finished successfully")
+
 
 def dashboard_wazuh_api_check() -> None:
     """
@@ -373,7 +413,7 @@ def dashboard_wazuh_api_check() -> None:
 
     logger.debug("Checking Wazuh dashboard startup...")
 
-    command = 'systemctl status wazuh-dashboard'
+    command = "systemctl status wazuh-dashboard"
     retries = 5
     wait_time = 10
 
@@ -393,7 +433,10 @@ def dashboard_wazuh_api_check() -> None:
             verify_wait = 10
             for verify_attempt in range(verify_retries):
                 verify_output, _ = exec_command(command=command)
-                if 'info","healthcheck","server-api:connection-compatibility' in verify_output and 'is compatible with the dashboard version' in verify_output:
+                if (
+                    'info","healthcheck","server-api:connection-compatibility' in verify_output
+                    and "is compatible with the dashboard version" in verify_output
+                ):
                     logger.debug("Wazuh dashboard started successfully with server API compatibility confirmed")
                     return
 
@@ -405,7 +448,10 @@ def dashboard_wazuh_api_check() -> None:
             raise RuntimeError("Wazuh dashboard failed to connect to server API after restart")
 
         # Check if success log already exists
-        if 'info","healthcheck","server-api:connection-compatibility' in output and 'is compatible with the dashboard version' in output:
+        if (
+            'info","healthcheck","server-api:connection-compatibility' in output
+            and "is compatible with the dashboard version" in output
+        ):
             logger.debug("Wazuh dashboard has started successfully")
             return
 
