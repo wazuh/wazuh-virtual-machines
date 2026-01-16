@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Add suport to is_stage procedure and tagging with commit and latest ([#529](https://github.com/wazuh/wazuh-virtual-machines/pull/529))
 - Wazuh AMI Documentation updated with ARM support. ([#515](https://github.com/wazuh/wazuh-virtual-machines/pull/515))
 - OVA composite names update ([#510](https://github.com/wazuh/wazuh-virtual-machines/pull/510))
 - Adapted Wazuh AMI generation code for ARM64 support. ([#507](https://github.com/wazuh/wazuh-virtual-machines/pull/507))
