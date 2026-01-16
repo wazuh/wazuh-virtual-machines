@@ -15,6 +15,11 @@ on:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
         default: 'main'
+      is_stage:
+        description: "Is stage?"
+        type: boolean
+        default: false
+        required: false
       ami_revision:
         description: |
           'For AMI candidates must be a number, e,g: -1.'
@@ -120,23 +125,44 @@ jobs:
 
       - name: Get Wazuh version
         run: |
-            WAZUH_VERSION=$(jq -r '.version' VERSION.json)
-            WAZUH_MAJOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1)
-            WAZUH_MINOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1-2)
-            ARCH_FLAG=""
-            if [[ "${{ matrix.arch }}" == "arm64" ]]; then
-              ARCH_FLAG="--arch aarch64"
-              AMI_NAME="Wazuh_v${WAZUH_VERSION}${{ inputs.ami_revision }}_aarch64"
-            else
-              AMI_NAME="Wazuh_v${WAZUH_VERSION}${{ inputs.ami_revision }}_x86_64"
-            fi
-            COMPOSITE_NAME="amazon-2023-${{ matrix.arch }}"
-            echo COMPOSITE_NAME=$COMPOSITE_NAME >> $GITHUB_ENV
-            echo ARCH_FLAG=$ARCH_FLAG >> $GITHUB_ENV
-            echo AMI_NAME=$AMI_NAME >> $GITHUB_ENV
-            echo WAZUH_VERSION=$WAZUH_VERSION >> $GITHUB_ENV
-            echo WAZUH_MAJOR=$WAZUH_MAJOR >> $GITHUB_ENV
-            echo WAZUH_MINOR=$WAZUH_MINOR >> $GITHUB_ENV
+          WAZUH_VERSION=$(jq -r '.version' VERSION.json)
+          WAZUH_MAJOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1)
+          WAZUH_MINOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1-2)
+          COMMIT_SHA=$(git rev-parse --short ${{ github.sha }})
+
+          ARCH_FLAG=""
+          ARCH_SUFFIX=""
+          if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+            ARCH_FLAG="--arch aarch64"
+            ARCH_SUFFIX="_aarch64"
+          else
+            ARCH_SUFFIX="_x86_64"
+          fi
+
+          if [ ${{ inputs.is_stage }} == true ]; then
+            # Stage build: Wazuh_v5.0.0-1_x86_64
+            AMI_NAME="Wazuh_v${WAZUH_VERSION}-${{ inputs.ami_revision }}${ARCH_SUFFIX}"
+            echo "BUILD_LATEST=false" >> $GITHUB_ENV
+          else
+            # Dev builds: both latest and commit versions
+            AMI_NAME_LATEST="Wazuh_v${WAZUH_VERSION}-latest${ARCH_SUFFIX}"
+            AMI_NAME_COMMIT="Wazuh_v${WAZUH_VERSION}-${{ inputs.ami_revision }}-${COMMIT_SHA}${ARCH_SUFFIX}"
+
+            echo "AMI_NAME_LATEST=$AMI_NAME_LATEST" >> $GITHUB_ENV
+            echo "AMI_NAME_COMMIT=$AMI_NAME_COMMIT" >> $GITHUB_ENV
+
+            # Use commit version as primary
+            AMI_NAME="$AMI_NAME_COMMIT"
+            echo "BUILD_LATEST=true" >> $GITHUB_ENV
+          fi
+
+          COMPOSITE_NAME="amazon-2023-${{ matrix.arch }}"
+          echo COMPOSITE_NAME=$COMPOSITE_NAME >> $GITHUB_ENV
+          echo ARCH_FLAG=$ARCH_FLAG >> $GITHUB_ENV
+          echo AMI_NAME=$AMI_NAME >> $GITHUB_ENV
+          echo WAZUH_VERSION=$WAZUH_VERSION >> $GITHUB_ENV
+          echo WAZUH_MAJOR=$WAZUH_MAJOR >> $GITHUB_ENV
+          echo WAZUH_MINOR=$WAZUH_MINOR >> $GITHUB_ENV
 
       - name: Install and set allocator requirements
         run: |
@@ -214,10 +240,19 @@ jobs:
       - name: Build AMI from instance
         if: success()
         run: |
+          # Create primary AMI commit-based
           aws ec2 create-image --instance-id ${{ env.INSTANCE_ID }} --name "${{ env.AMI_NAME }}" --no-reboot
           AMI_ID=$(aws ec2 describe-images --filters "Name=name,Values=${{ env.AMI_NAME }}" --query 'Images[*].ImageId' --output text)
           echo "AMI_ID=$AMI_ID" >> $GITHUB_ENV
           echo "AMI creation started with name ${{ env.AMI_NAME }}"
+
+          # Create latest AMI if applicable
+          if [ "${{ env.BUILD_LATEST }}" == "true" ]; then
+            aws ec2 create-image --instance-id ${{ env.INSTANCE_ID }} --name "${{ env.AMI_NAME_LATEST }}" --no-reboot
+            AMI_ID_LATEST=$(aws ec2 describe-images --filters "Name=name,Values=${{ env.AMI_NAME_LATEST }}" --query 'Images[*].ImageId' --output text)
+            echo "AMI_ID_LATEST=$AMI_ID_LATEST" >> $GITHUB_ENV
+            echo "AMI creation (latest) started with name ${{ env.AMI_NAME_LATEST }}"
+          fi
 
       - name: Check AMI status until available
         id: check_ami_status
@@ -226,29 +261,51 @@ jobs:
           INTERVAL=30
           ELAPSED=0
 
-          while [ $ELAPSED -lt $TIMEOUT ]; do
-            STATUS=$(aws ec2 describe-images --image-ids ${{ env.AMI_ID }} --query 'Images[*].State' --output text)
-            echo "AMI status: $STATUS"
+          # Function to check AMI status
+          check_ami() {
+            local ami_id=$1
+            local ami_name=$2
 
-            if [ "$STATUS" == "available" ]; then
-              echo "AMI is available."
-              break
-            fi
+            echo "Checking status for AMI: $ami_name ($ami_id)"
 
-            echo "Waiting for AMI ${{ env.AMI_ID }} to be available..."
-            sleep $INTERVAL
-            ELAPSED=$((ELAPSED + INTERVAL))
-          done
+            while [ $ELAPSED -lt $TIMEOUT ]; do
+              STATUS=$(aws ec2 describe-images --image-ids $ami_id --query 'Images[*].State' --output text)
+              echo "AMI $ami_name status: $STATUS"
 
-          if [ $ELAPSED -ge $TIMEOUT ]; then
-            echo "Timeout reached. The AMI ${{ env.AMI_ID }} is still not available."
-            exit 1
+              if [ "$STATUS" == "available" ]; then
+                echo "AMI $ami_name is available."
+                return 0
+              fi
+
+              echo "Waiting for AMI $ami_id to be available..."
+              sleep $INTERVAL
+              ELAPSED=$((ELAPSED + INTERVAL))
+            done
+
+            echo "Timeout reached. The AMI $ami_id is still not available."
+            return 1
+          }
+
+          # Check primary AMI
+          check_ami "${{ env.AMI_ID }}" "${{ env.AMI_NAME }}"
+
+          # Check latest AMI if dev build
+          if [ "${{ env.BUILD_LATEST }}" == "true" ]; then
+            check_ami "${{ env.AMI_ID_LATEST }}" "${{ env.AMI_NAME_LATEST }}"
           fi
 
       - name: Tag AMI
         if: success()
         run: |
+          # Tag commit-based AMI
           aws ec2 create-tags --resources ${{ env.AMI_ID }} --tags Key=Name,Value="${{ env.AMI_NAME }}"
+          echo "Tagged AMI ${{ env.AMI_ID }} with name ${{ env.AMI_NAME }}"
+
+          # Tag latest AMI if applicable
+          if [ "${{ env.BUILD_LATEST }}" == "true" ]; then
+            aws ec2 create-tags --resources ${{ env.AMI_ID_LATEST }} --tags Key=Name,Value="${{ env.AMI_NAME_LATEST }}"
+            echo "Tagged AMI ${{ env.AMI_ID_LATEST }} with name ${{ env.AMI_NAME_LATEST }}"
+          fi
 
       - name: Delete allocated VM
         if: always() && steps.alloc_vm_ami.outcome == 'success' && inputs.destroy == true
