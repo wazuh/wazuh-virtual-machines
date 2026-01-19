@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Add the installation assistant tools revision in the genarate presigned urls script ([#531](https://github.com/wazuh/wazuh-virtual-machines/pull/531))
 - Added debug mode to customizer script for AMI. ([#513](https://github.com/wazuh/wazuh-virtual-machines/pull/513))
 
 ### Changed
