@@ -12,6 +12,7 @@ def get_github_env_variables(commit_list: list[str]) -> tuple[dict[str, str], li
     server_commit = commit_list[1] if len(commit_list) > 1 else "latest"
     dashboard_commit = commit_list[2] if len(commit_list) > 2 else "latest"
     agent_commit = commit_list[3] if len(commit_list) > 3 else "latest"
+    assistant_commit = commit_list[4] if len(commit_list) > 4 else "latest"
 
     # Get environment variables (variable names in artifacts_urls.yaml: variable names in GitHub Actions)
     env_vars = {
@@ -22,6 +23,7 @@ def get_github_env_variables(commit_list: list[str]) -> tuple[dict[str, str], li
         "INDEXER_REVISION": indexer_commit,
         "DASHBOARD_REVISION": dashboard_commit,
         "AGENT_REVISION": agent_commit,
+        "ASSISTANT_REVISION": assistant_commit,
         "OVA_REVISION": os.getenv("INPUT_OVA_REVISION", "0"),
     }
 
