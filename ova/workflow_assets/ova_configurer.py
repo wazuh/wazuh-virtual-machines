@@ -108,10 +108,10 @@ def deactivate_cloud_init():
     """
     Deactivates cloud-init
     """
-    subprocess.run("sudo cloud-init clean --logs", check=True)
+    subprocess.run("sudo cloud-init clean --logs", shell=True, check=True)
     shutil.rmtree("/var/lib/cloud", ignore_errors=True)
     Path("/etc/cloud/cloud-init.disabled").touch()
-    
+
 
 def delete_generated_network_files():
     """
