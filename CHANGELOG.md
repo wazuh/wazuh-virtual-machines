@@ -5,11 +5,13 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Add the installation assistant tools revision in the generate presigned urls script ([#531](https://github.com/wazuh/wazuh-virtual-machines/pull/531))
 - Added debug mode to customizer script for AMI. ([#513](https://github.com/wazuh/wazuh-virtual-machines/pull/513))
 
 ### Changed
 
 - Add suport to is_stage procedure and tagging with commit and latest ([#529](https://github.com/wazuh/wazuh-virtual-machines/pull/529))
+- Change passwords update process in AMI build ([#530](https://github.com/wazuh/wazuh-virtual-machines/pull/530))
 - Wazuh AMI Documentation updated with ARM support. ([#515](https://github.com/wazuh/wazuh-virtual-machines/pull/515))
 - OVA composite names update ([#510](https://github.com/wazuh/wazuh-virtual-machines/pull/510))
 - Adapted Wazuh AMI generation code for ARM64 support. ([#507](https://github.com/wazuh/wazuh-virtual-machines/pull/507))
