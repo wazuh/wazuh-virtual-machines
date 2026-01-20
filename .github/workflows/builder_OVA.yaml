@@ -137,17 +137,33 @@ jobs:
       - name: Setting FILENAME var
         run: |
           COMMIT_SHA=$(git rev-parse --short ${{ github.sha }})
-          FILENAME="wazuh-${{ env.WAZUH_VERSION }}-${{ inputs.OVA_REVISION }}"
 
-          if [ ${{ inputs.is_stage }} == false ]; then
-            FILENAME="${FILENAME}-${COMMIT_SHA}"
+          if [ ${{ inputs.is_stage }} == true ]; then
+            # Stage build: wazuh-5.0.0-1
+            FILENAME="wazuh-${{ env.WAZUH_VERSION }}-${{ inputs.ova_revision }}"
+            echo "FILENAME=$FILENAME" >> $GITHUB_ENV
+            echo "FILENAME_OVA=$FILENAME.ova" >> $GITHUB_ENV
+            echo "FILENAME_SHA=$FILENAME.ova.sha512" >> $GITHUB_ENV
+            echo "BUILD_LATEST=false" >> $GITHUB_ENV
+          else
+            # Dev build: both latest and commit versions
+            FILENAME_LATEST="wazuh-${{ env.WAZUH_VERSION }}-latest"
+            FILENAME_COMMIT="wazuh-${{ env.WAZUH_VERSION }}-${{ inputs.ova_revision }}-${COMMIT_SHA}"
+
+            echo "FILENAME_LATEST=$FILENAME_LATEST" >> $GITHUB_ENV
+            echo "FILENAME_LATEST_OVA=$FILENAME_LATEST.ova" >> $GITHUB_ENV
+            echo "FILENAME_LATEST_SHA=$FILENAME_LATEST.ova.sha512" >> $GITHUB_ENV
+
+            echo "FILENAME_COMMIT=$FILENAME_COMMIT" >> $GITHUB_ENV
+            echo "FILENAME_COMMIT_OVA=$FILENAME_COMMIT.ova" >> $GITHUB_ENV
+            echo "FILENAME_COMMIT_SHA=$FILENAME_COMMIT.ova.sha512" >> $GITHUB_ENV
+
+            # Use commit version as primary for intermediate steps
+            echo "FILENAME=$FILENAME_COMMIT" >> $GITHUB_ENV
+            echo "FILENAME_OVA=$FILENAME_COMMIT.ova" >> $GITHUB_ENV
+            echo "FILENAME_SHA=$FILENAME_COMMIT.ova.sha512" >> $GITHUB_ENV
+            echo "BUILD_LATEST=true" >> $GITHUB_ENV
           fi
-
-          echo "FILENAME=$FILENAME" >> $GITHUB_ENV
-          FILENAME_OVA="${FILENAME}.ova"
-          echo "FILENAME_OVA=$FILENAME_OVA" >> $GITHUB_ENV
-          FILENAME_SHA="${FILENAME}.ova.sha512"
-          echo "FILENAME_SHA=$FILENAME_SHA" >> $GITHUB_ENV
 
       - name: Install and set allocator requirements
         run: |
@@ -266,19 +282,37 @@ jobs:
           sed -i "s|ovf:capacity=\"40\"|ovf:capacity=\"50\"|g" ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_OVF_TEMPLATE_NAME }}
           sudo bash ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_SET_DEFAULT_SCRIPT_NAME }} "${{ env.OVA_SCRIPTS_PATH }}/" "${{ github.workspace }}/${{ env.FILENAME_OVA }}" "${{ github.workspace }}/${{ env.FILENAME_OVA }}" ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_OVF_TEMPLATE_NAME }} "${{ env.WAZUH_VERSION }}"
 
+      - name: Create latest version copy
+        if: ${{ inputs.is_stage == false }}
+        run: |
+          cp ${{ github.workspace }}/${{ env.FILENAME_COMMIT_OVA }} ${{ github.workspace }}/${{ env.FILENAME_LATEST_OVA }}
+
       - name: Exporting OVA to final repository
         run: |
+          # Upload version commit-based OVA
           aws s3 cp --quiet ${{ github.workspace }}/${{ env.FILENAME_OVA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_OVA }}
-          s3uri="s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_OVA }}"
-          echo "S3 OVA URI: ${s3uri}"
+          echo "S3 OVA URI: s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_OVA }}"
 
-      - name: Generating sha512 file
+          # Upload latest version OVA if applicable
+          if [ "${{ env.BUILD_LATEST }}" == "true" ]; then
+            aws s3 cp --quiet ${{ github.workspace }}/${{ env.FILENAME_LATEST_OVA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_LATEST_OVA }}
+            echo "S3 OVA URI (latest): s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_LATEST_OVA }}"
+          fi
+
+      - name: Generating sha512 files
         if: ${{ inputs.checksum == true }}
         run: |
+          # Generate and upload sha512 for commit-based version
           sha512sum ${{ github.workspace }}/${{ env.FILENAME_OVA }} > ${{ github.workspace }}/${{ env.FILENAME_SHA }}
           aws s3 cp --quiet ${{ github.workspace }}/${{ env.FILENAME_SHA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_SHA }}
-          s3uri="s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_SHA }}"
-          echo "S3 sha512 OVA URI: ${s3uri}"
+          echo "S3 sha512 URI: s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_SHA }}"
+
+          # Generate and upload sha512 for latest version if applicable
+          if [ "${{ env.BUILD_LATEST }}" == "true" ]; then
+            sha512sum ${{ github.workspace }}/${{ env.FILENAME_LATEST_OVA }} > ${{ github.workspace }}/${{ env.FILENAME_LATEST_SHA }}
+            aws s3 cp --quiet ${{ github.workspace }}/${{ env.FILENAME_LATEST_SHA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_LATEST_SHA }}
+            echo "S3 sha512 URI (latest): s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_LATEST_SHA }}"
+          fi
 
       - name: Delete allocated VM
         if: always() && steps.alloc_vm_ova.outcome == 'success' && inputs.destroy == true
