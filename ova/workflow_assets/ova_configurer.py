@@ -1,6 +1,8 @@
-import os
-import subprocess
 import argparse
+import os
+from pathlib import Path
+import shutil
+import subprocess
 
 
 def set_hostname():
@@ -100,6 +102,25 @@ def change_ssh_config():
                 file.write(line)
 
     subprocess.run("sudo systemctl restart sshd", shell=True, check=True)
+
+
+def deactivate_cloud_init():
+    """
+    Deactivates cloud-init
+    """
+    subprocess.run("sudo cloud-init clean --logs", check=True)
+    shutil.rmtree("/var/lib/cloud", ignore_errors=True)
+    Path("/etc/cloud/cloud-init.disabled").touch()
+    
+
+def delete_generated_network_files():
+    """
+    Deletes generated network files
+    """
+    network_dir = Path("/etc/systemd/network/")
+    for file in network_dir.glob("10-cloud-init-*.network"):
+        file.unlink(missing_ok=True)
+    Path("/etc/systemd/network/50-vagrant-enp0s8.network").unlink(missing_ok=True)
 
 
 def clean():
