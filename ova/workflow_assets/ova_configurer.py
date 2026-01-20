@@ -128,6 +128,9 @@ def clean():
     Cleans the VM after the installation
     """
     
+    deactivate_cloud_init()
+    delete_generated_network_files()
+
     os.remove("/tmp/wazuh-install.sh")
     
     subprocess.run("sudo rm -rf /home/ec2-user/wazuh-virtual-machines /home/ec2-user/wazuh-installation-assistant", shell=True, check=True)
