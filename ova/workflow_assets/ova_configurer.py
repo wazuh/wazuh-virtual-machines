@@ -71,7 +71,7 @@ Name=eth1
 DHCP=ipv4
 """
 
-    config_path = "/etc/systemd/network/20-eth1.network"
+    config_path = "/etc/systemd/network/20-eth0.network"
     
     with open(config_path, "w") as config_file:
         config_file.write(config_content)
@@ -111,6 +111,14 @@ def deactivate_cloud_init():
     subprocess.run("sudo cloud-init clean --logs", shell=True, check=True)
     shutil.rmtree("/var/lib/cloud", ignore_errors=True)
     Path("/etc/cloud/cloud-init.disabled").touch()
+    cloud_init_content = """
+network:
+  config: disabled
+"""
+
+    cloud_init_path = "/etc/cloud/cloud.cfg.d/99-amazon-override.cfg"
+    with open(cloud_init_path, "w") as config_file:
+        config_file.write(cloud_init_content)
 
 
 def delete_generated_network_files():
