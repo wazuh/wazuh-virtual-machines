@@ -66,7 +66,7 @@ def create_network_config():
     Creates the network configuration file and restarts the systemd-networkd service
     """
     config_content = """[Match]
-Name=eth1
+Type=ether
 [Network]
 DHCP=ipv4
 """
