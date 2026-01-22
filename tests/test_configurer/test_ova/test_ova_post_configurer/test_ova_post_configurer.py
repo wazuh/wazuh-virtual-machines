@@ -1,5 +1,5 @@
 from pathlib import Path
-from unittest.mock import call, mock_open, patch
+from unittest.mock import MagicMock, call, mock_open, patch
 
 import pytest
 
@@ -15,6 +15,8 @@ from configurer.ova.ova_post_configurer.ova_post_configurer import (
     post_conf_change_ssh_crypto_policies,
     post_conf_clean,
     post_conf_create_network_config,
+    post_conf_deactivate_cloud_init,
+    post_conf_delete_generated_network_files,
     set_hostname,
     steps_clean,
     steps_system_config,
@@ -230,9 +232,9 @@ def test_steps_clean(mock_run_command):
 
 @patch("builtins.open", new_callable=mock_open)
 def test_post_conf_create_network_config(mock_open, mock_run_command):
-    config_path = "/etc/systemd/network/20-eth1.network"
+    config_path = "/etc/systemd/network/20-eth0.network"
     expected_content = """[Match]
-Name=eth1
+Type=ether
 [Network]
 DHCP=ipv4
 """
@@ -278,8 +280,67 @@ def test_post_conf_change_ssh_crypto_policies(mock_run_command):
     mock_run_command.assert_called_once_with("systemctl restart sshd")
 
 
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.Path")
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.shutil.rmtree")
+def test_post_conf_deactivate_cloud_init(mock_rmtree, mock_path, mock_run_command):
+    mock_cloud_init_disabled = mock_path.return_value
+    mock_config_file_path = mock_path.return_value
+
+    post_conf_deactivate_cloud_init()
+
+    mock_run_command.assert_called_once_with("sudo cloud-init clean --logs")
+
+    mock_rmtree.assert_called_once_with("/var/lib/cloud", ignore_errors=True)
+
+    assert mock_path.call_count == 2
+    mock_path.assert_any_call("/etc/cloud/cloud-init.disabled")
+    mock_path.assert_any_call("/etc/cloud/cloud.cfg.d/99-amazon-override.cfg")
+
+    mock_cloud_init_disabled.touch.assert_called_once()
+
+    expected_content = """
+network:
+  config: disabled
+"""
+    mock_config_file_path.write_text.assert_called_once_with(expected_content)
+
+
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.Path")
+def test_post_conf_delete_generated_network_files(mock_path):
+    mock_network_dir = MagicMock()
+    mock_path.return_value = mock_network_dir
+
+    mock_cloud_init_file1 = MagicMock()
+    mock_cloud_init_file2 = MagicMock()
+    mock_vagrant_file = MagicMock()
+
+    mock_network_dir.glob.side_effect = [
+        [mock_cloud_init_file1, mock_cloud_init_file2],
+        [mock_vagrant_file],
+    ]
+
+    post_conf_delete_generated_network_files()
+
+    mock_path.assert_called_once_with("/etc/systemd/network/")
+
+    assert mock_network_dir.glob.call_count == 2
+    mock_network_dir.glob.assert_any_call("10-cloud-init-*.network")
+    mock_network_dir.glob.assert_any_call("*vagrant*.network")
+
+    mock_cloud_init_file1.unlink.assert_called_once_with(missing_ok=True)
+    mock_cloud_init_file2.unlink.assert_called_once_with(missing_ok=True)
+    mock_vagrant_file.unlink.assert_called_once_with(missing_ok=True)
+
+
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.post_conf_deactivate_cloud_init")
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.post_conf_delete_generated_network_files")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.modify_file")
-def test_post_conf_clean(mock_modify_file, mock_run_command):
+def test_post_conf_clean(
+    mock_modify_file,
+    mock_post_conf_delete_generated_network_files,
+    mock_post_conf_deactivate_cloud_init,
+    mock_run_command,
+):
     post_conf_clean()
 
     mock_run_command.assert_any_call(
