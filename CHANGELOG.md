@@ -31,7 +31,7 @@ All notable changes to this project will be documented in this file.
 
 - None
 
-## [4.14.3]
+## [4.14.4]
 
 ### Added
 
@@ -44,6 +44,24 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - None
+
+### Deleted
+
+- None
+
+## [4.14.3]
+
+### Added
+
+- None
+
+### Changed
+
+- None
+
+### Fixed
+
+- Fix cloud-init leftovers and network configuration in OVA build for 4.14.3 ([#532](https://github.com/wazuh/wazuh-virtual-machines/pull/532))
 
 ### Deleted
 
