@@ -1,6 +1,8 @@
-import os
-import subprocess
 import argparse
+import os
+from pathlib import Path
+import shutil
+import subprocess
 
 
 def set_hostname():
@@ -64,12 +66,12 @@ def create_network_config():
     Creates the network configuration file and restarts the systemd-networkd service
     """
     config_content = """[Match]
-Name=eth1
+Type=ether
 [Network]
 DHCP=ipv4
 """
 
-    config_path = "/etc/systemd/network/20-eth1.network"
+    config_path = "/etc/systemd/network/20-eth0.network"
     
     with open(config_path, "w") as config_file:
         config_file.write(config_content)
@@ -102,11 +104,41 @@ def change_ssh_config():
     subprocess.run("sudo systemctl restart sshd", shell=True, check=True)
 
 
+def deactivate_cloud_init():
+    """
+    Deactivates cloud-init
+    """
+    subprocess.run("sudo cloud-init clean --logs", shell=True, check=True)
+    shutil.rmtree("/var/lib/cloud", ignore_errors=True)
+    Path("/etc/cloud/cloud-init.disabled").touch()
+    cloud_init_content = """
+network:
+  config: disabled
+"""
+
+    cloud_init_path = "/etc/cloud/cloud.cfg.d/99-amazon-override.cfg"
+    with open(cloud_init_path, "w") as config_file:
+        config_file.write(cloud_init_content)
+
+
+def delete_generated_network_files():
+    """
+    Deletes generated network files
+    """
+    network_dir = Path("/etc/systemd/network/")
+    for file in network_dir.glob("10-cloud-init-*.network"):
+        file.unlink(missing_ok=True)
+    Path("/etc/systemd/network/50-vagrant-enp0s8.network").unlink(missing_ok=True)
+
+
 def clean():
     """
     Cleans the VM after the installation
     """
     
+    deactivate_cloud_init()
+    delete_generated_network_files()
+
     os.remove("/tmp/wazuh-install.sh")
     
     subprocess.run("sudo rm -rf /home/ec2-user/wazuh-virtual-machines /home/ec2-user/wazuh-installation-assistant", shell=True, check=True)
