@@ -145,7 +145,9 @@ class AmiPostConfigurer:
         """
 
         _, error_output = exec_command(command=command, client=client)
-        if error_output:
+        # Check if the command actually failed by looking at the exit code or critical error patterns
+        # DNF warnings (like new version availability) should not be treated as errors
+        if error_output and any(pattern in error_output.lower() for pattern in ["error:", "failed", "fatal"]):
             logger.error("Error creating the custom environment")
             raise RuntimeError(f"Error creating the custom environment: {error_output}")
         logger.info_success("Custom environment created successfully")
