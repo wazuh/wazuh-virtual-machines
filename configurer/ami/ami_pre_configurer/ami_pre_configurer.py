@@ -263,6 +263,8 @@ class AmiPreConfigurer:
         command = """
         sudo yum update -y
         sudo dnf upgrade --assumeyes --releasever=latest
+        sudo dnf clean all
+        sudo rm -rf /var/cache/dnf
         """
 
         _, error_output = exec_command(command=command, client=client)
@@ -271,6 +273,7 @@ class AmiPreConfigurer:
             raise RuntimeError(f"Error updating instance: {error_output}")
 
         logger.info_success("Instance updated successfully")
+
 
     def configure_motd_logo(self, client: paramiko.SSHClient) -> None:
         """
