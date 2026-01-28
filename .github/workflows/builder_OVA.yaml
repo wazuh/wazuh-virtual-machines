@@ -72,7 +72,7 @@ env:
     PROD_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PROD }}
     PRE_PROD_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PRE }}
     DEV_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_ARTIFACTS }}
-    ARTIFACTS_URLS_FILENAME: "artifact_urls.yml"
+    ARTIFACTS_URLS_FILENAME: "artifact_urls_test.yml"
     DEV_ARTIFACTS_URLS_PATH: "deployment"
     GENERATE_PRESIGNED_URLS_SCRIPT_PATH: ${{ github.workspace }}/.github/scripts/generate_presigned_dev_urls.py
     WVM_REPO_NAME: ${{ github.event.repository.name }}
