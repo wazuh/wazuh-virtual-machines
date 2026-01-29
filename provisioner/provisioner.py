@@ -216,6 +216,7 @@ class Provisioner:
             client (paramiko.SSHClient): The SSH client used to connect to the remote machine.
         """
         logger.debug(f"Provisioning {tool_filename}")
+        logger.debug(f"Tool URL used: {tool_url}")
 
         command_template = "mkdir -p {directory} && curl -s -o {path} '{tool_file_url}'"
 
