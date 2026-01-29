@@ -1,13 +1,13 @@
-run-name: Wazuh VM Test - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
+run-name: Wazuh Integration Test - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
 name: Wazuh VM Test
 
 on:
   workflow_dispatch:
     inputs:
-      WAZUH_VIRTUAL_MACHINES_REFERENCE:
-        description: 'Branch or tag of the wazuh-virtual-machines repository'
+      WAZUH_AUTOMATION_REFERENCE:
+        description: 'Branch or tag of the wazuh-automation repository'
         required: true
-        default: 'master'
+        default: 'main'
       test_type:
         description: 'Test type'
         required: true
@@ -54,6 +54,14 @@ on:
           - INFO
           - DEBUG
           - TRACE
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '**.ova'
+      - '**.ami'
+      - 'packer/**'
+      - '.github/workflows/wazuh-vm-test.yml'
 
 env:
   AWS_IAM_OVA_ROLE: ${{ secrets.AWS_IAM_OVA_ROLE }}
@@ -61,10 +69,12 @@ env:
   WAZUH_INDEXER_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_INDEXER_VERSION_REVISION }}
   WAZUH_DASHBOARD_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_DASHBOARD_VERSION_REVISION }}
   WAZUH_AUTOMATION_TOKEN: ${{ secrets.GH_CLONE_TOKEN }}
+  WAZUH_AUTOMATION_REFERENCE: ${{ github.event.inputs.WAZUH_AUTOMATION_REFERENCE || 'main' }}
 
 permissions:
   id-token: write
   contents: read
+  pull-requests: write
 
 jobs:
   test:
@@ -73,23 +83,28 @@ jobs:
     steps:
       - name: View parameters
         run: echo "${{ toJson(inputs) }}"
-      - name: Checkout wazuh/wazuh-virtual-machines repository
+
+      - name: Checkout wazuh-automation repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.WAZUH_VIRTUAL_MACHINES_REFERENCE }}
+          repository: wazuh/wazuh-automation
+          ref: ${{ env.WAZUH_AUTOMATION_REFERENCE }}
+          token: ${{ secrets.GH_CLONE_TOKEN }}
+          path: wazuh-automation
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
           cache: 'pip'
+          cache-dependency-path: 'wazuh-automation/integration-test-module/requirements.txt'
 
       - name: Install dependencies
         run: |
-          apt-get update && apt-get install -y git
+          sudo apt-get update && sudo apt-get install -y git
           python -m pip install --upgrade pip
-          pip install -r wazuh_vm_tester/requirements.txt
-          pip install -e wazuh_vm_tester/
+          pip install -r wazuh-automation/integration-test-module/requirements.txt
+          pip install -e wazuh-automation/integration-test-module/
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -97,49 +112,66 @@ jobs:
           role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
           aws-region: us-east-1
 
-      - name: Run tests with AMI mode
-        if: ${{ github.event.inputs.test_type == 'ami' }}
+      - name: Determine test parameters
+        id: test-params
         run: |
-          # Find the executable dynamically and store its path in a variable
-          WAZUH_VM_TEST_PATH=$(find /opt/hostedtoolcache/Python -name "wazuh-vm-test" | head -n 1)
+          # For workflow_dispatch, use inputs directly
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "test_type=${{ github.event.inputs.test_type }}" >> $GITHUB_OUTPUT
+            echo "host=${{ github.event.inputs.host }}" >> $GITHUB_OUTPUT
+            echo "test_pattern=${{ github.event.inputs.TESTS }}" >> $GITHUB_OUTPUT
+            echo "log_level=${{ github.event.inputs.log_level || 'INFO' }}" >> $GITHUB_OUTPUT
+          else
+            # For PR events, detect based on changed files or set defaults
+            echo "test_type=ami" >> $GITHUB_OUTPUT
+            echo "host=" >> $GITHUB_OUTPUT
+            echo "test_pattern=ALL" >> $GITHUB_OUTPUT
+            echo "log_level=INFO" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run tests with AMI mode
+        if: ${{ steps.test-params.outputs.test_type == 'ami' && steps.test-params.outputs.host != '' }}
+        run: |
+          # Find the test_runner executable
+          TEST_RUNNER_PATH=$(find /opt/hostedtoolcache/Python -name "test_runner" | head -n 1)
 
           # Exit if executable not found
-          if [ -z "$WAZUH_VM_TEST_PATH" ]; then
-            echo "Error: wazuh-vm-test executable not found"
+          if [ -z "$TEST_RUNNER_PATH" ]; then
+            echo "Error: test_runner executable not found"
             exit 1
           fi
 
-          echo "Found executable at: $WAZUH_VM_TEST_PATH"
+          echo "Found executable at: $TEST_RUNNER_PATH"
 
-          # Run the tests using the dynamically found path
-          $WAZUH_VM_TEST_PATH \
-            --test-type ${{ github.event.inputs.test_type }} \
-            --ami-id ${{ github.event.inputs.host }} \
-            --test-pattern "${{ github.event.inputs.TESTS }}" \
-            --log-level ${{ github.event.inputs.log_level || 'INFO' }} \
+          # Run the tests
+          $TEST_RUNNER_PATH \
+            --test-type ami \
+            --ami-id ${{ steps.test-params.outputs.host }} \
+            --test-pattern "${{ steps.test-params.outputs.test_pattern }}" \
+            --log-level ${{ steps.test-params.outputs.log_level }} \
             --output github \
             --output-file test-results.github
 
       - name: Run tests with OVA mode
-        if: ${{ github.event.inputs.test_type == 'ova' }}
+        if: ${{ steps.test-params.outputs.test_type == 'ova' && steps.test-params.outputs.host != '' }}
         run: |
-          # Find the executable dynamically and store its path in a variable
-          WAZUH_VM_TEST_PATH=$(find /opt/hostedtoolcache/Python -name "wazuh-vm-test" | head -n 1)
+          # Find the test_runner executable
+          TEST_RUNNER_PATH=$(find /opt/hostedtoolcache/Python -name "test_runner" | head -n 1)
 
           # Exit if executable not found
-          if [ -z "$WAZUH_VM_TEST_PATH" ]; then
-            echo "Error: wazuh-vm-test executable not found"
+          if [ -z "$TEST_RUNNER_PATH" ]; then
+            echo "Error: test_runner executable not found"
             exit 1
           fi
 
-          echo "Found executable at: $WAZUH_VM_TEST_PATH"
+          echo "Found executable at: $TEST_RUNNER_PATH"
 
-          # Run the tests using the dynamically found path
-          $WAZUH_VM_TEST_PATH \
-            --test-type ${{ github.event.inputs.test_type }} \
-            --ova-s3-path ${{ github.event.inputs.host }} \
-            --test-pattern "${{ github.event.inputs.TESTS }}" \
-            --log-level ${{ github.event.inputs.log_level || 'INFO' }} \
+          # Run the tests
+          $TEST_RUNNER_PATH \
+            --test-type ova \
+            --ova-s3-path ${{ steps.test-params.outputs.host }} \
+            --test-pattern "${{ steps.test-params.outputs.test_pattern }}" \
+            --log-level ${{ steps.test-params.outputs.log_level }} \
             --output github \
             --output-file test-results.github
 
@@ -169,19 +201,45 @@ jobs:
         if: always()
         run: |
           # Extract multiline summary from the test results
-          awk '/summary<<EOF/{flag=1;next}/EOF/{flag=0}flag' test-results.github > summary.md
-          cat summary.md >> $GITHUB_STEP_SUMMARY
+          if [ -f test-results.github ]; then
+            awk '/summary<<EOF/{flag=1;next}/EOF/{flag=0}flag' test-results.github > summary.md
+            cat summary.md >> $GITHUB_STEP_SUMMARY
+          else
+            echo "# Test Results" >> $GITHUB_STEP_SUMMARY
+            echo "❌ Failed to generate test results" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Comment PR with test results
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let summary = '## Wazuh VM Test Results\n\n';
+
+            if (fs.existsSync('summary.md')) {
+              summary += fs.readFileSync('summary.md', 'utf8');
+            } else {
+              summary += '❌ Failed to generate test results';
+            }
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });
 
       - name: Set job status
         if: always()
         run: |
           if [[ "${{ env.test_status }}" == "PASS" ]]; then
-            echo "Tests passed successfully!"
+            echo "✅ Tests passed successfully!"
             exit 0
           elif [[ "${{ env.test_status }}" == "WARNING" ]]; then
-            echo "Tests passed with warnings!"
+            echo "⚠️ Tests passed with warnings!"
             exit 0
           else
-            echo "Tests failed with status: ${{ env.test_status }}"
+            echo "❌ Tests failed with status: ${{ env.test_status }}"
             exit 1
           fi
