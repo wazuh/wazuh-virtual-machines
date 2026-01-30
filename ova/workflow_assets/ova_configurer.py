@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 from pathlib import Path
 import shutil
@@ -21,13 +22,21 @@ def clone_repositories():
     """
     Clones the wazuh-installation-assistant and wazuh-virtual-machines repositories
     """
+    version_file = Path(__file__).resolve().parents[2] / 'VERSION.json'
+    branch = ""
+
+    if version_file.exists():
+        with open(version_file, 'r') as f:
+            data = json.load(f)
+            branch = f"-b v{data['version']}-{data['stage']}"
+
     repos = [
         {"url": "https://github.com/wazuh/wazuh-virtual-machines.git", "dest": "/home/ec2-user/wazuh-virtual-machines"},
         {"url": "https://github.com/wazuh/wazuh-installation-assistant.git", "dest": "/home/ec2-user/wazuh-installation-assistant"}
     ]
 
     for repo in repos:
-        subprocess.run(f"git clone {repo['url']} {repo['dest']}", shell=True, check=True)
+        subprocess.run(f"git clone {branch} {repo['url']} {repo['dest']}", shell=True, check=True)
 
         
 def build_wazuh_install(repo_path, wia_branch):
