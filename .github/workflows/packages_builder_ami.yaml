@@ -163,6 +163,7 @@ jobs:
           echo WAZUH_VERSION=$WAZUH_VERSION >> $GITHUB_ENV
           echo WAZUH_MAJOR=$WAZUH_MAJOR >> $GITHUB_ENV
           echo WAZUH_MINOR=$WAZUH_MINOR >> $GITHUB_ENV
+          echo ARCH_SUFFIX=$ARCH_SUFFIX >> $GITHUB_ENV
 
       - name: Install and set allocator requirements
         run: |
@@ -321,5 +322,5 @@ jobs:
         if: always() && steps.generate_artifacts.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: instance_info
+          name: instance_info${{ env.ARCH_SUFFIX }}
           path: ${{ env.ALLOCATOR_PATH }}.zip
