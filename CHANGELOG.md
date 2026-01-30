@@ -30,7 +30,7 @@ All notable changes to this project will be documented in this file.
 
 ### Deleted
 
-- None
+- Removed OVA and AMI deprecated files. ([#554](https://github.com/wazuh/wazuh-virtual-machines/pull/554))
 
 ## [4.14.4]
 
