@@ -53,6 +53,10 @@ on:
         required: false
         default: false
         type: boolean
+      issue:
+        description: 'URL of the GitHub issue related to this build'
+        required: false
+        type: string
       destroy:
         description: 'Destroy the base instance after the AMI is created'
         required: false
@@ -91,6 +95,19 @@ jobs:
     steps:
       - name: View parameters
         run: echo "${{ toJson(inputs) }}"
+
+      - name: Validate Issue URL
+        if: inputs.issue != ''
+        run: |
+          ISSUE_URL="${{ inputs.issue }}"
+          # Regex to check for a valid URL starting with https://github.com/wazuh/
+          if [[ "$ISSUE_URL" =~ ^https://github\.com/wazuh/.* ]]; then
+            echo "Valid Wazuh GitHub issue URL provided."
+            echo "ISSUE_TAG_KEY=Issue" >> $GITHUB_ENV
+            echo "ISSUE_TAG_VALUE=$ISSUE_URL" >> $GITHUB_ENV
+          else
+            echo "::warning::The provided issue URL is not valid or does not belong to the Wazuh project."
+          fi
 
       - name: Checkout wazuh/wazuh-virtual-machines repository
         uses: actions/checkout@v4
@@ -154,6 +171,7 @@ jobs:
           echo WAZUH_VERSION=$WAZUH_VERSION >> $GITHUB_ENV
           echo WAZUH_MAJOR=$WAZUH_MAJOR >> $GITHUB_ENV
           echo WAZUH_MINOR=$WAZUH_MINOR >> $GITHUB_ENV
+          echo ARCH_SUFFIX=$ARCH_SUFFIX >> $GITHUB_ENV
 
       - name: Install and set allocator requirements
         run: |
@@ -282,8 +300,14 @@ jobs:
           fi
 
           # Tag AMI
-          aws ec2 create-tags --resources ${{ env.AMI_ID }} --tags Key=Name,Value="${{ env.AMI_NAME }}" Key=Dev,Value="$DEV_TAG_VALUE"
-          echo "Tagged AMI ${{ env.AMI_ID }} with Name=${{ env.AMI_NAME }} and Dev=$DEV_TAG_VALUE"
+          TAGS="Key=Name,Value=${{ env.AMI_NAME }} Key=Dev,Value=$DEV_TAG_VALUE Key=WorkflowRun,Value=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          if [ -n "${{ env.ISSUE_TAG_KEY }}" ]; then
+            TAGS="$TAGS Key=${{ env.ISSUE_TAG_KEY }},Value=${{ env.ISSUE_TAG_VALUE }}"
+          fi
+
+          aws ec2 create-tags --resources ${{ env.AMI_ID }} --tags $TAGS
+          echo "Tagged AMI ${{ env.AMI_ID }} with tags: $TAGS"
 
       - name: Delete allocated VM
         if: always() && steps.alloc_vm_ami.outcome == 'success' && inputs.destroy == true
@@ -299,5 +323,5 @@ jobs:
         if: always() && steps.generate_artifacts.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: instance_info
+          name: instance_info${{ env.ARCH_SUFFIX }}
           path: ${{ env.ALLOCATOR_PATH }}.zip
