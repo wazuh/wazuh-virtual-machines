@@ -22,6 +22,7 @@
 - [Installation](ref/installation/installation.md)
   - [AMI Installation](ref/installation/ami/ami-installation.md)
   - [OVA Installation](ref/installation/ova/ova-installation.md)
+  - [Local OVA Installation](ref/installation/ova/local-ova-installation.md)
 - [Configuration](ref/configuration/configuration.md)
   - [AMI Configuration](ref/configuration/ami/ami-configuration.md)
   - [OVA Configuration](ref/configuration/ova/ova-configuration.md)
