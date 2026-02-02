@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Change URL sign expiration time and add debug messages ([#553](https://github.com/wazuh/wazuh-virtual-machines/pull/553))
 - Add suport to is_stage procedure and tagging with commit and latest ([#529](https://github.com/wazuh/wazuh-virtual-machines/pull/529))
 - Change passwords update process in AMI build ([#530](https://github.com/wazuh/wazuh-virtual-machines/pull/530))
 - Wazuh AMI Documentation updated with ARM support. ([#515](https://github.com/wazuh/wazuh-virtual-machines/pull/515))
@@ -23,6 +24,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Add arch suffix to the allocator artifact in the builder AMI workflow ([#556](https://github.com/wazuh/wazuh-virtual-machines/pull/556))
 - Updated Amazon linux upgrade method. ([#540](https://github.com/wazuh/wazuh-virtual-machines/pull/540))
 - Fix cloud-init leftovers and network configuration in OVA build for 5.0 ([#534](https://github.com/wazuh/wazuh-virtual-machines/pull/534))
 - Fix vagrant up inconsistencies at the renewed OVA build process ([#474](https://github.com/wazuh/wazuh-virtual-machines/pull/474))
@@ -30,7 +32,7 @@ All notable changes to this project will be documented in this file.
 
 ### Deleted
 
-- None
+- Removed OVA and AMI deprecated files. ([#554](https://github.com/wazuh/wazuh-virtual-machines/pull/554))
 
 ## [4.14.4]
 
