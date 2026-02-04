@@ -10,6 +10,7 @@ dependencies = [
     "paramiko",
     "pyyaml",
     "jinja2",
+    "requests",
 ]
 requires-python = ">= 3.12"
 description = "Wazuh - Virtual Machines (OVA and AMI)"
@@ -72,7 +73,6 @@ dependencies = [
     "pytest-cov~=6.0",
     "pytest-xdist",
     "ruff",
-    "requests",
 ]
 
 [tool.hatch.envs.dev-provisioner]
@@ -186,3 +186,14 @@ run = "python -m wazuh_local_ova {args:}"
 
 [tool.hatch.envs.dev-ova-dependencies.scripts]
 install = "python3 -c 'from configurer.ova.ova_pre_configurer.install_dependencies import main; main()'"
+
+[tool.hatch.envs.local-ova]
+description = """
+Enviroment to be used for testing all virtual-machines modules
+"""
+dependencies = [
+    "typer",
+]
+
+[tool.hatch.envs.local-ova.scripts]
+create = "python -m wazuh_local_ova {args:}"
