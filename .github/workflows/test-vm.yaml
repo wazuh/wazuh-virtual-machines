@@ -142,25 +142,41 @@ jobs:
           echo "instance_ip=${INSTANCE_IP}" >> $GITHUB_OUTPUT
           echo "Instance ${INSTANCE_ID} is running at ${INSTANCE_IP}"
 
-      - name: Wait for SSH availability
+      - name: Wait for SSH and Wazuh services
         run: |
-          echo "Waiting for SSH to be available on ${{ steps.launch.outputs.instance_ip }}..."
-          for i in {1..30}; do
-            if nc -z -w5 ${{ steps.launch.outputs.instance_ip }} 22 2>/dev/null; then
-              echo "SSH is available"
+          HOST="${{ steps.launch.outputs.instance_ip }}"
+          MAX_WAIT=420  # 7 minutes total
+          INTERVAL=30   # Check every 30 seconds
+          ELAPSED=0
+
+          echo "::group::Waiting for instance to be ready (SSH + Wazuh services)"
+          echo "Target: ${HOST}:22"
+          echo "Maximum wait time: ${MAX_WAIT}s"
+          echo ""
+
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            PERCENT=$((ELAPSED * 100 / MAX_WAIT))
+            BARS=$((PERCENT / 5))
+            PROGRESS=$(printf '%*s' "$BARS" '' | tr ' ' '█')
+            REMAINING=$(printf '%*s' "$((20 - BARS))" '' | tr ' ' '░')
+
+            if nc -z -w5 ${HOST} 22 2>/dev/null; then
+              echo ""
+              echo "[$PROGRESS$REMAINING] 100% - SSH is available!"
+              echo "::endgroup::"
+              echo "✅ Instance ready after ${ELAPSED}s"
               exit 0
             fi
-            echo "Attempt $i/30 - SSH not ready, waiting 10s..."
-            sleep 10
-          done
-          echo "SSH did not become available in time"
-          exit 1
 
-      - name: Wait for Wazuh services to start
-        run: |
-          echo "Waiting 360 seconds for Wazuh services to initialize..."
-          sleep 360
-          echo "Wait completed"
+            echo "[$PROGRESS$REMAINING] ${PERCENT}% - Waiting... (${ELAPSED}s/${MAX_WAIT}s)"
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED + INTERVAL))
+          done
+
+          echo ""
+          echo "::endgroup::"
+          echo "❌ SSH did not become available within ${MAX_WAIT}s"
+          exit 1
 
       - name: Upload SSH key as artifact
         uses: actions/upload-artifact@v4
