@@ -448,7 +448,7 @@ jobs:
             --action create \
             --provider aws \
             --size metal \
-            --composite-name amazon_linux-2023-x86_64 \
+            --composite-name amazon-2023-amd64 \
             --working-dir ${WORK_DIR} \
             --track-output ${TRACK_FILE} \
             --inventory-output ${INVENTORY_FILE} \
