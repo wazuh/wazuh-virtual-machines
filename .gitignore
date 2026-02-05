@@ -2,3 +2,4 @@ repository_bumper_*.log
 *.coverage
 *coverage.xml
 *__pycache__/
+docs/book/*
