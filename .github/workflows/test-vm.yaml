@@ -403,6 +403,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       allocator_ip: ${{ steps.allocator.outputs.allocator_ip }}
+      allocator_ssh_port: ${{ steps.allocator.outputs.ssh_port }}
       ova_ssh_port: ${{ steps.port_forward.outputs.ssh_port }}
       ssh_key: ${{ steps.allocator.outputs.ssh_key }}
       ssh_user: ${{ steps.allocator.outputs.ssh_user }}
@@ -460,33 +461,33 @@ jobs:
           ALLOCATOR_IP=$(yq -r '.all.hosts | to_entries | .[0].value.ansible_host' ${INVENTORY_FILE})
           SSH_KEY=$(yq -r '.all.hosts | to_entries | .[0].value.ansible_ssh_private_key_file' ${INVENTORY_FILE})
           SSH_USER=$(yq -r '.all.hosts | to_entries | .[0].value.ansible_user' ${INVENTORY_FILE})
+          SSH_PORT=$(yq -r '.all.hosts | to_entries | .[0].value.ansible_port // 22' ${INVENTORY_FILE})
 
           echo "allocator_ip=${ALLOCATOR_IP}" >> $GITHUB_OUTPUT
           echo "track_file=${TRACK_FILE}" >> $GITHUB_OUTPUT
           echo "ssh_key=${SSH_KEY}" >> $GITHUB_OUTPUT
           echo "ssh_user=${SSH_USER}" >> $GITHUB_OUTPUT
+          echo "ssh_port=${SSH_PORT}" >> $GITHUB_OUTPUT
           echo "inventory_file=${INVENTORY_FILE}" >> $GITHUB_OUTPUT
 
-          echo "Allocator launched at ${ALLOCATOR_IP}"
+          echo "Allocator launched at ${ALLOCATOR_IP}:${SSH_PORT}"
 
       - name: Install VirtualBox on allocator
         run: |
           echo "Installing VirtualBox dependencies on allocator..."
 
+          SSH_OPTIONS="-o StrictHostKeyChecking=no -p ${{ steps.allocator.outputs.ssh_port }} -i ${{ steps.allocator.outputs.ssh_key }}"
+          SSH_HOST="${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }}"
+
           # Clone wazuh-virtual-machines and install dependencies
-          ssh -o StrictHostKeyChecking=no \
-              -i ${{ steps.allocator.outputs.ssh_key }} \
-              ${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }} \
+          ssh ${SSH_OPTIONS} ${SSH_HOST} \
               "git clone https://github.com/wazuh/wazuh-virtual-machines.git /tmp/wazuh-virtual-machines && \
                cd /tmp/wazuh-virtual-machines && \
                sudo pip3 install hatch && \
                sudo hatch run dev-ova-dependencies:install"
 
           # Verify VirtualBox installation
-          ssh -o StrictHostKeyChecking=no \
-              -i ${{ steps.allocator.outputs.ssh_key }} \
-              ${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }} \
-              "VBoxManage --version"
+          ssh ${SSH_OPTIONS} ${SSH_HOST} "VBoxManage --version"
 
           echo "VirtualBox installed successfully"
 
@@ -504,12 +505,12 @@ jobs:
           # Generate pre-signed URL (1 hour expiration)
           PRESIGNED_URL=$(aws s3 presign s3://${BUCKET}/${KEY} --expires-in 3600)
 
+          SSH_OPTIONS="-o StrictHostKeyChecking=no -p ${{ steps.allocator.outputs.ssh_port }} -i ${{ steps.allocator.outputs.ssh_key }}"
+          SSH_HOST="${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }}"
+
           # Download OVA on allocator using pre-signed URL
           echo "Downloading OVA to allocator..."
-          ssh -o StrictHostKeyChecking=no \
-              -i ${{ steps.allocator.outputs.ssh_key }} \
-              ${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }} \
-              "curl -L '${PRESIGNED_URL}' -o ${REMOTE_OVA_PATH}"
+          ssh ${SSH_OPTIONS} ${SSH_HOST} "curl -L '${PRESIGNED_URL}' -o ${REMOTE_OVA_PATH}"
 
           echo "ova_path=${REMOTE_OVA_PATH}" >> $GITHUB_OUTPUT
           echo "OVA downloaded to ${REMOTE_OVA_PATH}"
@@ -519,23 +520,17 @@ jobs:
         run: |
           VM_NAME="wazuh-ova-test-${{ github.run_id }}"
 
+          SSH_OPTIONS="-o StrictHostKeyChecking=no -p ${{ steps.allocator.outputs.ssh_port }} -i ${{ steps.allocator.outputs.ssh_key }}"
+          SSH_HOST="${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }}"
+
           echo "Importing OVA to VirtualBox..."
-          ssh -o StrictHostKeyChecking=no \
-              -i ${{ steps.allocator.outputs.ssh_key }} \
-              ${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }} \
-              "VBoxManage import ${{ steps.download.outputs.ova_path }} --vsys 0 --vmname ${VM_NAME}"
+          ssh ${SSH_OPTIONS} ${SSH_HOST} "VBoxManage import ${{ steps.download.outputs.ova_path }} --vsys 0 --vmname ${VM_NAME}"
 
           echo "Configuring VM resources (memory: 8192MB, CPUs: 4)..."
-          ssh -o StrictHostKeyChecking=no \
-              -i ${{ steps.allocator.outputs.ssh_key }} \
-              ${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }} \
-              "VBoxManage modifyvm ${VM_NAME} --memory 8192 --cpus 4 --nic1 nat"
+          ssh ${SSH_OPTIONS} ${SSH_HOST} "VBoxManage modifyvm ${VM_NAME} --memory 8192 --cpus 4 --nic1 nat"
 
           echo "Starting VM in headless mode..."
-          ssh -o StrictHostKeyChecking=no \
-              -i ${{ steps.allocator.outputs.ssh_key }} \
-              ${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }} \
-              "VBoxManage startvm ${VM_NAME} --type headless"
+          ssh ${SSH_OPTIONS} ${SSH_HOST} "VBoxManage startvm ${VM_NAME} --type headless"
 
           echo "vm_name=${VM_NAME}" >> $GITHUB_OUTPUT
           echo "VM ${VM_NAME} started"
@@ -543,43 +538,37 @@ jobs:
       - name: Setup port forwarding
         id: port_forward
         run: |
-          SSH_PORT=2201
+          OVA_SSH_PORT=2201
           VM_NAME="${{ steps.import.outputs.vm_name }}"
 
+          SSH_OPTIONS="-o StrictHostKeyChecking=no -p ${{ steps.allocator.outputs.ssh_port }} -i ${{ steps.allocator.outputs.ssh_key }}"
+          SSH_HOST="${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }}"
+
           echo "Stopping VM for port forwarding configuration..."
-          ssh -o StrictHostKeyChecking=no \
-              -i ${{ steps.allocator.outputs.ssh_key }} \
-              ${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }} \
-              "VBoxManage controlvm ${VM_NAME} shutdown || true"
+          ssh ${SSH_OPTIONS} ${SSH_HOST} "VBoxManage controlvm ${VM_NAME} shutdown || true"
 
           echo "Waiting for VM to shut down..."
           sleep 15
 
-          echo "Configuring SSH port forwarding (22 -> ${SSH_PORT})..."
-          ssh -o StrictHostKeyChecking=no \
-              -i ${{ steps.allocator.outputs.ssh_key }} \
-              ${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }} \
-              "VBoxManage modifyvm ${VM_NAME} --natpf1 'ssh,tcp,,${SSH_PORT},,22'"
+          echo "Configuring SSH port forwarding (22 -> ${OVA_SSH_PORT})..."
+          ssh ${SSH_OPTIONS} ${SSH_HOST} "VBoxManage modifyvm ${VM_NAME} --natpf1 'ssh,tcp,,${OVA_SSH_PORT},,22'"
 
           echo "Restarting VM..."
-          ssh -o StrictHostKeyChecking=no \
-              -i ${{ steps.allocator.outputs.ssh_key }} \
-              ${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }} \
-              "VBoxManage startvm ${VM_NAME} --type headless"
+          ssh ${SSH_OPTIONS} ${SSH_HOST} "VBoxManage startvm ${VM_NAME} --type headless"
 
-          echo "ssh_port=${SSH_PORT}" >> $GITHUB_OUTPUT
-          echo "Port forwarding configured: guest:22 -> host:${SSH_PORT}"
+          echo "ssh_port=${OVA_SSH_PORT}" >> $GITHUB_OUTPUT
+          echo "Port forwarding configured: guest:22 -> host:${OVA_SSH_PORT}"
 
       - name: Wait for OVA VM to be ready
         run: |
           echo "Waiting for OVA VM SSH to be available..."
+
+          SSH_OPTIONS="-o StrictHostKeyChecking=no -o ConnectTimeout=5 -p ${{ steps.allocator.outputs.ssh_port }} -i ${{ steps.allocator.outputs.ssh_key }}"
+          SSH_HOST="${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }}"
+
           for i in {1..60}; do
             # Check if we can connect to the VM through port forwarding
-            if ssh -o StrictHostKeyChecking=no \
-                   -o ConnectTimeout=5 \
-                   -i ${{ steps.allocator.outputs.ssh_key }} \
-                   ${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }} \
-                   "nc -z localhost ${{ steps.port_forward.outputs.ssh_port }}" 2>/dev/null; then
+            if ssh ${SSH_OPTIONS} ${SSH_HOST} "nc -z localhost ${{ steps.port_forward.outputs.ssh_port }}" 2>/dev/null; then
               echo "OVA VM SSH port is available"
               exit 0
             fi
