@@ -479,11 +479,16 @@ jobs:
           SSH_OPTIONS="-o StrictHostKeyChecking=no -p ${{ steps.allocator.outputs.ssh_port }} -i ${{ steps.allocator.outputs.ssh_key }}"
           SSH_HOST="${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }}"
 
-          # Clone wazuh-virtual-machines and install dependencies
+          # Install base dependencies
+          echo "Installing base dependencies..."
+          ssh ${SSH_OPTIONS} ${SSH_HOST} \
+              "which git || (sudo yum update -y && sudo yum install -y nc git python3 python3-pip && sudo pip3 install hatch)"
+
+          # Clone wazuh-virtual-machines and install VirtualBox
+          echo "Installing VirtualBox..."
           ssh ${SSH_OPTIONS} ${SSH_HOST} \
               "git clone https://github.com/wazuh/wazuh-virtual-machines.git /tmp/wazuh-virtual-machines && \
                cd /tmp/wazuh-virtual-machines && \
-               sudo pip3 install hatch && \
                sudo hatch run dev-ova-dependencies:install"
 
           # Verify VirtualBox installation
