@@ -500,25 +500,38 @@ jobs:
         id: download
         run: |
           OVA_FILENAME=$(basename ${{ github.event.inputs.host }})
+          LOCAL_OVA_PATH="/tmp/${OVA_FILENAME}"
           REMOTE_OVA_PATH="/tmp/${OVA_FILENAME}"
 
           # Parse S3 path
           S3_PATH="${{ github.event.inputs.host }}"
-          BUCKET=$(echo ${S3_PATH} | sed 's|s3://||' | cut -d'/' -f1)
-          KEY=$(echo ${S3_PATH} | sed 's|s3://[^/]*/||')
 
-          # Generate pre-signed URL (1 hour expiration)
-          PRESIGNED_URL=$(aws s3 presign s3://${BUCKET}/${KEY} --expires-in 3600)
+          # Download OVA locally first (more reliable than curl on remote)
+          echo "Downloading OVA from S3 to local runner..."
+          aws s3 cp ${S3_PATH} ${LOCAL_OVA_PATH}
 
+          # Verify local download
+          echo "Local OVA file:"
+          ls -lh ${LOCAL_OVA_PATH}
+
+          # Copy OVA to allocator using SCP
+          echo "Copying OVA to allocator via SCP..."
+          scp -o StrictHostKeyChecking=no \
+              -o UserKnownHostsFile=/dev/null \
+              -P ${{ steps.allocator.outputs.ssh_port }} \
+              -i ${{ steps.allocator.outputs.ssh_key }} \
+              ${LOCAL_OVA_PATH} \
+              ${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }}:${REMOTE_OVA_PATH}
+
+          # Verify remote file
           SSH_OPTIONS="-o StrictHostKeyChecking=no -p ${{ steps.allocator.outputs.ssh_port }} -i ${{ steps.allocator.outputs.ssh_key }}"
           SSH_HOST="${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }}"
 
-          # Download OVA on allocator using pre-signed URL
-          echo "Downloading OVA to allocator..."
-          ssh ${SSH_OPTIONS} ${SSH_HOST} "curl -L '${PRESIGNED_URL}' -o ${REMOTE_OVA_PATH}"
+          echo "Remote OVA file:"
+          ssh ${SSH_OPTIONS} ${SSH_HOST} "ls -lh ${REMOTE_OVA_PATH}"
 
           echo "ova_path=${REMOTE_OVA_PATH}" >> $GITHUB_OUTPUT
-          echo "OVA downloaded to ${REMOTE_OVA_PATH}"
+          echo "OVA successfully transferred to allocator"
 
       - name: Import and configure OVA in VirtualBox
         id: import
