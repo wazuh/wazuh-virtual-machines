@@ -447,7 +447,7 @@ jobs:
           python wazuh-automation/deployability/modules/allocation/main.py \
             --action create \
             --provider aws \
-            --size c5.metal \
+            --size metal \
             --composite-name amazon_linux-2023-x86_64 \
             --working-dir ${WORK_DIR} \
             --track-output ${TRACK_FILE} \
