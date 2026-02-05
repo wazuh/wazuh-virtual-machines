@@ -95,7 +95,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
           aws-region: us-east-1
 
       - name: Generate SSH key pair
@@ -122,7 +122,7 @@ jobs:
             --image-id ${{ github.event.inputs.host }} \
             --instance-type c5ad.xlarge \
             --key-name ${{ steps.keygen.outputs.key_name }} \
-            --security-group-ids ${{ secrets.SECURITY_GROUP_ID }} \
+            --security-group-ids ${{ secrets.AWS_EC2_SG }} \
             --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=test-runner-${{ github.run_id }}},{Key=AutoTerminate,Value=true},{Key=CreatedBy,Value=test_runner}]' \
             --query 'Instances[0].InstanceId' \
             --output text)
@@ -313,7 +313,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
           aws-region: us-east-1
 
       - name: Terminate EC2 instance
