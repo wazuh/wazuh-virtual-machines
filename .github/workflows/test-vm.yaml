@@ -54,6 +54,11 @@ on:
           - INFO
           - DEBUG
           - TRACE
+      keep_instance_alive:
+        description: 'Keep instance alive after tests (do not terminate)'
+        required: false
+        default: false
+        type: boolean
   pull_request:
     branches:
       - main
@@ -145,37 +150,48 @@ jobs:
       - name: Wait for SSH and Wazuh services
         run: |
           HOST="${{ steps.launch.outputs.instance_ip }}"
-          MAX_WAIT=420  # 7 minutes total
+          INSTANCE_ID="${{ steps.launch.outputs.instance_id }}"
+          MAX_WAIT=600  # 10 minutes total
           INTERVAL=30   # Check every 30 seconds
           ELAPSED=0
 
-          echo "::group::Waiting for instance to be ready (SSH + Wazuh services)"
+          echo "Waiting for instance to be ready (SSH + Wazuh services)"
           echo "Target: ${HOST}:22"
+          echo "Instance ID: ${INSTANCE_ID}"
           echo "Maximum wait time: ${MAX_WAIT}s"
           echo ""
 
+          # Initial delay to let instance fully boot
+          echo "Initial wait of 60s for instance boot..."
+          sleep 60
+          ELAPSED=60
+
           while [ $ELAPSED -lt $MAX_WAIT ]; do
             PERCENT=$((ELAPSED * 100 / MAX_WAIT))
-            BARS=$((PERCENT / 5))
-            PROGRESS=$(printf '%*s' "$BARS" '' | tr ' ' '█')
-            REMAINING=$(printf '%*s' "$((20 - BARS))" '' | tr ' ' '░')
 
+            # Try SSH connection
             if nc -z -w5 ${HOST} 22 2>/dev/null; then
               echo ""
-              echo "[$PROGRESS$REMAINING] 100% - SSH is available!"
-              echo "::endgroup::"
-              echo "✅ Instance ready after ${ELAPSED}s"
+              echo "[SUCCESS] SSH is available after ${ELAPSED}s"
               exit 0
             fi
 
-            echo "[$PROGRESS$REMAINING] ${PERCENT}% - Waiting... (${ELAPSED}s/${MAX_WAIT}s)"
+            echo "[${PERCENT}%] Waiting... (${ELAPSED}s/${MAX_WAIT}s) - SSH not ready"
             sleep $INTERVAL
             ELAPSED=$((ELAPSED + INTERVAL))
           done
 
           echo ""
-          echo "::endgroup::"
-          echo "❌ SSH did not become available within ${MAX_WAIT}s"
+          echo "ERROR: SSH did not become available within ${MAX_WAIT}s"
+          echo ""
+          echo "=== Diagnostics ==="
+          echo "Checking instance status..."
+          aws ec2 describe-instance-status --instance-ids ${INSTANCE_ID} --output table || true
+          echo ""
+          echo "Checking instance details..."
+          aws ec2 describe-instances --instance-ids ${INSTANCE_ID} \
+            --query 'Reservations[0].Instances[0].{State:State.Name,PublicIP:PublicIpAddress,PrivateIP:PrivateIpAddress,SubnetId:SubnetId,VpcId:VpcId,SecurityGroups:SecurityGroups[*].GroupId}' \
+            --output table || true
           exit 1
 
       - name: Upload SSH key as artifact
@@ -322,7 +338,7 @@ jobs:
 
   ami-cleanup:
     needs: [ami-setup, test-ami]
-    if: ${{ always() && needs.ami-setup.result == 'success' }}
+    if: ${{ always() && needs.ami-setup.result != 'skipped' && github.event.inputs.keep_instance_alive != 'true' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -334,19 +350,49 @@ jobs:
 
       - name: Terminate EC2 instance
         run: |
-          echo "Terminating instance ${{ needs.ami-setup.outputs.instance_id }}..."
-          aws ec2 terminate-instances --instance-ids ${{ needs.ami-setup.outputs.instance_id }}
+          INSTANCE_ID="${{ needs.ami-setup.outputs.instance_id }}"
+
+          if [ -z "$INSTANCE_ID" ]; then
+            echo "No instance ID found, skipping termination"
+            exit 0
+          fi
+
+          # Check if instance exists and is not already terminated
+          STATE=$(aws ec2 describe-instances \
+            --instance-ids ${INSTANCE_ID} \
+            --query 'Reservations[0].Instances[0].State.Name' \
+            --output text 2>/dev/null || echo "not-found")
+
+          if [ "$STATE" == "not-found" ] || [ "$STATE" == "terminated" ]; then
+            echo "Instance ${INSTANCE_ID} not found or already terminated (state: ${STATE})"
+            exit 0
+          fi
+
+          echo "Terminating instance ${INSTANCE_ID} (current state: ${STATE})..."
+          aws ec2 terminate-instances --instance-ids ${INSTANCE_ID}
 
           echo "Waiting for instance to terminate..."
-          aws ec2 wait instance-terminated --instance-ids ${{ needs.ami-setup.outputs.instance_id }}
+          aws ec2 wait instance-terminated --instance-ids ${INSTANCE_ID}
 
-          echo "Instance ${{ needs.ami-setup.outputs.instance_id }} terminated successfully"
+          echo "Instance ${INSTANCE_ID} terminated successfully"
 
       - name: Delete SSH key pair
         run: |
-          echo "Deleting key pair ${{ needs.ami-setup.outputs.ssh_key_name }}..."
-          aws ec2 delete-key-pair --key-name ${{ needs.ami-setup.outputs.ssh_key_name }}
-          echo "Key pair ${{ needs.ami-setup.outputs.ssh_key_name }} deleted successfully"
+          KEY_NAME="${{ needs.ami-setup.outputs.ssh_key_name }}"
+
+          if [ -z "$KEY_NAME" ]; then
+            echo "No key name found, skipping deletion"
+            exit 0
+          fi
+
+          # Check if key exists before deleting
+          if aws ec2 describe-key-pairs --key-names ${KEY_NAME} 2>/dev/null; then
+            echo "Deleting key pair ${KEY_NAME}..."
+            aws ec2 delete-key-pair --key-name ${KEY_NAME}
+            echo "Key pair ${KEY_NAME} deleted successfully"
+          else
+            echo "Key pair ${KEY_NAME} not found, skipping deletion"
+          fi
 
   # ===================================================
   # OVA Pipeline: setup -> test -> cleanup
@@ -685,7 +731,7 @@ jobs:
 
   ova-cleanup:
     needs: [ova-setup, test-ova]
-    if: ${{ always() && needs.ova-setup.result == 'success' }}
+    if: ${{ always() && needs.ova-setup.result != 'skipped' && github.event.inputs.keep_instance_alive != 'true' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -712,14 +758,22 @@ jobs:
         run: pip install boto3 pyyaml
 
       - name: Download track file
+        id: download-track
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: allocator-track-${{ github.run_id }}
           path: /tmp/allocator
 
       - name: Terminate allocator instance
+        if: ${{ steps.download-track.outcome == 'success' }}
         run: |
-          TRACK_FILE=$(find /tmp/allocator -name "track.yml" -type f)
+          TRACK_FILE=$(find /tmp/allocator -name "track.yml" -type f 2>/dev/null || true)
+
+          if [ -z "$TRACK_FILE" ]; then
+            echo "No track file found, skipping termination"
+            exit 0
+          fi
 
           echo "Found track file: ${TRACK_FILE}"
           echo "Terminating allocator instance..."
@@ -729,3 +783,7 @@ jobs:
             --track-output ${TRACK_FILE}
 
           echo "Allocator instance terminated successfully"
+
+      - name: Skip cleanup notification
+        if: ${{ steps.download-track.outcome != 'success' }}
+        run: echo "Track file artifact not found - instance may need manual cleanup"
