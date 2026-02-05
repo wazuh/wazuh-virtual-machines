@@ -431,7 +431,9 @@ jobs:
           python-version: '3.10'
 
       - name: Install allocator dependencies
-        run: pip install boto3 pyyaml ansible
+        run: |
+          pip install -r wazuh-automation/deployability/deps/requirements.txt
+          pip install ansible
 
       - name: Launch allocator instance
         id: allocator
@@ -755,7 +757,7 @@ jobs:
           python-version: '3.10'
 
       - name: Install dependencies
-        run: pip install boto3 pyyaml
+        run: pip install -r wazuh-automation/deployability/deps/requirements.txt
 
       - name: Download track file
         id: download-track
