@@ -1,5 +1,5 @@
 run-name: Wazuh Integration Test - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
-name: Wazuh VM Test
+name: Wazuh Integration Test
 
 on:
   workflow_dispatch:
@@ -63,6 +63,7 @@ on:
           - LOGS
           - SERVICE
           - VERSION
+          - UPDATES
           - OVA
       log_level:
         description: 'Log level'
@@ -101,7 +102,7 @@ permissions:
 jobs:
 
   # ===================================================
-  # AMI Pipeline: setup -> test -> cleanup
+  # AMI: setup -> test -> cleanup
   # ===================================================
 
   ami-setup:
@@ -414,7 +415,7 @@ jobs:
           fi
 
   # ===================================================
-  # OVA Pipeline: setup -> test -> cleanup
+  # OVA: setup -> test -> cleanup
   # ===================================================
 
   ova-setup:
@@ -591,7 +592,7 @@ jobs:
             # S3 URL format: s3://bucket/path/file.ova
             OVA_FILENAME=$(basename "$OVA_URL")
           else
-            # Presigned URL format: https://...?...
+            # Presigned URL format: https://...
             # Extract path before query string and get basename
             OVA_FILENAME=$(basename "${OVA_URL%%\?*}")
           fi
