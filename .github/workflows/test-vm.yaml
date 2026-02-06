@@ -8,6 +8,9 @@ on:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
         default: 'main'
+      WAZUH_VIRTUAL_MACHINES_REFERENCE:
+        description: 'Branch or tag of the wazuh-virtual-machines repository'
+        required: true
       test_type:
         description: 'Test type'
         required: true
@@ -17,8 +20,24 @@ on:
           - ami
           - ova
       host:
-        description: 'AMI ID to create ami or OVA S3 path'
+        description: 'AMI ID to test (only for AMI test type)'
         required: false
+        type: string
+      wazuh_package_type:
+        description: 'Wazuh package type for OVA URL resolution'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - prod
+          - pre-prod
+          - dev
+      commit_list:
+        description: |
+          'Wazuh components revisions (comma-separated string list) ["indexer-revision", "server-revision", "dashboard-revision"]'
+          (Only needed if the Wazuh package type is dev-latest or dev-commit)
+        required: true
+        default: '["latest", "latest", "latest", "latest"]'
         type: string
       WAZUH_SERVER_VERSION_REVISION:
         description: 'Expected Wazuh server version-revision'
@@ -59,20 +78,20 @@ on:
         required: false
         default: false
         type: boolean
-  pull_request:
-    branches:
-      - main
-    paths:
-      - '**.ova'
-      - '**.ami'
-      - 'packer/**'
-      - '.github/workflows/test-vm.yaml'
 
 env:
   WAZUH_SERVER_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_SERVER_VERSION_REVISION }}
   WAZUH_INDEXER_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_INDEXER_VERSION_REVISION }}
   WAZUH_DASHBOARD_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_DASHBOARD_VERSION_REVISION }}
   WAZUH_AUTOMATION_REFERENCE: ${{ github.event.inputs.WAZUH_AUTOMATION_REFERENCE || 'main' }}
+  WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ github.event.inputs.WAZUH_VIRTUAL_MACHINES_REFERENCE }}
+  GENERATE_PRESIGNED_URLS_SCRIPT_PATH: ${{ github.workspace }}/wazuh-virtual-machines/.github/scripts/generate_presigned_dev_urls.py
+  COMMIT_LIST: ${{ inputs.commit_list }}
+  PROD_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PROD }}
+  PRE_PROD_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PRE }}
+  DEV_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_ARTIFACTS }}
+  ARTIFACTS_URLS_FILENAME: "artifact_urls.yml"
+  DEV_ARTIFACTS_URLS_PATH: "deployment"
 
 permissions:
   id-token: write
@@ -399,7 +418,7 @@ jobs:
   # ===================================================
 
   ova-setup:
-    if: ${{ github.event.inputs.test_type == 'ova' && github.event.inputs.host != '' }}
+    if: ${{ github.event.inputs.test_type == 'ova' }}
     runs-on: ubuntu-latest
     outputs:
       allocator_ip: ${{ steps.allocator.outputs.allocator_ip }}
@@ -411,6 +430,14 @@ jobs:
     steps:
       - name: View parameters
         run: echo "${{ toJson(inputs) }}"
+
+      - name: Checkout wazuh-virtual-machines
+        uses: actions/checkout@v4
+        with:
+          repository: wazuh/wazuh-virtual-machines
+          ref: ${{ env.WAZUH_VIRTUAL_MACHINES_REFERENCE }}
+          token: ${{ secrets.GH_CLONE_TOKEN }}
+          path: wazuh-virtual-machines
 
       - name: Checkout wazuh-automation
         uses: actions/checkout@v4
@@ -434,7 +461,63 @@ jobs:
       - name: Install allocator dependencies
         run: |
           pip install -r wazuh-automation/deployability/deps/requirements.txt
-          pip install ansible
+          pip install ansible pyyaml
+
+      - name: Get Wazuh version
+        run: |
+          WAZUH_VERSION=$(jq -r '.version' wazuh-virtual-machines/VERSION.json)
+          WAZUH_MAJOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1)
+          WAZUH_MINOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1-2)
+          echo "WAZUH_VERSION=$WAZUH_VERSION" >> $GITHUB_ENV
+          echo "WAZUH_MAJOR=$WAZUH_MAJOR" >> $GITHUB_ENV
+          echo "WAZUH_MINOR=$WAZUH_MINOR" >> $GITHUB_ENV
+          echo "Wazuh version: $WAZUH_VERSION (major: $WAZUH_MAJOR, minor: $WAZUH_MINOR)"
+
+      - name: Get artifacts URLs file
+        run: |
+          LOCAL_ARTIFACTS_URLS_FILEPATH=${{ github.workspace }}/${{ env.ARTIFACTS_URLS_FILENAME }}
+          echo "LOCAL_ARTIFACTS_URLS_FILEPATH=$LOCAL_ARTIFACTS_URLS_FILEPATH" >> $GITHUB_ENV
+
+          PACKAGE_TYPE="${{ github.event.inputs.wazuh_package_type || 'dev' }}"
+          echo "Package type: $PACKAGE_TYPE"
+
+          if [ "$PACKAGE_TYPE" == "prod" ]; then
+            echo "Downloading from PROD bucket..."
+            aws s3api get-object --bucket ${{ env.PROD_ARTIFACTS_URLS_BUCKET }} --key ${{ env.WAZUH_MINOR }}/${{ env.ARTIFACTS_URLS_FILENAME }} $LOCAL_ARTIFACTS_URLS_FILEPATH
+          elif [ "$PACKAGE_TYPE" == "pre-prod" ]; then
+            echo "Downloading from PRE-PROD bucket..."
+            aws s3api get-object --bucket ${{ env.PRE_PROD_ARTIFACTS_URLS_BUCKET }} --key ${{ env.WAZUH_MINOR }}/${{ env.ARTIFACTS_URLS_FILENAME }} $LOCAL_ARTIFACTS_URLS_FILEPATH
+          else
+            echo "Downloading from DEV bucket..."
+            LOCAL_AWS_S3_BUCKET_DEV=${{ vars.AWS_S3_BUCKET_DEV }}
+            echo "LOCAL_AWS_S3_BUCKET_DEV=$LOCAL_AWS_S3_BUCKET_DEV" >> $GITHUB_ENV
+            aws s3api get-object --bucket ${{ env.DEV_ARTIFACTS_URLS_BUCKET }} --key ${{ env.DEV_ARTIFACTS_URLS_PATH }}/${{ env.ARTIFACTS_URLS_FILENAME }} $LOCAL_ARTIFACTS_URLS_FILEPATH
+          fi
+
+          echo "Downloaded artifacts URLs file:"
+          cat $LOCAL_ARTIFACTS_URLS_FILEPATH
+
+      - name: Generate presigned URLs for dev packages
+        if: ${{ github.event.inputs.wazuh_package_type == 'dev' }}
+        run: |
+          echo "Generating presigned URLs for dev packages..."
+          python ${{ env.GENERATE_PRESIGNED_URLS_SCRIPT_PATH }}
+          echo "Presigned URLs generated successfully"
+
+      - name: Extract OVA URL from artifacts file
+        id: ova_url
+        run: |
+          # Extract the wazuh_ova URL from the artifacts file
+          OVA_URL=$(yq -r '.wazuh_ova' ${{ env.LOCAL_ARTIFACTS_URLS_FILEPATH }})
+
+          if [ -z "$OVA_URL" ] || [ "$OVA_URL" == "null" ]; then
+            echo "ERROR: wazuh_ova key not found in artifacts file"
+            cat ${{ env.LOCAL_ARTIFACTS_URLS_FILEPATH }}
+            exit 1
+          fi
+
+          echo "OVA URL: $OVA_URL"
+          echo "ova_url=${OVA_URL}" >> $GITHUB_OUTPUT
 
       - name: Launch allocator instance
         id: allocator
@@ -500,16 +583,35 @@ jobs:
       - name: Download OVA from S3
         id: download
         run: |
-          OVA_FILENAME=$(basename ${{ github.event.inputs.host }})
+          OVA_URL="${{ steps.ova_url.outputs.ova_url }}"
+          echo "OVA URL: $OVA_URL"
+
+          # Extract filename from URL (handle both S3 and presigned URLs)
+          if [[ "$OVA_URL" == s3://* ]]; then
+            # S3 URL format: s3://bucket/path/file.ova
+            OVA_FILENAME=$(basename "$OVA_URL")
+          else
+            # Presigned URL format: https://...?...
+            # Extract path before query string and get basename
+            OVA_FILENAME=$(basename "${OVA_URL%%\?*}")
+          fi
+
           LOCAL_OVA_PATH="/tmp/${OVA_FILENAME}"
           REMOTE_OVA_PATH="/tmp/${OVA_FILENAME}"
 
-          # Parse S3 path
-          S3_PATH="${{ github.event.inputs.host }}"
+          echo "OVA filename: $OVA_FILENAME"
+          echo "Local path: $LOCAL_OVA_PATH"
 
-          # Download OVA locally first (more reliable than curl on remote)
-          echo "Downloading OVA from S3 to local runner..."
-          aws s3 cp ${S3_PATH} ${LOCAL_OVA_PATH}
+          # Download OVA locally
+          if [[ "$OVA_URL" == s3://* ]]; then
+            # S3 URL - use aws s3 cp
+            echo "Downloading OVA from S3..."
+            aws s3 cp "${OVA_URL}" "${LOCAL_OVA_PATH}"
+          else
+            # Presigned URL - use curl
+            echo "Downloading OVA from presigned URL..."
+            curl -L -o "${LOCAL_OVA_PATH}" "${OVA_URL}"
+          fi
 
           # Verify local download
           echo "Local OVA file:"
