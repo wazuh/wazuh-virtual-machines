@@ -186,6 +186,7 @@ class Provisioner:
         """
         logger.debug_title("Provisioning packages")
         logger.debug(f"Downloading {component.name.replace('_', ' ')} package")
+        logger.debug(f"Package URL used: {component.package_url}")
 
         package_name = self.get_package_by_url(component.name, component.package_url, client)
 
@@ -215,6 +216,7 @@ class Provisioner:
             client (paramiko.SSHClient): The SSH client used to connect to the remote machine.
         """
         logger.debug(f"Provisioning {tool_filename}")
+        logger.debug(f"Tool URL used: {tool_url}")
 
         command_template = "mkdir -p {directory} && curl -s -o {path} '{tool_file_url}'"
 

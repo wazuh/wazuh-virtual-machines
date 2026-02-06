@@ -4,7 +4,7 @@ import typer
 
 from .build_ova import configure_vagrant_vm, export_ova_image, generate_checksum, setup_execution_environment
 
-app = typer.Typer()
+app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 
 
 @app.command(name="create", help="Create a new Wazuh OVA image.")
@@ -32,4 +32,4 @@ def create_ova(
 
 
 if __name__ == "__main__":
-    app()
+    app(prog_name="hatch run local-ova:create")
