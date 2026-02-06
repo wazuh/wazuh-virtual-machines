@@ -562,17 +562,20 @@ jobs:
           SSH_OPTIONS="-o StrictHostKeyChecking=no -p ${{ steps.allocator.outputs.ssh_port }} -i ${{ steps.allocator.outputs.ssh_key }}"
           SSH_HOST="${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }}"
 
-          echo "Stopping VM for port forwarding configuration..."
-          ssh ${SSH_OPTIONS} ${SSH_HOST} "VBoxManage controlvm ${VM_NAME} shutdown || true"
+          echo "Powering off VM for port forwarding configuration..."
+          ssh ${SSH_OPTIONS} ${SSH_HOST} "VBoxManage controlvm ${VM_NAME} poweroff || true"
 
-          echo "Waiting for VM to shut down..."
-          sleep 15
+          echo "Waiting for VM to power off..."
+          sleep 10
 
           echo "Configuring SSH port forwarding (22 -> ${OVA_SSH_PORT})..."
-          ssh ${SSH_OPTIONS} ${SSH_HOST} "VBoxManage modifyvm ${VM_NAME} --natpf1 'ssh,tcp,,${OVA_SSH_PORT},,22'"
+          ssh ${SSH_OPTIONS} ${SSH_HOST} "VBoxManage modifyvm ${VM_NAME} --natpf1 'ssh_ova,tcp,,${OVA_SSH_PORT},,22'"
 
-          echo "Restarting VM..."
+          echo "Starting VM..."
           ssh ${SSH_OPTIONS} ${SSH_HOST} "VBoxManage startvm ${VM_NAME} --type headless"
+
+          echo "Waiting for VM to boot (30 seconds)..."
+          sleep 30
 
           echo "ssh_port=${OVA_SSH_PORT}" >> $GITHUB_OUTPUT
           echo "Port forwarding configured: guest:22 -> host:${OVA_SSH_PORT}"
