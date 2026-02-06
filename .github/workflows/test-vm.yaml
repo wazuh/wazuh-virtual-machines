@@ -464,6 +464,7 @@ jobs:
           SSH_PORT=$(yq -r '.all.hosts | to_entries | .[0].value.ansible_port // 22' ${INVENTORY_FILE})
 
           echo "allocator_ip=${ALLOCATOR_IP}" >> $GITHUB_OUTPUT
+          echo "work_dir=${WORK_DIR}" >> $GITHUB_OUTPUT
           echo "track_file=${TRACK_FILE}" >> $GITHUB_OUTPUT
           echo "ssh_key=${SSH_KEY}" >> $GITHUB_OUTPUT
           echo "ssh_user=${SSH_USER}" >> $GITHUB_OUTPUT
@@ -599,18 +600,11 @@ jobs:
           echo "OVA VM SSH did not become available in time"
           exit 1
 
-      - name: Upload track file for cleanup
+      - name: Upload allocator working directory for cleanup
         uses: actions/upload-artifact@v4
         with:
-          name: allocator-track-${{ github.run_id }}
-          path: ${{ steps.allocator.outputs.track_file }}
-          retention-days: 1
-
-      - name: Upload inventory file
-        uses: actions/upload-artifact@v4
-        with:
-          name: allocator-inventory-${{ github.run_id }}
-          path: ${{ steps.allocator.outputs.inventory_file }}
+          name: allocator-workdir-${{ github.run_id }}
+          path: ${{ steps.allocator.outputs.work_dir }}
           retention-days: 1
 
   test-ova:
@@ -769,25 +763,59 @@ jobs:
       - name: Install dependencies
         run: pip install -r wazuh-automation/deployability/deps/requirements.txt
 
-      - name: Download track file
-        id: download-track
+      - name: Download allocator working directory
+        id: download-workdir
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          name: allocator-track-${{ github.run_id }}
-          path: /tmp/allocator
+          name: allocator-workdir-${{ github.run_id }}
+          path: /tmp/allocator-workdir
 
       - name: Terminate allocator instance
-        if: ${{ steps.download-track.outcome == 'success' }}
+        if: ${{ steps.download-workdir.outcome == 'success' }}
         run: |
-          TRACK_FILE=$(find /tmp/allocator -name "track.yml" -type f 2>/dev/null || true)
+          # Find the track file in the downloaded working directory
+          TRACK_FILE=$(find /tmp/allocator-workdir -name "track.yml" -type f 2>/dev/null | head -n 1 || true)
 
           if [ -z "$TRACK_FILE" ]; then
             echo "No track file found, skipping termination"
             exit 0
           fi
 
+          # Get the directory containing the track file (this is the working directory)
+          WORK_DIR=$(dirname ${TRACK_FILE})
+
           echo "Found track file: ${TRACK_FILE}"
+          echo "Working directory: ${WORK_DIR}"
+          echo ""
+          echo "Original track.yml contents:"
+          cat ${TRACK_FILE}
+          echo ""
+
+          # Update paths in track.yml to point to the downloaded location
+          # The track file contains absolute paths from the original runner
+          # We need to update them to point to our downloaded location
+          echo "Updating paths in track.yml..."
+
+          # Extract the original working directory path from track.yml
+          # It's typically stored in the 'working_dir' or in file paths
+          ORIGINAL_PATH=$(grep -oP '/tmp/tmp\.[^/]+' ${TRACK_FILE} | head -n 1 || true)
+
+          if [ -n "$ORIGINAL_PATH" ]; then
+            echo "Replacing original path: ${ORIGINAL_PATH} -> ${WORK_DIR}"
+            sed -i "s|${ORIGINAL_PATH}|${WORK_DIR}|g" ${TRACK_FILE}
+          fi
+
+          echo ""
+          echo "Updated track.yml contents:"
+          cat ${TRACK_FILE}
+          echo ""
+
+          # List all files in the working directory
+          echo "Files in working directory:"
+          ls -la ${WORK_DIR}
+
+          echo ""
           echo "Terminating allocator instance..."
 
           python wazuh-automation/deployability/modules/allocation/main.py \
@@ -797,5 +825,5 @@ jobs:
           echo "Allocator instance terminated successfully"
 
       - name: Skip cleanup notification
-        if: ${{ steps.download-track.outcome != 'success' }}
-        run: echo "Track file artifact not found - instance may need manual cleanup"
+        if: ${{ steps.download-workdir.outcome != 'success' }}
+        run: echo "Allocator working directory artifact not found - instance may need manual cleanup"
