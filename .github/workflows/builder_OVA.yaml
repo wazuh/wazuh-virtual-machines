@@ -59,6 +59,36 @@ on:
       checksum:
         type: boolean
         required: false
+      wazuh_virtual_machines_reference:
+        type: string
+        required: true
+      wazuh_automation_reference:
+        type: string
+        required: false
+        default: 'main'
+      is_stage:
+        type: boolean
+        default: false
+      ova_revision:
+        type: string
+        required: false
+        default: '0'
+      wazuh_package_type:
+        type: string
+        required: false
+        default: 'dev'
+      commit_list:
+        type: string
+        required: false
+        default: '["latest", "latest", "latest", "latest"]'
+      destroy:
+        type: boolean
+        required: false
+        default: true
+    outputs:
+      ova_s3_path:
+        description: 'S3 URI of the built OVA'
+        value: ${{ jobs.build_and_run.outputs.ova_s3_path }}
 
 env:
     COMPOSITE_NAME: "amazon-2023-amd64"
@@ -88,6 +118,8 @@ permissions:
 jobs:
   build_and_run:
     runs-on: ubuntu-22.04
+    outputs:
+      ova_s3_path: ${{ steps.export_ova.outputs.ova_s3_path }}
     steps:
       - name: View parameters
         run: echo "${{ toJson(inputs) }}"
@@ -288,6 +320,7 @@ jobs:
           cp ${{ github.workspace }}/${{ env.FILENAME_COMMIT_OVA }} ${{ github.workspace }}/${{ env.FILENAME_LATEST_OVA }}
 
       - name: Exporting OVA to final repository
+        id: export_ova
         run: |
           # Upload version commit-based OVA
           aws s3 cp --quiet ${{ github.workspace }}/${{ env.FILENAME_OVA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_OVA }}
@@ -298,6 +331,10 @@ jobs:
             aws s3 cp --quiet ${{ github.workspace }}/${{ env.FILENAME_LATEST_OVA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_LATEST_OVA }}
             echo "S3 OVA URI (latest): s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_LATEST_OVA }}"
           fi
+
+          # Set output for orchestrator workflows
+          OVA_S3_PATH="s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_OVA }}"
+          echo "ova_s3_path=${OVA_S3_PATH}" >> $GITHUB_OUTPUT
 
       - name: Generating sha512 files
         if: ${{ inputs.checksum == true }}

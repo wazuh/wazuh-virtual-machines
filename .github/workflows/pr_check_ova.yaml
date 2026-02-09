@@ -1,0 +1,45 @@
+run-name: PR Check OVA - ${{ github.event.pull_request.title }} - Branch ${{ github.head_ref }}
+name: PR Check - OVA Build & Test
+
+on:
+  pull_request:
+    types: [ready_for_review, synchronize]
+    paths:
+      - 'configurer/**'
+      - 'generic/**'
+      - 'provisioner/**'
+      - 'models/**'
+      - 'utils/**'
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  build_ova:
+    if: ${{ !github.event.pull_request.draft }}
+    uses: ./.github/workflows/builder_OVA.yaml
+    with:
+      wazuh_virtual_machines_reference: ${{ github.head_ref }}
+      wazuh_automation_reference: 'main'
+      is_stage: false
+      ova_revision: '0'
+      wazuh_package_type: dev
+      commit_list: '["latest", "latest", "latest", "latest"]'
+      destroy: true
+      checksum: false
+    secrets: inherit
+
+  test_ova:
+    needs: build_ova
+    uses: ./.github/workflows/test-vm.yaml
+    with:
+      WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ github.head_ref }}
+      WAZUH_AUTOMATION_REFERENCE: 'main'
+      test_type: ova
+      wazuh_package_type: dev
+      commit_list: '["latest", "latest", "latest", "latest"]'
+      TESTS: ALL
+      log_level: INFO
+    secrets: inherit

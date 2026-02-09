@@ -1,0 +1,59 @@
+run-name: PR Check AMI - ${{ github.event.pull_request.title }} - Branch ${{ github.head_ref }}
+name: PR Check - AMI Build & Test
+
+on:
+  pull_request:
+    types: [ready_for_review, synchronize]
+    paths:
+      - 'configurer/**'
+      - 'generic/**'
+      - 'provisioner/**'
+      - 'models/**'
+      - 'utils/**'
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  build_ami:
+    if: ${{ !github.event.pull_request.draft }}
+    uses: ./.github/workflows/packages_builder_ami.yaml
+    with:
+      wazuh_virtual_machines_reference: ${{ github.head_ref }}
+      wazuh_automation_reference: 'main'
+      is_stage: false
+      ami_revision: '-1'
+      wazuh_package_type: dev
+      architecture: '["amd64", "arm64"]'
+      commit_list: '["latest", "latest", "latest", "latest", "latest"]'
+      customizer_debug: false
+      destroy: true
+    secrets: inherit
+
+  test_ami_amd64:
+    needs: build_ami
+    if: ${{ needs.build_ami.outputs.ami_id_amd64 != '' }}
+    uses: ./.github/workflows/test-vm.yaml
+    with:
+      WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ github.head_ref }}
+      WAZUH_AUTOMATION_REFERENCE: 'main'
+      test_type: ami
+      host: ${{ needs.build_ami.outputs.ami_id_amd64 }}
+      TESTS: ALL
+      log_level: INFO
+    secrets: inherit
+
+  test_ami_arm64:
+    needs: build_ami
+    if: ${{ needs.build_ami.outputs.ami_id_arm64 != '' }}
+    uses: ./.github/workflows/test-vm.yaml
+    with:
+      WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ github.head_ref }}
+      WAZUH_AUTOMATION_REFERENCE: 'main'
+      test_type: ami
+      host: ${{ needs.build_ami.outputs.ami_id_arm64 }}
+      TESTS: ALL
+      log_level: INFO
+    secrets: inherit
