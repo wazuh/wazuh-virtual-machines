@@ -17,19 +17,53 @@ permissions:
   pull-requests: write
 
 jobs:
-  build_ami:
+  get_pr_info:
     if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    outputs:
+      issue_url: ${{ steps.get_issue.outputs.issue_url }}
+    steps:
+      - name: Get linked issue from PR
+        id: get_issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ISSUE_URL=$(gh api graphql -f query='
+            query {
+              repository(owner: "${{ github.repository_owner }}", name: "${{ github.event.repository.name }}") {
+                pullRequest(number: ${{ github.event.pull_request.number }}) {
+                  closingIssuesReferences(first: 1) {
+                    nodes {
+                      url
+                    }
+                  }
+                }
+              }
+            }
+          ' --jq '.data.repository.pullRequest.closingIssuesReferences.nodes[0].url // empty' 2>/dev/null || true)
+
+          if [ -n "$ISSUE_URL" ]; then
+            echo "Found linked issue: $ISSUE_URL"
+          else
+            echo "No linked issue found"
+          fi
+          echo "issue_url=${ISSUE_URL}" >> $GITHUB_OUTPUT
+
+  build_ami:
+    needs: get_pr_info
     uses: ./.github/workflows/packages_builder_ami.yaml
     with:
+      id: "pr-check-${{ github.event.pull_request.number }}"
       wazuh_virtual_machines_reference: ${{ github.head_ref }}
       wazuh_automation_reference: 'main'
-      is_stage: false
-      ami_revision: '-1'
+      is_stage: true
+      ami_revision: 'check-pr'
       wazuh_package_type: dev
       architecture: '["amd64", "arm64"]'
       commit_list: '["latest", "latest", "latest", "latest", "latest"]'
       customizer_debug: false
       destroy: true
+      issue: ${{ needs.get_pr_info.outputs.issue_url }}
     secrets: inherit
 
   test_ami_amd64:
