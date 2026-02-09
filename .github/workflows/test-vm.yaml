@@ -11,6 +11,10 @@ on:
       WAZUH_VIRTUAL_MACHINES_REFERENCE:
         description: 'Branch or tag of the wazuh-virtual-machines repository'
         required: true
+      AWS_REGION:
+        description: 'AWS region to use for testing'
+        required: true
+        default: 'us-east-1'
       test_type:
         description: 'Test type'
         required: true
@@ -23,6 +27,13 @@ on:
         description: 'AMI ID to test (only for AMI test type)'
         required: false
         type: string
+      instance_type:
+        description: 'EC2 instance type for AMI tests'
+        required: false
+        default: 'c5ad.xlarge'
+        type: choice
+        options:
+          - c5ad.xlarge
       wazuh_package_type:
         description: 'Wazuh package type for OVA URL resolution'
         required: true
@@ -86,6 +97,7 @@ env:
   WAZUH_DASHBOARD_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_DASHBOARD_VERSION_REVISION }}
   WAZUH_AUTOMATION_REFERENCE: ${{ github.event.inputs.WAZUH_AUTOMATION_REFERENCE || 'main' }}
   WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ github.event.inputs.WAZUH_VIRTUAL_MACHINES_REFERENCE }}
+  AWS_REGION: ${{ github.event.inputs.AWS_REGION }}
   GENERATE_PRESIGNED_URLS_SCRIPT_PATH: ${{ github.workspace }}/wazuh-virtual-machines/.github/scripts/generate_presigned_dev_urls.py
   COMMIT_LIST: ${{ inputs.commit_list }}
   PROD_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PROD }}
@@ -145,7 +157,7 @@ jobs:
         run: |
           INSTANCE_ID=$(aws ec2 run-instances \
             --image-id ${{ github.event.inputs.host }} \
-            --instance-type c5ad.xlarge \
+            --instance-type ${{ github.event.inputs.instance_type }} \
             --key-name ${{ steps.keygen.outputs.key_name }} \
             --security-group-ids ${{ secrets.AWS_EC2_SG }} \
             --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=test-runner-${{ github.run_id }}},{Key=AutoTerminate,Value=true},{Key=CreatedBy,Value=test_runner}]' \
@@ -742,7 +754,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Run OVA tests
         run: |
@@ -856,7 +868,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
