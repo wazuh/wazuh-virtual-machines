@@ -177,7 +177,7 @@ jobs:
             --output text)
 
           echo "instance_ip=${INSTANCE_IP}" >> $GITHUB_OUTPUT
-          echo "Instance ${INSTANCE_ID} is running at ${INSTANCE_IP}"
+          echo "Instance ${INSTANCE_ID} is running"
 
       - name: Wait for SSH and Wazuh services
         run: |
