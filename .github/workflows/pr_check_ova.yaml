@@ -23,7 +23,7 @@ jobs:
     with:
       id: "pr-check-${{ github.event.pull_request.number }}"
       wazuh_virtual_machines_reference: ${{ github.head_ref }}
-      wazuh_automation_reference: 'main'
+      wazuh_automation_reference: 'change/548-use-test-module-from-automation'
       is_stage: true
       ova_revision: '0'
       wazuh_package_type: dev
@@ -37,7 +37,7 @@ jobs:
     uses: ./.github/workflows/test-vm.yaml
     with:
       WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ github.head_ref }}
-      WAZUH_AUTOMATION_REFERENCE: 'main'
+      WAZUH_AUTOMATION_REFERENCE: 'change/548-use-test-module-from-automation'
       test_type: ova
       wazuh_package_type: dev
       commit_list: '["latest", "latest", "latest", "latest"]'
