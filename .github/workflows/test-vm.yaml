@@ -190,7 +190,9 @@ jobs:
       - name: Generate SSH key pair
         id: keygen
         run: |
-          KEY_NAME="test-runner-${{ github.run_id }}-${{ github.job }}"
+          TIMESTAMP=$(date +%s)
+          RANDOM_NUM=$RANDOM
+          KEY_NAME="test-runner-${TIMESTAMP}-${RANDOM_NUM}"
           KEY_PATH="/tmp/${KEY_NAME}"
 
           # Generate SSH key
@@ -212,7 +214,7 @@ jobs:
             --instance-type ${{ inputs.instance_type }} \
             --key-name ${{ steps.keygen.outputs.key_name }} \
             --security-group-ids ${{ secrets.AWS_EC2_SG }} \
-            --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=test-runner-${{ github.run_id }}-${{ github.job }}},{Key=AutoTerminate,Value=true},{Key=CreatedBy,Value=test_runner}]' \
+            --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=${{ steps.keygen.outputs.key_name }}},{Key=AutoTerminate,Value=true},{Key=CreatedBy,Value=test_runner}]' \
             --query 'Instances[0].InstanceId' \
             --output text)
 
@@ -281,7 +283,7 @@ jobs:
       - name: Upload SSH key as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ssh-key-${{ github.run_id }}-${{ github.job }}
+          name: ssh-key-${{ steps.keygen.outputs.key_name }}
           path: ${{ steps.keygen.outputs.key_path }}
           retention-days: 1
 
@@ -322,11 +324,11 @@ jobs:
       - name: Download SSH key
         uses: actions/download-artifact@v4
         with:
-          name: ssh-key-${{ github.run_id }}-${{ github.job }}
+          name: ssh-key-${{ needs.ami-setup.outputs.ssh_key_name }}
           path: /tmp/ssh
 
       - name: Set SSH key permissions
-        run: chmod 600 /tmp/ssh/test-runner-${{ github.run_id }}-${{ github.job }}
+        run: chmod 600 /tmp/ssh/${{ needs.ami-setup.outputs.ssh_key_name }}
 
       - name: Run AMI tests
         run: |
@@ -345,7 +347,7 @@ jobs:
           $TEST_RUNNER_PATH \
             --test-type ami \
             --ssh-host ${{ needs.ami-setup.outputs.instance_ip }} \
-            --ssh-key-path /tmp/ssh/test-runner-${{ github.run_id }}-${{ github.job }} \
+            --ssh-key-path /tmp/ssh/${{ needs.ami-setup.outputs.ssh_key_name }} \
             --test-pattern "${{ inputs.TESTS || 'ALL' }}" \
             --log-level ${{ inputs.log_level || 'INFO' }} \
             --output github \
