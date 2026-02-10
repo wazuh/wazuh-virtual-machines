@@ -67,6 +67,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Fixed git clone in Vagrant VM for OVA build. ([#561](https://github.com/wazuh/wazuh-virtual-machines/pull/561))
 - Fix cloud-init leftovers and network configuration in OVA build for 4.14.3 ([#532](https://github.com/wazuh/wazuh-virtual-machines/pull/532))
 
 ### Deleted
