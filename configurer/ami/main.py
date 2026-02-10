@@ -67,3 +67,5 @@ def main(inventory_path: Path, type: Literal["ami-pre-configurer", "ami-post-con
 
 
 
+
+
