@@ -91,3 +91,54 @@ jobs:
       TESTS: ALL
       log_level: INFO
     secrets: inherit
+
+  cleanup_amis:
+    needs: [build_ami, test_ami_amd64, test_ami_arm64]
+    if: always() && needs.build_ami.result != 'skipped'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
+          aws-region: us-east-1
+
+      - name: Deregister AMI amd64
+        if: ${{ needs.build_ami.outputs.ami_id_amd64 != '' }}
+        run: |
+          AMI_ID="${{ needs.build_ami.outputs.ami_id_amd64 }}"
+          echo "Deregistering AMI: ${AMI_ID}"
+
+          # Get snapshot IDs before deregistering
+          SNAPSHOTS=$(aws ec2 describe-images --image-ids ${AMI_ID} --query 'Images[0].BlockDeviceMappings[*].Ebs.SnapshotId' --output text 2>/dev/null || true)
+
+          # Deregister AMI
+          aws ec2 deregister-image --image-id ${AMI_ID} || echo "Failed to deregister AMI ${AMI_ID}"
+
+          # Delete associated snapshots
+          if [ -n "$SNAPSHOTS" ]; then
+            for SNAPSHOT in $SNAPSHOTS; do
+              echo "Deleting snapshot: ${SNAPSHOT}"
+              aws ec2 delete-snapshot --snapshot-id ${SNAPSHOT} || echo "Failed to delete snapshot ${SNAPSHOT}"
+            done
+          fi
+
+      - name: Deregister AMI arm64
+        if: ${{ needs.build_ami.outputs.ami_id_arm64 != '' }}
+        run: |
+          AMI_ID="${{ needs.build_ami.outputs.ami_id_arm64 }}"
+          echo "Deregistering AMI: ${AMI_ID}"
+
+          # Get snapshot IDs before deregistering
+          SNAPSHOTS=$(aws ec2 describe-images --image-ids ${AMI_ID} --query 'Images[0].BlockDeviceMappings[*].Ebs.SnapshotId' --output text 2>/dev/null || true)
+
+          # Deregister AMI
+          aws ec2 deregister-image --image-id ${AMI_ID} || echo "Failed to deregister AMI ${AMI_ID}"
+
+          # Delete associated snapshots
+          if [ -n "$SNAPSHOTS" ]; then
+            for SNAPSHOT in $SNAPSHOTS; do
+              echo "Deleting snapshot: ${SNAPSHOT}"
+              aws ec2 delete-snapshot --snapshot-id ${SNAPSHOT} || echo "Failed to delete snapshot ${SNAPSHOT}"
+            done
+          fi
