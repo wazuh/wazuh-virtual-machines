@@ -75,6 +75,7 @@ jobs:
       WAZUH_AUTOMATION_REFERENCE: 'change/548-use-test-module-from-automation'
       test_type: ami
       host: ${{ needs.build_ami.outputs.ami_id_amd64 }}
+      instance_type: c5ad.xlarge
       TESTS: ALL
       log_level: INFO
     secrets: inherit
@@ -88,6 +89,7 @@ jobs:
       WAZUH_AUTOMATION_REFERENCE: 'change/548-use-test-module-from-automation'
       test_type: ami
       host: ${{ needs.build_ami.outputs.ami_id_arm64 }}
+      instance_type: c6g.xlarge
       TESTS: ALL
       log_level: INFO
     secrets: inherit
