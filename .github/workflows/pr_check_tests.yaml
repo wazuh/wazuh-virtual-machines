@@ -15,22 +15,23 @@ jobs:
     if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     outputs:
-      should_run: ${{ steps.filter.outputs.backend }}
+      should_run: ${{ steps.changed-files.outputs.any_changed }}
     steps:
       - uses: actions/checkout@v4
-
-      - uses: dorny/paths-filter@v3
-        id: filter
         with:
-          base: ${{ github.event.pull_request.base.ref }}
-          filters: |
-            backend:
-              - 'configurer/**'
-              - 'generic/**'
-              - 'provisioner/**'
-              - 'models/**'
-              - 'utils/**'
-              - 'tests/**'
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v41
+        with:
+          files: |
+            configurer/**
+            generic/**
+            provisioner/**
+            models/**
+            utils/**
+            tests/**
 
   unit_tests:
     needs: check_paths
