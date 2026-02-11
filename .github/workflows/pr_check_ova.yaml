@@ -10,6 +10,8 @@ on:
       - 'provisioner/**'
       - 'models/**'
       - 'utils/**'
+  issue_comment:
+    types: [created]
 
 permissions:
   id-token: write
@@ -17,13 +19,49 @@ permissions:
   pull-requests: write
 
 jobs:
+  get_pr_info:
+    # Run if:
+    # 1. Pull request event (not draft)
+    # 2. Comment event on PR with /test-integration or /test-ova command
+    if: |
+      (github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       (contains(github.event.comment.body, '/test-integration') || contains(github.event.comment.body, '/test-ova')))
+    runs-on: ubuntu-latest
+    outputs:
+      pr_number: ${{ steps.pr_data.outputs.pr_number }}
+      pr_head_ref: ${{ steps.pr_data.outputs.pr_head_ref }}
+    steps:
+      - name: Extract PR data
+        id: pr_data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            # Pull request event
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+            PR_HEAD_REF="${{ github.head_ref }}"
+          else
+            # Issue comment event
+            PR_NUMBER="${{ github.event.issue.number }}"
+            # Fetch PR head ref from API
+            PR_DATA=$(gh api repos/${{ github.repository }}/pulls/${PR_NUMBER})
+            PR_HEAD_REF=$(echo "$PR_DATA" | jq -r '.head.ref')
+          fi
+
+          echo "pr_number=${PR_NUMBER}" >> $GITHUB_OUTPUT
+          echo "pr_head_ref=${PR_HEAD_REF}" >> $GITHUB_OUTPUT
+          echo "PR Number: ${PR_NUMBER}"
+          echo "PR Head Ref: ${PR_HEAD_REF}"
+
   build_ova:
-    if: ${{ !github.event.pull_request.draft }}
+    needs: get_pr_info
     uses: ./.github/workflows/builder_OVA.yaml
     with:
-      id: "pr-check-${{ github.event.pull_request.number }}"
-      wazuh_virtual_machines_reference: ${{ github.head_ref }}
-      wazuh_automation_reference: 'change/548-use-test-module-from-automation'
+      id: "pr-check-${{ needs.get_pr_info.outputs.pr_number }}"
+      wazuh_virtual_machines_reference: ${{ needs.get_pr_info.outputs.pr_head_ref }}
+      wazuh_automation_reference: 'main'
       is_stage: true
       ova_revision: '0'
       wazuh_package_type: dev
@@ -33,11 +71,11 @@ jobs:
     secrets: inherit
 
   test_ova:
-    needs: build_ova
+    needs: [get_pr_info, build_ova]
     uses: ./.github/workflows/test-vm.yaml
     with:
-      WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ github.head_ref }}
-      WAZUH_AUTOMATION_REFERENCE: 'change/548-use-test-module-from-automation'
+      WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ needs.get_pr_info.outputs.pr_head_ref }}
+      WAZUH_AUTOMATION_REFERENCE: 'main'
       test_type: ova
       wazuh_package_type: dev
       commit_list: '["latest", "latest", "latest", "latest"]'
