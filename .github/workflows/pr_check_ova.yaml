@@ -22,11 +22,11 @@ jobs:
   get_pr_info:
     # Run if:
     # 1. Pull request event (not draft)
-    # 2. Comment event on PR with /test-integration or /test-ova command
+    # 2. Comment event on PR (not draft) with /test-integration or /test-ova command
     if: |
-      (github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request &&
+       !github.event.issue.draft &&
        (contains(github.event.comment.body, '/test-integration') || contains(github.event.comment.body, '/test-ova')))
     runs-on: ubuntu-latest
     outputs:
