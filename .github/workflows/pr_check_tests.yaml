@@ -171,9 +171,10 @@ jobs:
             failed_tests.txt
           retention-days: 7
 
-      # IMPORTANTE: Este step va AL FINAL para que el comentario se publique primero
-      - name: Fail job if tests failed
-        if: steps.run_tests.outputs.exit_code != '0'
+      - name: Check final status
         run: |
-          echo "::error::Tests failed with exit code ${{ steps.run_tests.outputs.exit_code }}"
-          exit 1
+          if [ "${{ steps.run_tests.outputs.exit_code }}" != "0" ]; then
+            echo "::error::Unit tests failed"
+            exit 1
+          fi
+          echo "✅ All tests passed"
