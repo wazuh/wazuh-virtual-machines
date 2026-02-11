@@ -38,16 +38,14 @@ jobs:
       - name: Run unit tests with coverage
         id: run_tests
         continue-on-error: true
+        shell: bash
         run: |
-          # Run tests and capture output
-          hatch run dev:test-cov > test_output.txt 2>&1
-          TEST_EXIT_CODE=$?
+          set -o pipefail
+          hatch run dev:test-cov 2>&1 | tee test_output.txt
+          TEST_EXIT_CODE=${PIPESTATUS[0]}
 
-          # Save exit code for later
           echo "exit_code=${TEST_EXIT_CODE}" >> $GITHUB_OUTPUT
-
-          # Display output
-          cat test_output.txt
+          exit 0
 
       - name: Parse test results
         if: always()
@@ -86,19 +84,20 @@ jobs:
 
           if [ "${{ steps.run_tests.outputs.exit_code }}" == "0" ]; then
             echo "✅ **All tests passed!**" >> $GITHUB_STEP_SUMMARY
+            status="success :green_circle:"
           else
             echo "❌ **Some tests failed**" >> $GITHUB_STEP_SUMMARY
+            status="failure :red_circle:"
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- **Result:** ${{ steps.parse_results.outputs.summary }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Coverage:** ${{ steps.parse_results.outputs.coverage }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Result:** ${status}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Show coverage table if available
+          # Show table if available
           if grep -q "Name.*Stmts.*Miss.*Cover" test_output.txt; then
-            echo "### 📊 Coverage Details" >> $GITHUB_STEP_SUMMARY
+            echo "### 📊 Details" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             sed -n '/Name.*Stmts.*Miss.*Cover/,/^TOTAL/p' test_output.txt >> $GITHUB_STEP_SUMMARY
@@ -131,13 +130,14 @@ jobs:
 
             if (exitCode === '0') {
               body += '✅ **All tests passed!**\n\n';
+              status="success :green_circle:"
             } else {
               body += '❌ **Some tests failed**\n\n';
+              status="failure :red_circle:"
             }
 
             body += '### Summary\n';
-            body += `- **Result:** ${summary}\n`;
-            body += `- **Coverage:** ${coverage}\n`;
+            body += `- **Result:** ${status}\n`;
             body += `- **Workflow:** [View Details](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n`;
 
             // Add coverage table if available
