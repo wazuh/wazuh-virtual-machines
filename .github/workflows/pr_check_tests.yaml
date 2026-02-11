@@ -15,6 +15,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  issues: write
 
 jobs:
   unit_tests:
@@ -41,10 +42,18 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
+
           hatch run dev:test-cov 2>&1 | tee test_output.txt
           TEST_EXIT_CODE=${PIPESTATUS[0]}
 
-          echo "exit_code=${TEST_EXIT_CODE}" >> $GITHUB_OUTPUT
+          # fallback por seguridad
+          if [ -z "$TEST_EXIT_CODE" ]; then
+            TEST_EXIT_CODE=1
+          fi
+
+          echo "Test exit code: $TEST_EXIT_CODE"
+          echo "exit_code=$TEST_EXIT_CODE" >> $GITHUB_OUTPUT
+
           exit 0
 
       - name: Parse test results
@@ -127,6 +136,7 @@ jobs:
             const passed = '${{ steps.parse_results.outputs.passed }}';
 
             let body = '## 🧪 Unit Tests Results\n\n';
+            let status = '';
 
             if (exitCode === '0') {
               body += '✅ **All tests passed!**\n\n';
