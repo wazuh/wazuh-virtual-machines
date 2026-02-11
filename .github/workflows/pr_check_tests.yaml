@@ -32,7 +32,7 @@ jobs:
               - 'tests/**'
 
   unit_tests:
-    if: ${{ !github.event.pull_request.draft }}
+    if: needs.check_paths.outputs.should_run == 'true'
     runs-on: ubuntu-latest
 
     steps:
