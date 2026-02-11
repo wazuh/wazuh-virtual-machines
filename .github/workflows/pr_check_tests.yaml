@@ -11,16 +11,15 @@ permissions:
   issues: write
 
 jobs:
-  check_paths:
+  unit_tests:
     if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
-    outputs:
-      should_run: ${{ steps.filter.outputs.backend }}
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dorny/paths-filter@v3
+      - name: Check if should run
         id: filter
+        uses: dorny/paths-filter@v3
         with:
           filters: |
             backend:
@@ -31,15 +30,11 @@ jobs:
               - 'utils/**'
               - 'tests/**'
 
-  unit_tests:
-    if: needs.check_paths.outputs.should_run == 'true'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
+      - name: Skip if no relevant changes
+        if: steps.filter.outputs.backend != 'true'
+        run: |
+          echo "⏭️ No relevant files changed, skipping tests"
+          exit 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
