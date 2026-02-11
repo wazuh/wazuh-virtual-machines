@@ -11,6 +11,18 @@ permissions:
   pull-requests: write
 
 jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump event
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "Comment body: ${{ github.event.comment.body }}"
+          echo "Is PR: ${{ github.event.issue.pull_request != null }}"
+          echo "Issue state: ${{ github.event.issue.state }}"
+          echo "Issue number: ${{ github.event.issue.number }}"
+          echo "Full event:"
+          echo '${{ toJSON(github.event) }}'
   get_pr_info:
     # Run if:
     # 1. Pull request event (not draft)

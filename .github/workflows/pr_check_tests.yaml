@@ -4,13 +4,6 @@ name: PR Check - Unit Tests
 on:
   pull_request:
     types: [ready_for_review, synchronize]
-    paths:
-      - 'configurer/**'
-      - 'generic/**'
-      - 'provisioner/**'
-      - 'models/**'
-      - 'utils/**'
-      - 'tests/**'
 
 permissions:
   contents: read
@@ -18,6 +11,26 @@ permissions:
   issues: write
 
 jobs:
+  check_paths:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.filter.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'configurer/**'
+              - 'generic/**'
+              - 'provisioner/**'
+              - 'models/**'
+              - 'utils/**'
+              - 'tests/**'
+
   unit_tests:
     if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
