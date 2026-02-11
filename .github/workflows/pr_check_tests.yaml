@@ -22,8 +22,7 @@ jobs:
       - uses: dorny/paths-filter@v3
         id: filter
         with:
-          base: HEAD^
-          ref: HEAD
+          base: ${{ github.event.pull_request.base.ref }}
           filters: |
             backend:
               - 'configurer/**'
@@ -86,6 +85,44 @@ jobs:
 
           grep "^FAILED" test_output.txt > failed_tests.txt || true
 
+      - name: Create test summary
+        if: always()
+        run: |
+          echo "## 🧪 Unit Tests Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.run_tests.outputs.exit_code }}" == "0" ]; then
+            echo "✅ **All tests passed!**" >> $GITHUB_STEP_SUMMARY
+            status="success :green_circle:"
+          else
+            echo "❌ **Some tests failed**" >> $GITHUB_STEP_SUMMARY
+            status="failure :red_circle:"
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Result:** ${status}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Show table if available
+          if grep -q "Name.*Stmts.*Miss.*Cover" test_output.txt; then
+            echo "### 📊 Details" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            sed -n '/Name.*Stmts.*Miss.*Cover/,/^TOTAL/p' test_output.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Show failed tests if any
+          if [ -s failed_tests.txt ]; then
+            echo "### ❌ Failed Tests" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat failed_tests.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
       - name: Comment PR with results
         if: always()
         uses: actions/github-script@v7
@@ -96,13 +133,18 @@ jobs:
             const exitCode = '${{ steps.run_tests.outputs.exit_code }}';
 
             let body = '## 🧪 Unit Tests Results\n\n';
+            let status = '';
 
             if (exitCode === '0') {
               body += '✅ **All tests passed!**\n\n';
+              status="success :green_circle:"
             } else {
               body += '❌ **Some tests failed**\n\n';
+              status="failure :red_circle:"
             }
 
+            body += '### Summary\n';
+            body += `- **Result:** ${status}\n`;
             body += `- **Workflow:** [View Details](${context.payload.repository.html_url}/actions/runs/${context.runId})\n\n`;
 
             // Add coverage table if available
