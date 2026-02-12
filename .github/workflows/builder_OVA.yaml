@@ -68,6 +68,7 @@ on:
         default: 'main'
       is_stage:
         type: boolean
+        required: false
         default: false
       ova_revision:
         type: string

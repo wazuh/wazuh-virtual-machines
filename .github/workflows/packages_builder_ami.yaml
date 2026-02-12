@@ -76,6 +76,7 @@ on:
         default: 'main'
       is_stage:
         type: boolean
+        required: false
         default: false
       ami_revision:
         type: string
