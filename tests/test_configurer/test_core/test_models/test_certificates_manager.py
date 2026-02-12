@@ -15,9 +15,9 @@ CERTS_TOOL_PATH = Path("/path/to/certs-tool.sh")
 
 class MockConfigParameters(StrEnum):
     # Wazuh Server
-    WAZUH_MANAGER_KEY = "server.test.key"
-    WAZUH_MANAGER_CERT = "server.test.cert"
-    WAZUH_MANAGER_CA = "server.test.ca"
+    WAZUH_MANAGER_KEY = "manager.test.key"
+    WAZUH_MANAGER_CERT = "manager.test.cert"
+    WAZUH_MANAGER_CA = "manager.test.ca"
     # Wazuh Indexer
     WAZUH_INDEXER_KEY = "indexer.test.key"
     WAZUH_INDEXER_CERT = "indexer.test.cert"
