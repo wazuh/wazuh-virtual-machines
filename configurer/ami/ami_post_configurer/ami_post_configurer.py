@@ -29,7 +29,7 @@ class AmiPostConfigurer:
     journald__config_file_path: Path = Path("/etc/systemd/journald.conf")
     log_directory_path: Path = Path("/var/log")
     wazuh_indexer_log_path: Path = Path("/var/log/wazuh-indexer")
-    wazuh_manager_log_path: Path = Path("/var/ossec/logs")
+    wazuh_manager_log_path: Path = Path("/var/wazuh-manager/logs")
     wazuh_dashboard_log_path: Path = Path("/var/log/wazuh-dashboard")
 
     @remote_connection
