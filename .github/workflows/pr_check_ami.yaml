@@ -1,0 +1,182 @@
+run-name: PR Check AMI - ${{ github.event.pull_request.title }} - Branch ${{ github.head_ref }}
+name: PR Check - AMI Build & Test
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump event
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "Comment body: ${{ github.event.comment.body }}"
+          echo "Is PR: ${{ github.event.issue.pull_request != null }}"
+          echo "Issue state: ${{ github.event.issue.state }}"
+          echo "Issue number: ${{ github.event.issue.number }}"
+          echo "Full event:"
+          echo '${{ toJSON(github.event) }}'
+  get_pr_info:
+    if: |
+      github.event.issue.pull_request &&
+      github.event.issue.state == 'open' &&
+      !github.event.issue.draft &&
+      (contains(github.event.comment.body, '/test-integration') ||
+       contains(github.event.comment.body, '/test-ami'))
+    runs-on: ubuntu-latest
+    outputs:
+      issue_url: ${{ steps.get_issue.outputs.issue_url }}
+      pr_number: ${{ steps.pr_data.outputs.pr_number }}
+      pr_head_ref: ${{ steps.pr_data.outputs.pr_head_ref }}
+    steps:
+      - name: Extract PR data
+        id: pr_data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            # Pull request event
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+            PR_HEAD_REF="${{ github.head_ref }}"
+          else
+            # Issue comment event
+            PR_NUMBER="${{ github.event.issue.number }}"
+            # Fetch PR head ref from API
+            PR_DATA=$(gh api repos/${{ github.repository }}/pulls/${PR_NUMBER})
+            PR_HEAD_REF=$(echo "$PR_DATA" | jq -r '.head.ref')
+          fi
+
+          echo "pr_number=${PR_NUMBER}" >> $GITHUB_OUTPUT
+          echo "pr_head_ref=${PR_HEAD_REF}" >> $GITHUB_OUTPUT
+          echo "PR Number: ${PR_NUMBER}"
+          echo "PR Head Ref: ${PR_HEAD_REF}"
+
+      - name: Get linked issue from PR
+        id: get_issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ISSUE_URL=$(gh api graphql -f query='
+            query {
+              repository(owner: "${{ github.repository_owner }}", name: "${{ github.event.repository.name }}") {
+                pullRequest(number: ${{ steps.pr_data.outputs.pr_number }}) {
+                  closingIssuesReferences(first: 1) {
+                    nodes {
+                      url
+                    }
+                  }
+                }
+              }
+            }
+          ' --jq '.data.repository.pullRequest.closingIssuesReferences.nodes[0].url // empty' 2>/dev/null || true)
+
+          if [ -n "$ISSUE_URL" ]; then
+            echo "Found linked issue: $ISSUE_URL"
+          else
+            echo "No linked issue found"
+          fi
+          echo "issue_url=${ISSUE_URL}" >> $GITHUB_OUTPUT
+
+  build_ami:
+    needs: get_pr_info
+    uses: ./.github/workflows/packages_builder_ami.yaml
+    with:
+      id: "pr-check-${{ needs.get_pr_info.outputs.pr_number }}"
+      wazuh_virtual_machines_reference: ${{ needs.get_pr_info.outputs.pr_head_ref }}
+      wazuh_automation_reference: 'main'
+      is_stage: true
+      ami_revision: 'check-pr'
+      wazuh_package_type: dev
+      architecture: '["amd64", "arm64"]'
+      commit_list: '["latest", "latest", "latest", "latest", "latest"]'
+      customizer_debug: false
+      destroy: true
+      issue: ${{ needs.get_pr_info.outputs.issue_url }}
+    secrets: inherit
+
+  test_ami_amd64:
+    needs: [get_pr_info, build_ami]
+    if: ${{ needs.build_ami.outputs.ami_id_amd64 != '' }}
+    uses: ./.github/workflows/test-vm.yaml
+    with:
+      WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ needs.get_pr_info.outputs.pr_head_ref }}
+      WAZUH_AUTOMATION_REFERENCE: 'main'
+      test_type: ami
+      host: ${{ needs.build_ami.outputs.ami_id_amd64 }}
+      instance_type: c5ad.xlarge
+      TESTS: ALL
+      log_level: INFO
+    secrets: inherit
+
+  test_ami_arm64:
+    needs: [get_pr_info, build_ami]
+    if: ${{ needs.build_ami.outputs.ami_id_arm64 != '' }}
+    uses: ./.github/workflows/test-vm.yaml
+    with:
+      WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ needs.get_pr_info.outputs.pr_head_ref }}
+      WAZUH_AUTOMATION_REFERENCE: 'main'
+      test_type: ami
+      host: ${{ needs.build_ami.outputs.ami_id_arm64 }}
+      instance_type: c6g.xlarge
+      TESTS: ALL
+      log_level: INFO
+    secrets: inherit
+
+  cleanup_amis:
+    needs: [build_ami, test_ami_amd64, test_ami_arm64]
+    if: always() && needs.build_ami.result != 'skipped'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
+          aws-region: us-east-1
+
+      - name: Deregister AMI amd64
+        if: ${{ needs.build_ami.outputs.ami_id_amd64 != '' }}
+        run: |
+          AMI_ID="${{ needs.build_ami.outputs.ami_id_amd64 }}"
+          echo "Deregistering AMI: ${AMI_ID}"
+
+          # Get snapshot IDs before deregistering
+          SNAPSHOTS=$(aws ec2 describe-images --image-ids ${AMI_ID} --query 'Images[0].BlockDeviceMappings[*].Ebs.SnapshotId' --output text 2>/dev/null || true)
+
+          # Deregister AMI
+          aws ec2 deregister-image --image-id ${AMI_ID} || echo "Failed to deregister AMI ${AMI_ID}"
+
+          # Delete associated snapshots
+          if [ -n "$SNAPSHOTS" ]; then
+            for SNAPSHOT in $SNAPSHOTS; do
+              echo "Deleting snapshot: ${SNAPSHOT}"
+              aws ec2 delete-snapshot --snapshot-id ${SNAPSHOT} || echo "Failed to delete snapshot ${SNAPSHOT}"
+            done
+          fi
+
+      - name: Deregister AMI arm64
+        if: ${{ needs.build_ami.outputs.ami_id_arm64 != '' }}
+        run: |
+          AMI_ID="${{ needs.build_ami.outputs.ami_id_arm64 }}"
+          echo "Deregistering AMI: ${AMI_ID}"
+
+          # Get snapshot IDs before deregistering
+          SNAPSHOTS=$(aws ec2 describe-images --image-ids ${AMI_ID} --query 'Images[0].BlockDeviceMappings[*].Ebs.SnapshotId' --output text 2>/dev/null || true)
+
+          # Deregister AMI
+          aws ec2 deregister-image --image-id ${AMI_ID} || echo "Failed to deregister AMI ${AMI_ID}"
+
+          # Delete associated snapshots
+          if [ -n "$SNAPSHOTS" ]; then
+            for SNAPSHOT in $SNAPSHOTS; do
+              echo "Deleting snapshot: ${SNAPSHOT}"
+              aws ec2 delete-snapshot --snapshot-id ${SNAPSHOT} || echo "Failed to delete snapshot ${SNAPSHOT}"
+            done
+          fi
