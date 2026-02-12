@@ -2,14 +2,6 @@ run-name: PR Check AMI - ${{ github.event.pull_request.title }} - Branch ${{ git
 name: PR Check - AMI Build & Test
 
 on:
-  pull_request:
-    types: [ready_for_review, synchronize]
-    paths:
-      - 'configurer/**'
-      - 'generic/**'
-      - 'provisioner/**'
-      - 'models/**'
-      - 'utils/**'
   issue_comment:
     types: [created]
 
@@ -20,6 +12,13 @@ permissions:
 
 jobs:
   debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Simple test
+        run: |
+          echo "Workflow triggered!"
+          echo "Comment was: ${{ github.event.comment.body }}"
+  debug2:
     runs-on: ubuntu-latest
     steps:
       - name: Dump event
