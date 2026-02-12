@@ -9,12 +9,10 @@ permissions:
   id-token: write
   contents: read
   pull-requests: write
+  issues: write
 
 jobs:
   get_pr_info:
-    # Run if:
-    # 1. Pull request event (not draft)
-    # 2. Comment event on PR (not draft) with /test-integration or /test-ova command
     if: |
       github.event.issue.pull_request &&
       github.event.issue.state == 'open' &&
