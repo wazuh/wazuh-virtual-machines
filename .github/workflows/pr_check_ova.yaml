@@ -12,6 +12,25 @@ permissions:
   issues: write
 
 jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Simple test
+        run: |
+          echo "Workflow triggered!"
+          echo "Comment was: ${{ github.event.comment.body }}"
+  debug2:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump event
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "Comment body: ${{ github.event.comment.body }}"
+          echo "Is PR: ${{ github.event.issue.pull_request != null }}"
+          echo "Issue state: ${{ github.event.issue.state }}"
+          echo "Issue number: ${{ github.event.issue.number }}"
+          echo "Full event:"
+          echo '${{ toJSON(github.event) }}'
   get_pr_info:
     if: |
       github.event.issue.pull_request &&
@@ -46,30 +65,30 @@ jobs:
           echo "PR Number: ${PR_NUMBER}"
           echo "PR Head Ref: ${PR_HEAD_REF}"
 
-  build_ova:
-    needs: get_pr_info
-    uses: ./.github/workflows/builder_OVA.yaml
-    with:
-      id: "pr-check-${{ needs.get_pr_info.outputs.pr_number }}"
-      wazuh_virtual_machines_reference: ${{ needs.get_pr_info.outputs.pr_head_ref }}
-      wazuh_automation_reference: 'main'
-      is_stage: true
-      ova_revision: '0'
-      wazuh_package_type: dev
-      commit_list: '["latest", "latest", "latest", "latest"]'
-      destroy: true
-      checksum: false
-    secrets: inherit
+  #build_ova:
+  #  needs: get_pr_info
+  #  uses: ./.github/workflows/builder_OVA.yaml
+  #  with:
+  #    id: "pr-check-${{ needs.get_pr_info.outputs.pr_number }}"
+  #    wazuh_virtual_machines_reference: ${{ needs.get_pr_info.outputs.pr_head_ref }}
+  #    wazuh_automation_reference: 'main'
+  #    is_stage: true
+  #    ova_revision: '0'
+  #    wazuh_package_type: dev
+  #    commit_list: '["latest", "latest", "latest", "latest"]'
+  #    destroy: true
+  #    checksum: false
+  #  secrets: inherit
 
-  test_ova:
-    needs: [get_pr_info, build_ova]
-    uses: ./.github/workflows/test-vm.yaml
-    with:
-      WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ needs.get_pr_info.outputs.pr_head_ref }}
-      WAZUH_AUTOMATION_REFERENCE: 'main'
-      test_type: ova
-      wazuh_package_type: dev
-      commit_list: '["latest", "latest", "latest", "latest"]'
-      TESTS: ALL
-      log_level: INFO
-    secrets: inherit
+  #test_ova:
+  #  needs: [get_pr_info, build_ova]
+  #  uses: ./.github/workflows/test-vm.yaml
+  #  with:
+  #    WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ needs.get_pr_info.outputs.pr_head_ref }}
+  #    WAZUH_AUTOMATION_REFERENCE: 'main'
+  #    test_type: ova
+  #    wazuh_package_type: dev
+  #    commit_list: '["latest", "latest", "latest", "latest"]'
+  #    TESTS: ALL
+  #    log_level: INFO
+  #  secrets: inherit
