@@ -16,7 +16,7 @@ def ami_pre_configurer(inventory: Inventory) -> str:
     2. Applies customizations to the AMI:
        - Removes the default instance user (ec2-user)
        - Configures cloud-init settings for the Wazuh user
-       - Updates the system hostname to 'wazuh-server'
+       - Updates the system hostname to 'wazuh'
        - Configures the MOTD (Message of The Day) with Wazuh branding
        - Stops journald log storage to prevent excessive logging
        - Creates and enables a service to automatically set Wazuh Indexer's JVM heap size

@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Adapt the integration test module ([#555](https://github.com/wazuh/wazuh-virtual-machines/pull/555))
 - Remove latest AMI creation and add informative tags to new AMIs ([#563](https://github.com/wazuh/wazuh-virtual-machines/pull/563))
 - Change URL sign expiration time and add debug messages ([#553](https://github.com/wazuh/wazuh-virtual-machines/pull/553))
 - Add suport to is_stage procedure and tagging with commit and latest ([#529](https://github.com/wazuh/wazuh-virtual-machines/pull/529))

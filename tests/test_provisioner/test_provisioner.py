@@ -23,7 +23,7 @@ def mock_exec_command():
 def component_info_valid(valid_inventory):
     dependencies = ["dependency1", "dependency2"]
     component_server = ComponentInfo(
-        name=Component.WAZUH_SERVER,
+        name=Component.WAZUH_MANAGER,
         package_url=AnyUrl("http://packages-dev.wazuh.com"),
         dependencies=dependencies,
     )
@@ -249,7 +249,7 @@ def test_packages_provision_success(
     [
         (
             Package_manager.YUM,
-            Component.WAZUH_SERVER,
+            Component.WAZUH_MANAGER,
             "http://packages-dev.wazuh.com/wazuh_manager.rpm",
             "wazuh_manager.rpm",
         ),
@@ -289,7 +289,7 @@ def test_get_package_by_url_success(
 @pytest.mark.parametrize(
     "component_name, package_url, error_output",
     [
-        (Component.WAZUH_SERVER, "http://packages-dev.wazuh.com/wazuh_manager.rpm", "Error output"),
+        (Component.WAZUH_MANAGER, "http://packages-dev.wazuh.com/wazuh_manager.rpm", "Error output"),
         (Component.WAZUH_INDEXER, "http://packages-dev.wazuh.com/wazuh_indexer.deb", "Error output"),
     ],
 )
