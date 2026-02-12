@@ -59,6 +59,33 @@ on:
       checksum:
         type: boolean
         required: false
+      wazuh_virtual_machines_reference:
+        type: string
+        required: true
+      wazuh_automation_reference:
+        type: string
+        required: false
+        default: 'main'
+      is_stage:
+        type: boolean
+        required: false
+        default: false
+      ova_revision:
+        type: string
+        required: false
+        default: '0'
+      wazuh_package_type:
+        type: string
+        required: false
+        default: 'dev'
+      commit_list:
+        type: string
+        required: false
+        default: '["latest", "latest", "latest", "latest"]'
+      destroy:
+        type: boolean
+        required: false
+        default: true
 
 env:
     COMPOSITE_NAME: "amazon-2023-amd64"
