@@ -2,14 +2,6 @@ run-name: PR Check AMI - ${{ github.event.pull_request.title }} - Branch ${{ git
 name: PR Check - AMI Build & Test
 
 on:
-  pull_request:
-    types: [ready_for_review, synchronize]
-    paths:
-      - 'configurer/**'
-      - 'generic/**'
-      - 'provisioner/**'
-      - 'models/**'
-      - 'utils/**'
   issue_comment:
     types: [created]
 
@@ -17,6 +9,7 @@ permissions:
   id-token: write
   contents: read
   pull-requests: write
+  issues: write
 
 jobs:
   debug:
@@ -32,9 +25,6 @@ jobs:
           echo "Full event:"
           echo '${{ toJSON(github.event) }}'
   get_pr_info:
-    # Run if:
-    # 1. Pull request event (not draft)
-    # 2. Comment event on PR (not draft) with /test-integration or /test-ami command
     if: |
       github.event.issue.pull_request &&
       github.event.issue.state == 'open' &&
