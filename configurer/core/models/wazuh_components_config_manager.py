@@ -43,8 +43,8 @@ class WazuhComponentConfigManager:
 
     @property
     def server_mapping(self) -> WazuhServerConfigMapping | None:
-        if self.config_mappings_file.get(Component.WAZUH_SERVER, None):
-            return WazuhServerConfigMapping(self.config_mappings_file[Component.WAZUH_SERVER])
+        if self.config_mappings_file.get(Component.WAZUH_MANAGER, None):
+            return WazuhServerConfigMapping(self.config_mappings_file[Component.WAZUH_MANAGER])
         return None
 
     @property
@@ -72,7 +72,7 @@ class WazuhComponentConfigManager:
 
         if component == Component.WAZUH_INDEXER:
             replace_content = self.indexer_mapping.replace_content if self.indexer_mapping else None
-        elif component == Component.WAZUH_SERVER:
+        elif component == Component.WAZUH_MANAGER:
             replace_content = self.server_mapping.replace_content if self.server_mapping else None
         elif component == Component.WAZUH_DASHBOARD:
             replace_content = self.dashboard_mapping.replace_content if self.dashboard_mapping else None
@@ -127,7 +127,7 @@ class WazuhComponentConfigManager:
             self._indexer_placeholder
             if component == Component.WAZUH_INDEXER
             else self._server_placeholder
-            if component == Component.WAZUH_SERVER
+            if component == Component.WAZUH_MANAGER
             else self._dashboard_placeholder
         )
 

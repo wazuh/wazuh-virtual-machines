@@ -15,9 +15,9 @@ CERTS_TOOL_PATH = Path("/path/to/certs-tool.sh")
 
 class MockConfigParameters(StrEnum):
     # Wazuh Server
-    WAZUH_SERVER_KEY = "server.test.key"
-    WAZUH_SERVER_CERT = "server.test.cert"
-    WAZUH_SERVER_CA = "server.test.ca"
+    WAZUH_MANAGER_KEY = "server.test.key"
+    WAZUH_MANAGER_CERT = "server.test.cert"
+    WAZUH_MANAGER_CA = "server.test.ca"
     # Wazuh Indexer
     WAZUH_INDEXER_KEY = "indexer.test.key"
     WAZUH_INDEXER_CERT = "indexer.test.cert"
@@ -33,8 +33,8 @@ def expected_config_query():
     return f"""
             sudo yq -i '.nodes.indexer[0].name = \"{Component.WAZUH_INDEXER}\" |
             .nodes.indexer[0].ip = "127.0.0.1" | .nodes.indexer[0].ip style="double" |
-            .nodes.server[0].name = \"{Component.WAZUH_SERVER}\" |
-            .nodes.server[0].ip = "127.0.0.1" | .nodes.server[0].ip style="double" |
+            .nodes.manager[0].name = \"{Component.WAZUH_MANAGER}\" |
+            .nodes.manager[0].ip = "127.0.0.1" | .nodes.manager[0].ip style="double" |
             .nodes.dashboard[0].name = \"{Component.WAZUH_DASHBOARD}\" |
             .nodes.dashboard[0].ip = "127.0.0.1" | .nodes.dashboard[0].ip style="double"
             ' {RAW_CONFIG_PATH}
@@ -58,9 +58,9 @@ def test_init_with_valid_arguments(mock_set_config_file_values, client):
 
     assert certs_manager.certs_tool_path == certs_tool_path
     assert Component.WAZUH_INDEXER in certs_manager.components_certs_default_name
-    assert Component.WAZUH_SERVER in certs_manager.components_certs_default_name
+    assert Component.WAZUH_MANAGER in certs_manager.components_certs_default_name
     assert Component.WAZUH_DASHBOARD in certs_manager.components_certs_default_name
-    assert Component.WAZUH_SERVER in certs_manager.components_certs_config_keys
+    assert Component.WAZUH_MANAGER in certs_manager.components_certs_config_keys
     assert Component.WAZUH_INDEXER in certs_manager.components_certs_config_keys
     assert Component.WAZUH_DASHBOARD in certs_manager.components_certs_config_keys
     mock_set_config_file_values.assert_called_once_with(raw_config_path=raw_config_path, client=client)
@@ -77,8 +77,8 @@ def test_init_sets_default_cert_names(mock_set_config_file_values):
         certs_manager.components_certs_default_name[Component.WAZUH_INDEXER]["cert"] == f"{Component.WAZUH_INDEXER}.pem"
     )
     assert (
-        certs_manager.components_certs_default_name[Component.WAZUH_SERVER]["key"]
-        == f"{Component.WAZUH_SERVER}-key.pem"
+        certs_manager.components_certs_default_name[Component.WAZUH_MANAGER]["key"]
+        == f"{Component.WAZUH_MANAGER}-key.pem"
     )
     assert certs_manager.components_certs_default_name[Component.WAZUH_DASHBOARD]["ca"] == "root-ca.pem"
     mock_set_config_file_values.assert_called_once_with(raw_config_path=raw_config_path, client=None)
@@ -109,7 +109,7 @@ def test_set_config_file_values_error(mock_exec_command, mock_logger, expected_c
 
 @pytest.mark.parametrize(
     "raw_name, format_name",
-    [("/path/to/wazuh-server.pem", "wazuh-server.pem"), ('["/path/to/wazuh-dashboard.pem"]', "wazuh-dashboard.pem")],
+    [("/path/to/wazuh-manager.pem", "wazuh-manager.pem"), ('["/path/to/wazuh-dashboard.pem"]', "wazuh-dashboard.pem")],
 )
 def test_get_name_cert_from_key_success(raw_name, format_name, mock_exec_command, mock_logger):
     mock_exec_command.return_value = (raw_name, "")
@@ -126,7 +126,7 @@ def test_get_name_cert_from_key_success(raw_name, format_name, mock_exec_command
 
 
 def test_get_name_cert_from_key_with_flattened_key_success(mock_exec_command, mock_logger):
-    mock_exec_command.return_value = ("/path/to/wazuh-server.pem", "")
+    mock_exec_command.return_value = ("/path/to/wazuh-manager.pem", "")
     certs_manager = CertsManager(raw_config_path=RAW_CONFIG_PATH, certs_tool_path=CERTS_TOOL_PATH)
 
     cert_name = certs_manager._get_cert_name_from_key("test.key", "/path/test/file", flattened_key=True)
@@ -136,7 +136,7 @@ def test_get_name_cert_from_key_with_flattened_key_success(mock_exec_command, mo
     mock_exec_command.assert_called()
     assert command_response == expected_command
 
-    assert cert_name == "wazuh-server.pem"
+    assert cert_name == "wazuh-manager.pem"
 
 
 def test_get_name_cert_from_key_error(mock_exec_command, mock_logger):
@@ -158,18 +158,18 @@ def test_get_name_cert_from_key_error(mock_exec_command, mock_logger):
     "component, component_config_file, flattened_key, mock_cert_names, expected_result",
     [
         (
-            Component.WAZUH_SERVER,
-            "/etc/wazuh-server/wazuh-server.yml",
+            Component.WAZUH_MANAGER,
+            "/etc/wazuh-manager/wazuh-manager.yml",
             True,
             {
-                "server.test.key": "wazuh-server-key.pem",
-                "server.test.cert": "wazuh-server.pem",
-                "server.test.ca": "root-ca.pem",
+                "manager.test.key": "wazuh-manager-key.pem",
+                "manager.test.cert": "wazuh-manager.pem",
+                "manager.test.ca": "root-ca.pem",
             },
             {
-                "WAZUH_SERVER_KEY": "wazuh-server-key.pem",
-                "WAZUH_SERVER_CERT": "wazuh-server.pem",
-                "WAZUH_SERVER_CA": "root-ca.pem",
+                "WAZUH_MANAGER_KEY": "wazuh-manager-key.pem",
+                "WAZUH_MANAGER_CERT": "wazuh-manager.pem",
+                "WAZUH_MANAGER_CA": "root-ca.pem",
             },
         ),
         (
@@ -215,10 +215,10 @@ def test_get_certs_name_success(
     certs_manager = CertsManager(raw_config_path=RAW_CONFIG_PATH, certs_tool_path=CERTS_TOOL_PATH)
 
     certs_manager.components_certs_config_keys = {  # type: ignore
-        Component.WAZUH_SERVER: [
-            MockConfigParameters.WAZUH_SERVER_KEY,
-            MockConfigParameters.WAZUH_SERVER_CERT,
-            MockConfigParameters.WAZUH_SERVER_CA,
+        Component.WAZUH_MANAGER: [
+            MockConfigParameters.WAZUH_MANAGER_KEY,
+            MockConfigParameters.WAZUH_MANAGER_CERT,
+            MockConfigParameters.WAZUH_MANAGER_CA,
         ],
         Component.WAZUH_INDEXER: [
             MockConfigParameters.WAZUH_INDEXER_KEY,
@@ -260,7 +260,7 @@ def test_get_certs_name_empty_component_keys(mock_logger, mock_exec_command):
     certs_manager.components_certs_config_keys = {}  # type: ignore
 
     certs = certs_manager._get_certs_name(
-        component=Component.WAZUH_SERVER,
+        component=Component.WAZUH_MANAGER,
         component_config_file="/path/to/file",
         flattened_key=True,
         client=None,
@@ -273,11 +273,11 @@ def test_get_certs_name_empty_component_keys(mock_logger, mock_exec_command):
     "component, component_certs",
     [
         (
-            Component.WAZUH_SERVER,
+            Component.WAZUH_MANAGER,
             {
-                "WAZUH_SERVER_KEY": "wazuh-server-key.pem",
-                "WAZUH_SERVER_CERT": "wazuh-server.pem",
-                "WAZUH_SERVER_CA": "root-ca.pem",
+                "WAZUH_MANAGER_KEY": "wazuh-manager-key.pem",
+                "WAZUH_MANAGER_CERT": "wazuh-manager.pem",
+                "WAZUH_MANAGER_CA": "root-ca.pem",
             },
         ),
         (
@@ -322,10 +322,10 @@ def test_generate_certificates_success(
         component=component,
         component_config_file=ComponentConfigFile.WAZUH_INDEXER
         if component == Component.WAZUH_INDEXER
-        else ComponentConfigFile.WAZUH_SERVER
-        if component == Component.WAZUH_SERVER
+        else ComponentConfigFile.WAZUH_MANAGER
+        if component == Component.WAZUH_MANAGER
         else ComponentConfigFile.WAZUH_DASHBOARD,
-        flattened_key=component != Component.WAZUH_SERVER,
+        flattened_key=component != Component.WAZUH_MANAGER,
         client=None,
     )
     mock_copy_certs.assert_any_call(
@@ -371,9 +371,9 @@ def test_generate_certificates_error_during_compression(mock_exec_command, mock_
 @patch("configurer.core.models.certificates_manager.CertsManager._get_certs_name")
 def test_generate_certificates_error_during_copy(mock_get_certs_name, mock_copy_certs, mock_exec_command, mock_logger):
     mock_get_certs_name.return_value = {
-        "WAZUH_SERVER_KEY": "wazuh-server-key.pem",
-        "WAZUH_SERVER_CERT": "wazuh-server.pem",
-        "WAZUH_SERVER_CA": "root-ca.pem",
+        "WAZUH_MANAGER_KEY": "wazuh-manager-key.pem",
+        "WAZUH_MANAGER_CERT": "wazuh-manager.pem",
+        "WAZUH_MANAGER_CA": "root-ca.pem",
     }
 
     certs_manager = CertsManager(raw_config_path=RAW_CONFIG_PATH, certs_tool_path=CERTS_TOOL_PATH)
@@ -413,22 +413,22 @@ def test_generate_certificates_error_during_copy(mock_get_certs_name, mock_copy_
             """,
         ),
         (
-            Component.WAZUH_SERVER,
+            Component.WAZUH_MANAGER,
             {
-                ComponentCertsConfigParameter.WAZUH_SERVER_CERT.name: "server-cert.pem",
-                ComponentCertsConfigParameter.WAZUH_SERVER_KEY.name: "server-key.pem",
-                ComponentCertsConfigParameter.WAZUH_SERVER_CA.name: "server-ca.pem",
+                ComponentCertsConfigParameter.WAZUH_MANAGER_CERT.name: "server-cert.pem",
+                ComponentCertsConfigParameter.WAZUH_MANAGER_KEY.name: "server-key.pem",
+                ComponentCertsConfigParameter.WAZUH_MANAGER_CA.name: "server-ca.pem",
             },
             f"""
-                sudo rm -rf {ComponentCertsDirectory.WAZUH_SERVER}
-                sudo mkdir -p {ComponentCertsDirectory.WAZUH_SERVER}
-                sudo tar -xf {CERTS_TOOL_PATH.parent}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_SERVER} ./server-cert.pem ./server-key.pem ./server-ca.pem
-                sudo mv -n {ComponentCertsDirectory.WAZUH_SERVER}/server-cert.pem {ComponentCertsDirectory.WAZUH_SERVER}/server-cert.pem
-                sudo mv -n {ComponentCertsDirectory.WAZUH_SERVER}/server-key.pem {ComponentCertsDirectory.WAZUH_SERVER}/server-key.pem
-                sudo mv -n {ComponentCertsDirectory.WAZUH_SERVER}/server-ca.pem {ComponentCertsDirectory.WAZUH_SERVER}/server-ca.pem
-                sudo chmod 500 {ComponentCertsDirectory.WAZUH_SERVER}
-                sudo find {ComponentCertsDirectory.WAZUH_SERVER} -type f -exec chmod 400 {{}} \\;
-                sudo chown -R root:root {ComponentCertsDirectory.WAZUH_SERVER}/
+                sudo rm -rf {ComponentCertsDirectory.WAZUH_MANAGER}
+                sudo mkdir -p {ComponentCertsDirectory.WAZUH_MANAGER}
+                sudo tar -xf {CERTS_TOOL_PATH.parent}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_MANAGER} ./server-cert.pem ./server-key.pem ./server-ca.pem
+                sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/server-cert.pem {ComponentCertsDirectory.WAZUH_MANAGER}/server-cert.pem
+                sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/server-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/server-key.pem
+                sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/server-ca.pem {ComponentCertsDirectory.WAZUH_MANAGER}/server-ca.pem
+                sudo chmod 500 {ComponentCertsDirectory.WAZUH_MANAGER}
+                sudo find {ComponentCertsDirectory.WAZUH_MANAGER} -type f -exec chmod 400 {{}} \\;
+                sudo chown -R root:root {ComponentCertsDirectory.WAZUH_MANAGER}/
             """,
         ),
         (
@@ -463,7 +463,7 @@ def test_copy_certs_to_component_directory_success(
             "key": "indexer-key.pem",
             "ca": "indexer-ca.pem",
         },
-        Component.WAZUH_SERVER: {
+        Component.WAZUH_MANAGER: {
             "cert": "server-cert.pem",
             "key": "server-key.pem",
             "ca": "server-ca.pem",

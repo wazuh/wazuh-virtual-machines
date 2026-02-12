@@ -15,7 +15,7 @@ def example_config_file():
         Component.WAZUH_INDEXER: [
             {"path": "/path/indexer/config", "replace": {"keys": [".key1"], "values": ["value1"]}}
         ],
-        Component.WAZUH_SERVER: [
+        Component.WAZUH_MANAGER: [
             {"path": "/path/server/config", "replace": {"keys": [".key2"], "values": ['"value2"']}}
         ],
         Component.WAZUH_DASHBOARD: [
@@ -71,15 +71,15 @@ def test_configure(mock_paramiko, mock_start_services, mock_open_file, mock_exec
         client=None,
     )
     mock_exec_command.assert_any_call(
-        command=f"sudo yq -p xml -o xml '.{ComponentCertsConfigParameter.WAZUH_SERVER_KEY}' {ComponentConfigFile.WAZUH_SERVER}",
+        command=f"sudo yq -p xml -o xml '.{ComponentCertsConfigParameter.WAZUH_MANAGER_KEY}' {ComponentConfigFile.WAZUH_MANAGER}",
         client=None,
     )
     mock_exec_command.assert_any_call(
-        command=f"sudo yq -p xml -o xml '.{ComponentCertsConfigParameter.WAZUH_SERVER_CERT}' {ComponentConfigFile.WAZUH_SERVER}",
+        command=f"sudo yq -p xml -o xml '.{ComponentCertsConfigParameter.WAZUH_MANAGER_CERT}' {ComponentConfigFile.WAZUH_MANAGER}",
         client=None,
     )
     mock_exec_command.assert_any_call(
-        command=f"sudo yq -p xml -o xml '.{ComponentCertsConfigParameter.WAZUH_SERVER_CA}' {ComponentConfigFile.WAZUH_SERVER}",
+        command=f"sudo yq -p xml -o xml '.{ComponentCertsConfigParameter.WAZUH_MANAGER_CA}' {ComponentConfigFile.WAZUH_MANAGER}",
         client=None,
     )
     mock_exec_command.assert_any_call(

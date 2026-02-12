@@ -161,7 +161,7 @@ def remove_certificates() -> None:
 
     logger.debug("Removing existing certificates...")
     command = f"""
-    rm -rf {ComponentCertsDirectory.WAZUH_SERVER}/*
+    rm -rf {ComponentCertsDirectory.WAZUH_MANAGER}/*
     rm -rf {ComponentCertsDirectory.WAZUH_INDEXER}/*
     rm -rf {ComponentCertsDirectory.WAZUH_DASHBOARD}/*
     """
@@ -244,7 +244,7 @@ def verify_server_connection(password: str = "wazuh-wui") -> None:
     """
 
     command = f'curl -XPOST https://localhost:55000/security/user/authenticate -uwazuh-wui:{password} -k --max-time 120 -w "%{{http_code}}" -s -o /dev/null'
-    verify_component_connection(Component.WAZUH_SERVER, command)
+    verify_component_connection(Component.WAZUH_MANAGER, command)
 
 
 def verify_dashboard_connection() -> None:
