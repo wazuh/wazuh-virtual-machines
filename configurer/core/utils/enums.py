@@ -2,13 +2,13 @@ from enum import StrEnum
 
 
 class ComponentConfigFile(StrEnum):
-    WAZUH_SERVER = "/var/ossec/etc/ossec.conf"
+    WAZUH_SERVER = "/var/wazuh-manager/etc/ossec.conf"
     WAZUH_INDEXER = "/etc/wazuh-indexer/opensearch.yml"
     WAZUH_DASHBOARD = "/etc/wazuh-dashboard/opensearch_dashboards.yml"
 
 
 class ComponentCertsDirectory(StrEnum):
-    WAZUH_SERVER = "/var/ossec/etc/certs"
+    WAZUH_SERVER = "/var/wazuh-manager/etc/certs"
     WAZUH_INDEXER = "/etc/wazuh-indexer/certs"
     WAZUH_DASHBOARD = "/etc/wazuh-dashboard/certs"
 
