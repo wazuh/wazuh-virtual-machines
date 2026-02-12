@@ -87,7 +87,7 @@ jobs:
       id: "pr-check-${{ needs.get_pr_info.outputs.pr_number }}"
       wazuh_virtual_machines_reference: ${{ needs.get_pr_info.outputs.pr_head_ref }}
       wazuh_automation_reference: 'main'
-      is_stage: true
+      is_stage: false
       ova_revision: '0'
       wazuh_package_type: dev
       commit_list: '["latest", "latest", "latest", "latest"]'

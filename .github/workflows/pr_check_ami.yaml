@@ -114,7 +114,7 @@ jobs:
       id: "pr-check-${{ needs.get_pr_info.outputs.pr_number }}"
       wazuh_virtual_machines_reference: ${{ needs.get_pr_info.outputs.pr_head_ref }}
       wazuh_automation_reference: 'main'
-      is_stage: true
+      is_stage: false
       ami_revision: 'check-pr'
       wazuh_package_type: dev
       architecture: '["amd64", "arm64"]'
