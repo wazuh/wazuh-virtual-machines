@@ -10,20 +10,9 @@ permissions:
   contents: read
   pull-requests: write
   issues: write
+  checks: write
 
 jobs:
-  debug:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Dump event
-        run: |
-          echo "Event name: ${{ github.event_name }}"
-          echo "Comment body: ${{ github.event.comment.body }}"
-          echo "Is PR: ${{ github.event.issue.pull_request != null }}"
-          echo "Issue state: ${{ github.event.issue.state }}"
-          echo "Issue number: ${{ github.event.issue.number }}"
-          echo "Full event:"
-          echo '${{ toJSON(github.event) }}'
   get_pr_info:
     if: |
       github.event.issue.pull_request &&
@@ -36,28 +25,38 @@ jobs:
       issue_url: ${{ steps.get_issue.outputs.issue_url }}
       pr_number: ${{ steps.pr_data.outputs.pr_number }}
       pr_head_ref: ${{ steps.pr_data.outputs.pr_head_ref }}
+      pr_head_sha: ${{ steps.pr_data.outputs.pr_head_sha }}
+      check_run_id: ${{ steps.create_check.outputs.result }}
     steps:
+      - name: React to comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'rocket'
+            });
+
       - name: Extract PR data
         id: pr_data
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            # Pull request event
-            PR_NUMBER="${{ github.event.pull_request.number }}"
-            PR_HEAD_REF="${{ github.head_ref }}"
-          else
-            # Issue comment event
-            PR_NUMBER="${{ github.event.issue.number }}"
-            # Fetch PR head ref from API
-            PR_DATA=$(gh api repos/${{ github.repository }}/pulls/${PR_NUMBER})
-            PR_HEAD_REF=$(echo "$PR_DATA" | jq -r '.head.ref')
-          fi
+          PR_NUMBER="${{ github.event.issue.number }}"
+
+          # Fetch PR data from API
+          PR_DATA=$(gh api repos/${{ github.repository }}/pulls/${PR_NUMBER})
+          PR_HEAD_REF=$(echo "$PR_DATA" | jq -r '.head.ref')
+          PR_HEAD_SHA=$(echo "$PR_DATA" | jq -r '.head.sha')
 
           echo "pr_number=${PR_NUMBER}" >> $GITHUB_OUTPUT
           echo "pr_head_ref=${PR_HEAD_REF}" >> $GITHUB_OUTPUT
-          echo "PR Number: ${PR_NUMBER}"
-          echo "PR Head Ref: ${PR_HEAD_REF}"
+          echo "pr_head_sha=${PR_HEAD_SHA}" >> $GITHUB_OUTPUT
+          echo "✅ PR: #${PR_NUMBER}"
+          echo "✅ Branch: ${PR_HEAD_REF}"
+          echo "✅ SHA: ${PR_HEAD_SHA}"
 
       - name: Get linked issue from PR
         id: get_issue
@@ -79,11 +78,34 @@ jobs:
           ' --jq '.data.repository.pullRequest.closingIssuesReferences.nodes[0].url // empty' 2>/dev/null || true)
 
           if [ -n "$ISSUE_URL" ]; then
-            echo "Found linked issue: $ISSUE_URL"
+            echo "✅ Found linked issue: $ISSUE_URL"
           else
-            echo "No linked issue found"
+            echo "ℹ️  No linked issue found"
           fi
           echo "issue_url=${ISSUE_URL}" >> $GITHUB_OUTPUT
+
+      - name: Create check run
+        id: create_check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: check } = await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'AMI Build & Test',
+              head_sha: '${{ steps.pr_data.outputs.pr_head_sha }}',
+              status: 'in_progress',
+              started_at: new Date().toISOString(),
+              details_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              output: {
+                title: '🔨 Building AMI images...',
+                summary: `Triggered by comment: \`${{ github.event.comment.body }}\``,
+                text: 'Building AMI images (amd64 + arm64) and running integration tests'
+              }
+            });
+
+            console.log('✅ Check run created:', check.id);
+            return check.id;
 
   build_ami:
     needs: get_pr_info
@@ -147,13 +169,10 @@ jobs:
           AMI_ID="${{ needs.build_ami.outputs.ami_id_amd64 }}"
           echo "Deregistering AMI: ${AMI_ID}"
 
-          # Get snapshot IDs before deregistering
           SNAPSHOTS=$(aws ec2 describe-images --image-ids ${AMI_ID} --query 'Images[0].BlockDeviceMappings[*].Ebs.SnapshotId' --output text 2>/dev/null || true)
 
-          # Deregister AMI
           aws ec2 deregister-image --image-id ${AMI_ID} || echo "Failed to deregister AMI ${AMI_ID}"
 
-          # Delete associated snapshots
           if [ -n "$SNAPSHOTS" ]; then
             for SNAPSHOT in $SNAPSHOTS; do
               echo "Deleting snapshot: ${SNAPSHOT}"
@@ -167,16 +186,87 @@ jobs:
           AMI_ID="${{ needs.build_ami.outputs.ami_id_arm64 }}"
           echo "Deregistering AMI: ${AMI_ID}"
 
-          # Get snapshot IDs before deregistering
           SNAPSHOTS=$(aws ec2 describe-images --image-ids ${AMI_ID} --query 'Images[0].BlockDeviceMappings[*].Ebs.SnapshotId' --output text 2>/dev/null || true)
 
-          # Deregister AMI
           aws ec2 deregister-image --image-id ${AMI_ID} || echo "Failed to deregister AMI ${AMI_ID}"
 
-          # Delete associated snapshots
           if [ -n "$SNAPSHOTS" ]; then
             for SNAPSHOT in $SNAPSHOTS; do
               echo "Deleting snapshot: ${SNAPSHOT}"
               aws ec2 delete-snapshot --snapshot-id ${SNAPSHOT} || echo "Failed to delete snapshot ${SNAPSHOT}"
             done
           fi
+
+  update_check_success:
+    needs: [get_pr_info, build_ami, test_ami_amd64, test_ami_arm64, cleanup_amis]
+    if: success()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update check - success
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.checks.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              check_run_id: ${{ needs.get_pr_info.outputs.check_run_id }},
+              status: 'completed',
+              conclusion: 'success',
+              completed_at: new Date().toISOString(),
+              output: {
+                title: '✅ AMI Build & Test - Success',
+                summary: 'All AMI builds and tests passed!',
+                text: `
+                  ## Results
+
+                  - ✅ AMI amd64: ${{ needs.build_ami.outputs.ami_id_amd64 }}
+                  - ✅ AMI arm64: ${{ needs.build_ami.outputs.ami_id_arm64 }}
+                  - ✅ Integration tests passed
+                  - ✅ Cleanup completed
+
+                  [View workflow run](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
+                `
+              }
+            });
+
+  update_check_failure:
+    needs: [get_pr_info, build_ami, test_ami_amd64, test_ami_arm64, cleanup_amis]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update check - failure
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const buildStatus = '${{ needs.build_ami.result }}';
+            const testAmd64Status = '${{ needs.test_ami_amd64.result }}';
+            const testArm64Status = '${{ needs.test_ami_arm64.result }}';
+            const cleanupStatus = '${{ needs.cleanup_amis.result }}';
+
+            let failedSteps = [];
+            if (buildStatus === 'failure') failedSteps.push('AMI Build');
+            if (testAmd64Status === 'failure') failedSteps.push('Test amd64');
+            if (testArm64Status === 'failure') failedSteps.push('Test arm64');
+
+            await github.rest.checks.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              check_run_id: ${{ needs.get_pr_info.outputs.check_run_id }},
+              status: 'completed',
+              conclusion: 'failure',
+              completed_at: new Date().toISOString(),
+              output: {
+                title: '❌ AMI Build & Test - Failed',
+                summary: `Failed steps: ${failedSteps.join(', ')}`,
+                text: `
+                  ## Results
+
+                  - Build AMI: ${buildStatus}
+                  - Test AMI amd64: ${testAmd64Status}
+                  - Test AMI arm64: ${testArm64Status}
+                  - Cleanup: ${cleanupStatus}
+
+                  [View workflow run for details](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
+                `
+              }
+            });

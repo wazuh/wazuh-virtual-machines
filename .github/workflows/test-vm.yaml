@@ -90,14 +90,66 @@ on:
         required: false
         default: false
         type: boolean
+  workflow_call:
+    inputs:
+      WAZUH_AUTOMATION_REFERENCE:
+        type: string
+        required: false
+        default: 'main'
+      WAZUH_VIRTUAL_MACHINES_REFERENCE:
+        type: string
+        required: true
+      AWS_REGION:
+        type: string
+        required: false
+        default: 'us-east-1'
+      test_type:
+        type: string
+        required: true
+      host:
+        type: string
+        required: false
+      instance_type:
+        type: string
+        required: false
+        default: 'c5ad.xlarge'
+      wazuh_package_type:
+        type: string
+        required: false
+        default: 'dev'
+      commit_list:
+        type: string
+        required: false
+        default: '["latest", "latest", "latest", "latest"]'
+      WAZUH_SERVER_VERSION_REVISION:
+        type: string
+        required: false
+      WAZUH_INDEXER_VERSION_REVISION:
+        type: string
+        required: false
+      WAZUH_DASHBOARD_VERSION_REVISION:
+        type: string
+        required: false
+      TESTS:
+        type: string
+        required: false
+        default: 'ALL'
+      log_level:
+        type: string
+        required: false
+        default: 'INFO'
+      keep_instance_alive:
+        type: boolean
+        required: false
+        default: false
 
 env:
-  WAZUH_SERVER_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_SERVER_VERSION_REVISION }}
-  WAZUH_INDEXER_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_INDEXER_VERSION_REVISION }}
-  WAZUH_DASHBOARD_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_DASHBOARD_VERSION_REVISION }}
-  WAZUH_AUTOMATION_REFERENCE: ${{ github.event.inputs.WAZUH_AUTOMATION_REFERENCE || 'main' }}
-  WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ github.event.inputs.WAZUH_VIRTUAL_MACHINES_REFERENCE }}
-  AWS_REGION: ${{ github.event.inputs.AWS_REGION }}
+  WAZUH_SERVER_EXPECTED_VERSION: ${{ inputs.WAZUH_SERVER_VERSION_REVISION }}
+  WAZUH_INDEXER_EXPECTED_VERSION: ${{ inputs.WAZUH_INDEXER_VERSION_REVISION }}
+  WAZUH_DASHBOARD_EXPECTED_VERSION: ${{ inputs.WAZUH_DASHBOARD_VERSION_REVISION }}
+  WAZUH_AUTOMATION_REFERENCE: ${{ inputs.WAZUH_AUTOMATION_REFERENCE || 'main' }}
+  WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ inputs.WAZUH_VIRTUAL_MACHINES_REFERENCE }}
+  AWS_REGION: ${{ inputs.AWS_REGION }}
   GENERATE_PRESIGNED_URLS_SCRIPT_PATH: ${{ github.workspace }}/wazuh-virtual-machines/.github/scripts/generate_presigned_dev_urls.py
   COMMIT_LIST: ${{ inputs.commit_list }}
   PROD_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PROD }}
@@ -118,7 +170,7 @@ jobs:
   # ===================================================
 
   ami-setup:
-    if: ${{ github.event.inputs.test_type == 'ami' && github.event.inputs.host != '' }}
+    if: ${{ inputs.test_type == 'ami' && inputs.host != '' }}
     runs-on: ubuntu-latest
     outputs:
       instance_id: ${{ steps.launch.outputs.instance_id }}
@@ -138,7 +190,9 @@ jobs:
       - name: Generate SSH key pair
         id: keygen
         run: |
-          KEY_NAME="test-runner-${{ github.run_id }}"
+          TIMESTAMP=$(date +%s)
+          RANDOM_NUM=$RANDOM
+          KEY_NAME="test-runner-${TIMESTAMP}-${RANDOM_NUM}"
           KEY_PATH="/tmp/${KEY_NAME}"
 
           # Generate SSH key
@@ -156,11 +210,11 @@ jobs:
         id: launch
         run: |
           INSTANCE_ID=$(aws ec2 run-instances \
-            --image-id ${{ github.event.inputs.host }} \
-            --instance-type ${{ github.event.inputs.instance_type }} \
+            --image-id ${{ inputs.host }} \
+            --instance-type ${{ inputs.instance_type }} \
             --key-name ${{ steps.keygen.outputs.key_name }} \
             --security-group-ids ${{ secrets.AWS_EC2_SG }} \
-            --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=test-runner-${{ github.run_id }}},{Key=AutoTerminate,Value=true},{Key=CreatedBy,Value=test_runner}]' \
+            --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=${{ steps.keygen.outputs.key_name }}},{Key=AutoTerminate,Value=true},{Key=CreatedBy,Value=test_runner}]' \
             --query 'Instances[0].InstanceId' \
             --output text)
 
@@ -229,7 +283,7 @@ jobs:
       - name: Upload SSH key as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ssh-key-${{ github.run_id }}
+          name: ssh-key-${{ steps.keygen.outputs.key_name }}
           path: ${{ steps.keygen.outputs.key_path }}
           retention-days: 1
 
@@ -270,11 +324,11 @@ jobs:
       - name: Download SSH key
         uses: actions/download-artifact@v4
         with:
-          name: ssh-key-${{ github.run_id }}
+          name: ssh-key-${{ needs.ami-setup.outputs.ssh_key_name }}
           path: /tmp/ssh
 
       - name: Set SSH key permissions
-        run: chmod 600 /tmp/ssh/test-runner-${{ github.run_id }}
+        run: chmod 600 /tmp/ssh/${{ needs.ami-setup.outputs.ssh_key_name }}
 
       - name: Run AMI tests
         run: |
@@ -293,9 +347,9 @@ jobs:
           $TEST_RUNNER_PATH \
             --test-type ami \
             --ssh-host ${{ needs.ami-setup.outputs.instance_ip }} \
-            --ssh-key-path /tmp/ssh/test-runner-${{ github.run_id }} \
-            --test-pattern "${{ github.event.inputs.TESTS || 'ALL' }}" \
-            --log-level ${{ github.event.inputs.log_level || 'INFO' }} \
+            --ssh-key-path /tmp/ssh/${{ needs.ami-setup.outputs.ssh_key_name }} \
+            --test-pattern "${{ inputs.TESTS || 'ALL' }}" \
+            --log-level ${{ inputs.log_level || 'INFO' }} \
             --output github \
             --output-file test-results.github
 
@@ -370,7 +424,7 @@ jobs:
 
   ami-cleanup:
     needs: [ami-setup, test-ami]
-    if: ${{ always() && needs.ami-setup.result != 'skipped' && github.event.inputs.keep_instance_alive != 'true' }}
+    if: ${{ always() && needs.ami-setup.result != 'skipped' && inputs.keep_instance_alive != 'true' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -431,7 +485,7 @@ jobs:
   # ===================================================
 
   ova-setup:
-    if: ${{ github.event.inputs.test_type == 'ova' }}
+    if: ${{ inputs.test_type == 'ova' }}
     runs-on: ubuntu-latest
     outputs:
       allocator_ip: ${{ steps.allocator.outputs.allocator_ip }}
@@ -491,7 +545,7 @@ jobs:
           LOCAL_ARTIFACTS_URLS_FILEPATH=${{ github.workspace }}/${{ env.ARTIFACTS_URLS_FILENAME }}
           echo "LOCAL_ARTIFACTS_URLS_FILEPATH=$LOCAL_ARTIFACTS_URLS_FILEPATH" >> $GITHUB_ENV
 
-          PACKAGE_TYPE="${{ github.event.inputs.wazuh_package_type || 'dev' }}"
+          PACKAGE_TYPE="${{ inputs.wazuh_package_type || 'dev' }}"
           echo "Package type: $PACKAGE_TYPE"
 
           if [ "$PACKAGE_TYPE" == "prod" ]; then
@@ -511,7 +565,7 @@ jobs:
           cat $LOCAL_ARTIFACTS_URLS_FILEPATH
 
       - name: Generate presigned URLs for dev packages
-        if: ${{ github.event.inputs.wazuh_package_type == 'dev' }}
+        if: ${{ inputs.wazuh_package_type == 'dev' }}
         run: |
           echo "Generating presigned URLs for dev packages..."
           python ${{ env.GENERATE_PRESIGNED_URLS_SCRIPT_PATH }}
@@ -776,8 +830,8 @@ jobs:
             --ssh-port ${{ needs.ova-setup.outputs.ova_ssh_port }} \
             --ssh-username wazuh-user \
             --ssh-password wazuh \
-            --test-pattern "${{ github.event.inputs.TESTS || 'ALL' }}" \
-            --log-level ${{ github.event.inputs.log_level || 'INFO' }} \
+            --test-pattern "${{ inputs.TESTS || 'ALL' }}" \
+            --log-level ${{ inputs.log_level || 'INFO' }} \
             --output github \
             --output-file test-results.github
 
@@ -852,7 +906,7 @@ jobs:
 
   ova-cleanup:
     needs: [ova-setup, test-ova]
-    if: ${{ always() && needs.ova-setup.result != 'skipped' && github.event.inputs.keep_instance_alive != 'true' }}
+    if: ${{ always() && needs.ova-setup.result != 'skipped' && inputs.keep_instance_alive != 'true' }}
     runs-on: ubuntu-latest
 
     steps:
