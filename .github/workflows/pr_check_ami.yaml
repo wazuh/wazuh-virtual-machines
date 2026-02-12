@@ -112,7 +112,8 @@ jobs:
   test_ami_amd64:
     needs: [get_pr_info, build_ami]
     if: ${{ needs.build_ami.outputs.ami_id_amd64 != '' }}
-    uses: ./.github/workflows/test-vm.yaml
+    #uses: ./.github/workflows/test-vm.yaml
+    uses: wazuh/wazuh-virtual-machines/.github/workflows/test-vm.yaml@change/578-addapt-builder-ova-and-ami-to-execute-tests
     with:
       WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ needs.get_pr_info.outputs.pr_head_ref }}
       WAZUH_AUTOMATION_REFERENCE: 'main'
@@ -126,7 +127,8 @@ jobs:
   test_ami_arm64:
     needs: [get_pr_info, build_ami]
     if: ${{ needs.build_ami.outputs.ami_id_arm64 != '' }}
-    uses: ./.github/workflows/test-vm.yaml
+    #uses: ./.github/workflows/test-vm.yaml
+    uses: wazuh/wazuh-virtual-machines/.github/workflows/test-vm.yaml@change/578-addapt-builder-ova-and-ami-to-execute-tests
     with:
       WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ needs.get_pr_info.outputs.pr_head_ref }}
       WAZUH_AUTOMATION_REFERENCE: 'main'
