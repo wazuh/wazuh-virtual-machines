@@ -65,7 +65,8 @@ def test_get_component_property_packages_success(component, expected_output, pac
     "component, attr_name",
     [
         (Component.WAZUH_INDEXER, "indexer_packages"),
-        (Component.WAZUH_MANAGER, "server_packages"),
+        (Component.WAZUH_MANAGER, "manager_packages"),
+        (Component.WAZUH_AGENT, "agent_packages"),
         (Component.WAZUH_DASHBOARD, "dashboard_packages"),
     ],
 )
@@ -80,7 +81,8 @@ def test_packages_missing_component(package_info, component, attr_name):
     "component, attr_name",
     [
         (Component.WAZUH_INDEXER, "indexer_packages"),
-        (Component.WAZUH_MANAGER, "server_packages"),
+        (Component.WAZUH_MANAGER, "manager_packages"),
+        (Component.WAZUH_AGENT, "agent_packages"),
         (Component.WAZUH_DASHBOARD, "dashboard_packages"),
     ],
 )

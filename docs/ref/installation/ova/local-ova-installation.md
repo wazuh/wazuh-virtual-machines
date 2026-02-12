@@ -29,6 +29,10 @@ wazuh_manager_amd64_deb: "http://example.com/wazuh-manager-amd64.deb"
 wazuh_manager_arm64_deb: "http://example.com/wazuh-manager-arm"
 wazuh_manager_amd64_rpm: "http://example.com/wazuh-manager-amd64.rpm"
 wazuh_manager_arm64_rpm: "http://example.com/wazuh-manager-arm.rpm"
+wazuh_agent_amd64_deb: "http://example.com/wazuh-agent-amd64.deb"
+wazuh_agent_arm64_deb: "http://example.com/wazuh-agent-arm"
+wazuh_agent_amd64_rpm: "http://example.com/wazuh-agent-amd64.rpm"
+wazuh_agent_arm64_rpm: "http://example.com/wazuh-agent-arm.rpm"
 wazuh_indexer_amd64_deb: "http://example.com/wazuh-indexer-amd64.deb"
 wazuh_indexer_arm64_deb: "http://example.com/wazuh-indexer-arm"
 wazuh_indexer_amd64_rpm: "http://example.com/wazuh-indexer-amd64.rpm"
@@ -57,13 +61,13 @@ Follow the steps below to create the Wazuh virtual machine:
     This command will set up the execution environment, configure the Vagrant VM and export the OVA image.
 
     You can also customize the name and output directory of the OVA file using the `--name` and `--output` options. For example:
-    
+
     ```bash
     hatch run local-ova:create -p \<path to the urls file\> -n custom-wazuh-ova -o /path/to/output/directory
     ```
 
     To see all available options, you can use the `-h` or `--help` flag:
-    
+
     ```bash
     hatch run local-ova:create --help
     ```

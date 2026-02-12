@@ -25,7 +25,7 @@ def test_get_component_dependencies_success():
     )
 
     assert components_dependencies.indexer_dependencies == ["dep1", "dep2"]
-    assert components_dependencies.server_dependencies == ["dep5", "dep6"]
+    assert components_dependencies.manager_dependencies == ["dep5", "dep6"]
     assert components_dependencies.dashboard_dependencies == ["dep9", "dep10"]
 
 

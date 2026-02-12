@@ -16,7 +16,7 @@ class ComponentsDependencies(BaseModel):
     Properties:
         package_manager (Package_manager): Returns the appropriate package manager (YUM for rpm, APT for deb).
         indexer_dependencies (List[str]): Returns the dependencies for the Wazuh Indexer component.
-        server_dependencies (List[str]): Returns the dependencies for the Wazuh Server component.
+        manager_dependencies (List[str]): Returns the dependencies for the Wazuh Server component.
         dashboard_dependencies (List[str]): Returns the dependencies for the Wazuh Dashboard component.
     """
 
@@ -34,8 +34,12 @@ class ComponentsDependencies(BaseModel):
         return self.get_component_dependencies(Component.WAZUH_INDEXER)
 
     @property
-    def server_dependencies(self) -> list[str]:
+    def manager_dependencies(self) -> list[str]:
         return self.get_component_dependencies(Component.WAZUH_MANAGER)
+
+    @property
+    def agent_dependencies(self) -> list[str]:
+        return self.get_component_dependencies(Component.WAZUH_AGENT)
 
     @property
     def dashboard_dependencies(self) -> list[str]:
