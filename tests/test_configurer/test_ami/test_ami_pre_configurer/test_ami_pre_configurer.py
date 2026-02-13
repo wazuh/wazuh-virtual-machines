@@ -312,6 +312,8 @@ def test_update_instance_success(mock_ami_customizer, mock_logger, mock_exec_com
     command = """
         sudo yum update -y
         sudo dnf upgrade --assumeyes --releasever=latest
+        sudo dnf clean all
+        sudo rm -rf /var/cache/dnf
         """.replace("\n", "").replace(" ", "")
 
     for command_call in mock_exec_command.call_args_list:
@@ -341,6 +343,8 @@ def test_update_instance_with_warning(mock_ami_customizer, mock_logger, mock_exe
     command = """
         sudo yum update -y
         sudo dnf upgrade --assumeyes --releasever=latest
+        sudo dnf clean all
+        sudo rm -rf /var/cache/dnf
         """.replace("\n", "").replace(" ", "")
 
     for command_call in mock_exec_command.call_args_list:
@@ -362,6 +366,8 @@ def test_configure_motd_logo(mock_updates, mock_ami_customizer, mock_logger, moc
         """
         sudo yum update -y
         sudo dnf upgrade --assumeyes --releasever=latest
+        sudo dnf clean all
+        sudo rm -rf /var/cache/dnf
         """,
         f"""
         sudo mv /tmp/{mock_ami_customizer.wazuh_banner_path.name} {mock_ami_customizer.motd_scripts_directory}/{mock_ami_customizer.wazuh_banner_path.name}
@@ -629,6 +635,7 @@ def test_create_ami_custom_service_command_failure(mock_ami_customizer, mock_log
     mock_exec_command.assert_called_once_with(command=command, client=mock_paramiko.return_value)
     mock_logger.error.assert_any_call(f"Error creating service {file_local_path.name}")
 
+
 def test_create_ami_debug_script_success(mock_ami_customizer, mock_logger, mock_exec_command, mock_paramiko):
     file_local_path = Path("/path/to/wazuh-debug-warning.sh")
     mock_ami_customizer.create_ami_debug_script(file_local_path, mock_paramiko.return_value)
@@ -654,6 +661,7 @@ def test_create_ami_debug_script_success(mock_ami_customizer, mock_logger, mock_
 
     mock_logger.debug.assert_any_call(f'Creating "{file_local_path.name}" debug script')
     mock_logger.info_success.assert_any_call(f'"{file_local_path.name}" debug script created successfully')
+
 
 def test_create_ami_debug_script_failure(mock_ami_customizer, mock_logger, mock_exec_command, mock_paramiko):
     file_local_path = Path("/path/to/wazuh-debug-warning.sh")

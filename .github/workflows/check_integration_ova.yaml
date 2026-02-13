@@ -93,6 +93,7 @@ jobs:
       commit_list: '["latest", "latest", "latest", "latest"]'
       destroy: true
       checksum: false
+      is_pr_check: true
     secrets: inherit
 
   test_ova:

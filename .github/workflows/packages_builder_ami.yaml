@@ -105,13 +105,17 @@ on:
         type: boolean
         required: false
         default: true
+      is_pr_check:
+        type: boolean
+        required: false
+        default: false
     outputs:
       ami_id_amd64:
-        description: "AMI ID for amd64"
-        value: ${{ jobs.Build_AMI.outputs.ami_id_amd64 }}
+        description: 'AMI ID for amd64 architecture'
+        value: ${{ jobs.collect_ami_ids.outputs.ami_id_amd64 }}
       ami_id_arm64:
-        description: "AMI ID for arm64"
-        value: ${{ jobs.Build_AMI.outputs.ami_id_arm64 }}
+        description: 'AMI ID for arm64 architecture'
+        value: ${{ jobs.collect_ami_ids.outputs.ami_id_arm64 }}
 
 env:
     ALLOCATOR_PATH: "/tmp/allocatorvm_ami"
@@ -133,7 +137,7 @@ jobs:
   Build_AMI:
     runs-on: ubuntu-22.04
     strategy:
-      fail-fast: false    # If a job fails, the rest of jobs will not be canceled
+      fail-fast: false
       matrix:
         arch: ${{ fromJson(inputs.architecture) }}
 
@@ -354,6 +358,18 @@ jobs:
           aws ec2 create-tags --resources ${{ env.AMI_ID }} --tags $TAGS
           echo "Tagged AMI ${{ env.AMI_ID }} with tags: $TAGS"
 
+      - name: Save AMI ID to artifact
+        if: success() && inputs.is_pr_check == true
+        run: echo "${{ env.AMI_ID }}" > ami_id.txt
+
+      - name: Upload AMI ID artifact
+        if: success() && inputs.is_pr_check == true
+        uses: actions/upload-artifact@v4
+        with:
+          name: ami_id_${{ matrix.arch }}
+          path: ami_id.txt
+          overwrite: true
+
       - name: Delete allocated VM
         if: always() && steps.alloc_vm_ami.outcome == 'success' && inputs.destroy == true
         run: python3 wazuh-automation/deployability/modules/allocation/main.py --action delete --track-output ${{ env.ALLOCATOR_PATH }}/track.yml
@@ -370,3 +386,34 @@ jobs:
         with:
           name: instance_info${{ env.ARCH_SUFFIX }}
           path: ${{ env.ALLOCATOR_PATH }}.zip
+
+  collect_ami_ids:
+    needs: Build_AMI
+    if: always() && inputs.is_pr_check == true
+    runs-on: ubuntu-latest
+    outputs:
+      ami_id_amd64: ${{ steps.get_ids.outputs.ami_id_amd64 }}
+      ami_id_arm64: ${{ steps.get_ids.outputs.ami_id_arm64 }}
+    steps:
+      - name: Download AMI ID artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ami_id_*
+          merge-multiple: false
+
+      - name: Get AMI IDs
+        id: get_ids
+        run: |
+          echo "ami_id_amd64=" >> $GITHUB_OUTPUT
+          echo "ami_id_arm64=" >> $GITHUB_OUTPUT
+
+          if [ -f ami_id_amd64/ami_id.txt ]; then
+            AMI_ID_AMD64=$(cat ami_id_amd64/ami_id.txt)
+            echo "ami_id_amd64=${AMI_ID_AMD64}" >> $GITHUB_OUTPUT
+            echo "AMI ID amd64: ${AMI_ID_AMD64}"
+          fi
+          if [ -f ami_id_arm64/ami_id.txt ]; then
+            AMI_ID_ARM64=$(cat ami_id_arm64/ami_id.txt)
+            echo "ami_id_arm64=${AMI_ID_ARM64}" >> $GITHUB_OUTPUT
+            echo "AMI ID arm64: ${AMI_ID_ARM64}"
+          fi
