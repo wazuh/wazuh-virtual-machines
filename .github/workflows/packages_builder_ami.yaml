@@ -105,6 +105,10 @@ on:
         type: boolean
         required: false
         default: true
+      is_pr_check:
+        type: boolean
+        required: false
+        default: false
     outputs:
       ami_id_amd64:
         description: 'AMI ID for amd64 architecture'
@@ -355,11 +359,11 @@ jobs:
           echo "Tagged AMI ${{ env.AMI_ID }} with tags: $TAGS"
 
       - name: Save AMI ID to artifact
-        if: success()
+        if: success() && inputs.is_pr_check == true
         run: echo "${{ env.AMI_ID }}" > ami_id.txt
 
       - name: Upload AMI ID artifact
-        if: success()
+        if: success() && inputs.is_pr_check == true
         uses: actions/upload-artifact@v4
         with:
           name: ami_id_${{ matrix.arch }}
@@ -385,7 +389,7 @@ jobs:
 
   collect_ami_ids:
     needs: Build_AMI
-    if: always()
+    if: always() && inputs.is_pr_check == true
     runs-on: ubuntu-latest
     outputs:
       ami_id_amd64: ${{ steps.get_ids.outputs.ami_id_amd64 }}
@@ -400,6 +404,9 @@ jobs:
       - name: Get AMI IDs
         id: get_ids
         run: |
+          echo "ami_id_amd64=" >> $GITHUB_OUTPUT
+          echo "ami_id_arm64=" >> $GITHUB_OUTPUT
+
           if [ -f ami_id_amd64/ami_id.txt ]; then
             AMI_ID_AMD64=$(cat ami_id_amd64/ami_id.txt)
             echo "ami_id_amd64=${AMI_ID_AMD64}" >> $GITHUB_OUTPUT

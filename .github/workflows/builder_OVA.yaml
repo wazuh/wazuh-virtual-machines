@@ -86,6 +86,10 @@ on:
         type: boolean
         required: false
         default: true
+      is_pr_check:
+        type: boolean
+        required: false
+        default: false
     outputs:
       ova_s3_path:
         description: 'S3 URI of the built OVA'
