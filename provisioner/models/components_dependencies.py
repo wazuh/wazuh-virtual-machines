@@ -35,7 +35,7 @@ class ComponentsDependencies(BaseModel):
 
     @property
     def server_dependencies(self) -> list[str]:
-        return self.get_component_dependencies(Component.WAZUH_SERVER)
+        return self.get_component_dependencies(Component.WAZUH_MANAGER)
 
     @property
     def dashboard_dependencies(self) -> list[str]:

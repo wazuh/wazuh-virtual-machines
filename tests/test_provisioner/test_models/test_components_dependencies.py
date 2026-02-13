@@ -11,7 +11,7 @@ def test_get_component_dependencies_success():
             Package_manager.YUM: ["dep1", "dep2"],
             Package_manager.APT: ["dep3", "dep4"],
         },
-        Component.WAZUH_SERVER: {
+        Component.WAZUH_MANAGER: {
             Package_manager.YUM: ["dep5", "dep6"],
             Package_manager.APT: ["dep7", "dep8"],
         },
@@ -36,7 +36,7 @@ def test_get_component_dependencies_key_error():
     )
 
     with pytest.raises(KeyError, match="Dependencies for wazuh_manager not found"):
-        components_dependencies.get_component_dependencies(Component.WAZUH_SERVER)
+        components_dependencies.get_component_dependencies(Component.WAZUH_MANAGER)
 
 
 def test_get_component_dependencies_empty_list():

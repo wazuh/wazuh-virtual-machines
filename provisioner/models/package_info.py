@@ -34,7 +34,7 @@ class PackageInfo(BaseModel):
 
     @property
     def server_packages(self) -> dict:
-        return self.get_component_packages(Component.WAZUH_SERVER, self.package_type)
+        return self.get_component_packages(Component.WAZUH_MANAGER, self.package_type)
 
     @property
     def dashboard_packages(self) -> dict:
