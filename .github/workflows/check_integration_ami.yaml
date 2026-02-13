@@ -162,7 +162,7 @@ jobs:
     secrets: inherit
 
   cleanup_amis:
-    needs: [build_ami]
+    needs: [build_ami, test_ami_amd64, test_ami_arm64]
     if: always() && needs.build_ami.result != 'skipped'
     runs-on: ubuntu-latest
     steps:
