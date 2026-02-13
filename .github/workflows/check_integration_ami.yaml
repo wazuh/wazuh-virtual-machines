@@ -122,11 +122,16 @@ jobs:
       customizer_debug: false
       destroy: true
       issue: ${{ needs.get_pr_info.outputs.issue_url }}
+      is_pr_check: true
     secrets: inherit
 
   test_ami_amd64:
     needs: [get_pr_info, build_ami]
-    if: ${{ needs.build_ami.outputs.ami_id_amd64 != '' }}
+    if: |
+      always() &&
+      needs.build_ami.result == 'success' &&
+      needs.build_ami.outputs.ami_id_amd64 != '' &&
+      needs.build_ami.outputs.ami_id_amd64 != null
     uses: ./.github/workflows/test-vm.yaml
     with:
       WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ needs.get_pr_info.outputs.pr_head_ref }}
@@ -140,7 +145,11 @@ jobs:
 
   test_ami_arm64:
     needs: [get_pr_info, build_ami]
-    if: ${{ needs.build_ami.outputs.ami_id_arm64 != '' }}
+    if: |
+      always() &&
+      needs.build_ami.result == 'success' &&
+      needs.build_ami.outputs.ami_id_arm64 != '' &&
+      needs.build_ami.outputs.ami_id_arm64 != null
     uses: ./.github/workflows/test-vm.yaml
     with:
       WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ needs.get_pr_info.outputs.pr_head_ref }}
@@ -153,7 +162,7 @@ jobs:
     secrets: inherit
 
   cleanup_amis:
-    needs: [build_ami, test_ami_amd64, test_ami_arm64]
+    needs: [build_ami]
     if: always() && needs.build_ami.result != 'skipped'
     runs-on: ubuntu-latest
     steps:

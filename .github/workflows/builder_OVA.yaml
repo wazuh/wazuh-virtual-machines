@@ -86,6 +86,14 @@ on:
         type: boolean
         required: false
         default: true
+      is_pr_check:
+        type: boolean
+        required: false
+        default: false
+    outputs:
+      ova_s3_path:
+        description: 'S3 URI of the built OVA'
+        value: ${{ jobs.build_and_run.outputs.ova_s3_path }}
 
 env:
     COMPOSITE_NAME: "amazon-2023-amd64"
@@ -115,6 +123,8 @@ permissions:
 jobs:
   build_and_run:
     runs-on: ubuntu-22.04
+    outputs:
+      ova_s3_path: ${{ steps.export_ova.outputs.ova_s3_path }}
     steps:
       - name: View parameters
         run: echo "${{ toJson(inputs) }}"
@@ -315,6 +325,7 @@ jobs:
           cp ${{ github.workspace }}/${{ env.FILENAME_COMMIT_OVA }} ${{ github.workspace }}/${{ env.FILENAME_LATEST_OVA }}
 
       - name: Exporting OVA to final repository
+        id: export_ova
         run: |
           # Upload version commit-based OVA
           aws s3 cp --quiet ${{ github.workspace }}/${{ env.FILENAME_OVA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_OVA }}
@@ -325,6 +336,10 @@ jobs:
             aws s3 cp --quiet ${{ github.workspace }}/${{ env.FILENAME_LATEST_OVA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_LATEST_OVA }}
             echo "S3 OVA URI (latest): s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_LATEST_OVA }}"
           fi
+
+          # Set output for orchestrator workflows
+          OVA_S3_PATH="s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_OVA }}"
+          echo "ova_s3_path=${OVA_S3_PATH}" >> $GITHUB_OUTPUT
 
       - name: Generating sha512 files
         if: ${{ inputs.checksum == true }}
