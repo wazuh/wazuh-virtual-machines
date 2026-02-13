@@ -27,6 +27,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Fix ami `pre configurer` tests([#595](https://github.com/wazuh/wazuh-virtual-machines/pull/595))
 - Add arch suffix to the allocator artifact in the builder AMI workflow ([#556](https://github.com/wazuh/wazuh-virtual-machines/pull/556))
 - Updated Amazon linux upgrade method. ([#540](https://github.com/wazuh/wazuh-virtual-machines/pull/540))
 - Fix cloud-init leftovers and network configuration in OVA build for 5.0 ([#534](https://github.com/wazuh/wazuh-virtual-machines/pull/534))
