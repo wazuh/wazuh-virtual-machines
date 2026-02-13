@@ -11,7 +11,7 @@ The PR check system automatically validates code changes through three types of 
 
 ## Available PR Checks
 
-### 1. Unit Tests (`pr_check_tests.yaml`)
+### 1. Unit Tests (`check_unit_test.yaml`)
 
 **Purpose**: Validates code quality, runs unit tests, and reports coverage
 
@@ -55,7 +55,7 @@ TOTAL                                                   1697     13    99%
 
 ---
 
-### 2. OVA Integration Tests (`pr_check_ova.yaml`)
+### 2. OVA Integration Tests (`check_integration_ova.yaml`)
 
 **Purpose**: Builds and tests a complete OVA artifact
 
@@ -102,7 +102,7 @@ TOTAL                                                   1697     13    99%
 
 ---
 
-### 3. AMI Integration Tests (`pr_check_ami.yaml`)
+### 3. AMI Integration Tests (`check_integration_ami.yaml`)
 
 **Purpose**: Builds and tests AMI artifacts for both architectures
 
@@ -431,9 +431,9 @@ destroy: false         # Keep artifacts
 
 | Workflow | File | Purpose |
 |----------|------|---------|
-| Unit Tests | `pr_check_tests.yaml` | Run hatch tests |
-| OVA Tests | `pr_check_ova.yaml` | Build + test OVA |
-| AMI Tests | `pr_check_ami.yaml` | Build + test AMI |
+| Unit Tests | `check_unit_test.yaml` | Run hatch tests |
+| OVA Tests | `check_integration_ova.yaml` | Build + test OVA |
+| AMI Tests | `check_integration_ami.yaml` | Build + test AMI |
 | OVA Builder | `builder_OVA.yaml` | OVA build logic |
 | AMI Builder | `packages_builder_ami.yaml` | AMI build logic |
 | Test Runner | `test-vm.yaml` | Integration test execution |
@@ -519,7 +519,7 @@ For custom builds, use manual workflow dispatch.
 
 **Documentation**:
 - Technical implementation: `PR_CHECKS_IMPLEMENTATION.md`
-- Workflow source: `.github/workflows/pr_check_*.yaml`
+- Workflow source: `.github/workflows/check_*.yaml`
 - Test module: `wazuh-automation/integration-test-module/`
 
 ---
