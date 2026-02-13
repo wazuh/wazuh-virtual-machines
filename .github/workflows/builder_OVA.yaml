@@ -1,5 +1,5 @@
-run-name: Build OVA ${{ inputs.id }} ${{ inputs.is_stage && ' - is stage' || '' }}${{ inputs.checksum && ' - checksum' || '' }} - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
-name: Build OVA
+run-name: Build AMI - Wazuh virtual machines ${{ inputs.id }} - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
+name: Build AMI
 
 on:
   workflow_dispatch:
@@ -7,12 +7,6 @@ on:
       id:
         description: "ID used to identify the workflow uniquely."
         type: string
-        required: false
-      checksum:
-        type: boolean
-        description: |
-          Generate package checksum.
-          Default is 'false'.
         required: false
       wazuh_virtual_machines_reference:
         description: 'Branch or tag of the wazuh-virtual-machines repository'
@@ -25,13 +19,15 @@ on:
         description: "Is stage?"
         type: boolean
         default: false
-      ova_revision:
-        type: string
-        description: 'Revision of the OVA file. Use "0" for development builds'
-        required: true
-        default: '0'
+        required: false
+      ami_revision:
+        description: |
+          'For AMI candidates must be a number, e,g: -1.'
+          'To build a development AMI, use another revision format, e.g: -dev'
+        required: false
+        default: '-1'
       wazuh_package_type:
-        description: 'Wazuh package type to be used in the OVA'
+        description: 'Wazuh package type to be used in the AMI'
         required: true
         default: 'dev'
         type: choice
@@ -39,15 +35,30 @@ on:
           - prod
           - pre-prod
           - dev
+      architecture:
+        description: |
+          'Determine the architecture. It must be a string list (JSON format). E.g: ["amd64", "arm64"]'
+        required: true
+        default: '["amd64", "arm64"]'
+        type: string
       commit_list:
         description: |
-          'Wazuh components revisions (comma-separated string list) ["indexer-revision", "server-revision", "dashboard-revision"]'
-          (Only needed if the Wazuh package type is dev-latest or dev-commit)
+          'Wazuh components revisions (comma-separated string list) ["indexer-revision", "server-revision", "dashboard-revision", "agent-revision", "assistant-revision"]'
+          (Only needed if the Wazuh package type is dev)
         required: true
-        default: '["latest", "latest", "latest", "latest"]'
+        default: '["latest", "latest", "latest", "latest", "latest"]'
+        type: string
+      customizer_debug:
+        description: 'Enable debug mode in the AMI customizer'
+        required: false
+        default: false
+        type: boolean
+      issue:
+        description: 'URL of the GitHub issue related to this build'
+        required: false
         type: string
       destroy:
-        description: 'Destroy the base instance after the OVA is created'
+        description: 'Destroy the base instance after the AMI is created'
         required: false
         default: true
         type: boolean
@@ -55,9 +66,6 @@ on:
     inputs:
       id:
         type: string
-        required: false
-      checksum:
-        type: boolean
         required: false
       wazuh_virtual_machines_reference:
         type: string
@@ -70,31 +78,48 @@ on:
         type: boolean
         required: false
         default: false
-      ova_revision:
+      ami_revision:
         type: string
         required: false
-        default: '0'
+        default: '-1'
       wazuh_package_type:
         type: string
         required: false
         default: 'dev'
+      architecture:
+        type: string
+        required: false
+        default: '["amd64", "arm64"]'
       commit_list:
         type: string
         required: false
-        default: '["latest", "latest", "latest", "latest"]'
+        default: '["latest", "latest", "latest", "latest", "latest"]'
+      customizer_debug:
+        type: boolean
+        required: false
+        default: false
+      issue:
+        type: string
+        required: false
       destroy:
         type: boolean
         required: false
         default: true
+      is_pr_check:
+        type: boolean
+        required: false
+        default: false
+    outputs:
+      ami_id_amd64:
+        description: 'AMI ID for amd64 architecture'
+        value: ${{ jobs.collect_ami_ids.outputs.ami_id_amd64 }}
+      ami_id_arm64:
+        description: 'AMI ID for arm64 architecture'
+        value: ${{ jobs.collect_ami_ids.outputs.ami_id_arm64 }}
 
 env:
-    COMPOSITE_NAME: "amazon-2023-amd64"
-    INSTANCE_TYPE: "metal"
-    AWS_REGION: "us-east-1"
-    ALLOCATOR_PATH: "/tmp/allocatorvm_ova"
+    ALLOCATOR_PATH: "/tmp/allocatorvm_ami"
     WORKFLOW_VENV: "${{ github.workspace }}/workflow_venv"
-    S3_BUCKET_TO_STORE_OVA: ${{ vars.AWS_S3_BUCKET }}
-    S3_PATH_TO_STORE_OVA: "development/wazuh/5.x/secondary/ova"
     COMMIT_LIST: ${{ inputs.commit_list }}
     PROD_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PROD }}
     PRE_PROD_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PRE }}
@@ -102,22 +127,36 @@ env:
     ARTIFACTS_URLS_FILENAME: "artifact_urls.yml"
     DEV_ARTIFACTS_URLS_PATH: "deployment"
     GENERATE_PRESIGNED_URLS_SCRIPT_PATH: ${{ github.workspace }}/.github/scripts/generate_presigned_dev_urls.py
-    WVM_REPO_NAME: ${{ github.event.repository.name }}
-    WVM_REPOSITORY_PATH: "https://github.com/${{ github.repository }}.git"
-    OVA_SCRIPTS_PATH: "${{ github.workspace }}/utils/scripts/ova_build"
-    OVA_SET_DEFAULT_SCRIPT_NAME: "setOVADefault.sh"
-    OVA_OVF_TEMPLATE_NAME: "wazuh_ovf_template"
+    CUSTOMIZER_SERVICE_FILE: ${{ github.workspace }}/configurer/ami/ami_pre_configurer/scripts/wazuh-ami-customizer.service
 
 permissions:
-  id-token: write   # This is required for requesting the JWT
-  contents: read    # This is required for actions/checkout
+  id-token: write
+  contents: read
 
 jobs:
-  build_and_run:
+  Build_AMI:
     runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ${{ fromJson(inputs.architecture) }}
+
     steps:
       - name: View parameters
         run: echo "${{ toJson(inputs) }}"
+
+      - name: Validate Issue URL
+        if: inputs.issue != ''
+        run: |
+          ISSUE_URL="${{ inputs.issue }}"
+          # Regex to check for a valid URL starting with https://github.com/wazuh/
+          if [[ "$ISSUE_URL" =~ ^https://github\.com/wazuh/.* ]]; then
+            echo "Valid Wazuh GitHub issue URL provided."
+            echo "ISSUE_TAG_KEY=Issue" >> $GITHUB_ENV
+            echo "ISSUE_TAG_VALUE=$ISSUE_URL" >> $GITHUB_ENV
+          else
+            echo "::warning::The provided issue URL is not valid or does not belong to the Wazuh project."
+          fi
 
       - name: Checkout wazuh/wazuh-virtual-machines repository
         uses: actions/checkout@v4
@@ -132,13 +171,11 @@ jobs:
           token: ${{ secrets.GH_CLONE_TOKEN }}
           path: wazuh-automation
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v3
         with:
           role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
-          role-session-name: "OVA-Builder"
-          aws-region: "${{ env.AWS_REGION }}"
-          role-duration-seconds: 18000 # Set the duration of the role session to 5 hours
+          aws-region: us-east-1
 
       - name: Install and configure python and workflow dependencies
         run: |
@@ -150,67 +187,53 @@ jobs:
           python3 -m venv ${{ env.WORKFLOW_VENV }}
           source ${{ env.WORKFLOW_VENV }}/bin/activate
           pip install --upgrade pip
-          pip install pyyaml
+          pip install hatch pyyaml
 
       - name: Get Wazuh version
         run: |
           WAZUH_VERSION=$(jq -r '.version' VERSION.json)
           WAZUH_MAJOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1)
           WAZUH_MINOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1-2)
+          COMMIT_SHA=$(git rev-parse --short ${{ github.sha }})
+
+          ARCH_FLAG=""
+          ARCH_SUFFIX=""
+          if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+            ARCH_FLAG="--arch aarch64"
+            ARCH_SUFFIX="_aarch64"
+          else
+            ARCH_SUFFIX="_x86_64"
+          fi
+
+          if [ ${{ inputs.is_stage }} == true ]; then
+            # Stage build: Wazuh_v5.0.0-1_x86_64
+            AMI_NAME="Wazuh_v${WAZUH_VERSION}-${{ inputs.ami_revision }}${ARCH_SUFFIX}"
+          else
+            # Dev builds: commit versions
+            AMI_NAME="Wazuh_v${WAZUH_VERSION}-${{ inputs.ami_revision }}-${COMMIT_SHA}${ARCH_SUFFIX}"
+          fi
+
+          COMPOSITE_NAME="amazon-2023-${{ matrix.arch }}"
+          echo COMPOSITE_NAME=$COMPOSITE_NAME >> $GITHUB_ENV
+          echo ARCH_FLAG=$ARCH_FLAG >> $GITHUB_ENV
+          echo AMI_NAME=$AMI_NAME >> $GITHUB_ENV
           echo WAZUH_VERSION=$WAZUH_VERSION >> $GITHUB_ENV
           echo WAZUH_MAJOR=$WAZUH_MAJOR >> $GITHUB_ENV
           echo WAZUH_MINOR=$WAZUH_MINOR >> $GITHUB_ENV
-
-      - name: Setting FILENAME var
-        run: |
-          COMMIT_SHA=$(git rev-parse --short ${{ github.sha }})
-
-          if [ ${{ inputs.is_stage }} == true ]; then
-            # Stage build: wazuh-5.0.0-1
-            FILENAME="wazuh-${{ env.WAZUH_VERSION }}-${{ inputs.ova_revision }}"
-            echo "FILENAME=$FILENAME" >> $GITHUB_ENV
-            echo "FILENAME_OVA=$FILENAME.ova" >> $GITHUB_ENV
-            echo "FILENAME_SHA=$FILENAME.ova.sha512" >> $GITHUB_ENV
-            echo "BUILD_LATEST=false" >> $GITHUB_ENV
-          else
-            # Dev build: both latest and commit versions
-            FILENAME_LATEST="wazuh-${{ env.WAZUH_VERSION }}-latest"
-            FILENAME_COMMIT="wazuh-${{ env.WAZUH_VERSION }}-${{ inputs.ova_revision }}-${COMMIT_SHA}"
-
-            echo "FILENAME_LATEST=$FILENAME_LATEST" >> $GITHUB_ENV
-            echo "FILENAME_LATEST_OVA=$FILENAME_LATEST.ova" >> $GITHUB_ENV
-            echo "FILENAME_LATEST_SHA=$FILENAME_LATEST.ova.sha512" >> $GITHUB_ENV
-
-            echo "FILENAME_COMMIT=$FILENAME_COMMIT" >> $GITHUB_ENV
-            echo "FILENAME_COMMIT_OVA=$FILENAME_COMMIT.ova" >> $GITHUB_ENV
-            echo "FILENAME_COMMIT_SHA=$FILENAME_COMMIT.ova.sha512" >> $GITHUB_ENV
-
-            # Use commit version as primary for intermediate steps
-            echo "FILENAME=$FILENAME_COMMIT" >> $GITHUB_ENV
-            echo "FILENAME_OVA=$FILENAME_COMMIT.ova" >> $GITHUB_ENV
-            echo "FILENAME_SHA=$FILENAME_COMMIT.ova.sha512" >> $GITHUB_ENV
-            echo "BUILD_LATEST=true" >> $GITHUB_ENV
-          fi
+          echo ARCH_SUFFIX=$ARCH_SUFFIX >> $GITHUB_ENV
 
       - name: Install and set allocator requirements
         run: |
-          pip3 install -r wazuh-automation/deployability/deps/requirements.txt
+          pip install -r wazuh-automation/deployability/deps/requirements.txt
 
       - name: Execute allocator module that will create the base instance
-        id: alloc_vm_ova
+        id: alloc_vm_ami
         run: |
-          python3 wazuh-automation/deployability/modules/allocation/main.py --action create --provider aws --size ${{ env.INSTANCE_TYPE }} --composite-name ${{ env.COMPOSITE_NAME }} --working-dir ${{ env.ALLOCATOR_PATH }} \
-            --track-output ${{ env.ALLOCATOR_PATH }}/track.yml --inventory-output ${{ env.ALLOCATOR_PATH }}/inventory.yml --instance-name gha_${{ github.run_id }}_ova_build \
+          python wazuh-automation/deployability/modules/allocation/main.py --action create --provider aws --size large --composite-name ${{ env.COMPOSITE_NAME }} --working-dir ${{ env.ALLOCATOR_PATH }} \
+            --track-output ${{ env.ALLOCATOR_PATH }}/track.yml --inventory-output ${{ env.ALLOCATOR_PATH }}/inventory.yml --instance-name gha_${{ github.run_id }}_ami_build \
             --label-team devops --label-termination-date 1d
-
-          INSTANCE_HOSTNAME=$(yq '.all.hosts.[].ansible_host' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
-          INSTANCE_PORT=$(yq '.all.hosts.[].ansible_port' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
-          INSTANCE_KEY=$(yq '.all.hosts.[].ansible_ssh_private_key_file' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
-          INSTANCE_USER=$(yq '.all.hosts.[].ansible_user' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
-          echo INSTANCE_HOSTNAME=$INSTANCE_HOSTNAME >> $GITHUB_ENV
-          echo INSTANCE_PORT=$INSTANCE_PORT >> $GITHUB_ENV
-          echo INSTANCE_KEY=$INSTANCE_KEY >> $GITHUB_ENV
-          echo INSTANCE_USER=$INSTANCE_USER >> $GITHUB_ENV
+          INSTANCE_ID=$(yq '.all.hosts | keys | .[0]' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
+          echo INSTANCE_ID=$INSTANCE_ID >> $GITHUB_ENV
 
       - name: Get artifacts URLs file
         run: |
@@ -232,122 +255,128 @@ jobs:
         run: |
           python ${{ env.GENERATE_PRESIGNED_URLS_SCRIPT_PATH }}
 
-      - name: Install necessary dependencies in the AWS instance to create the OVA
+      - name: Set customizer debug mode environment variable
+        if: inputs.customizer_debug == true
         run: |
-          ssh -p ${{ env.INSTANCE_PORT }} \
-              -i ${{ env.INSTANCE_KEY }} \
-              -o 'StrictHostKeyChecking no' \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} << EOF
-            set -e
-            sudo yum install -y python3-pip git
-            sudo pip3 install hatch
-          EOF
+          sed -i 's|ExecStart=.* -m wazuh-ami-customizer$|& --debug|' ${{ env.CUSTOMIZER_SERVICE_FILE }}
 
-      - name: Clone repo on remote instance
+      - name: Execute configuration AMI process
         run: |
-          ssh -p ${{ env.INSTANCE_PORT }} \
-              -i ${{ env.INSTANCE_KEY }} \
-              -o 'StrictHostKeyChecking no' \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} << EOF
-            set -e
-            git clone -b ${{ inputs.wazuh_virtual_machines_reference }} ${{ env.WVM_REPOSITORY_PATH }}
-          EOF
+          source ${{ env.WORKFLOW_VENV }}/bin/activate
+          hatch run dev:run --inventory ${{ env.ALLOCATOR_PATH }}/inventory.yml --packages-url-path ${{ env.LOCAL_ARTIFACTS_URLS_FILEPATH }} --execute all-ami ${{ env.ARCH_FLAG }}
 
-      - name: Copy artifacts URLs file to remote instance
+      - name: Stop instance
         run: |
-          scp -P ${{ env.INSTANCE_PORT }} \
-              -i ${{ env.INSTANCE_KEY }} \
-              "${{ env.LOCAL_ARTIFACTS_URLS_FILEPATH }}" \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }}:~/${{ env.WVM_REPO_NAME }}
+          aws ec2 stop-instances --instance-ids ${{ env.INSTANCE_ID }}
 
-      - name: Run the OVA PreConfigurer module
+      - name: Check EC2 instance status until stopped
+        id: check_status
         run: |
-          ssh -p ${{ env.INSTANCE_PORT }} \
-              -i ${{ env.INSTANCE_KEY }} \
-              -o 'StrictHostKeyChecking no' \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} << EOF
-            set -e
-            cd ${{ env.WVM_REPO_NAME }}
-            sudo hatch run dev-ova-pre-configurer:run
-          EOF
+          TIMEOUT=120
+          INTERVAL=2
+          ELAPSED=0
 
-      - name: Run the OVA PostConfigurer module
-        run: |
-          ssh -p ${{ env.INSTANCE_PORT }} \
-              -i ${{ env.INSTANCE_KEY }} \
-              -o 'StrictHostKeyChecking no' \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} << EOF
-            set -e
-            cd ${{ env.WVM_REPO_NAME }}
-            sudo vagrant ssh -c 'cd /tmp/wazuh-virtual-machines && sudo hatch run dev-ova-post-configurer:run --packages-url-path ${{ env.ARTIFACTS_URLS_FILENAME }}'
-          EOF
+          while [ $ELAPSED -lt $TIMEOUT ]; do
+            STATUS=$(aws ec2 describe-instances --instance-ids ${{ env.INSTANCE_ID }} --query 'Reservations[*].Instances[*].State.Name' --output text)
+            echo "Instance status: $STATUS"
 
-      - name: Stop the Vagrant VM, modify the network and export it as OVA
-        run: |
-          ssh -p ${{ env.INSTANCE_PORT }} \
-              -i ${{ env.INSTANCE_KEY }} \
-              -o 'StrictHostKeyChecking no' \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} << EOF
-            set -e
-            cd ${{ env.WVM_REPO_NAME }}
-            sudo vagrant halt
-            sudo vboxmanage modifyvm ova_base --nic2 hostonly
-            sudo vboxmanage modifyvm ova_base --cableconnected2 on
-            sudo vboxmanage export ova_base --output ${{ env.FILENAME_OVA }}
-            sudo chmod 0755 ${{ env.FILENAME_OVA }}
-          EOF
+            if [ "$STATUS" == "stopped" ]; then
+              echo "Instance is stopped."
+              break
+            fi
 
-      - name: Getting OVA from AWS instance
-        run: |
-          scp -P ${{ env.INSTANCE_PORT }} \
-              -i ${{ env.INSTANCE_KEY }} \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }}:~/${{ env.WVM_REPO_NAME }}/${{ env.FILENAME_OVA }} ${{ github.workspace }}/${{ env.FILENAME_OVA }}
+            echo "Waiting for instance to stop..."
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED + INTERVAL))
+          done
 
-      - name: Standarizing OVA
-        run: |
-          sudo chmod 0777 ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_SET_DEFAULT_SCRIPT_NAME }}
-          sed -i "s|ovf:capacity=\"40\"|ovf:capacity=\"50\"|g" ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_OVF_TEMPLATE_NAME }}
-          sudo bash ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_SET_DEFAULT_SCRIPT_NAME }} "${{ env.OVA_SCRIPTS_PATH }}/" "${{ github.workspace }}/${{ env.FILENAME_OVA }}" "${{ github.workspace }}/${{ env.FILENAME_OVA }}" ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_OVF_TEMPLATE_NAME }} "${{ env.WAZUH_VERSION }}"
-
-      - name: Create latest version copy
-        if: ${{ inputs.is_stage == false }}
-        run: |
-          cp ${{ github.workspace }}/${{ env.FILENAME_COMMIT_OVA }} ${{ github.workspace }}/${{ env.FILENAME_LATEST_OVA }}
-
-      - name: Exporting OVA to final repository
-        run: |
-          # Upload version commit-based OVA
-          aws s3 cp --quiet ${{ github.workspace }}/${{ env.FILENAME_OVA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_OVA }}
-          echo "S3 OVA URI: s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_OVA }}"
-
-          # Upload latest version OVA if applicable
-          if [ "${{ env.BUILD_LATEST }}" == "true" ]; then
-            aws s3 cp --quiet ${{ github.workspace }}/${{ env.FILENAME_LATEST_OVA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_LATEST_OVA }}
-            echo "S3 OVA URI (latest): s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_LATEST_OVA }}"
+          if [ $ELAPSED -ge $TIMEOUT ]; then
+            echo "Timeout reached. The instance is still not stopped."
+            exit 1
           fi
 
-      - name: Generating sha512 files
-        if: ${{ inputs.checksum == true }}
+      - name: Build AMI from instance
+        if: success()
         run: |
-          # Generate and upload sha512 for commit-based version
-          sha512sum ${{ github.workspace }}/${{ env.FILENAME_OVA }} > ${{ github.workspace }}/${{ env.FILENAME_SHA }}
-          aws s3 cp --quiet ${{ github.workspace }}/${{ env.FILENAME_SHA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_SHA }}
-          echo "S3 sha512 URI: s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_SHA }}"
+          # Create AMI
+          aws ec2 create-image --instance-id ${{ env.INSTANCE_ID }} --name "${{ env.AMI_NAME }}" --no-reboot
+          AMI_ID=$(aws ec2 describe-images --filters "Name=name,Values=${{ env.AMI_NAME }}" --query 'Images[*].ImageId' --output text)
+          echo "AMI_ID=$AMI_ID" >> $GITHUB_ENV
+          echo "AMI creation started with name ${{ env.AMI_NAME }}"
 
-          # Generate and upload sha512 for latest version if applicable
-          if [ "${{ env.BUILD_LATEST }}" == "true" ]; then
-            sha512sum ${{ github.workspace }}/${{ env.FILENAME_LATEST_OVA }} > ${{ github.workspace }}/${{ env.FILENAME_LATEST_SHA }}
-            aws s3 cp --quiet ${{ github.workspace }}/${{ env.FILENAME_LATEST_SHA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_LATEST_SHA }}
-            echo "S3 sha512 URI (latest): s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_LATEST_SHA }}"
+      - name: Check AMI status until available
+        id: check_ami_status
+        run: |
+          TIMEOUT=1800
+          INTERVAL=30
+          ELAPSED=0
+
+          # Function to check AMI status
+          check_ami() {
+            local ami_id=$1
+            local ami_name=$2
+
+            echo "Checking status for AMI: $ami_name ($ami_id)"
+
+            while [ $ELAPSED -lt $TIMEOUT ]; do
+              STATUS=$(aws ec2 describe-images --image-ids $ami_id --query 'Images[*].State' --output text)
+              echo "AMI $ami_name status: $STATUS"
+
+              if [ "$STATUS" == "available" ]; then
+                echo "AMI $ami_name is available."
+                return 0
+              fi
+
+              echo "Waiting for AMI $ami_id to be available..."
+              sleep $INTERVAL
+              ELAPSED=$((ELAPSED + INTERVAL))
+            done
+
+            echo "Timeout reached. The AMI $ami_id is still not available."
+            return 1
+          }
+
+          # Check AMI
+          check_ami "${{ env.AMI_ID }}" "${{ env.AMI_NAME }}"
+
+      - name: Tag AMI
+        if: success()
+        run: |
+          if [ "${{ inputs.is_stage }}" == "true" ]; then
+            DEV_TAG_VALUE="False"
+          else
+            DEV_TAG_VALUE="True"
           fi
+
+          # Tag AMI
+          TAGS="Key=Name,Value=${{ env.AMI_NAME }} Key=Dev,Value=$DEV_TAG_VALUE Key=WorkflowRun,Value=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          if [ -n "${{ env.ISSUE_TAG_KEY }}" ]; then
+            TAGS="$TAGS Key=${{ env.ISSUE_TAG_KEY }},Value=${{ env.ISSUE_TAG_VALUE }}"
+          fi
+
+          aws ec2 create-tags --resources ${{ env.AMI_ID }} --tags $TAGS
+          echo "Tagged AMI ${{ env.AMI_ID }} with tags: $TAGS"
+
+      - name: Save AMI ID to artifact
+        if: success() && inputs.is_pr_check == true
+        run: echo "${{ env.AMI_ID }}" > ami_id.txt
+
+      - name: Upload AMI ID artifact
+        if: success() && inputs.is_pr_check == true
+        uses: actions/upload-artifact@v4
+        with:
+          name: ami_id_${{ matrix.arch }}
+          path: ami_id.txt
+          overwrite: true
 
       - name: Delete allocated VM
-        if: always() && steps.alloc_vm_ova.outcome == 'success' && inputs.destroy == true
+        if: always() && steps.alloc_vm_ami.outcome == 'success' && inputs.destroy == true
         run: python3 wazuh-automation/deployability/modules/allocation/main.py --action delete --track-output ${{ env.ALLOCATOR_PATH }}/track.yml
 
       - name: Compress Allocator directory
         id: generate_artifacts
-        if: always() && steps.alloc_vm_ova.outcome == 'success' && inputs.destroy == false
+        if: always() && steps.alloc_vm_ami.outcome == 'success' && inputs.destroy == false
         run: zip -P "${{ secrets.ZIP_ARTIFACTS_PASSWORD }}" -r ${{ env.ALLOCATOR_PATH }}.zip ${{ env.ALLOCATOR_PATH }}
         continue-on-error: true
 
@@ -355,5 +384,36 @@ jobs:
         if: always() && steps.generate_artifacts.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: instance_info
+          name: instance_info${{ env.ARCH_SUFFIX }}
           path: ${{ env.ALLOCATOR_PATH }}.zip
+
+  collect_ami_ids:
+    needs: Build_AMI
+    if: always() && inputs.is_pr_check == true
+    runs-on: ubuntu-latest
+    outputs:
+      ami_id_amd64: ${{ steps.get_ids.outputs.ami_id_amd64 }}
+      ami_id_arm64: ${{ steps.get_ids.outputs.ami_id_arm64 }}
+    steps:
+      - name: Download AMI ID artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ami_id_*
+          merge-multiple: false
+
+      - name: Get AMI IDs
+        id: get_ids
+        run: |
+          echo "ami_id_amd64=" >> $GITHUB_OUTPUT
+          echo "ami_id_arm64=" >> $GITHUB_OUTPUT
+
+          if [ -f ami_id_amd64/ami_id.txt ]; then
+            AMI_ID_AMD64=$(cat ami_id_amd64/ami_id.txt)
+            echo "ami_id_amd64=${AMI_ID_AMD64}" >> $GITHUB_OUTPUT
+            echo "AMI ID amd64: ${AMI_ID_AMD64}"
+          fi
+          if [ -f ami_id_arm64/ami_id.txt ]; then
+            AMI_ID_ARM64=$(cat ami_id_arm64/ami_id.txt)
+            echo "ami_id_arm64=${AMI_ID_ARM64}" >> $GITHUB_OUTPUT
+            echo "AMI ID arm64: ${AMI_ID_ARM64}"
+          fi
