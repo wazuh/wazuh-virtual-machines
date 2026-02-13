@@ -9,7 +9,7 @@ import yaml
 def get_github_env_variables(commit_list: list[str]) -> tuple[dict[str, str], list[str]]:
     # Extract commits from the list
     indexer_commit = commit_list[0] if len(commit_list) > 0 else "latest"
-    server_commit = commit_list[1] if len(commit_list) > 1 else "latest"
+    manager_commit = commit_list[1] if len(commit_list) > 1 else "latest"
     dashboard_commit = commit_list[2] if len(commit_list) > 2 else "latest"
     agent_commit = commit_list[3] if len(commit_list) > 3 else "latest"
     assistant_commit = commit_list[4] if len(commit_list) > 4 else "latest"
@@ -19,7 +19,7 @@ def get_github_env_variables(commit_list: list[str]) -> tuple[dict[str, str], li
         "AWS_S3_BUCKET_DEV": os.getenv("LOCAL_AWS_S3_BUCKET_DEV"),
         "MAJOR": os.getenv("WAZUH_MAJOR"),
         "WAZUH_VERSION": os.getenv("WAZUH_VERSION"),
-        "MANAGER_REVISION": server_commit,  # Use actual commit from list
+        "MANAGER_REVISION": manager_commit,  # Use actual commit from list
         "INDEXER_REVISION": indexer_commit,
         "DASHBOARD_REVISION": dashboard_commit,
         "AGENT_REVISION": agent_commit,

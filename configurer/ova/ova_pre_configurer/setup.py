@@ -98,26 +98,25 @@ def install_guest_additions() -> None:
 
     commands = [f"/etc/kernel/postinst.d/vboxadd {kernel_version}", f"/sbin/depmod {kernel_version}"]
     run_command(commands)
-    
+
     commands = [
         "/sbin/modprobe vboxguest",
         "/sbin/modprobe vboxsf",
         "/sbin/modprobe vboxvideo",
     ]
     run_command(commands)
-    
+
     stdout, stderr, return_code = run_command("lsmod | grep -q vboxguest", check=False, output=True)
     if return_code[0] != 0:
         vboxguest_path = f"/lib/modules/{kernel_version}/misc/vboxguest.ko"
         if not os.path.isfile(vboxguest_path):
             sys.exit(1)
-        has_vboxadd_service = (
-            os.path.isfile("/etc/init.d/vboxadd")
-            or os.path.isfile("/usr/lib/systemd/system/vboxadd.service")
+        has_vboxadd_service = os.path.isfile("/etc/init.d/vboxadd") or os.path.isfile(
+            "/usr/lib/systemd/system/vboxadd.service"
         )
         if not has_vboxadd_service:
             sys.exit(1)
-    
+
     if os.path.isfile("/usr/lib/systemd/system/vboxadd.service"):
         commands = [
             "mkdir -p /etc/systemd/system/multi-user.target.wants",
@@ -132,7 +131,7 @@ def install_guest_additions() -> None:
             "chmod +x /etc/rc.d/rc.local",
         ]
         run_command(commands)
-    
+
     rc_local_block = (
         "# VirtualBox Guest Additions - ensure modules are loaded\n"
         "if [ -f /etc/init.d/vboxadd ]; then\n"
@@ -145,9 +144,12 @@ def install_guest_additions() -> None:
         if "# VirtualBox Guest Additions - ensure modules are loaded" not in content:
             rc_file.write(rc_local_block)
     run_command("chmod +x /etc/rc.d/rc.local")
-    
+
     if os.path.isfile("/usr/lib/systemd/system/rc-local.service"):
-        run_command("ln -sf /usr/lib/systemd/system/rc-local.service /etc/systemd/system/multi-user.target.wants/rc-local.service")
+        run_command(
+            "ln -sf /usr/lib/systemd/system/rc-local.service /etc/systemd/system/multi-user.target.wants/rc-local.service"
+        )
+
 
 def configure_ssh() -> None:
     """
@@ -171,11 +173,7 @@ def configure_ssh() -> None:
     sshd_override_file = os.path.join(sshd_override_dir, "50-vagrant-password-auth.conf")
     if not os.path.isdir(sshd_override_dir):
         run_command(f"mkdir -p {sshd_override_dir}")
-    override_content = (
-        "PasswordAuthentication yes\n"
-        "PubkeyAuthentication yes\n"
-        "ChallengeResponseAuthentication no\n"
-    )
+    override_content = "PasswordAuthentication yes\nPubkeyAuthentication yes\nChallengeResponseAuthentication no\n"
     with open(sshd_override_file, "w", encoding="utf-8") as f:
         f.write(override_content)
     run_command(f"chmod 600 {sshd_override_file}")
