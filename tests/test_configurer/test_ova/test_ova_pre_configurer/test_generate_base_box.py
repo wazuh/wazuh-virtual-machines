@@ -226,7 +226,10 @@ def test_download_and_extract_ova_no_vmdk_found(mock_run_command):
     version = "2023.6.20250303.0"
     ova_filename = "al2023-vmware_esx-2023.6.20250303.0-kernel-6.1-x86_64.xfs.gpt.ova"
 
-    with patch("os.listdir", side_effect=[[], ["other-file.ovf", "another-file.mf"]]), pytest.raises(RuntimeError, match="No VMDK file found after extracting OVA"):
+    with (
+        patch("os.listdir", side_effect=[[], ["other-file.ovf", "another-file.mf"]]),
+        pytest.raises(RuntimeError, match="No VMDK file found after extracting OVA"),
+    ):
         download_and_extract_ova(version, ova_filename)
 
     expected_commands = [

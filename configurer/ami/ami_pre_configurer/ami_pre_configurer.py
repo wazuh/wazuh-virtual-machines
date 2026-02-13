@@ -274,7 +274,6 @@ class AmiPreConfigurer:
 
         logger.info_success("Instance updated successfully")
 
-
     def configure_motd_logo(self, client: paramiko.SSHClient) -> None:
         """
         Configures the Message of the Day (MOTD) logo on the instance.

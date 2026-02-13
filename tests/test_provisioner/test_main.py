@@ -21,7 +21,7 @@ from utils import Component
             "x86_64",
             "http://example.com/package.rpm",
             ["dependency1", "dependency2"],
-            Component.WAZUH_SERVER,
+            Component.WAZUH_MANAGER,
         ),
         ("deb", "arm64", "http://example.com/package.deb", [], Component.WAZUH_DASHBOARD),
     ],
@@ -57,7 +57,7 @@ def test_get_component_info(package_type, arch, package_url, dependencies, compo
                     dependencies=["dependency1", "dependency2"],
                 ),
                 ComponentInfo(
-                    name=Component.WAZUH_SERVER,
+                    name=Component.WAZUH_MANAGER,
                     package_url=AnyUrl("http://example.com/all.rpm"),
                     dependencies=["dependency1", "dependency2"],
                 ),
@@ -83,10 +83,10 @@ def test_get_component_info(package_type, arch, package_url, dependencies, compo
             "x86_64",
         ),
         (
-            Component.WAZUH_SERVER,
+            Component.WAZUH_MANAGER,
             [
                 ComponentInfo(
-                    name=Component.WAZUH_SERVER,
+                    name=Component.WAZUH_MANAGER,
                     package_url=AnyUrl("http://example.com/server.rpm"),
                     dependencies=["dependency3", "dependency4"],
                 )
@@ -141,7 +141,7 @@ def test_parse_componets(component, expected_components, package_type, arch):
     [
         (
             "/path/to/packages",
-            Component.WAZUH_SERVER,
+            Component.WAZUH_MANAGER,
             "rpm",
             "x86_64",
             "/path/to/dependencies",

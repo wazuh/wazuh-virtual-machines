@@ -38,9 +38,9 @@ def get_component_packages(raw_urls_content: dict, component: Component) -> dict
     >>> raw_urls_content = {
     ...     "wazuh_indexer_url_amd64_deb": "https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/",
     ...     "wazuh_indexer_url_arm64_deb": "https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/",
-    ...     "wazuh_server_url_amd64_deb": "https://packages.wazuh.com/wazuh-server-example/amd64/deb/",
+    ...     "wazuh_manager_url_amd64_deb": "https://packages.wazuh.com/wazuh-manager-example/amd64/deb/",
     ... }
-    >>> component = Component.WAZUH_SERVER
+    >>> component = Component.WAZUH_MANAGER
     >>> get_component_packages(raw_urls_content, component)
     {'wazuh_indexer': ['https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/', 'https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/']}
 
@@ -193,15 +193,15 @@ def format_component_urls_file(raw_urls_path: Path) -> dict:
     ... raw_urls_content = {
     ...     "wazuh_indexer_url_amd64_deb": "https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/",
     ...     "wazuh_indexer_url_arm64_deb": "https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/",
-    ...     "wazuh_server_url_x86_64_rpm": "https://packages.wazuh.com/wazuh-server-example/x86_64/rpm/",
+    ...     "wazuh_manager_url_x86_64_rpm": "https://packages.wazuh.com/wazuh-manager-example/x86_64/rpm/",
     ... }
     ... format_component_urls_file(raw_urls_path)
     {'wazuh_indexer': {'deb': {'amd64': 'https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/',
                                'arm64': 'https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/'},
                        'rpm': {}
                     },
-    'wazuh_server': {'deb': {},
-                     'rpm': {'x86_64': 'https://packages.wazuh.com/wazuh-server-example/x86_64/rpm/'}
+    'wazuh_manager': {'deb': {},
+                     'rpm': {'x86_64': 'https://packages.wazuh.com/wazuh-manager-example/x86_64/rpm/'}
                     }
     }
 

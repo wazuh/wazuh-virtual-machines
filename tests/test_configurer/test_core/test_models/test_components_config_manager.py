@@ -14,8 +14,8 @@ def example_config_file():
         Component.WAZUH_INDEXER: [
             {"path": "/path/indexer/config", "replace": {"keys": [".key1"], "values": ["value1"]}}
         ],
-        Component.WAZUH_SERVER: [
-            {"path": "/path/server/config.conf", "replace": {"keys": [".key2"], "values": ['"value2"']}}
+        Component.WAZUH_MANAGER: [
+            {"path": "/path/manager/config.conf", "replace": {"keys": [".key2"], "values": ['"value2"']}}
         ],
         Component.WAZUH_DASHBOARD: [
             {"path": "/path/dashboard/config", "replace": {"keys": [".key3"], "values": ["value3"]}}
@@ -29,8 +29,8 @@ def example_config_file_with_placeholders():
         Component.WAZUH_INDEXER: [
             {"path": "/path/indexer/config", "replace": {"keys": [".key1"], "values": ["__indexer_node_name__"]}}
         ],
-        Component.WAZUH_SERVER: [
-            {"path": "/path/server/config.conf", "replace": {"keys": [".key2"], "values": ['"__server_ip__"']}}
+        Component.WAZUH_MANAGER: [
+            {"path": "/path/manager/config.conf", "replace": {"keys": [".key2"], "values": ['"__manager_ip__"']}}
         ],
         Component.WAZUH_DASHBOARD: [
             {"path": "/path/dashboard/config", "replace": {"keys": [".key3"], "values": ["value3"]}}
@@ -67,7 +67,7 @@ def test_config_manager_initialization(mock_open_file, example_config_file):
     "mapping_property, expected_mapping",
     [
         ("indexer_mapping", {"path": Path("/path/indexer/config"), "keys": [".key1"], "values": ["value1"]}),
-        ("server_mapping", {"path": Path("/path/server/config.conf"), "keys": [".key2"], "values": ['"value2"']}),
+        ("manager_mapping", {"path": Path("/path/manager/config.conf"), "keys": [".key2"], "values": ['"value2"']}),
         ("dashboard_mapping", {"path": Path("/path/dashboard/config"), "keys": [".key3"], "values": ["value3"]}),
     ],
 )
@@ -78,7 +78,7 @@ def test_component_mapping_with_valid_data(mapping_property, expected_mapping, m
 
 
 @pytest.mark.parametrize(
-    "component_without_mapping", [Component.WAZUH_INDEXER, Component.WAZUH_SERVER, Component.WAZUH_DASHBOARD]
+    "component_without_mapping", [Component.WAZUH_INDEXER, Component.WAZUH_MANAGER, Component.WAZUH_DASHBOARD]
 )
 def test_component_mapping_without_data(mock_open_file, component_without_mapping):
     config_manager = WazuhComponentConfigManager(Path("test_path"))
@@ -95,8 +95,8 @@ def test_component_mapping_without_data(mock_open_file, component_without_mappin
     [
         (Component.WAZUH_INDEXER, "sudo yq -i  '.key1 = \"value1\" ' /path/indexer/config"),
         (
-            Component.WAZUH_SERVER,
-            'sudo yq -i -p xml -o xml \'.key2 = ""value2"" | .key2 style="double"\' /path/server/config',
+            Component.WAZUH_MANAGER,
+            'sudo yq -i -p xml -o xml \'.key2 = ""value2"" | .key2 style="double"\' /path/manager/config.conf',
         ),
         (Component.WAZUH_DASHBOARD, "sudo yq -i  '.key3 = \"value3\" ' /path/dashboard/config"),
     ],
@@ -153,7 +153,7 @@ def test_replace_placeholders(
     config_manager = WazuhComponentConfigManager(Path("test_path"))
     print(example_config_file_with_placeholders)
     value_indexer = example_config_file_with_placeholders[Component.WAZUH_INDEXER][0]["replace"]["values"][0]
-    value_server = example_config_file_with_placeholders[Component.WAZUH_SERVER][0]["replace"]["values"][0]
+    value_manager = example_config_file_with_placeholders[Component.WAZUH_MANAGER][0]["replace"]["values"][0]
     value_dashboard = example_config_file_with_placeholders[Component.WAZUH_DASHBOARD][0]["replace"]["values"][0]
 
     if "__" in value_indexer:
@@ -162,11 +162,11 @@ def test_replace_placeholders(
         config_manager._replace_placeholders(content, Component.WAZUH_INDEXER)
         assert content[0]["values"][0] == "indexer_replacement_value"
 
-    if "__" in value_server:
-        config_manager._server_placeholder = {value_server: "server_replacement_value"}
-        content = config_manager.server_mapping.replace_content  # type: ignore
-        config_manager._replace_placeholders(content, Component.WAZUH_SERVER)
-        assert content[0]["values"][0] == "server_replacement_value"
+    if "__" in value_manager:
+        config_manager._manager_placeholder = {value_manager: "manager_replacement_value"}
+        content = config_manager.manager_mapping.replace_content  # type: ignore
+        config_manager._replace_placeholders(content, Component.WAZUH_MANAGER)
+        assert content[0]["values"][0] == "manager_replacement_value"
 
     if "__" in value_dashboard:
         config_manager._dashboard_placeholder = {value_dashboard: "dashboard_replacement_value"}

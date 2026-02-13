@@ -61,7 +61,7 @@ def download_and_extract_ova(version: str, ova_filename: str) -> str:
     Returns:
         str: The name of the extracted VMDK file.
     """
-    existing_vmdk_files = [f for f in os.listdir('.') if f.endswith('.vmdk')]
+    existing_vmdk_files = [f for f in os.listdir(".") if f.endswith(".vmdk")]
     if existing_vmdk_files:
         logger.info(f"Found existing VMDK file: {existing_vmdk_files[0]}")
         return existing_vmdk_files[0]
@@ -72,7 +72,7 @@ def download_and_extract_ova(version: str, ova_filename: str) -> str:
     ]
     run_command(commands)
 
-    vmdk_files = [f for f in os.listdir('.') if f.endswith('.vmdk')]
+    vmdk_files = [f for f in os.listdir(".") if f.endswith(".vmdk")]
     if not vmdk_files:
         raise RuntimeError("No VMDK file found after extracting OVA")
 
