@@ -21,6 +21,7 @@ def example_config_file():
         Component.WAZUH_DASHBOARD: [
             {"path": "/path/dashboard/config", "replace": {"keys": [".key3"], "values": ["value3"]}}
         ],
+        Component.WAZUH_AGENT: [{"path": "/path/agent/config", "replace": {"keys": [".key4"], "values": ["value4"]}}],
     }
 
 
@@ -56,6 +57,7 @@ def test_configure(mock_paramiko, mock_start_services, mock_open_file, mock_exec
         command='sudo yq -i  \'.key2 = ""value2"" | .key2 style="double"\' /path/server/config', client=None
     )
     mock_exec_command.assert_any_call(command="sudo yq -i  '.key3 = \"value3\" ' /path/dashboard/config", client=None)
+    mock_exec_command.assert_any_call(command="sudo yq -i  '.key4 = \"value4\" ' /path/agent/config", client=None)
 
     # Generate certifates and copy them to the current component certs directory
     mock_exec_command.assert_any_call(
@@ -136,10 +138,15 @@ def test_start_services_success(mock_exec_command, mock_logger):
         command=start_service_command_template.format(component="wazuh-dashboard").replace("\n", "").replace(" ", ""),
         client=None,
     )
+    mock_exec_command.assert_any_call(
+        command=start_service_command_template.format(component="wazuh-agent").replace("\n", "").replace(" ", ""),
+        client=None,
+    )
 
     mock_logger.debug.assert_any_call("wazuh indexer service started")
     mock_logger.debug.assert_any_call("wazuh manager service started")
     mock_logger.debug.assert_any_call("wazuh dashboard service started")
+    mock_logger.debug.assert_any_call("wazuh agent service started")
     mock_logger.info_success.assert_any_call("All services started")
     mock_logger.error.assert_not_called()
 

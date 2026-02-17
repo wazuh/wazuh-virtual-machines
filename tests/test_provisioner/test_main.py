@@ -66,6 +66,11 @@ def test_get_component_info(package_type, arch, package_url, dependencies, compo
                     package_url=AnyUrl("http://example.com/all.rpm"),
                     dependencies=["dependency1", "dependency2"],
                 ),
+                ComponentInfo(
+                    name=Component.WAZUH_AGENT,
+                    package_url=AnyUrl("http://example.com/all.rpm"),
+                    dependencies=["dependency1", "dependency2"],
+                ),
             ],
             "rpm",
             "x86_64",
