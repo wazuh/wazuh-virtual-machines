@@ -38,6 +38,7 @@ class CoreConfigurer:
         config_mappings.replace_file_entries(Component.WAZUH_INDEXER, client=client)
         config_mappings.replace_file_entries(Component.WAZUH_MANAGER, client=client)
         config_mappings.replace_file_entries(Component.WAZUH_DASHBOARD, client=client)
+        config_mappings.replace_file_entries(Component.WAZUH_AGENT, client=client)
         logger.info_success("Core configuration process finished")
 
         logger.debug_title("Starting certificates creation and configuration process")

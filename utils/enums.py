@@ -5,6 +5,7 @@ class Component(StrEnum):
     WAZUH_INDEXER = auto()
     WAZUH_MANAGER = auto()
     WAZUH_DASHBOARD = auto()
+    WAZUH_AGENT = auto()
     ALL = auto()
 
 

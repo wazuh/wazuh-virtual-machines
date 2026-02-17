@@ -44,9 +44,11 @@ class WazuhConfigMapping:
         for file in files_config:
             if (file_content := file.get(type, None)) and file.get("path", None):
                 try:
-                    content.append(
-                        {"path": Path(file["path"]), "keys": file_content["keys"], "values": file_content["values"]}
-                    )
+                    content.append({
+                        "path": Path(file["path"]),
+                        "keys": file_content["keys"],
+                        "values": file_content["values"],
+                    })
                 except KeyError as err:
                     raise KeyError(f"Missing 'keys' or 'values' key in '{type}' mapping file section: {err}") from err
             else:
@@ -63,4 +65,8 @@ class WazuhServerConfigMapping(WazuhConfigMapping):
 
 
 class WazuhDashboardConfigMapping(WazuhConfigMapping):
+    pass
+
+
+class WazuhAgentConfigMapping(WazuhConfigMapping):
     pass
