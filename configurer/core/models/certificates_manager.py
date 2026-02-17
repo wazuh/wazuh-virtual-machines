@@ -30,9 +30,9 @@ class CertsManager:
                 "admin-key": "admin-key.pem",
                 "ca": "root-ca.pem",
             },
-            Component.WAZUH_SERVER: {
-                "cert": f"{Component.WAZUH_SERVER}.pem",
-                "key": f"{Component.WAZUH_SERVER}-key.pem",
+            Component.WAZUH_MANAGER: {
+                "cert": f"{Component.WAZUH_MANAGER}.pem",
+                "key": f"{Component.WAZUH_MANAGER}-key.pem",
                 "admin-cert": "admin.pem",
                 "admin-key": "admin-key.pem",
                 "ca": "root-ca.pem",
@@ -48,10 +48,10 @@ class CertsManager:
         # in its configuration file. These variables represent the keys in each file, whose values
         # are the specific certificate paths.
         self.components_certs_config_keys = {
-            Component.WAZUH_SERVER: [
-                ComponentCertsConfigParameter.WAZUH_SERVER_KEY,
-                ComponentCertsConfigParameter.WAZUH_SERVER_CERT,
-                ComponentCertsConfigParameter.WAZUH_SERVER_CA,
+            Component.WAZUH_MANAGER: [
+                ComponentCertsConfigParameter.WAZUH_MANAGER_KEY,
+                ComponentCertsConfigParameter.WAZUH_MANAGER_CERT,
+                ComponentCertsConfigParameter.WAZUH_MANAGER_CA,
             ],
             Component.WAZUH_INDEXER: [
                 ComponentCertsConfigParameter.WAZUH_INDEXER_KEY,
@@ -73,7 +73,7 @@ class CertsManager:
         Sets configuration file values using the `yq` command.
 
         This method updates the configuration file at the specified path with predefined values for
-        Wazuh components (indexer, server, and dashboard) using the `yq` command-line tool. The IP
+        Wazuh components (indexer, manager, and dashboard) using the `yq` command-line tool. The IP
         addresses for these components are set to "127.0.0.1".
 
         Args:
@@ -88,8 +88,8 @@ class CertsManager:
         yq_query = f"""
             sudo yq -i '.nodes.indexer[0].name = \"{Component.WAZUH_INDEXER}\" |
             .nodes.indexer[0].ip = "127.0.0.1" | .nodes.indexer[0].ip style="double" |
-            .nodes.server[0].name = \"{Component.WAZUH_SERVER}\" |
-            .nodes.server[0].ip = "127.0.0.1" | .nodes.server[0].ip style="double" |
+            .nodes.manager[0].name = \"{Component.WAZUH_MANAGER}\" |
+            .nodes.manager[0].ip = "127.0.0.1" | .nodes.manager[0].ip style="double" |
             .nodes.dashboard[0].name = \"{Component.WAZUH_DASHBOARD}\" |
             .nodes.dashboard[0].ip = "127.0.0.1" | .nodes.dashboard[0].ip style="double"
             ' {raw_config_path}
@@ -116,9 +116,9 @@ class CertsManager:
         Returns:
             str: The name of the certificate.
 
-        >>> Example for server:
-        >>> _get_cert_name_from_key("server.cert", "/etc/wazuh-server/wazuh-server.yml", True, client)
-        >>> return: "wazuh-server.pem"
+        >>> Example for manager:
+        >>> _get_cert_name_from_key("manager.cert", "/etc/wazuh-manager/wazuh-manager.yml", True, client)
+        >>> return: "wazuh-manager.pem"
         """
 
         yq_xml_suffix = ""
@@ -162,11 +162,11 @@ class CertsManager:
             dict: A dictionary mapping certificate keys to their respective names.
 
         >>> Example for server:
-        >>> _get_certs_name(Component.WAZUH_SERVER, "/etc/wazuh-server/wazuh-server.yml", True, client)
+        >>> _get_certs_name(Component.WAZUH_MANAGER, "/etc/wazuh-manager/wazuh-manager.yml", True, client)
         >>> return {
-            "WAUZUH_SERVER_CERT": "wazuh-server.pem",
-            "WAUZUH_SERVER_KEY": "wazuh-server-key.pem",
-            "WAUZUH_SERVER_CA": "root-ca.pem"
+            "WAZUH_MANAGER_CERT": "wazuh-manager.pem",
+            "WAZUH_MANAGER_KEY": "wazuh-manager-key.pem",
+            "WAZUH_MANAGER_CA": "root-ca.pem"
         }
         """
 
@@ -228,10 +228,10 @@ class CertsManager:
                     component=component,
                     component_config_file=ComponentConfigFile.WAZUH_INDEXER
                     if component == Component.WAZUH_INDEXER
-                    else ComponentConfigFile.WAZUH_SERVER
-                    if component == Component.WAZUH_SERVER
+                    else ComponentConfigFile.WAZUH_MANAGER
+                    if component == Component.WAZUH_MANAGER
                     else ComponentConfigFile.WAZUH_DASHBOARD,
-                    flattened_key=component != Component.WAZUH_SERVER,  # Flatten key only for indexer and dashboard
+                    flattened_key=component != Component.WAZUH_MANAGER,  # Flatten key only for indexer and dashboard
                     client=client,
                 )
 
@@ -276,17 +276,17 @@ class CertsManager:
                 sudo find {ComponentCertsDirectory.WAZUH_INDEXER} -type f -exec chmod 400 {{}} \\;
                 sudo chown -R wazuh-indexer:wazuh-indexer {ComponentCertsDirectory.WAZUH_INDEXER}/
                 """
-        elif component == Component.WAZUH_SERVER:
+        elif component == Component.WAZUH_MANAGER:
             command = f"""
-                sudo rm -rf {ComponentCertsDirectory.WAZUH_SERVER}
-                sudo mkdir -p {ComponentCertsDirectory.WAZUH_SERVER}
-                sudo tar -xf {certs_path}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_SERVER} ./{" ./".join(self.components_certs_default_name[Component.WAZUH_SERVER].values())}
-                sudo mv -n {ComponentCertsDirectory.WAZUH_SERVER}/{self.components_certs_default_name[Component.WAZUH_SERVER]["cert"]} {ComponentCertsDirectory.WAZUH_SERVER}/{certs_name[ComponentCertsConfigParameter.WAZUH_SERVER_CERT.name]}
-                sudo mv -n {ComponentCertsDirectory.WAZUH_SERVER}/{self.components_certs_default_name[Component.WAZUH_SERVER]["key"]} {ComponentCertsDirectory.WAZUH_SERVER}/{certs_name[ComponentCertsConfigParameter.WAZUH_SERVER_KEY.name]}
-                sudo mv -n {ComponentCertsDirectory.WAZUH_SERVER}/{self.components_certs_default_name[Component.WAZUH_SERVER]["ca"]} {ComponentCertsDirectory.WAZUH_SERVER}/{certs_name[ComponentCertsConfigParameter.WAZUH_SERVER_CA.name]}
-                sudo chmod 500 {ComponentCertsDirectory.WAZUH_SERVER}
-                sudo find {ComponentCertsDirectory.WAZUH_SERVER} -type f -exec chmod 400 {{}} \\;
-                sudo chown -R root:root {ComponentCertsDirectory.WAZUH_SERVER}/
+                sudo rm -rf {ComponentCertsDirectory.WAZUH_MANAGER}
+                sudo mkdir -p {ComponentCertsDirectory.WAZUH_MANAGER}
+                sudo tar -xf {certs_path}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_MANAGER} ./{" ./".join(self.components_certs_default_name[Component.WAZUH_MANAGER].values())}
+                sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["cert"]} {ComponentCertsDirectory.WAZUH_MANAGER}/{certs_name[ComponentCertsConfigParameter.WAZUH_MANAGER_CERT.name]}
+                sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["key"]} {ComponentCertsDirectory.WAZUH_MANAGER}/{certs_name[ComponentCertsConfigParameter.WAZUH_MANAGER_KEY.name]}
+                sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["ca"]} {ComponentCertsDirectory.WAZUH_MANAGER}/{certs_name[ComponentCertsConfigParameter.WAZUH_MANAGER_CA.name]}
+                sudo chmod 500 {ComponentCertsDirectory.WAZUH_MANAGER}
+                sudo find {ComponentCertsDirectory.WAZUH_MANAGER} -type f -exec chmod 400 {{}} \\;
+                sudo chown -R root:root {ComponentCertsDirectory.WAZUH_MANAGER}/
                 """
         elif component == Component.WAZUH_DASHBOARD:
             command = f"""

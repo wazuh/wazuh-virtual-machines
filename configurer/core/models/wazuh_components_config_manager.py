@@ -32,7 +32,7 @@ class WazuhComponentConfigManager:
         # They are necessary to obtain dynamic values according to the component, such as the node name.
         # If more placeholders are needed, add them here.
         self._indexer_placeholder = {"__indexer_node_name__": Component.WAZUH_INDEXER.lower()}
-        self._server_placeholder = {}
+        self._manager_placeholder = {}
         self._dashboard_placeholder = {}
 
     @property
@@ -42,9 +42,9 @@ class WazuhComponentConfigManager:
         return None
 
     @property
-    def server_mapping(self) -> WazuhServerConfigMapping | None:
-        if self.config_mappings_file.get(Component.WAZUH_SERVER, None):
-            return WazuhServerConfigMapping(self.config_mappings_file[Component.WAZUH_SERVER])
+    def manager_mapping(self) -> WazuhServerConfigMapping | None:
+        if self.config_mappings_file.get(Component.WAZUH_MANAGER, None):
+            return WazuhServerConfigMapping(self.config_mappings_file[Component.WAZUH_MANAGER])
         return None
 
     @property
@@ -72,8 +72,8 @@ class WazuhComponentConfigManager:
 
         if component == Component.WAZUH_INDEXER:
             replace_content = self.indexer_mapping.replace_content if self.indexer_mapping else None
-        elif component == Component.WAZUH_SERVER:
-            replace_content = self.server_mapping.replace_content if self.server_mapping else None
+        elif component == Component.WAZUH_MANAGER:
+            replace_content = self.manager_mapping.replace_content if self.manager_mapping else None
         elif component == Component.WAZUH_DASHBOARD:
             replace_content = self.dashboard_mapping.replace_content if self.dashboard_mapping else None
         else:
@@ -126,8 +126,8 @@ class WazuhComponentConfigManager:
         placeholders_map = (
             self._indexer_placeholder
             if component == Component.WAZUH_INDEXER
-            else self._server_placeholder
-            if component == Component.WAZUH_SERVER
+            else self._manager_placeholder
+            if component == Component.WAZUH_MANAGER
             else self._dashboard_placeholder
         )
 

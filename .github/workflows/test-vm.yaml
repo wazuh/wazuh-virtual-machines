@@ -1,13 +1,20 @@
-run-name: Wazuh VM Test - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
-name: Wazuh VM Test
+run-name: Wazuh Integration Test - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
+name: Wazuh Integration Test
 
 on:
   workflow_dispatch:
     inputs:
+      WAZUH_AUTOMATION_REFERENCE:
+        description: 'Branch or tag of the wazuh-automation repository'
+        required: true
+        default: 'main'
       WAZUH_VIRTUAL_MACHINES_REFERENCE:
         description: 'Branch or tag of the wazuh-virtual-machines repository'
         required: true
-        default: 'master'
+      AWS_REGION:
+        description: 'AWS region to use for testing'
+        required: true
+        default: 'us-east-1'
       test_type:
         description: 'Test type'
         required: true
@@ -17,8 +24,31 @@ on:
           - ami
           - ova
       host:
-        description: 'AMI ID to create ami or OVA path'
+        description: 'AMI ID to test (only for AMI test type)'
         required: false
+        type: string
+      instance_type:
+        description: 'EC2 instance type for AMI tests'
+        required: false
+        default: 'c5ad.xlarge'
+        type: choice
+        options:
+          - c5ad.xlarge
+      wazuh_package_type:
+        description: 'Wazuh package type for OVA URL resolution'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - prod
+          - pre-prod
+          - dev
+      commit_list:
+        description: |
+          'Wazuh components revisions (comma-separated string list) ["indexer-revision", "server-revision", "dashboard-revision"]'
+          (Only needed if the Wazuh package type is dev-latest or dev-commit)
+        required: true
+        default: '["latest", "latest", "latest", "latest"]'
         type: string
       WAZUH_SERVER_VERSION_REVISION:
         description: 'Expected Wazuh server version-revision'
@@ -44,6 +74,7 @@ on:
           - LOGS
           - SERVICE
           - VERSION
+          - UPDATES
           - OVA
       log_level:
         description: 'Log level'
@@ -54,42 +85,235 @@ on:
           - INFO
           - DEBUG
           - TRACE
+      keep_instance_alive:
+        description: 'Keep instance alive after tests (do not terminate)'
+        required: false
+        default: false
+        type: boolean
+  workflow_call:
+    inputs:
+      WAZUH_AUTOMATION_REFERENCE:
+        type: string
+        required: false
+        default: 'main'
+      WAZUH_VIRTUAL_MACHINES_REFERENCE:
+        type: string
+        required: true
+      AWS_REGION:
+        type: string
+        required: false
+        default: 'us-east-1'
+      test_type:
+        type: string
+        required: true
+      host:
+        type: string
+        required: false
+      instance_type:
+        type: string
+        required: false
+        default: 'c5ad.xlarge'
+      wazuh_package_type:
+        type: string
+        required: false
+        default: 'dev'
+      commit_list:
+        type: string
+        required: false
+        default: '["latest", "latest", "latest", "latest"]'
+      WAZUH_SERVER_VERSION_REVISION:
+        type: string
+        required: false
+      WAZUH_INDEXER_VERSION_REVISION:
+        type: string
+        required: false
+      WAZUH_DASHBOARD_VERSION_REVISION:
+        type: string
+        required: false
+      TESTS:
+        type: string
+        required: false
+        default: 'ALL'
+      log_level:
+        type: string
+        required: false
+        default: 'INFO'
+      keep_instance_alive:
+        type: boolean
+        required: false
+        default: false
 
 env:
-  AWS_IAM_OVA_ROLE: ${{ secrets.AWS_IAM_OVA_ROLE }}
-  WAZUH_SERVER_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_SERVER_VERSION_REVISION }}
-  WAZUH_INDEXER_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_INDEXER_VERSION_REVISION }}
-  WAZUH_DASHBOARD_EXPECTED_VERSION: ${{ github.event.inputs.WAZUH_DASHBOARD_VERSION_REVISION }}
-  WAZUH_AUTOMATION_TOKEN: ${{ secrets.GH_CLONE_TOKEN }}
+  WAZUH_SERVER_EXPECTED_VERSION: ${{ inputs.WAZUH_SERVER_VERSION_REVISION }}
+  WAZUH_INDEXER_EXPECTED_VERSION: ${{ inputs.WAZUH_INDEXER_VERSION_REVISION }}
+  WAZUH_DASHBOARD_EXPECTED_VERSION: ${{ inputs.WAZUH_DASHBOARD_VERSION_REVISION }}
+  WAZUH_AUTOMATION_REFERENCE: ${{ inputs.WAZUH_AUTOMATION_REFERENCE || 'main' }}
+  WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ inputs.WAZUH_VIRTUAL_MACHINES_REFERENCE }}
+  AWS_REGION: ${{ inputs.AWS_REGION }}
+  GENERATE_PRESIGNED_URLS_SCRIPT_PATH: ${{ github.workspace }}/wazuh-virtual-machines/.github/scripts/generate_presigned_dev_urls.py
+  COMMIT_LIST: ${{ inputs.commit_list }}
+  PROD_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PROD }}
+  PRE_PROD_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PRE }}
+  DEV_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_ARTIFACTS }}
+  ARTIFACTS_URLS_FILENAME: "artifact_urls.yml"
+  DEV_ARTIFACTS_URLS_PATH: "deployment"
 
 permissions:
   id-token: write
   contents: read
+  pull-requests: write
 
 jobs:
-  test:
+
+  # ===================================================
+  # AMI: setup -> test -> cleanup
+  # ===================================================
+
+  ami-setup:
+    if: ${{ inputs.test_type == 'ami' && inputs.host != '' }}
     runs-on: ubuntu-latest
+    outputs:
+      instance_id: ${{ steps.launch.outputs.instance_id }}
+      instance_ip: ${{ steps.launch.outputs.instance_ip }}
+      ssh_key_name: ${{ steps.keygen.outputs.key_name }}
 
     steps:
       - name: View parameters
         run: echo "${{ toJson(inputs) }}"
-      - name: Checkout wazuh/wazuh-virtual-machines repository
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
+          aws-region: us-east-1
+
+      - name: Generate SSH key pair
+        id: keygen
+        run: |
+          TIMESTAMP=$(date +%s)
+          RANDOM_NUM=$RANDOM
+          KEY_NAME="test-runner-${TIMESTAMP}-${RANDOM_NUM}"
+          KEY_PATH="/tmp/${KEY_NAME}"
+
+          # Generate SSH key
+          ssh-keygen -t rsa -b 2048 -f ${KEY_PATH} -N '' -q
+
+          # Import to AWS
+          aws ec2 import-key-pair \
+            --key-name ${KEY_NAME} \
+            --public-key-material fileb://${KEY_PATH}.pub
+
+          echo "key_name=${KEY_NAME}" >> $GITHUB_OUTPUT
+          echo "key_path=${KEY_PATH}" >> $GITHUB_OUTPUT
+
+      - name: Launch EC2 instance
+        id: launch
+        run: |
+          INSTANCE_ID=$(aws ec2 run-instances \
+            --image-id ${{ inputs.host }} \
+            --instance-type ${{ inputs.instance_type }} \
+            --key-name ${{ steps.keygen.outputs.key_name }} \
+            --security-group-ids ${{ secrets.AWS_EC2_SG }} \
+            --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=${{ steps.keygen.outputs.key_name }}},{Key=AutoTerminate,Value=true},{Key=CreatedBy,Value=test_runner}]' \
+            --query 'Instances[0].InstanceId' \
+            --output text)
+
+          echo "instance_id=${INSTANCE_ID}" >> $GITHUB_OUTPUT
+
+          # Wait for instance to be running
+          echo "Waiting for instance to be running..."
+          aws ec2 wait instance-running --instance-ids ${INSTANCE_ID}
+
+          # Get public IP
+          INSTANCE_IP=$(aws ec2 describe-instances \
+            --instance-ids ${INSTANCE_ID} \
+            --query 'Reservations[0].Instances[0].PublicIpAddress' \
+            --output text)
+
+          echo "instance_ip=${INSTANCE_IP}" >> $GITHUB_OUTPUT
+          echo "Instance ${INSTANCE_ID} is running"
+
+      - name: Wait for SSH and Wazuh services
+        run: |
+          HOST="${{ steps.launch.outputs.instance_ip }}"
+          INSTANCE_ID="${{ steps.launch.outputs.instance_id }}"
+          MAX_WAIT=600  # 10 minutes total
+          INTERVAL=30   # Check every 30 seconds
+          ELAPSED=0
+
+          echo "Waiting for instance to be ready (SSH + Wazuh services)"
+          echo "Target: ${HOST}:22"
+          echo "Instance ID: ${INSTANCE_ID}"
+          echo "Maximum wait time: ${MAX_WAIT}s"
+          echo ""
+
+          # Initial delay to let instance fully boot
+          echo "Initial wait of 60s for instance boot..."
+          sleep 60
+          ELAPSED=60
+
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            PERCENT=$((ELAPSED * 100 / MAX_WAIT))
+
+            # Try SSH connection
+            if nc -z -w5 ${HOST} 22 2>/dev/null; then
+              echo ""
+              echo "[SUCCESS] SSH is available after ${ELAPSED}s"
+              exit 0
+            fi
+
+            echo "[${PERCENT}%] Waiting... (${ELAPSED}s/${MAX_WAIT}s) - SSH not ready"
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED + INTERVAL))
+          done
+
+          echo ""
+          echo "ERROR: SSH did not become available within ${MAX_WAIT}s"
+          echo ""
+          echo "=== Diagnostics ==="
+          echo "Checking instance status..."
+          aws ec2 describe-instance-status --instance-ids ${INSTANCE_ID} --output table || true
+          echo ""
+          echo "Checking instance details..."
+          aws ec2 describe-instances --instance-ids ${INSTANCE_ID} \
+            --query 'Reservations[0].Instances[0].{State:State.Name,PublicIP:PublicIpAddress,PrivateIP:PrivateIpAddress,SubnetId:SubnetId,VpcId:VpcId,SecurityGroups:SecurityGroups[*].GroupId}' \
+            --output table || true
+          exit 1
+
+      - name: Upload SSH key as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ssh-key-${{ steps.keygen.outputs.key_name }}
+          path: ${{ steps.keygen.outputs.key_path }}
+          retention-days: 1
+
+  test-ami:
+    needs: ami-setup
+    if: ${{ needs.ami-setup.result == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout wazuh-automation repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.WAZUH_VIRTUAL_MACHINES_REFERENCE }}
+          repository: wazuh/wazuh-automation
+          ref: ${{ env.WAZUH_AUTOMATION_REFERENCE }}
+          token: ${{ secrets.GH_CLONE_TOKEN }}
+          path: wazuh-automation
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
           cache: 'pip'
+          cache-dependency-path: 'wazuh-automation/integration-test-module/requirements.txt'
 
       - name: Install dependencies
         run: |
-          apt-get update && apt-get install -y git
+          sudo apt-get update && sudo apt-get install -y git
           python -m pip install --upgrade pip
-          pip install -r wazuh_vm_tester/requirements.txt
-          pip install -e wazuh_vm_tester/
+          pip install -r wazuh-automation/integration-test-module/requirements.txt
+          pip install -e wazuh-automation/integration-test-module/
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -97,49 +321,35 @@ jobs:
           role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
           aws-region: us-east-1
 
-      - name: Run tests with AMI mode
-        if: ${{ github.event.inputs.test_type == 'ami' }}
+      - name: Download SSH key
+        uses: actions/download-artifact@v4
+        with:
+          name: ssh-key-${{ needs.ami-setup.outputs.ssh_key_name }}
+          path: /tmp/ssh
+
+      - name: Set SSH key permissions
+        run: chmod 600 /tmp/ssh/${{ needs.ami-setup.outputs.ssh_key_name }}
+
+      - name: Run AMI tests
         run: |
-          # Find the executable dynamically and store its path in a variable
-          WAZUH_VM_TEST_PATH=$(find /opt/hostedtoolcache/Python -name "wazuh-vm-test" | head -n 1)
+          # Find the test_runner executable
+          TEST_RUNNER_PATH=$(find /opt/hostedtoolcache/Python -name "test_runner" | head -n 1)
 
           # Exit if executable not found
-          if [ -z "$WAZUH_VM_TEST_PATH" ]; then
-            echo "Error: wazuh-vm-test executable not found"
+          if [ -z "$TEST_RUNNER_PATH" ]; then
+            echo "Error: test_runner executable not found"
             exit 1
           fi
 
-          echo "Found executable at: $WAZUH_VM_TEST_PATH"
+          echo "Found executable at: $TEST_RUNNER_PATH"
 
-          # Run the tests using the dynamically found path
-          $WAZUH_VM_TEST_PATH \
-            --test-type ${{ github.event.inputs.test_type }} \
-            --ami-id ${{ github.event.inputs.host }} \
-            --test-pattern "${{ github.event.inputs.TESTS }}" \
-            --log-level ${{ github.event.inputs.log_level || 'INFO' }} \
-            --output github \
-            --output-file test-results.github
-
-      - name: Run tests with OVA mode
-        if: ${{ github.event.inputs.test_type == 'ova' }}
-        run: |
-          # Find the executable dynamically and store its path in a variable
-          WAZUH_VM_TEST_PATH=$(find /opt/hostedtoolcache/Python -name "wazuh-vm-test" | head -n 1)
-
-          # Exit if executable not found
-          if [ -z "$WAZUH_VM_TEST_PATH" ]; then
-            echo "Error: wazuh-vm-test executable not found"
-            exit 1
-          fi
-
-          echo "Found executable at: $WAZUH_VM_TEST_PATH"
-
-          # Run the tests using the dynamically found path
-          $WAZUH_VM_TEST_PATH \
-            --test-type ${{ github.event.inputs.test_type }} \
-            --ova-s3-path ${{ github.event.inputs.host }} \
-            --test-pattern "${{ github.event.inputs.TESTS }}" \
-            --log-level ${{ github.event.inputs.log_level || 'INFO' }} \
+          # Run the tests
+          $TEST_RUNNER_PATH \
+            --test-type ami \
+            --ssh-host ${{ needs.ami-setup.outputs.instance_ip }} \
+            --ssh-key-path /tmp/ssh/${{ needs.ami-setup.outputs.ssh_key_name }} \
+            --test-pattern "${{ inputs.TESTS || 'ALL' }}" \
+            --log-level ${{ inputs.log_level || 'INFO' }} \
             --output github \
             --output-file test-results.github
 
@@ -169,8 +379,34 @@ jobs:
         if: always()
         run: |
           # Extract multiline summary from the test results
-          awk '/summary<<EOF/{flag=1;next}/EOF/{flag=0}flag' test-results.github > summary.md
-          cat summary.md >> $GITHUB_STEP_SUMMARY
+          if [ -f test-results.github ]; then
+            awk '/summary<<EOF/{flag=1;next}/EOF/{flag=0}flag' test-results.github > summary.md
+            cat summary.md >> $GITHUB_STEP_SUMMARY
+          else
+            echo "# Test Results" >> $GITHUB_STEP_SUMMARY
+            echo "Failed to generate test results" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Comment PR with test results
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let summary = '## Wazuh VM Test Results\n\n';
+
+            if (fs.existsSync('summary.md')) {
+              summary += fs.readFileSync('summary.md', 'utf8');
+            } else {
+              summary += 'Failed to generate test results';
+            }
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });
 
       - name: Set job status
         if: always()
@@ -185,3 +421,578 @@ jobs:
             echo "Tests failed with status: ${{ env.test_status }}"
             exit 1
           fi
+
+  ami-cleanup:
+    needs: [ami-setup, test-ami]
+    if: ${{ always() && needs.ami-setup.result != 'skipped' && inputs.keep_instance_alive != 'true' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
+          aws-region: us-east-1
+
+      - name: Terminate EC2 instance
+        run: |
+          INSTANCE_ID="${{ needs.ami-setup.outputs.instance_id }}"
+
+          if [ -z "$INSTANCE_ID" ]; then
+            echo "No instance ID found, skipping termination"
+            exit 0
+          fi
+
+          # Check if instance exists and is not already terminated
+          STATE=$(aws ec2 describe-instances \
+            --instance-ids ${INSTANCE_ID} \
+            --query 'Reservations[0].Instances[0].State.Name' \
+            --output text 2>/dev/null || echo "not-found")
+
+          if [ "$STATE" == "not-found" ] || [ "$STATE" == "terminated" ]; then
+            echo "Instance ${INSTANCE_ID} not found or already terminated (state: ${STATE})"
+            exit 0
+          fi
+
+          echo "Terminating instance ${INSTANCE_ID} (current state: ${STATE})..."
+          aws ec2 terminate-instances --instance-ids ${INSTANCE_ID}
+
+          echo "Waiting for instance to terminate..."
+          aws ec2 wait instance-terminated --instance-ids ${INSTANCE_ID}
+
+          echo "Instance ${INSTANCE_ID} terminated successfully"
+
+      - name: Delete SSH key pair
+        run: |
+          KEY_NAME="${{ needs.ami-setup.outputs.ssh_key_name }}"
+
+          if [ -z "$KEY_NAME" ]; then
+            echo "No key name found, skipping deletion"
+            exit 0
+          fi
+
+          # Check if key exists before deleting
+          if aws ec2 describe-key-pairs --key-names ${KEY_NAME} 2>/dev/null; then
+            echo "Deleting key pair ${KEY_NAME}..."
+            aws ec2 delete-key-pair --key-name ${KEY_NAME}
+            echo "Key pair ${KEY_NAME} deleted successfully"
+          else
+            echo "Key pair ${KEY_NAME} not found, skipping deletion"
+          fi
+
+  # ===================================================
+  # OVA: setup -> test -> cleanup
+  # ===================================================
+
+  ova-setup:
+    if: ${{ inputs.test_type == 'ova' }}
+    runs-on: ubuntu-latest
+    outputs:
+      allocator_ip: ${{ steps.allocator.outputs.allocator_ip }}
+      allocator_ssh_port: ${{ steps.allocator.outputs.ssh_port }}
+      ova_ssh_port: ${{ steps.port_forward.outputs.ssh_port }}
+      ssh_key: ${{ steps.allocator.outputs.ssh_key }}
+      ssh_user: ${{ steps.allocator.outputs.ssh_user }}
+
+    steps:
+      - name: View parameters
+        run: echo "${{ toJson(inputs) }}"
+
+      - name: Checkout wazuh-virtual-machines
+        uses: actions/checkout@v4
+        with:
+          repository: wazuh/wazuh-virtual-machines
+          ref: ${{ env.WAZUH_VIRTUAL_MACHINES_REFERENCE }}
+          token: ${{ secrets.GH_CLONE_TOKEN }}
+          path: wazuh-virtual-machines
+
+      - name: Checkout wazuh-automation
+        uses: actions/checkout@v4
+        with:
+          repository: wazuh/wazuh-automation
+          ref: ${{ env.WAZUH_AUTOMATION_REFERENCE }}
+          token: ${{ secrets.GH_CLONE_TOKEN }}
+          path: wazuh-automation
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
+          aws-region: us-east-1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install allocator dependencies
+        run: |
+          pip install -r wazuh-automation/deployability/deps/requirements.txt
+          pip install ansible pyyaml
+
+      - name: Get Wazuh version
+        run: |
+          WAZUH_VERSION=$(jq -r '.version' wazuh-virtual-machines/VERSION.json)
+          WAZUH_MAJOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1)
+          WAZUH_MINOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1-2)
+          echo "WAZUH_VERSION=$WAZUH_VERSION" >> $GITHUB_ENV
+          echo "WAZUH_MAJOR=$WAZUH_MAJOR" >> $GITHUB_ENV
+          echo "WAZUH_MINOR=$WAZUH_MINOR" >> $GITHUB_ENV
+          echo "Wazuh version: $WAZUH_VERSION (major: $WAZUH_MAJOR, minor: $WAZUH_MINOR)"
+
+      - name: Get artifacts URLs file
+        run: |
+          LOCAL_ARTIFACTS_URLS_FILEPATH=${{ github.workspace }}/${{ env.ARTIFACTS_URLS_FILENAME }}
+          echo "LOCAL_ARTIFACTS_URLS_FILEPATH=$LOCAL_ARTIFACTS_URLS_FILEPATH" >> $GITHUB_ENV
+
+          PACKAGE_TYPE="${{ inputs.wazuh_package_type || 'dev' }}"
+          echo "Package type: $PACKAGE_TYPE"
+
+          if [ "$PACKAGE_TYPE" == "prod" ]; then
+            echo "Downloading from PROD bucket..."
+            aws s3api get-object --bucket ${{ env.PROD_ARTIFACTS_URLS_BUCKET }} --key ${{ env.WAZUH_MINOR }}/${{ env.ARTIFACTS_URLS_FILENAME }} $LOCAL_ARTIFACTS_URLS_FILEPATH
+          elif [ "$PACKAGE_TYPE" == "pre-prod" ]; then
+            echo "Downloading from PRE-PROD bucket..."
+            aws s3api get-object --bucket ${{ env.PRE_PROD_ARTIFACTS_URLS_BUCKET }} --key ${{ env.WAZUH_MINOR }}/${{ env.ARTIFACTS_URLS_FILENAME }} $LOCAL_ARTIFACTS_URLS_FILEPATH
+          else
+            echo "Downloading from DEV bucket..."
+            LOCAL_AWS_S3_BUCKET_DEV=${{ vars.AWS_S3_BUCKET_DEV }}
+            echo "LOCAL_AWS_S3_BUCKET_DEV=$LOCAL_AWS_S3_BUCKET_DEV" >> $GITHUB_ENV
+            aws s3api get-object --bucket ${{ env.DEV_ARTIFACTS_URLS_BUCKET }} --key ${{ env.DEV_ARTIFACTS_URLS_PATH }}/${{ env.ARTIFACTS_URLS_FILENAME }} $LOCAL_ARTIFACTS_URLS_FILEPATH
+          fi
+
+          echo "Downloaded artifacts URLs file:"
+          cat $LOCAL_ARTIFACTS_URLS_FILEPATH
+
+      - name: Generate presigned URLs for dev packages
+        if: ${{ inputs.wazuh_package_type == 'dev' }}
+        run: |
+          echo "Generating presigned URLs for dev packages..."
+          python ${{ env.GENERATE_PRESIGNED_URLS_SCRIPT_PATH }}
+          echo "Presigned URLs generated successfully"
+
+      - name: Extract OVA URL from artifacts file
+        id: ova_url
+        run: |
+          # Extract the wazuh_ova URL from the artifacts file
+          OVA_URL=$(yq -r '.wazuh_ova' ${{ env.LOCAL_ARTIFACTS_URLS_FILEPATH }})
+
+          if [ -z "$OVA_URL" ] || [ "$OVA_URL" == "null" ]; then
+            echo "ERROR: wazuh_ova key not found in artifacts file"
+            cat ${{ env.LOCAL_ARTIFACTS_URLS_FILEPATH }}
+            exit 1
+          fi
+
+          echo "OVA URL: $OVA_URL"
+          echo "ova_url=${OVA_URL}" >> $GITHUB_OUTPUT
+
+      - name: Launch allocator instance
+        id: allocator
+        run: |
+          WORK_DIR=$(mktemp -d)
+          TRACK_FILE="${WORK_DIR}/track.yml"
+          INVENTORY_FILE="${WORK_DIR}/inventory.yml"
+          INSTANCE_NAME="gha_${{ github.run_id }}_ova_test"
+
+          # Run allocation module to create EC2 instance
+          python wazuh-automation/deployability/modules/allocation/main.py \
+            --action create \
+            --provider aws \
+            --size metal \
+            --composite-name amazon-2023-amd64 \
+            --working-dir ${WORK_DIR} \
+            --track-output ${TRACK_FILE} \
+            --inventory-output ${INVENTORY_FILE} \
+            --instance-name ${INSTANCE_NAME} \
+            --label-team devops \
+            --label-termination-date 1d
+
+          # Extract allocator details from inventory
+          ALLOCATOR_IP=$(yq -r '.all.hosts | to_entries | .[0].value.ansible_host' ${INVENTORY_FILE})
+          SSH_KEY=$(yq -r '.all.hosts | to_entries | .[0].value.ansible_ssh_private_key_file' ${INVENTORY_FILE})
+          SSH_USER=$(yq -r '.all.hosts | to_entries | .[0].value.ansible_user' ${INVENTORY_FILE})
+          SSH_PORT=$(yq -r '.all.hosts | to_entries | .[0].value.ansible_port // 22' ${INVENTORY_FILE})
+
+          echo "allocator_ip=${ALLOCATOR_IP}" >> $GITHUB_OUTPUT
+          echo "work_dir=${WORK_DIR}" >> $GITHUB_OUTPUT
+          echo "track_file=${TRACK_FILE}" >> $GITHUB_OUTPUT
+          echo "ssh_key=${SSH_KEY}" >> $GITHUB_OUTPUT
+          echo "ssh_user=${SSH_USER}" >> $GITHUB_OUTPUT
+          echo "ssh_port=${SSH_PORT}" >> $GITHUB_OUTPUT
+          echo "inventory_file=${INVENTORY_FILE}" >> $GITHUB_OUTPUT
+
+          echo "Allocator launched at ${ALLOCATOR_IP}:${SSH_PORT}"
+
+      - name: Install VirtualBox on allocator
+        run: |
+          echo "Installing VirtualBox dependencies on allocator..."
+
+          SSH_OPTIONS="-o StrictHostKeyChecking=no -p ${{ steps.allocator.outputs.ssh_port }} -i ${{ steps.allocator.outputs.ssh_key }}"
+          SSH_HOST="${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }}"
+
+          # Install base dependencies
+          echo "Installing base dependencies..."
+          ssh ${SSH_OPTIONS} ${SSH_HOST} \
+              "which git || (sudo yum update -y && sudo yum install -y nc git python3 python3-pip && sudo pip3 install hatch)"
+
+          # Clone wazuh-virtual-machines and install VirtualBox
+          echo "Installing VirtualBox..."
+          ssh ${SSH_OPTIONS} ${SSH_HOST} \
+              "git clone https://github.com/wazuh/wazuh-virtual-machines.git /tmp/wazuh-virtual-machines && \
+               cd /tmp/wazuh-virtual-machines && \
+               sudo hatch run dev-ova-dependencies:install"
+
+          # Verify VirtualBox installation
+          ssh ${SSH_OPTIONS} ${SSH_HOST} "VBoxManage --version"
+
+          echo "VirtualBox installed successfully"
+
+      - name: Download OVA from S3
+        id: download
+        run: |
+          OVA_URL="${{ steps.ova_url.outputs.ova_url }}"
+          echo "OVA URL: $OVA_URL"
+
+          # Extract filename from URL (handle both S3 and presigned URLs)
+          if [[ "$OVA_URL" == s3://* ]]; then
+            # S3 URL format: s3://bucket/path/file.ova
+            OVA_FILENAME=$(basename "$OVA_URL")
+          else
+            # Presigned URL format: https://...
+            # Extract path before query string and get basename
+            OVA_FILENAME=$(basename "${OVA_URL%%\?*}")
+          fi
+
+          LOCAL_OVA_PATH="/tmp/${OVA_FILENAME}"
+          REMOTE_OVA_PATH="/tmp/${OVA_FILENAME}"
+
+          echo "OVA filename: $OVA_FILENAME"
+          echo "Local path: $LOCAL_OVA_PATH"
+
+          # Download OVA locally
+          if [[ "$OVA_URL" == s3://* ]]; then
+            # S3 URL - use aws s3 cp
+            echo "Downloading OVA from S3..."
+            aws s3 cp "${OVA_URL}" "${LOCAL_OVA_PATH}"
+          else
+            # Presigned URL - use curl
+            echo "Downloading OVA from presigned URL..."
+            curl -L -o "${LOCAL_OVA_PATH}" "${OVA_URL}"
+          fi
+
+          # Verify local download
+          echo "Local OVA file:"
+          ls -lh ${LOCAL_OVA_PATH}
+
+          # Copy OVA to allocator using SCP
+          echo "Copying OVA to allocator via SCP..."
+          scp -o StrictHostKeyChecking=no \
+              -o UserKnownHostsFile=/dev/null \
+              -P ${{ steps.allocator.outputs.ssh_port }} \
+              -i ${{ steps.allocator.outputs.ssh_key }} \
+              ${LOCAL_OVA_PATH} \
+              ${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }}:${REMOTE_OVA_PATH}
+
+          # Verify remote file
+          SSH_OPTIONS="-o StrictHostKeyChecking=no -p ${{ steps.allocator.outputs.ssh_port }} -i ${{ steps.allocator.outputs.ssh_key }}"
+          SSH_HOST="${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }}"
+
+          echo "Remote OVA file:"
+          ssh ${SSH_OPTIONS} ${SSH_HOST} "ls -lh ${REMOTE_OVA_PATH}"
+
+          echo "ova_path=${REMOTE_OVA_PATH}" >> $GITHUB_OUTPUT
+          echo "OVA successfully transferred to allocator"
+
+      - name: Import and configure OVA in VirtualBox
+        id: import
+        run: |
+          VM_NAME="wazuh-ova-test-${{ github.run_id }}"
+
+          SSH_OPTIONS="-o StrictHostKeyChecking=no -p ${{ steps.allocator.outputs.ssh_port }} -i ${{ steps.allocator.outputs.ssh_key }}"
+          SSH_HOST="${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }}"
+
+          echo "Importing OVA to VirtualBox..."
+          ssh ${SSH_OPTIONS} ${SSH_HOST} "VBoxManage import ${{ steps.download.outputs.ova_path }} --vsys 0 --vmname ${VM_NAME}"
+
+          echo "Configuring VM resources (memory: 8192MB, CPUs: 4)..."
+          ssh ${SSH_OPTIONS} ${SSH_HOST} "VBoxManage modifyvm ${VM_NAME} --memory 8192 --cpus 4 --nic1 nat"
+
+          echo "Starting VM in headless mode..."
+          ssh ${SSH_OPTIONS} ${SSH_HOST} "VBoxManage startvm ${VM_NAME} --type headless"
+
+          echo "vm_name=${VM_NAME}" >> $GITHUB_OUTPUT
+          echo "VM ${VM_NAME} started"
+
+      - name: Setup port forwarding
+        id: port_forward
+        run: |
+          OVA_SSH_PORT=2201
+          VM_NAME="${{ steps.import.outputs.vm_name }}"
+
+          SSH_OPTIONS="-o StrictHostKeyChecking=no -p ${{ steps.allocator.outputs.ssh_port }} -i ${{ steps.allocator.outputs.ssh_key }}"
+          SSH_HOST="${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }}"
+
+          echo "Powering off VM for port forwarding configuration..."
+          ssh ${SSH_OPTIONS} ${SSH_HOST} "VBoxManage controlvm ${VM_NAME} poweroff || true"
+
+          echo "Waiting for VM to power off..."
+          sleep 10
+
+          echo "Configuring SSH port forwarding (22 -> ${OVA_SSH_PORT})..."
+          ssh ${SSH_OPTIONS} ${SSH_HOST} "VBoxManage modifyvm ${VM_NAME} --natpf1 'ssh_ova,tcp,,${OVA_SSH_PORT},,22'"
+
+          echo "Starting VM..."
+          ssh ${SSH_OPTIONS} ${SSH_HOST} "VBoxManage startvm ${VM_NAME} --type headless"
+
+          echo "Waiting for VM to boot (30 seconds)..."
+          sleep 30
+
+          echo "ssh_port=${OVA_SSH_PORT}" >> $GITHUB_OUTPUT
+          echo "Port forwarding configured: guest:22 -> host:${OVA_SSH_PORT}"
+
+      - name: Wait for OVA VM to be ready
+        run: |
+          echo "Waiting for OVA VM SSH to be available..."
+
+          SSH_OPTIONS="-o StrictHostKeyChecking=no -o ConnectTimeout=5 -p ${{ steps.allocator.outputs.ssh_port }} -i ${{ steps.allocator.outputs.ssh_key }}"
+          SSH_HOST="${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }}"
+
+          for i in {1..60}; do
+            # Check if we can connect to the VM through port forwarding
+            if ssh ${SSH_OPTIONS} ${SSH_HOST} "nc -z localhost ${{ steps.port_forward.outputs.ssh_port }}" 2>/dev/null; then
+              echo "OVA VM SSH port is available"
+              exit 0
+            fi
+            echo "Attempt $i/60 - OVA VM not ready, waiting 10s..."
+            sleep 10
+          done
+          echo "OVA VM SSH did not become available in time"
+          exit 1
+
+      - name: Upload allocator working directory for cleanup
+        uses: actions/upload-artifact@v4
+        with:
+          name: allocator-workdir-${{ github.run_id }}
+          path: ${{ steps.allocator.outputs.work_dir }}
+          retention-days: 1
+
+  test-ova:
+    needs: ova-setup
+    if: ${{ needs.ova-setup.result == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout wazuh-automation repository
+        uses: actions/checkout@v4
+        with:
+          repository: wazuh/wazuh-automation
+          ref: ${{ env.WAZUH_AUTOMATION_REFERENCE }}
+          token: ${{ secrets.GH_CLONE_TOKEN }}
+          path: wazuh-automation
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+          cache-dependency-path: 'wazuh-automation/integration-test-module/requirements.txt'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y git
+          python -m pip install --upgrade pip
+          pip install -r wazuh-automation/integration-test-module/requirements.txt
+          pip install -e wazuh-automation/integration-test-module/
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Run OVA tests
+        run: |
+          # Find the test_runner executable
+          TEST_RUNNER_PATH=$(find /opt/hostedtoolcache/Python -name "test_runner" | head -n 1)
+
+          # Exit if executable not found
+          if [ -z "$TEST_RUNNER_PATH" ]; then
+            echo "Error: test_runner executable not found"
+            exit 1
+          fi
+
+          echo "Found executable at: $TEST_RUNNER_PATH"
+
+          # Run the tests
+          $TEST_RUNNER_PATH \
+            --test-type ova \
+            --ssh-host ${{ needs.ova-setup.outputs.allocator_ip }} \
+            --ssh-port ${{ needs.ova-setup.outputs.ova_ssh_port }} \
+            --ssh-username wazuh-user \
+            --ssh-password wazuh \
+            --test-pattern "${{ inputs.TESTS || 'ALL' }}" \
+            --log-level ${{ inputs.log_level || 'INFO' }} \
+            --output github \
+            --output-file test-results.github
+
+      - name: Parse test results
+        if: always()
+        id: parse-results
+        run: |
+          if [ -f test-results.github ]; then
+            # Set environment variables from test results file
+            while IFS= read -r line; do
+              if [[ $line == *=* ]]; then
+                echo $line >> $GITHUB_ENV
+              fi
+            done < test-results.github
+          else
+            echo "No test results file found!"
+            echo "test_status=ERROR" >> $GITHUB_ENV
+            echo "total_tests=0" >> $GITHUB_ENV
+            echo "passed_tests=0" >> $GITHUB_ENV
+            echo "failed_tests=0" >> $GITHUB_ENV
+            echo "warning_tests=0" >> $GITHUB_ENV
+            echo "skipped_tests=0" >> $GITHUB_ENV
+            echo "short_summary=Failed to generate test results" >> $GITHUB_ENV
+          fi
+
+      - name: Create GitHub Summary
+        if: always()
+        run: |
+          # Extract multiline summary from the test results
+          if [ -f test-results.github ]; then
+            awk '/summary<<EOF/{flag=1;next}/EOF/{flag=0}flag' test-results.github > summary.md
+            cat summary.md >> $GITHUB_STEP_SUMMARY
+          else
+            echo "# Test Results" >> $GITHUB_STEP_SUMMARY
+            echo "Failed to generate test results" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Comment PR with test results
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let summary = '## Wazuh VM Test Results\n\n';
+
+            if (fs.existsSync('summary.md')) {
+              summary += fs.readFileSync('summary.md', 'utf8');
+            } else {
+              summary += 'Failed to generate test results';
+            }
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });
+
+      - name: Set job status
+        if: always()
+        run: |
+          if [[ "${{ env.test_status }}" == "PASS" ]]; then
+            echo "Tests passed successfully!"
+            exit 0
+          elif [[ "${{ env.test_status }}" == "WARNING" ]]; then
+            echo "Tests passed with warnings!"
+            exit 0
+          else
+            echo "Tests failed with status: ${{ env.test_status }}"
+            exit 1
+          fi
+
+  ova-cleanup:
+    needs: [ova-setup, test-ova]
+    if: ${{ always() && needs.ova-setup.result != 'skipped' && inputs.keep_instance_alive != 'true' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout wazuh-automation
+        uses: actions/checkout@v4
+        with:
+          repository: wazuh/wazuh-automation
+          ref: ${{ env.WAZUH_AUTOMATION_REFERENCE }}
+          token: ${{ secrets.GH_CLONE_TOKEN }}
+          path: wazuh-automation
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install -r wazuh-automation/deployability/deps/requirements.txt
+
+      - name: Download allocator working directory
+        id: download-workdir
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: allocator-workdir-${{ github.run_id }}
+          path: /tmp/allocator-workdir
+
+      - name: Terminate allocator instance
+        if: ${{ steps.download-workdir.outcome == 'success' }}
+        run: |
+          # Find the track file in the downloaded working directory
+          TRACK_FILE=$(find /tmp/allocator-workdir -name "track.yml" -type f 2>/dev/null | head -n 1 || true)
+
+          if [ -z "$TRACK_FILE" ]; then
+            echo "No track file found, skipping termination"
+            exit 0
+          fi
+
+          # Get the directory containing the track file (this is the working directory)
+          WORK_DIR=$(dirname ${TRACK_FILE})
+
+          echo "Found track file: ${TRACK_FILE}"
+          echo "Working directory: ${WORK_DIR}"
+          echo ""
+          echo "Original track.yml contents:"
+          cat ${TRACK_FILE}
+          echo ""
+
+          # Update paths in track.yml to point to the downloaded location
+          # The track file contains absolute paths from the original runner
+          # We need to update them to point to our downloaded location
+          echo "Updating paths in track.yml..."
+
+          # Extract the original working directory path from track.yml
+          # It's typically stored in the 'working_dir' or in file paths
+          ORIGINAL_PATH=$(grep -oP '/tmp/tmp\.[^/]+' ${TRACK_FILE} | head -n 1 || true)
+
+          if [ -n "$ORIGINAL_PATH" ]; then
+            echo "Replacing original path: ${ORIGINAL_PATH} -> ${WORK_DIR}"
+            sed -i "s|${ORIGINAL_PATH}|${WORK_DIR}|g" ${TRACK_FILE}
+          fi
+
+          echo ""
+          echo "Updated track.yml contents:"
+          cat ${TRACK_FILE}
+          echo ""
+
+          # List all files in the working directory
+          echo "Files in working directory:"
+          ls -la ${WORK_DIR}
+
+          echo ""
+          echo "Terminating allocator instance..."
+
+          python wazuh-automation/deployability/modules/allocation/main.py \
+            --action delete \
+            --track-output ${TRACK_FILE}
+
+          echo "Allocator instance terminated successfully"
+
+      - name: Skip cleanup notification
+        if: ${{ steps.download-workdir.outcome != 'success' }}
+        run: echo "Allocator working directory artifact not found - instance may need manual cleanup"

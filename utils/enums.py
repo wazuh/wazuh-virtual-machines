@@ -3,7 +3,7 @@ from enum import StrEnum, auto
 
 class Component(StrEnum):
     WAZUH_INDEXER = auto()
-    WAZUH_SERVER = "wazuh_manager"
+    WAZUH_MANAGER = auto()
     WAZUH_DASHBOARD = auto()
     ALL = auto()
 
