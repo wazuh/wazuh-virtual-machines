@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Change manager /var/ossec/ references to /var/wazuh-manager/ ([#588](https://github.com/wazuh/wazuh-virtual-machines/pull/588))
 - Adapt the integration test module ([#555](https://github.com/wazuh/wazuh-virtual-machines/pull/555))
 - Remove latest AMI creation and add informative tags to new AMIs ([#563](https://github.com/wazuh/wazuh-virtual-machines/pull/563))
 - Change URL sign expiration time and add debug messages ([#553](https://github.com/wazuh/wazuh-virtual-machines/pull/553))
