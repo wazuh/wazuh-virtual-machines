@@ -223,7 +223,9 @@ class CertsManager:
             raise Exception(f"Error while compressing certificates: {error_output}")
 
         for component in Component:
-            if component != Component.ALL and component != Component.WAZUH_AGENT:  # The agent certificates are not generated
+            if (
+                component != Component.ALL and component != Component.WAZUH_AGENT
+            ):  # The agent certificates are not generated
                 certs_name = self._get_certs_name(
                     component=component,
                     component_config_file=ComponentConfigFile.WAZUH_INDEXER
