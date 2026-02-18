@@ -2,20 +2,20 @@ from enum import StrEnum
 
 
 class ComponentConfigFile(StrEnum):
-    WAZUH_MANAGER = "/var/ossec/etc/ossec.conf"
+    WAZUH_MANAGER = "/var/wazuh-manager/etc/wazuh-manager.conf"
     WAZUH_INDEXER = "/etc/wazuh-indexer/opensearch.yml"
     WAZUH_DASHBOARD = "/etc/wazuh-dashboard/opensearch_dashboards.yml"
 
 
 class ComponentCertsDirectory(StrEnum):
-    WAZUH_MANAGER = "/var/ossec/etc/certs"
+    WAZUH_MANAGER = "/var/wazuh-manager/etc/certs"
     WAZUH_INDEXER = "/etc/wazuh-indexer/certs"
     WAZUH_DASHBOARD = "/etc/wazuh-dashboard/certs"
 
 
 class ComponentCertsConfigParameter(StrEnum):
     # Wazuh Server
-    # We use ossec_config[0] because there is more than one ossec_config entry in the ossec.conf file and need to
+    # We use ossec_config[0] because there is more than one ossec_config entry in the wazuh-manager.conf file and need to
     # identify the correct one.
     # This siyntax is needed for yq to correctly identify the path to modify.
     WAZUH_MANAGER_KEY = "ossec_config[0].indexer.ssl.key"
