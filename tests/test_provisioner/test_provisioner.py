@@ -110,7 +110,7 @@ def test_provision_success(mock_paramiko, mock_logger, component_info_valid, moc
     assert package_expect_commands[1] in mock_exec_command.call_args_list[7].kwargs["command"]
     mock_logger.debug_title.assert_any_call("Starting provisioning")
     mock_logger.debug_title.assert_any_call("Provisioning certificates files")
-    mock_logger.debug_title.assert_any_call("Starting provisioning for Wazuh manager")
+    mock_logger.debug_title.assert_any_call("Starting provisioning for wazuh manager")
 
 
 @pytest.mark.parametrize(
@@ -241,7 +241,7 @@ def test_packages_provision_success(
     )
 
     mock_logger.debug_title.assert_any_call("Provisioning packages")
-    mock_logger.debug.assert_any_call("Downloading Wazuh manager package")
+    mock_logger.debug.assert_any_call("Downloading wazuh manager package")
 
 
 @pytest.mark.parametrize(

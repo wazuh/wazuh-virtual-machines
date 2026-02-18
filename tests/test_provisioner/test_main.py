@@ -62,12 +62,12 @@ def test_get_component_info(package_type, arch, package_url, dependencies, compo
                     dependencies=["dependency1", "dependency2"],
                 ),
                 ComponentInfo(
-                    name=Component.WAZUH_AGENT,
+                    name=Component.WAZUH_DASHBOARD,
                     package_url=AnyUrl("http://example.com/all.rpm"),
                     dependencies=["dependency1", "dependency2"],
                 ),
                 ComponentInfo(
-                    name=Component.WAZUH_DASHBOARD,
+                    name=Component.WAZUH_AGENT,
                     package_url=AnyUrl("http://example.com/all.rpm"),
                     dependencies=["dependency1", "dependency2"],
                 ),
@@ -105,7 +105,7 @@ def test_get_component_info(package_type, arch, package_url, dependencies, compo
                 ComponentInfo(
                     name=Component.WAZUH_AGENT,
                     package_url=AnyUrl("http://example.com/agent.rpm"),
-                    dependencies=["dependency3", "dependency4"],
+                    dependencies=["dependency5", "dependency6"],
                 )
             ],
             "rpm",
@@ -117,7 +117,7 @@ def test_get_component_info(package_type, arch, package_url, dependencies, compo
                 ComponentInfo(
                     name=Component.WAZUH_DASHBOARD,
                     package_url=AnyUrl("http://example.com/dashboard.deb"),
-                    dependencies=["dependency5", "dependency6"],
+                    dependencies=["dependency7", "dependency8"],
                 )
             ],
             "deb",
