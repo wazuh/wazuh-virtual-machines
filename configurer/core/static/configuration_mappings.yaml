@@ -12,7 +12,7 @@ wazuh_indexer:
         - \"__indexer_node_name__\"
         - \"CN=__indexer_node_name__,OU=Wazuh,O=Wazuh,L=California,C=US\"
 wazuh_manager:
-  - path: /var/ossec/etc/ossec.conf
+  - path: /var/wazuh-manager/etc/wazuh-manager.conf
     replace:
       keys:
         - .ossec_config[0].indexer.hosts.host
@@ -21,6 +21,6 @@ wazuh_manager:
         - .ossec_config[0].indexer.ssl.key
       values:
         - https://127.0.0.1:9200
-        - /var/ossec/etc/certs/root-ca.pem
-        - /var/ossec/etc/certs/manager.pem
-        - /var/ossec/etc/certs/manager-key.pem
+        - /var/wazuh-manager/etc/certs/root-ca.pem
+        - /var/wazuh-manager/etc/certs/manager.pem
+        - /var/wazuh-manager/etc/certs/manager-key.pem
