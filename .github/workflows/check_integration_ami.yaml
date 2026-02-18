@@ -1,5 +1,5 @@
-run-name: PR Check AMI - ${{ github.event.pull_request.title }} - Branch ${{ github.head_ref }}
-name: PR Check - AMI Build & Test
+run-name: "Check Integration AMI - #${{ github.event.issue.number }} ${{ github.event.issue.title }}"
+name: Check Integration - AMI Build & Test
 
 on:
   issue_comment:

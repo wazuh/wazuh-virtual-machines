@@ -1,5 +1,5 @@
-run-name: PR Check OVA - ${{ github.event.pull_request.title }} - Branch ${{ github.head_ref }}
-name: PR Check - OVA Build & Test
+run-name: "Check Integration OVA - #${{ github.event.issue.number }} ${{ github.event.issue.title }}"
+name: Check Integration - OVA Build & Test
 
 on:
   issue_comment:
