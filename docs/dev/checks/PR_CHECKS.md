@@ -59,26 +59,19 @@ TOTAL                                                   1697     13    99%
 
 **Purpose**: Builds and tests a complete OVA artifact
 
-**Automatic Triggers**:
-- ✅ PR marked as "ready for review"
-- ✅ New commits pushed to non-draft PR
-- ✅ Changes in: `configurer/`, `generic/`, `provisioner/`, `models/`, `utils/`
-
-**Manual Triggers** (via comment):
+**Triggers** (via comment):
 - `/test-integration` - Runs both OVA and AMI tests
 - `/test-ova` - Runs only OVA test
 
-**Duration**: ~45-60 minutes
-
 **What it does**:
-1. **Build OVA** (~35-45 min)
+1. **Build OVA**
    - Creates EC2 metal instance on AWS
    - Installs VirtualBox and dependencies
    - Builds OVA with latest Wazuh packages (dev)
    - Uploads OVA to S3
    - Cleans up build instance
 
-2. **Test OVA** (~10-15 min)
+2. **Test OVA**
    - Downloads OVA from S3
    - Imports into VirtualBox on test instance
    - Runs comprehensive integration tests:
@@ -100,30 +93,28 @@ TOTAL                                                   1697     13    99%
 - VMs: ✅ Auto-deleted
 - OVA files: ⚠️ Remain in S3 (manual cleanup if needed)
 
+**Result**:
+The test results will be displayed in:
+- PR Check
+- Action Summary
+- A single comment in the PR (which will be edited if we have new test runs) with the test summary
 ---
 
 ### 3. AMI Integration Tests (`check_integration_ami.yaml`)
 
 **Purpose**: Builds and tests AMI artifacts for both architectures
 
-**Automatic Triggers**:
-- ✅ PR marked as "ready for review"
-- ✅ New commits pushed to non-draft PR
-- ✅ Changes in: `configurer/`, `generic/`, `provisioner/`, `models/`, `utils/`
-
 **Manual Triggers** (via comment):
 - `/test-integration` - Runs both OVA and AMI tests
 - `/test-ami` - Runs only AMI test
 
-**Duration**: ~50-70 minutes
-
 **What it does**:
 
-1. **Get PR Info** (~5 sec)
+1. **Get PR Info**
    - Extracts PR metadata
    - Finds linked issue (if any)
 
-2. **Build AMI** (~35-45 min, parallel)
+2. **Build AMI**
    - Builds **amd64** and **arm64** AMIs simultaneously
    - Creates EC2 instances (Amazon Linux 2023)
    - Installs Wazuh packages (dev)
@@ -134,7 +125,7 @@ TOTAL                                                   1697     13    99%
      - Workflow run link
    - Cleans up build instances
 
-3. **Test AMI** (~10-15 min, parallel)
+3. **Test AMI**
    - **amd64 test**: Launches `c5ad.xlarge` instance
    - **arm64 test**: Launches `c6g.xlarge` instance
    - Runs integration tests on both:
@@ -146,7 +137,7 @@ TOTAL                                                   1697     13    99%
    - Posts results as PR comment
    - Terminates test instances
 
-4. **Cleanup** (~1-2 min, always runs)
+4. **Cleanup**
    - Deregisters both AMIs
    - Deletes EBS snapshots
    - Removes SSH keys
@@ -168,13 +159,19 @@ TOTAL                                                   1697     13    99%
 | amd64 (x86_64) | c5ad.xlarge | Amazon Linux 2023 x86_64 |
 | arm64 (aarch64) | c6g.xlarge | Amazon Linux 2023 ARM64 |
 
+**Result**:
+The test results will be displayed in:
+- PR Check
+- Action Summary
+- A single comment in the PR (which will be edited if we have new test runs) with the test summary
+
 ---
 
 ## How to Use PR Checks
 
 ### Automatic Execution
 
-PR checks run automatically when:
+PR checks run automatically when (Only for unit test):
 1. You mark a PR as "ready for review" (from draft)
 2. You push new commits to a non-draft PR
 3. Your changes affect relevant paths (see each check's triggers)
@@ -203,7 +200,7 @@ gh pr ready
 
 ### Manual Execution via Comments
 
-You can manually trigger integration tests by commenting on your PR:
+You can manually trigger integration tests by commenting on your PR (Only for integration test):
 
 | Command | Triggers |
 |---------|----------|
@@ -314,30 +311,6 @@ Test Summary:
    - **Certificate error**: Check certificate generation in configurer
    - **Connectivity failed**: Review network configuration changes
 
-### Tests Stuck/Timeout
-
-**Symptom**: Test running for >90 minutes
-
-**Likely causes**:
-- AWS resource limits reached
-- Network issues
-- Instance failed to start
-
-**Steps**:
-1. Cancel workflow from Actions tab
-2. Wait 5 minutes
-3. Retry with comment trigger: `/test-{type}`
-
-### AMI Name Conflict
-
-**Error**: `AMI name already in use`
-
-**Cause**: Previous test failed before cleanup
-
-**Solution**:
-- Automatic: Cleanup job should handle this
-- Manual: Contact DevOps to deregister conflicting AMI
-
 ---
 
 ## Best Practices
@@ -363,8 +336,8 @@ This prevents triggering expensive integration tests prematurely.
 ### 3. Monitor Resource Usage
 
 Integration tests consume AWS resources:
-- **OVA test**: ~1-2 metal instance hours (~$5-10)
-- **AMI test**: ~2-4 instance hours (~$2-5)
+- **OVA test**: ~1-2 metal instance hours
+- **AMI test**: ~2-4 instance hours
 
 💡 Use manual triggers (`/test-{type}`) to avoid unnecessary reruns.
 
@@ -385,35 +358,12 @@ Don't just check ✅/❌:
 
 ## Check Configuration
 
-### Path Filters
-
-Each check monitors specific paths:
-
-**Unit Tests**:
-- `configurer/**`
-- `generic/**`
-- `provisioner/**`
-- `models/**`
-- `utils/**`
-- `tests/**` ← Only unit tests
-
-**Integration Tests** (OVA/AMI):
-- `configurer/**`
-- `generic/**`
-- `provisioner/**`
-- `models/**`
-- `utils/**`
-
-**Why separate?**
-- Test-only changes = no rebuild needed
-- Code changes = full validation required
-
 ### Build Parameters
 
 **Development Builds** (PR checks):
 ```yaml
 wazuh_package_type: dev
-is_stage: true
+is_stage: false
 destroy: true          # Clean up resources
 wazuh_automation_reference: main
 ```
@@ -422,7 +372,7 @@ wazuh_automation_reference: main
 ```yaml
 wazuh_package_type: prod
 is_stage: true
-destroy: false         # Keep artifacts
+destroy: true         # Keep artifacts
 ```
 
 ---
@@ -440,82 +390,7 @@ destroy: false         # Keep artifacts
 
 ---
 
-## FAQ
-
-### Q: Why do integration tests take so long?
-
-**A**: Integration tests build complete artifacts:
-- OVA: 35-45 min build + 10-15 min test
-- AMI: 35-45 min build + 10-15 min test (×2 architectures)
-
-This includes:
-- EC2 instance provisioning
-- OS configuration
-- Wazuh installation
-- Package downloads
-- VM/AMI creation
-- Comprehensive testing
-
-### Q: Can I skip integration tests?
-
-**A**: No, but you can optimize:
-- Mark PR as draft while developing
-- Run unit tests locally first
-- Use `/test-{specific}` to run only needed tests
-- Only mark "ready for review" when confident
-
-### Q: What if I only changed docs?
-
-**A**: Checks won't run! Path filters exclude:
-- `*.md` files
-- `docs/` directory
-- Non-code changes
-
-### Q: Can I run integration tests locally?
-
-**A**: Partially:
-- Unit tests: ✅ `hatch run dev:test-cov`
-- OVA build: ⚠️ Requires metal instance + VirtualBox
-- AMI build: ⚠️ Requires AWS credentials + EC2
-- Integration tests: ⚠️ Requires test runner module
-
-Use PR checks for full validation.
-
-### Q: How do I know which tests failed?
-
-**A**: Multiple places:
-1. PR comment (summary)
-2. GitHub Actions summary (detailed)
-3. Workflow logs (full output)
-4. Artifacts (test output files)
-
-### Q: What happens to created resources?
-
-**A**: Auto-cleanup:
-- ✅ EC2 instances: Terminated
-- ✅ AMIs: Deregistered
-- ✅ EBS snapshots: Deleted
-- ✅ SSH keys: Removed
-- ⚠️ OVA files: Remain in S3 (dev bucket)
-
-### Q: Can I customize test parameters?
-
-**A**: Not via PR comments. Parameters are fixed for consistency:
-- Dev packages
-- Latest commits
-- Standard instance types
-- All tests enabled
-
-For custom builds, use manual workflow dispatch.
-
----
-
 ## Support
-
-**Issues**:
-- PR check failures: Review workflow logs first
-- Infrastructure issues: Contact DevOps team
-- False positives: Create issue with workflow link
 
 **Documentation**:
 - Technical implementation: `PR_CHECKS_IMPLEMENTATION.md`
@@ -523,5 +398,3 @@ For custom builds, use manual workflow dispatch.
 - Test module: `wazuh-automation/integration-test-module/`
 
 ---
-
-*Last updated: 2025-01-30*
