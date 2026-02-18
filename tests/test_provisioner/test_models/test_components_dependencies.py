@@ -15,9 +15,13 @@ def test_get_component_dependencies_success():
             Package_manager.YUM: ["dep5", "dep6"],
             Package_manager.APT: ["dep7", "dep8"],
         },
-        Component.WAZUH_DASHBOARD: {
+        Component.WAZUH_AGENT: {
             Package_manager.YUM: ["dep9", "dep10"],
             Package_manager.APT: ["dep11", "dep12"],
+        },
+        Component.WAZUH_DASHBOARD: {
+            Package_manager.YUM: ["dep13", "dep14"],
+            Package_manager.APT: ["dep15", "dep16"],
         },
     }
     components_dependencies = ComponentsDependencies(
@@ -26,7 +30,8 @@ def test_get_component_dependencies_success():
 
     assert components_dependencies.indexer_dependencies == ["dep1", "dep2"]
     assert components_dependencies.manager_dependencies == ["dep5", "dep6"]
-    assert components_dependencies.dashboard_dependencies == ["dep9", "dep10"]
+    assert components_dependencies.agent_dependencies == ["dep9", "dep10"]
+    assert components_dependencies.dashboard_dependencies == ["dep13", "dep14"]
 
 
 def test_get_component_dependencies_key_error():

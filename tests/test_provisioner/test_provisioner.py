@@ -22,7 +22,7 @@ def mock_exec_command():
 @pytest.fixture
 def component_info_valid(valid_inventory):
     dependencies = ["dependency1", "dependency2"]
-    component_server = ComponentInfo(
+    component_manager = ComponentInfo(
         name=Component.WAZUH_MANAGER,
         package_url=AnyUrl("http://packages-dev.wazuh.com"),
         dependencies=dependencies,
@@ -40,7 +40,7 @@ def component_info_valid(valid_inventory):
         inventory=valid_inventory,
         certs=certs,
         password_tool=password_tool,
-        components=[component_server],
+        components=[component_manager],
         package_type=package_type,
     )
 
@@ -110,7 +110,7 @@ def test_provision_success(mock_paramiko, mock_logger, component_info_valid, moc
     assert package_expect_commands[1] in mock_exec_command.call_args_list[7].kwargs["command"]
     mock_logger.debug_title.assert_any_call("Starting provisioning")
     mock_logger.debug_title.assert_any_call("Provisioning certificates files")
-    mock_logger.debug_title.assert_any_call("Starting provisioning for wazuh manager")
+    mock_logger.debug_title.assert_any_call("Starting provisioning for Wazuh manager")
 
 
 @pytest.mark.parametrize(
@@ -241,7 +241,7 @@ def test_packages_provision_success(
     )
 
     mock_logger.debug_title.assert_any_call("Provisioning packages")
-    mock_logger.debug.assert_any_call("Downloading wazuh manager package")
+    mock_logger.debug.assert_any_call("Downloading Wazuh manager package")
 
 
 @pytest.mark.parametrize(
@@ -252,6 +252,12 @@ def test_packages_provision_success(
             Component.WAZUH_MANAGER,
             "http://packages-dev.wazuh.com/wazuh_manager.rpm",
             "wazuh_manager.rpm",
+        ),
+        (
+            Package_manager.YUM,
+            Component.WAZUH_AGENT,
+            "http://packages-dev.wazuh.com/wazuh_agent.rpm",
+            "wazuh_agent.rpm",
         ),
         (
             Package_manager.APT,
@@ -290,6 +296,7 @@ def test_get_package_by_url_success(
     "component_name, package_url, error_output",
     [
         (Component.WAZUH_MANAGER, "http://packages-dev.wazuh.com/wazuh_manager.rpm", "Error output"),
+        (Component.WAZUH_AGENT, "http://packages-dev.wazuh.com/wazuh_agent.rpm", "Error output"),
         (Component.WAZUH_INDEXER, "http://packages-dev.wazuh.com/wazuh_indexer.deb", "Error output"),
     ],
 )

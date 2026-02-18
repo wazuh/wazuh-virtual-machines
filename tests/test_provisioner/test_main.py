@@ -62,6 +62,11 @@ def test_get_component_info(package_type, arch, package_url, dependencies, compo
                     dependencies=["dependency1", "dependency2"],
                 ),
                 ComponentInfo(
+                    name=Component.WAZUH_AGENT,
+                    package_url=AnyUrl("http://example.com/all.rpm"),
+                    dependencies=["dependency1", "dependency2"],
+                ),
+                ComponentInfo(
                     name=Component.WAZUH_DASHBOARD,
                     package_url=AnyUrl("http://example.com/all.rpm"),
                     dependencies=["dependency1", "dependency2"],
@@ -87,7 +92,19 @@ def test_get_component_info(package_type, arch, package_url, dependencies, compo
             [
                 ComponentInfo(
                     name=Component.WAZUH_MANAGER,
-                    package_url=AnyUrl("http://example.com/server.rpm"),
+                    package_url=AnyUrl("http://example.com/manager.rpm"),
+                    dependencies=["dependency3", "dependency4"],
+                )
+            ],
+            "rpm",
+            "x86_64",
+        ),
+        (
+            Component.WAZUH_AGENT,
+            [
+                ComponentInfo(
+                    name=Component.WAZUH_AGENT,
+                    package_url=AnyUrl("http://example.com/agent.rpm"),
                     dependencies=["dependency3", "dependency4"],
                 )
             ],
@@ -142,6 +159,14 @@ def test_parse_componets(component, expected_components, package_type, arch):
         (
             "/path/to/packages",
             Component.WAZUH_MANAGER,
+            "rpm",
+            "x86_64",
+            "/path/to/dependencies",
+            "/path/to/inventory",
+        ),
+        (
+            "/path/to/packages",
+            Component.WAZUH_AGENT,
             "rpm",
             "x86_64",
             "/path/to/dependencies",
