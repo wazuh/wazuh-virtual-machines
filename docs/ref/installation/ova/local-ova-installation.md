@@ -26,21 +26,21 @@ The file specified in `--packages_url_path` must contain the URLs of the Wazuh c
 
 ```yaml
 wazuh_manager_amd64_deb: "http://example.com/wazuh-manager-amd64.deb"
-wazuh_manager_arm64_deb: "http://example.com/wazuh-manager-arm"
+wazuh_manager_arm64_deb: "http://example.com/wazuh-manager-arm64.deb"
 wazuh_manager_amd64_rpm: "http://example.com/wazuh-manager-amd64.rpm"
-wazuh_manager_arm64_rpm: "http://example.com/wazuh-manager-arm.rpm"
+wazuh_manager_arm64_rpm: "http://example.com/wazuh-manager-arm64.rpm"
 wazuh_agent_amd64_deb: "http://example.com/wazuh-agent-amd64.deb"
-wazuh_agent_arm64_deb: "http://example.com/wazuh-agent-arm"
+wazuh_agent_arm64_deb: "http://example.com/wazuh-agent-arm64.deb"
 wazuh_agent_amd64_rpm: "http://example.com/wazuh-agent-amd64.rpm"
-wazuh_agent_arm64_rpm: "http://example.com/wazuh-agent-arm.rpm"
+wazuh_agent_arm64_rpm: "http://example.com/wazuh-agent-arm64.rpm"
 wazuh_indexer_amd64_deb: "http://example.com/wazuh-indexer-amd64.deb"
-wazuh_indexer_arm64_deb: "http://example.com/wazuh-indexer-arm"
+wazuh_indexer_arm64_deb: "http://example.com/wazuh-indexer-arm64.deb"
 wazuh_indexer_amd64_rpm: "http://example.com/wazuh-indexer-amd64.rpm"
-wazuh_indexer_arm64_rpm: "http://example.com/wazuh-indexer-arm.rpm"
+wazuh_indexer_arm64_rpm: "http://example.com/wazuh-indexer-arm64.rpm"
 wazuh_dashboard_amd64_deb: "http://example.com/wazuh-dashboard-amd64.deb"
-wazuh_dashboard_arm64_deb: "http://example.com/wazuh-dashboard-arm"
+wazuh_dashboard_arm64_deb: "http://example.com/wazuh-dashboard-arm64.deb"
 wazuh_dashboard_amd64_rpm: "http://example.com/wazuh-dashboard-amd64.rpm"
-wazuh_dashboard_arm64_rpm: "http://example.com/wazuh-dashboard-arm.rpm"
+wazuh_dashboard_arm64_rpm: "http://example.com/wazuh-dashboard-arm64.rpm"
 ...
 ```
 

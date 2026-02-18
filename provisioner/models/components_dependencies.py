@@ -16,7 +16,8 @@ class ComponentsDependencies(BaseModel):
     Properties:
         package_manager (Package_manager): Returns the appropriate package manager (YUM for rpm, APT for deb).
         indexer_dependencies (List[str]): Returns the dependencies for the Wazuh Indexer component.
-        manager_dependencies (List[str]): Returns the dependencies for the Wazuh Server component.
+        manager_dependencies (List[str]): Returns the dependencies for the Wazuh manager component.
+        agent_dependencies (List[str]): Returns the dependencies for the Wazuh agent component.
         dashboard_dependencies (List[str]): Returns the dependencies for the Wazuh Dashboard component.
     """
 
