@@ -185,7 +185,7 @@ jobs:
           else
             # Dev build: both latest and commit versions
             FILENAME_LATEST="wazuh-${{ env.WAZUH_VERSION }}-latest"
-            FILENAME_COMMIT="wazuh-${{ env.WAZUH_VERSION }}-${{ inputs.ova_revision }}-${COMMIT_SHA}"
+            FILENAME_COMMIT="wazuh-${{ env.WAZUH_VERSION }}-${{ inputs.ova_revision }}_${COMMIT_SHA}"
 
             echo "FILENAME_LATEST=$FILENAME_LATEST" >> $GITHUB_ENV
             echo "FILENAME_LATEST_OVA=$FILENAME_LATEST.ova" >> $GITHUB_ENV
