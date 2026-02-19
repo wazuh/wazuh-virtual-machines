@@ -6,7 +6,12 @@ import yaml
 from generic import exec_command
 from utils import Component, Logger
 
-from .wazuh_config_mapping import WazuhDashboardConfigMapping, WazuhIndexerConfigMapping, WazuhServerConfigMapping
+from .wazuh_config_mapping import (
+    WazuhAgentConfigMapping,
+    WazuhDashboardConfigMapping,
+    WazuhIndexerConfigMapping,
+    WazuhServerConfigMapping,
+)
 
 logger = Logger("ConfigManager")
 
@@ -34,6 +39,7 @@ class WazuhComponentConfigManager:
         self._indexer_placeholder = {"__indexer_node_name__": Component.WAZUH_INDEXER.lower()}
         self._manager_placeholder = {}
         self._dashboard_placeholder = {}
+        self._agent_placeholder = {}
 
     @property
     def indexer_mapping(self) -> WazuhIndexerConfigMapping | None:
@@ -51,6 +57,12 @@ class WazuhComponentConfigManager:
     def dashboard_mapping(self) -> WazuhDashboardConfigMapping | None:
         if self.config_mappings_file.get(Component.WAZUH_DASHBOARD, None):
             return WazuhDashboardConfigMapping(self.config_mappings_file[Component.WAZUH_DASHBOARD])
+        return None
+
+    @property
+    def agent_mapping(self) -> WazuhAgentConfigMapping | None:
+        if self.config_mappings_file.get(Component.WAZUH_AGENT, None):
+            return WazuhAgentConfigMapping(self.config_mappings_file[Component.WAZUH_AGENT])
         return None
 
     def replace_file_entries(self, component: Component, client: paramiko.SSHClient | None = None):
@@ -76,6 +88,8 @@ class WazuhComponentConfigManager:
             replace_content = self.manager_mapping.replace_content if self.manager_mapping else None
         elif component == Component.WAZUH_DASHBOARD:
             replace_content = self.dashboard_mapping.replace_content if self.dashboard_mapping else None
+        elif component == Component.WAZUH_AGENT:
+            replace_content = self.agent_mapping.replace_content if self.agent_mapping else None
         else:
             raise ValueError(f"Invalid component: {component}")
 

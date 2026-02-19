@@ -20,6 +20,7 @@ def example_config_file():
         Component.WAZUH_DASHBOARD: [
             {"path": "/path/dashboard/config", "replace": {"keys": [".key3"], "values": ["value3"]}}
         ],
+        Component.WAZUH_AGENT: [{"path": "/path/agent/config", "replace": {"keys": [".key4"], "values": ["value4"]}}],
     }
 
 
@@ -78,7 +79,8 @@ def test_component_mapping_with_valid_data(mapping_property, expected_mapping, m
 
 
 @pytest.mark.parametrize(
-    "component_without_mapping", [Component.WAZUH_INDEXER, Component.WAZUH_MANAGER, Component.WAZUH_DASHBOARD]
+    "component_without_mapping",
+    [Component.WAZUH_INDEXER, Component.WAZUH_MANAGER, Component.WAZUH_DASHBOARD, Component.WAZUH_AGENT],
 )
 def test_component_mapping_without_data(mock_open_file, component_without_mapping):
     config_manager = WazuhComponentConfigManager(Path("test_path"))

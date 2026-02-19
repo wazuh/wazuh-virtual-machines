@@ -185,6 +185,7 @@ def test_format_certificates_urls_file_partial(mock_file):
 wazuh_indexer_url_amd64_deb: https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/
 wazuh_indexer_url_arm64_deb: https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/
 wazuh_manager_url_x86_64_rpm: https://packages.wazuh.com/wazuh-manager-example/x86_64/rpm/
+wazuh_agent_url_amd64_deb: https://packages.wazuh.com/wazuh-agent-example/amd64/deb/
 """,
 )
 def test_format_component_urls_file_valid(mock_file):
@@ -203,7 +204,12 @@ def test_format_component_urls_file_valid(mock_file):
             },
         },
         "wazuh_dashboard": {"deb": {}, "rpm": {}},
-        "wazuh_agent": {"deb": {}, "rpm": {}},
+        "wazuh_agent": {
+            "deb": {
+                "amd64": "https://packages.wazuh.com/wazuh-agent-example/amd64/deb/",
+            },
+            "rpm": {},
+        },
     }
     assert format_component_urls_file(Path("fake_component_urls.yaml")) == expected_output
 

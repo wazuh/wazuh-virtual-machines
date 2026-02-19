@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Add agent configuration process in core configurer ([#601](https://github.com/wazuh/wazuh-virtual-machines/pull/601))
 - Add the wazuh agent installation in the provisioner module. ([#602](https://github.com/wazuh/wazuh-virtual-machines/pull/602))
 - Add documentation for local ova build ([#562](https://github.com/wazuh/wazuh-virtual-machines/pull/562))
 - Add the installation assistant tools revision in the generate presigned urls script ([#531](https://github.com/wazuh/wazuh-virtual-machines/pull/531))
