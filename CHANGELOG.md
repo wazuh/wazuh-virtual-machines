@@ -6,12 +6,20 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Add agent configuration process in core configurer ([#601](https://github.com/wazuh/wazuh-virtual-machines/pull/601))
+- Add the wazuh agent installation in the provisioner module. ([#602](https://github.com/wazuh/wazuh-virtual-machines/pull/602))
 - Add documentation for local ova build ([#562](https://github.com/wazuh/wazuh-virtual-machines/pull/562))
 - Add the installation assistant tools revision in the generate presigned urls script ([#531](https://github.com/wazuh/wazuh-virtual-machines/pull/531))
 - Added debug mode to customizer script for AMI. ([#513](https://github.com/wazuh/wazuh-virtual-machines/pull/513))
 
 ### Changed
 
+- Add WF to execute PR Check with build and test OVA and AMI ([#583](https://github.com/wazuh/wazuh-virtual-machines/pull/583))
+- Add WF to execute PR Check with build and test OVA and AMI ([#594](https://github.com/wazuh/wazuh-virtual-machines/pull/594))
+- Add WF to execute PR Check with build and test OVA and AMI ([#598](https://github.com/wazuh/wazuh-virtual-machines/pull/598))
+- Add WF to execute PR Check with build and test OVA and AMI ([#597](https://github.com/wazuh/wazuh-virtual-machines/pull/597))
+- Add WF to execute PR Check with build and test OVA and AMI ([#593](https://github.com/wazuh/wazuh-virtual-machines/pull/593))
+- Add WF to execute PR Check with build and test OVA and AMI ([#591](https://github.com/wazuh/wazuh-virtual-machines/pull/591))
+- Change manager /var/ossec/ references to /var/wazuh-manager/ ([#588](https://github.com/wazuh/wazuh-virtual-machines/pull/588))
 - Adapt the integration test module ([#555](https://github.com/wazuh/wazuh-virtual-machines/pull/555))
 - Remove latest AMI creation and add informative tags to new AMIs ([#563](https://github.com/wazuh/wazuh-virtual-machines/pull/563))
 - Change URL sign expiration time and add debug messages ([#553](https://github.com/wazuh/wazuh-virtual-machines/pull/553))

@@ -1,22 +1,27 @@
 wazuh_indexer:
-  apt: 
-    - debconf 
+  apt:
+    - debconf
     - adduser
     - procps
-  yum: 
+  yum:
     - coreutils
 
 wazuh_manager:
-  apt: 
+  apt:
+    - gnupg
+    - apt-transport-https
+
+wazuh_agent:
+  apt:
     - gnupg
     - apt-transport-https
 
 wazuh_dashboard:
-  apt: 
+  apt:
     - debhelper
     - tar
     - curl
     - libcap2-bin
-  yum: 
+  yum:
     - libcap
     - yum-utils

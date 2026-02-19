@@ -12,7 +12,7 @@ wazuh_indexer:
         - \"__indexer_node_name__\"
         - \"CN=__indexer_node_name__,OU=Wazuh,O=Wazuh,L=California,C=US\"
 wazuh_manager:
-  - path: /var/wazuh-manager/etc/ossec.conf
+  - path: /var/wazuh-manager/etc/wazuh-manager.conf
     replace:
       keys:
         - .ossec_config[0].indexer.hosts.host

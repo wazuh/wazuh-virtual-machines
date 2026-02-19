@@ -20,7 +20,8 @@ class PackageInfo(BaseModel):
 
     Properties:
         indexer_packages (dict): Returns the packages for Wazuh Indexer component.
-        server_packages (dict): Returns the packages for Wazuh Server component.
+        manager_packages (dict): Returns the packages for Wazuh Manager component.
+        agent_packages (dict): Returns the packages for Wazuh Agent component.
         dashboard_packages (dict): Returns the packages for Wazuh Dashboard component.
     """
 
@@ -33,8 +34,12 @@ class PackageInfo(BaseModel):
         return self.get_component_packages(Component.WAZUH_INDEXER, self.package_type)
 
     @property
-    def server_packages(self) -> dict:
+    def manager_packages(self) -> dict:
         return self.get_component_packages(Component.WAZUH_MANAGER, self.package_type)
+
+    @property
+    def agent_packages(self) -> dict:
+        return self.get_component_packages(Component.WAZUH_AGENT, self.package_type)
 
     @property
     def dashboard_packages(self) -> dict:
