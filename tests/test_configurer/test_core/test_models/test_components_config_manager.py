@@ -85,7 +85,8 @@ def test_component_mapping_without_data(mock_open_file, component_without_mappin
     config_manager.config_mappings_file.pop(component_without_mapping)
 
     for component in Component:
-        if component != Component.ALL and component != component_without_mapping:
+        # For now we do not have the agent in the core configurer. This will be updated in this issue: https://github.com/wazuh/wazuh-virtual-machines/issues/567
+        if component != Component.ALL and component != Component.WAZUH_AGENT and component != component_without_mapping:
             assert getattr(config_manager, f"{component.name.lower().split('_')[1]}_mapping") is not None
     assert getattr(config_manager, f"{component_without_mapping.name.lower().split('_')[1]}_mapping") is None
 

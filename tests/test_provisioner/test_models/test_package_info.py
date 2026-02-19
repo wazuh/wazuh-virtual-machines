@@ -17,8 +17,14 @@ def package_info():
         },
         Component.WAZUH_MANAGER: {
             Package_type.RPM: {
-                Component_arch.X86_64: "http://packages.wazuh.com/server/x86_64.rpm",
-                Component_arch.AARCH64: "http://packages.wazuh.com/server/aarch64.rpm",
+                Component_arch.X86_64: "http://packages.wazuh.com/manager/x86_64.rpm",
+                Component_arch.AARCH64: "http://packages.wazuh.com/manager/aarch64.rpm",
+            }
+        },
+        Component.WAZUH_AGENT: {
+            Package_type.RPM: {
+                Component_arch.X86_64: "http://packages.wazuh.com/agent/x86_64.rpm",
+                Component_arch.AARCH64: "http://packages.wazuh.com/agent/aarch64.rpm",
             }
         },
         Component.WAZUH_DASHBOARD: {
@@ -42,10 +48,17 @@ def package_info():
             },
         ),
         (
-            "server",
+            "manager",
             {
-                Component_arch.X86_64: "http://packages.wazuh.com/server/x86_64.rpm",
-                Component_arch.AARCH64: "http://packages.wazuh.com/server/aarch64.rpm",
+                Component_arch.X86_64: "http://packages.wazuh.com/manager/x86_64.rpm",
+                Component_arch.AARCH64: "http://packages.wazuh.com/manager/aarch64.rpm",
+            },
+        ),
+        (
+            "agent",
+            {
+                Component_arch.X86_64: "http://packages.wazuh.com/agent/x86_64.rpm",
+                Component_arch.AARCH64: "http://packages.wazuh.com/agent/aarch64.rpm",
             },
         ),
         (
@@ -65,7 +78,8 @@ def test_get_component_property_packages_success(component, expected_output, pac
     "component, attr_name",
     [
         (Component.WAZUH_INDEXER, "indexer_packages"),
-        (Component.WAZUH_MANAGER, "server_packages"),
+        (Component.WAZUH_MANAGER, "manager_packages"),
+        (Component.WAZUH_AGENT, "agent_packages"),
         (Component.WAZUH_DASHBOARD, "dashboard_packages"),
     ],
 )
@@ -80,7 +94,8 @@ def test_packages_missing_component(package_info, component, attr_name):
     "component, attr_name",
     [
         (Component.WAZUH_INDEXER, "indexer_packages"),
-        (Component.WAZUH_MANAGER, "server_packages"),
+        (Component.WAZUH_MANAGER, "manager_packages"),
+        (Component.WAZUH_AGENT, "agent_packages"),
         (Component.WAZUH_DASHBOARD, "dashboard_packages"),
     ],
 )
@@ -106,8 +121,16 @@ def test_packages_missing_package_type(package_info, component, attr_name):
             Component.WAZUH_MANAGER,
             Package_type.RPM,
             {
-                Component_arch.X86_64: "http://packages.wazuh.com/server/x86_64.rpm",
-                Component_arch.AARCH64: "http://packages.wazuh.com/server/aarch64.rpm",
+                Component_arch.X86_64: "http://packages.wazuh.com/manager/x86_64.rpm",
+                Component_arch.AARCH64: "http://packages.wazuh.com/manager/aarch64.rpm",
+            },
+        ),
+        (
+            Component.WAZUH_AGENT,
+            Package_type.RPM,
+            {
+                Component_arch.X86_64: "http://packages.wazuh.com/agent/x86_64.rpm",
+                Component_arch.AARCH64: "http://packages.wazuh.com/agent/aarch64.rpm",
             },
         ),
         (
@@ -129,6 +152,7 @@ def test_get_component_packages_success(package_info, component, package_type, e
     [
         (Component.WAZUH_INDEXER),
         (Component.WAZUH_MANAGER),
+        (Component.WAZUH_AGENT),
         (Component.WAZUH_DASHBOARD),
     ],
 )
@@ -144,6 +168,7 @@ def test_get_component_packages_missing_component(package_info, component):
     [
         (Component.WAZUH_INDEXER),
         (Component.WAZUH_MANAGER),
+        (Component.WAZUH_AGENT),
         (Component.WAZUH_DASHBOARD),
     ],
 )
@@ -173,13 +198,25 @@ def test_get_component_packages_missing_package_type(package_info, component):
             Component.WAZUH_MANAGER,
             Package_type.RPM,
             Component_arch.X86_64,
-            AnyUrl("http://packages.wazuh.com/server/x86_64.rpm"),
+            AnyUrl("http://packages.wazuh.com/manager/x86_64.rpm"),
         ),
         (
             Component.WAZUH_MANAGER,
             Package_type.RPM,
             Component_arch.AARCH64,
-            AnyUrl("http://packages.wazuh.com/server/aarch64.rpm"),
+            AnyUrl("http://packages.wazuh.com/manager/aarch64.rpm"),
+        ),
+        (
+            Component.WAZUH_AGENT,
+            Package_type.RPM,
+            Component_arch.X86_64,
+            AnyUrl("http://packages.wazuh.com/agent/x86_64.rpm"),
+        ),
+        (
+            Component.WAZUH_AGENT,
+            Package_type.RPM,
+            Component_arch.AARCH64,
+            AnyUrl("http://packages.wazuh.com/agent/aarch64.rpm"),
         ),
         (
             Component.WAZUH_DASHBOARD,
@@ -204,6 +241,7 @@ def test_get_package_by_arch_success(package_info, component, package_type, comp
     [
         (Component.WAZUH_INDEXER, Package_type.RPM, Component_arch.X86_64),
         (Component.WAZUH_MANAGER, Package_type.RPM, Component_arch.X86_64),
+        (Component.WAZUH_AGENT, Package_type.RPM, Component_arch.X86_64),
         (Component.WAZUH_DASHBOARD, Package_type.RPM, Component_arch.X86_64),
     ],
 )
@@ -222,6 +260,7 @@ def test_get_package_by_arch_invalid_url(package_info, component, package_type, 
     [
         (Component.WAZUH_INDEXER, Package_type.RPM, Component_arch.X86_64),
         (Component.WAZUH_MANAGER, Package_type.RPM, Component_arch.X86_64),
+        (Component.WAZUH_AGENT, Package_type.RPM, Component_arch.X86_64),
         (Component.WAZUH_DASHBOARD, Package_type.RPM, Component_arch.X86_64),
     ],
 )
@@ -240,6 +279,7 @@ def test_get_package_by_arch_missing_arch(package_info, component, package_type,
     [
         (Component.WAZUH_INDEXER, Package_type.RPM, Component_arch.X86_64),
         (Component.WAZUH_MANAGER, Package_type.RPM, Component_arch.X86_64),
+        (Component.WAZUH_AGENT, Package_type.RPM, Component_arch.X86_64),
         (Component.WAZUH_DASHBOARD, Package_type.RPM, Component_arch.X86_64),
     ],
 )
