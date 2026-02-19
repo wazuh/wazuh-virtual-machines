@@ -102,7 +102,7 @@ def test_component_mapping_without_data(mock_open_file, component_without_mappin
         (Component.WAZUH_DASHBOARD, "sudo yq -i  '.key3 = \"value3\" ' /path/dashboard/config"),
     ],
 )
-def test_replace_file_entries(component, command_to_execute, mock_logger, mock_open_file, mock_exec_command):  #
+def test_replace_file_entries(component, command_to_execute, mock_logger, mock_open_file, mock_exec_command):
     config_manager = WazuhComponentConfigManager(Path("test_path"))
     component_path = getattr(config_manager, f"{component.name.lower().split('_')[1]}_mapping").replace_content[0][
         "path"
