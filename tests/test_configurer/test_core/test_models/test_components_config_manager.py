@@ -85,7 +85,7 @@ def test_component_mapping_without_data(mock_open_file, component_without_mappin
     config_manager.config_mappings_file.pop(component_without_mapping)
 
     for component in Component:
-        # Por ahora no contamos con el agente en el core configurer. Esto se actualizará en esta issue: https://github.com/wazuh/wazuh-virtual-machines/issues/567
+        # For now we do not have the agent in the core configurer. This will be updated in this issue: https://github.com/wazuh/wazuh-virtual-machines/issues/567
         if component != Component.ALL and component != Component.WAZUH_AGENT and component != component_without_mapping:
             assert getattr(config_manager, f"{component.name.lower().split('_')[1]}_mapping") is not None
     assert getattr(config_manager, f"{component_without_mapping.name.lower().split('_')[1]}_mapping") is None
@@ -102,7 +102,7 @@ def test_component_mapping_without_data(mock_open_file, component_without_mappin
         (Component.WAZUH_DASHBOARD, "sudo yq -i  '.key3 = \"value3\" ' /path/dashboard/config"),
     ],
 )
-def test_replace_file_entries(component, command_to_execute, mock_logger, mock_open_file, mock_exec_command):
+def test_replace_file_entries(component, command_to_execute, mock_logger, mock_open_file, mock_exec_command):  #
     config_manager = WazuhComponentConfigManager(Path("test_path"))
     component_path = getattr(config_manager, f"{component.name.lower().split('_')[1]}_mapping").replace_content[0][
         "path"
