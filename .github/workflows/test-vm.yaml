@@ -237,7 +237,7 @@ jobs:
         run: |
           HOST="${{ steps.launch.outputs.instance_ip }}"
           INSTANCE_ID="${{ steps.launch.outputs.instance_id }}"
-          MAX_WAIT=600  # 10 minutes total
+          MAX_WAIT=900  # 15 minutes total
           INTERVAL=30   # Check every 30 seconds
           ELAPSED=0
 
@@ -388,25 +388,58 @@ jobs:
           fi
 
       - name: Comment PR with test results
-        if: always() && github.event_name == 'pull_request'
+        if: always() && inputs.test_type == 'ami' && (github.event_name == 'pull_request' || github.event_name == 'issue_comment')
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            let summary = '## Wazuh VM Test Results\n\n';
+            const arch = '${{ inputs.instance_type }}'.startsWith('c6g') ? 'ARM64' : 'AMD64';
+            const marker = `<!-- wazuh-vm-test-ami-${arch.toLowerCase()} -->`;
+            const header = `## Wazuh VM Test Results - AMI ${arch}`;
+
+            let body = marker + '\n' + header + '\n\n';
 
             if (fs.existsSync('summary.md')) {
-              summary += fs.readFileSync('summary.md', 'utf8');
+              body += fs.readFileSync('summary.md', 'utf8');
             } else {
-              summary += 'Failed to generate test results';
+              body += 'Failed to generate test results';
             }
 
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
+            body += `\n\n[View workflow run](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`;
+
+            const prNumber = context.issue?.number ||
+              (context.payload.issue && context.payload.issue.number);
+
+            if (!prNumber) {
+              console.log('No PR number found, skipping comment');
+              return;
+            }
+
+            const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: summary
+              issue_number: prNumber,
             });
+
+            const existing = comments.find(c => c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: body
+              });
+              console.log('Updated existing comment:', existing.id);
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: body
+              });
+              console.log('Created new comment');
+            }
 
       - name: Set job status
         if: always()
@@ -870,25 +903,57 @@ jobs:
           fi
 
       - name: Comment PR with test results
-        if: always() && github.event_name == 'pull_request'
+        if: always() && inputs.test_type == 'ova' && (github.event_name == 'pull_request' || github.event_name == 'issue_comment')
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            let summary = '## Wazuh VM Test Results\n\n';
+            const marker = '<!-- wazuh-vm-test-ova -->';
+            const header = '## Wazuh VM Test Results - OVA';
+
+            let body = marker + '\n' + header + '\n\n';
 
             if (fs.existsSync('summary.md')) {
-              summary += fs.readFileSync('summary.md', 'utf8');
+              body += fs.readFileSync('summary.md', 'utf8');
             } else {
-              summary += 'Failed to generate test results';
+              body += 'Failed to generate test results';
             }
 
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
+            body += `\n\n[View workflow run](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`;
+
+            const prNumber = context.issue?.number ||
+              (context.payload.issue && context.payload.issue.number);
+
+            if (!prNumber) {
+              console.log('No PR number found, skipping comment');
+              return;
+            }
+
+            const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: summary
+              issue_number: prNumber,
             });
+
+            const existing = comments.find(c => c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: body
+              });
+              console.log('Updated existing comment:', existing.id);
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: body
+              });
+              console.log('Created new comment');
+            }
 
       - name: Set job status
         if: always()

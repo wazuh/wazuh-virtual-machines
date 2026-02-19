@@ -12,6 +12,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Add WF to execute PR Check with build and test OVA and AMI ([#583](https://github.com/wazuh/wazuh-virtual-machines/pull/583))
+- Add WF to execute PR Check with build and test OVA and AMI ([#594](https://github.com/wazuh/wazuh-virtual-machines/pull/594))
+- Add WF to execute PR Check with build and test OVA and AMI ([#598](https://github.com/wazuh/wazuh-virtual-machines/pull/598))
+- Add WF to execute PR Check with build and test OVA and AMI ([#597](https://github.com/wazuh/wazuh-virtual-machines/pull/597))
+- Add WF to execute PR Check with build and test OVA and AMI ([#593](https://github.com/wazuh/wazuh-virtual-machines/pull/593))
+- Add WF to execute PR Check with build and test OVA and AMI ([#591](https://github.com/wazuh/wazuh-virtual-machines/pull/591))
 - Change manager /var/ossec/ references to /var/wazuh-manager/ ([#588](https://github.com/wazuh/wazuh-virtual-machines/pull/588))
 - Adapt the integration test module ([#555](https://github.com/wazuh/wazuh-virtual-machines/pull/555))
 - Remove latest AMI creation and add informative tags to new AMIs ([#563](https://github.com/wazuh/wazuh-virtual-machines/pull/563))
