@@ -210,7 +210,7 @@ jobs:
             AMI_NAME="Wazuh_v${WAZUH_VERSION}-${{ inputs.ami_revision }}${ARCH_SUFFIX}"
           else
             # Dev builds: commit versions
-            AMI_NAME="Wazuh_v${WAZUH_VERSION}-${{ inputs.ami_revision }}-${COMMIT_SHA}${ARCH_SUFFIX}"
+            AMI_NAME="Wazuh_v${WAZUH_VERSION}-${{ inputs.ami_revision }}${ARCH_SUFFIX}_${COMMIT_SHA}"
           fi
 
           COMPOSITE_NAME="amazon-2023-${{ matrix.arch }}"
