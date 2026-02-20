@@ -30,6 +30,7 @@ class AmiPostConfigurer:
     log_directory_path: Path = Path("/var/log")
     wazuh_indexer_log_path: Path = Path("/var/log/wazuh-indexer")
     wazuh_manager_log_path: Path = Path("/var/wazuh-manager/logs")
+    wazuh_agent_log_path: Path = Path("/var/ossec/logs")
     wazuh_dashboard_log_path: Path = Path("/var/log/wazuh-dashboard")
 
     @remote_connection
@@ -68,6 +69,7 @@ class AmiPostConfigurer:
 
         self.create_custom_dir(client=client)
         self.create_certs_env(client=client)
+        self.stop_wazuh_agent(client=client)
         self.stop_wazuh_manager(client=client)
         self.stop_wazuh_indexer(client=client)
         self.stop_wazuh_dashboard(client=client)
@@ -239,6 +241,19 @@ class AmiPostConfigurer:
         self.remove_wazuh_indexes(client=client)
         self.run_security_init_script(client=client)
         self.stop_service("wazuh-indexer", client=client)
+
+    def stop_wazuh_agent(self, client: paramiko.SSHClient) -> None:
+        """
+        Stop the Wazuh agent service.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client used to execute commands on the remote machine.
+
+        Returns:
+            None
+        """
+
+        self.stop_service("wazuh-agent", client=client)
 
     def stop_wazuh_dashboard(self, client: paramiko.SSHClient) -> None:
         """
@@ -420,17 +435,20 @@ class AmiPostConfigurer:
         logger.debug(f'Cleaning up generated logs in "{self.log_directory_path}"')
 
         command = f"""
-            if [ -d {self.log_directory_path} ] && sudo find {self.log_directory_path} -type f | read; then
-                sudo find {self.log_directory_path} -type f -exec sudo bash -c 'cat /dev/null > "$1"' _ {{}} \\;
+            if sudo [ -d {self.log_directory_path} ] && sudo find {self.log_directory_path} -type f | read; then
+                sudo find {self.log_directory_path} -type f -exec truncate -s 0 {{}} \\;
             fi
-            if [ -d {self.wazuh_indexer_log_path} ] && sudo find {self.wazuh_indexer_log_path} -type f | read; then
-                sudo find {self.wazuh_indexer_log_path} -type f -exec sudo bash -c 'cat /dev/null > "$1"' _ {{}} \\;
+            if sudo [ -d {self.wazuh_indexer_log_path} ] && sudo find {self.wazuh_indexer_log_path} -type f | read; then
+                sudo find {self.wazuh_indexer_log_path} -type f -exec truncate -s 0 {{}} \\;
             fi
-            if [ -d {self.wazuh_manager_log_path} ] && sudo find {self.wazuh_manager_log_path} -type f | read; then
-                sudo find {self.wazuh_manager_log_path} -type f -exec sudo bash -c 'cat /dev/null > "$1"' _ {{}} \\;
+            if sudo [ -d {self.wazuh_manager_log_path} ] && sudo find {self.wazuh_manager_log_path} -type f | read; then
+                sudo find {self.wazuh_manager_log_path} -type f -exec truncate -s 0 {{}} \\;
             fi
-            if [ -d {self.wazuh_dashboard_log_path} ] && sudo find {self.wazuh_dashboard_log_path} -type f | read; then
-                sudo find {self.wazuh_dashboard_log_path} -type f -exec sudo bash -c 'cat /dev/null > "$1"' _ {{}} \\;
+            if sudo [ -d {self.wazuh_agent_log_path} ] && sudo find {self.wazuh_agent_log_path} -type f | read; then
+                sudo find {self.wazuh_agent_log_path} -type f -exec truncate -s 0 {{}} \\;
+            fi
+            if sudo [ -d {self.wazuh_dashboard_log_path} ] && sudo find {self.wazuh_dashboard_log_path} -type f | read; then
+                sudo find {self.wazuh_dashboard_log_path} -type f -exec truncate -s 0 {{}} \\;
             fi
         """
 

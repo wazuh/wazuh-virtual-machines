@@ -145,6 +145,15 @@ def test_stop_service_fails(mock_ami_post_configurer, mock_exec_command, mock_pa
     mock_logger.error.assert_called_once_with("Error stopping the testing-service service")
 
 
+def test_stop_wazuh_agent(mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger):
+    mock_ami_post_configurer.stop_wazuh_agent(mock_paramiko.return_value)
+    command = "sudo systemctl stop wazuh-agent"
+    mock_exec_command.assert_called_once_with(command=command, client=mock_paramiko.return_value)
+
+    mock_logger.debug.assert_called_once_with("Stopping wazuh-agent service")
+    mock_logger.info_success.assert_called_once_with("wazuh-agent service stopped successfully")
+
+
 def test_stop_wazuh_manager(mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger):
     mock_ami_post_configurer.stop_wazuh_manager(mock_paramiko.return_value)
     command = "sudo systemctl stop wazuh-manager"
@@ -407,17 +416,20 @@ def test_clean_generated_logs(mock_ami_post_configurer, mock_exec_command, mock_
     mock_ami_post_configurer.clean_generated_logs(mock_paramiko.return_value)
 
     command = f"""
-    if [ -d {mock_ami_post_configurer.log_directory_path} ] && sudo find {mock_ami_post_configurer.log_directory_path} -type f | read; then
-        sudo find {mock_ami_post_configurer.log_directory_path} -type f -exec sudo bash -c 'cat /dev/null > "$1"' _ {{}} \\;
+    if sudo [ -d {mock_ami_post_configurer.log_directory_path} ] && sudo find {mock_ami_post_configurer.log_directory_path} -type f | read; then
+        sudo find {mock_ami_post_configurer.log_directory_path} -type f -exec truncate -s 0 {{}} \\;
     fi
-    if [ -d {mock_ami_post_configurer.wazuh_indexer_log_path} ] && sudo find {mock_ami_post_configurer.wazuh_indexer_log_path} -type f | read; then
-        sudo find {mock_ami_post_configurer.wazuh_indexer_log_path} -type f -exec sudo bash -c 'cat /dev/null > "$1"' _ {{}} \\;
+    if sudo [ -d {mock_ami_post_configurer.wazuh_indexer_log_path} ] && sudo find {mock_ami_post_configurer.wazuh_indexer_log_path} -type f | read; then
+        sudo find {mock_ami_post_configurer.wazuh_indexer_log_path} -type f -exec truncate -s 0 {{}} \\;
     fi
-    if [ -d {mock_ami_post_configurer.wazuh_manager_log_path} ] && sudo find {mock_ami_post_configurer.wazuh_manager_log_path} -type f | read; then
-        sudo find {mock_ami_post_configurer.wazuh_manager_log_path} -type f -exec sudo bash -c 'cat /dev/null > "$1"' _ {{}} \\;
+    if sudo [ -d {mock_ami_post_configurer.wazuh_manager_log_path} ] && sudo find {mock_ami_post_configurer.wazuh_manager_log_path} -type f | read; then
+        sudo find {mock_ami_post_configurer.wazuh_manager_log_path} -type f -exec truncate -s 0 {{}} \\;
     fi
-    if [ -d {mock_ami_post_configurer.wazuh_dashboard_log_path} ] && sudo find {mock_ami_post_configurer.wazuh_dashboard_log_path} -type f | read; then
-        sudo find {mock_ami_post_configurer.wazuh_dashboard_log_path} -type f -exec sudo bash -c 'cat /dev/null > "$1"' _ {{}} \\;
+    if sudo [ -d {mock_ami_post_configurer.wazuh_agent_log_path} ] && sudo find {mock_ami_post_configurer.wazuh_agent_log_path} -type f | read; then
+        sudo find {mock_ami_post_configurer.wazuh_agent_log_path} -type f -exec truncate -s 0 {{}} \\;
+    fi
+    if sudo [ -d {mock_ami_post_configurer.wazuh_dashboard_log_path} ] && sudo find {mock_ami_post_configurer.wazuh_dashboard_log_path} -type f | read; then
+        sudo find {mock_ami_post_configurer.wazuh_dashboard_log_path} -type f -exec truncate -s 0 {{}} \\;
     fi
     """.replace("\n", "").replace(" ", "")
 
