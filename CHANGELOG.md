@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Add agent clean up to the AMI post configurer module ([#607](https://github.com/wazuh/wazuh-virtual-machines/pull/607))
+- Fix file name convetion ([#604](https://github.com/wazuh/wazuh-virtual-machines/pull/604))
 - Add agent configuration process in core configurer ([#601](https://github.com/wazuh/wazuh-virtual-machines/pull/601))
 - Add the wazuh agent installation in the provisioner module. ([#602](https://github.com/wazuh/wazuh-virtual-machines/pull/602))
 - Add documentation for local ova build ([#562](https://github.com/wazuh/wazuh-virtual-machines/pull/562))
@@ -47,6 +48,24 @@ All notable changes to this project will be documented in this file.
 ### Deleted
 
 - Removed OVA and AMI deprecated files. ([#554](https://github.com/wazuh/wazuh-virtual-machines/pull/554))
+
+## [4.14.5]
+
+### Added
+
+- None
+
+### Changed
+
+- None
+
+### Fixed
+
+- None
+
+### Deleted
+
+- None
 
 ## [4.14.4]
 
