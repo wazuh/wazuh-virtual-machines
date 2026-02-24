@@ -4,371 +4,64 @@ name: Build OVA
 on:
   workflow_dispatch:
     inputs:
-      id:
-        description: "ID used to identify the workflow uniquely."
-        type: string
-        required: false
-      checksum:
-        type: boolean
-        description: |
-          Generate package checksum.
-          Default is 'false'.
-        required: false
-      wazuh_virtual_machines_reference:
-        description: 'Branch or tag of the wazuh-virtual-machines repository'
+      process:
+        description: 'Process type'
         required: true
-      wazuh_automation_reference:
-        description: 'Branch or tag of the wazuh-automation repository'
-        required: true
-        default: 'main'
-      is_stage:
-        description: "Is stage?"
-        type: boolean
-        default: false
-      ova_revision:
-        type: string
-        description: 'Revision of the OVA file. Use "0" for development builds'
-        required: true
-        default: '0'
-      wazuh_package_type:
-        description: 'Wazuh package type to be used in the OVA'
-        required: true
-        default: 'dev'
         type: choice
         options:
-          - prod
-          - pre-prod
-          - dev
-      commit_list:
-        description: |
-          'Wazuh components revisions (comma-separated string list) ["indexer-revision", "server-revision", "dashboard-revision"]'
-          (Only needed if the Wazuh package type is dev-latest or dev-commit)
+          - build_ova
+          - build_ami
+          - build_docker
+          - test_assistant
+          - test_ova
+          - test_docker
+          - test_ansible
+          - test_kubernetes
+      wazuh_major:
+        description: 'Wazuh major version'
         required: true
-        default: '["latest", "latest", "latest", "latest"]'
-        type: string
-      destroy:
-        description: 'Destroy the base instance after the OVA is created'
-        required: false
-        default: true
-        type: boolean
-  workflow_call:
-    inputs:
-      id:
-        type: string
-        required: false
-      checksum:
-        type: boolean
-        required: false
-      wazuh_virtual_machines_reference:
-        type: string
+        default: '5'
+      wazuh_version:
+        description: 'Wazuh version'
         required: true
-      wazuh_automation_reference:
-        type: string
-        required: false
-        default: 'main'
-      is_stage:
-        type: boolean
-        required: false
-        default: false
-      ova_revision:
-        type: string
-        required: false
-        default: '0'
-      wazuh_package_type:
-        type: string
-        required: false
-        default: 'dev'
-      commit_list:
-        type: string
-        required: false
-        default: '["latest", "latest", "latest", "latest"]'
-      destroy:
-        type: boolean
-        required: false
-        default: true
-      is_pr_check:
-        type: boolean
-        required: false
-        default: false
-    outputs:
-      ova_s3_path:
-        description: 'S3 URI of the built OVA'
-        value: ${{ jobs.build_and_run.outputs.ova_s3_path }}
-
-env:
-    COMPOSITE_NAME: "amazon-2023-amd64"
-    INSTANCE_TYPE: "metal"
-    AWS_REGION: "us-east-1"
-    ALLOCATOR_PATH: "/tmp/allocatorvm_ova"
-    WORKFLOW_VENV: "${{ github.workspace }}/workflow_venv"
-    S3_BUCKET_TO_STORE_OVA: ${{ vars.AWS_S3_BUCKET }}
-    S3_PATH_TO_STORE_OVA: "development/wazuh/5.x/secondary/ova"
-    COMMIT_LIST: ${{ inputs.commit_list }}
-    PROD_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PROD }}
-    PRE_PROD_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PRE }}
-    DEV_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_ARTIFACTS }}
-    ARTIFACTS_URLS_FILENAME: "artifact_urls.yml"
-    DEV_ARTIFACTS_URLS_PATH: "deployment"
-    GENERATE_PRESIGNED_URLS_SCRIPT_PATH: ${{ github.workspace }}/.github/scripts/generate_presigned_dev_urls.py
-    WVM_REPO_NAME: ${{ github.event.repository.name }}
-    WVM_REPOSITORY_PATH: "https://github.com/${{ github.repository }}.git"
-    OVA_SCRIPTS_PATH: "${{ github.workspace }}/utils/scripts/ova_build"
-    OVA_SET_DEFAULT_SCRIPT_NAME: "setOVADefault.sh"
-    OVA_OVF_TEMPLATE_NAME: "wazuh_ovf_template"
-
-permissions:
-  id-token: write   # This is required for requesting the JWT
-  contents: read    # This is required for actions/checkout
+        default: '5.0.0'
 
 jobs:
-  build_and_run:
-    runs-on: ubuntu-22.04
-    outputs:
-      ova_s3_path: ${{ steps.export_ova.outputs.ova_s3_path }}
+  sign-artifact-urls:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    
     steps:
-      - name: View parameters
-        run: echo "${{ toJson(inputs) }}"
-
-      - name: Checkout wazuh/wazuh-virtual-machines repository
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.wazuh_virtual_machines_reference }}
-
-      - name: Checkout wazuh/wazuh-automation repository
-        uses: actions/checkout@v4
-        with:
-          repository: wazuh/wazuh-automation
-          ref: ${{ inputs.wazuh_automation_reference }}
-          token: ${{ secrets.GH_CLONE_TOKEN }}
-          path: wazuh-automation
-
+      
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
           role-session-name: "OVA-Builder"
-          aws-region: "${{ env.AWS_REGION }}"
-          role-duration-seconds: 18000 # Set the duration of the role session to 5 hours
-
-      - name: Install and configure python and workflow dependencies
+          aws-region: "us-east-1"
+          role-duration-seconds: 18000
+      
+      - name: Generate presigned URLs
+        id: sign-dev-artifact-urls
+        uses: wazuh/wazuh-automation/.github/actions/sign-dev-artifact-urls@enhancement/2988-url-presigned-file-migrate-the-signing-script-and-adapt-it
+        with:
+          process: ${{ inputs.process }}
+          wazuh_major: ${{ inputs.wazuh_major }}
+          wazuh_version: ${{ inputs.wazuh_version }}
+          aws_s3_bucket_dev: ${{ vars.AWS_S3_BUCKET_DEV }}
+      
+      - name: Display generated file
         run: |
-          sudo apt-get update
-          sudo apt-get install -y jq
-          sudo wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
-          sudo chmod +x /usr/bin/yq
-          sudo apt-get install -y python3 python3-venv
-          python3 -m venv ${{ env.WORKFLOW_VENV }}
-          source ${{ env.WORKFLOW_VENV }}/bin/activate
-          pip install --upgrade pip
-          pip install pyyaml
-
-      - name: Get Wazuh version
-        run: |
-          WAZUH_VERSION=$(jq -r '.version' VERSION.json)
-          WAZUH_MAJOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1)
-          WAZUH_MINOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1-2)
-          echo WAZUH_VERSION=$WAZUH_VERSION >> $GITHUB_ENV
-          echo WAZUH_MAJOR=$WAZUH_MAJOR >> $GITHUB_ENV
-          echo WAZUH_MINOR=$WAZUH_MINOR >> $GITHUB_ENV
-
-      - name: Setting FILENAME var
-        run: |
-          COMMIT_SHA=$(git rev-parse --short ${{ github.sha }})
-
-          if [ ${{ inputs.is_stage }} == true ]; then
-            # Stage build: wazuh-5.0.0-1
-            FILENAME="wazuh-${{ env.WAZUH_VERSION }}-${{ inputs.ova_revision }}"
-            echo "FILENAME=$FILENAME" >> $GITHUB_ENV
-            echo "FILENAME_OVA=$FILENAME.ova" >> $GITHUB_ENV
-            echo "FILENAME_SHA=$FILENAME.ova.sha512" >> $GITHUB_ENV
-            echo "BUILD_LATEST=false" >> $GITHUB_ENV
-          else
-            # Dev build: both latest and commit versions
-            FILENAME_LATEST="wazuh-${{ env.WAZUH_VERSION }}-latest"
-            FILENAME_COMMIT="wazuh-${{ env.WAZUH_VERSION }}-${{ inputs.ova_revision }}_${COMMIT_SHA}"
-
-            echo "FILENAME_LATEST=$FILENAME_LATEST" >> $GITHUB_ENV
-            echo "FILENAME_LATEST_OVA=$FILENAME_LATEST.ova" >> $GITHUB_ENV
-            echo "FILENAME_LATEST_SHA=$FILENAME_LATEST.ova.sha512" >> $GITHUB_ENV
-
-            echo "FILENAME_COMMIT=$FILENAME_COMMIT" >> $GITHUB_ENV
-            echo "FILENAME_COMMIT_OVA=$FILENAME_COMMIT.ova" >> $GITHUB_ENV
-            echo "FILENAME_COMMIT_SHA=$FILENAME_COMMIT.ova.sha512" >> $GITHUB_ENV
-
-            # Use commit version as primary for intermediate steps
-            echo "FILENAME=$FILENAME_COMMIT" >> $GITHUB_ENV
-            echo "FILENAME_OVA=$FILENAME_COMMIT.ova" >> $GITHUB_ENV
-            echo "FILENAME_SHA=$FILENAME_COMMIT.ova.sha512" >> $GITHUB_ENV
-            echo "BUILD_LATEST=true" >> $GITHUB_ENV
-          fi
-
-      - name: Install and set allocator requirements
-        run: |
-          pip3 install -r wazuh-automation/deployability/deps/requirements.txt
-
-      - name: Execute allocator module that will create the base instance
-        id: alloc_vm_ova
-        run: |
-          python3 wazuh-automation/deployability/modules/allocation/main.py --action create --provider aws --size ${{ env.INSTANCE_TYPE }} --composite-name ${{ env.COMPOSITE_NAME }} --working-dir ${{ env.ALLOCATOR_PATH }} \
-            --track-output ${{ env.ALLOCATOR_PATH }}/track.yml --inventory-output ${{ env.ALLOCATOR_PATH }}/inventory.yml --instance-name gha_${{ github.run_id }}_ova_build \
-            --label-team devops --label-termination-date 1d
-
-          INSTANCE_HOSTNAME=$(yq '.all.hosts.[].ansible_host' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
-          INSTANCE_PORT=$(yq '.all.hosts.[].ansible_port' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
-          INSTANCE_KEY=$(yq '.all.hosts.[].ansible_ssh_private_key_file' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
-          INSTANCE_USER=$(yq '.all.hosts.[].ansible_user' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
-          echo INSTANCE_HOSTNAME=$INSTANCE_HOSTNAME >> $GITHUB_ENV
-          echo INSTANCE_PORT=$INSTANCE_PORT >> $GITHUB_ENV
-          echo INSTANCE_KEY=$INSTANCE_KEY >> $GITHUB_ENV
-          echo INSTANCE_USER=$INSTANCE_USER >> $GITHUB_ENV
-
-      - name: Get artifacts URLs file
-        run: |
-          LOCAL_ARTIFACTS_URLS_FILEPATH=${{ github.workspace }}/${{ env.ARTIFACTS_URLS_FILENAME }}
-          echo LOCAL_ARTIFACTS_URLS_FILEPATH=$LOCAL_ARTIFACTS_URLS_FILEPATH >> $GITHUB_ENV
-
-          if [ "${{ inputs.wazuh_package_type }}" == "prod" ]; then
-            aws s3api get-object --bucket ${{ env.PROD_ARTIFACTS_URLS_BUCKET }} --key ${{ env.WAZUH_MINOR }}/${{ env.ARTIFACTS_URLS_FILENAME }} $LOCAL_ARTIFACTS_URLS_FILEPATH
-          elif [ "${{ inputs.wazuh_package_type }}" == "pre-prod" ]; then
-            aws s3api get-object --bucket ${{ env.PRE_PROD_ARTIFACTS_URLS_BUCKET }} --key ${{ env.WAZUH_MINOR }}/${{ env.ARTIFACTS_URLS_FILENAME }} $LOCAL_ARTIFACTS_URLS_FILEPATH
-          else
-            LOCAL_AWS_S3_BUCKET_DEV=${{ vars.AWS_S3_BUCKET_DEV }}
-            echo LOCAL_AWS_S3_BUCKET_DEV=$LOCAL_AWS_S3_BUCKET_DEV >> $GITHUB_ENV
-            aws s3api get-object --bucket ${{ env.DEV_ARTIFACTS_URLS_BUCKET }} --key ${{ env.DEV_ARTIFACTS_URLS_PATH }}/${{ env.ARTIFACTS_URLS_FILENAME }} $LOCAL_ARTIFACTS_URLS_FILEPATH
-          fi
-
-      - name: Generate presigned URLs for artifacts for dev packages
-        if: inputs.wazuh_package_type == 'dev'
-        run: |
-          python ${{ env.GENERATE_PRESIGNED_URLS_SCRIPT_PATH }}
-
-      - name: Install necessary dependencies in the AWS instance to create the OVA
-        run: |
-          ssh -p ${{ env.INSTANCE_PORT }} \
-              -i ${{ env.INSTANCE_KEY }} \
-              -o 'StrictHostKeyChecking no' \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} << EOF
-            set -e
-            sudo yum install -y python3-pip git
-            sudo pip3 install hatch
-          EOF
-
-      - name: Clone repo on remote instance
-        run: |
-          ssh -p ${{ env.INSTANCE_PORT }} \
-              -i ${{ env.INSTANCE_KEY }} \
-              -o 'StrictHostKeyChecking no' \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} << EOF
-            set -e
-            git clone -b ${{ inputs.wazuh_virtual_machines_reference }} ${{ env.WVM_REPOSITORY_PATH }}
-          EOF
-
-      - name: Copy artifacts URLs file to remote instance
-        run: |
-          scp -P ${{ env.INSTANCE_PORT }} \
-              -i ${{ env.INSTANCE_KEY }} \
-              "${{ env.LOCAL_ARTIFACTS_URLS_FILEPATH }}" \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }}:~/${{ env.WVM_REPO_NAME }}
-
-      - name: Run the OVA PreConfigurer module
-        run: |
-          ssh -p ${{ env.INSTANCE_PORT }} \
-              -i ${{ env.INSTANCE_KEY }} \
-              -o 'StrictHostKeyChecking no' \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} << EOF
-            set -e
-            cd ${{ env.WVM_REPO_NAME }}
-            sudo hatch run dev-ova-pre-configurer:run
-          EOF
-
-      - name: Run the OVA PostConfigurer module
-        run: |
-          ssh -p ${{ env.INSTANCE_PORT }} \
-              -i ${{ env.INSTANCE_KEY }} \
-              -o 'StrictHostKeyChecking no' \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} << EOF
-            set -e
-            cd ${{ env.WVM_REPO_NAME }}
-            sudo vagrant ssh -c 'cd /tmp/wazuh-virtual-machines && sudo hatch run dev-ova-post-configurer:run --packages-url-path ${{ env.ARTIFACTS_URLS_FILENAME }}'
-          EOF
-
-      - name: Stop the Vagrant VM, modify the network and export it as OVA
-        run: |
-          ssh -p ${{ env.INSTANCE_PORT }} \
-              -i ${{ env.INSTANCE_KEY }} \
-              -o 'StrictHostKeyChecking no' \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} << EOF
-            set -e
-            cd ${{ env.WVM_REPO_NAME }}
-            sudo vagrant halt
-            sudo vboxmanage modifyvm ova_base --nic2 hostonly
-            sudo vboxmanage modifyvm ova_base --cableconnected2 on
-            sudo vboxmanage export ova_base --output ${{ env.FILENAME_OVA }}
-            sudo chmod 0755 ${{ env.FILENAME_OVA }}
-          EOF
-
-      - name: Getting OVA from AWS instance
-        run: |
-          scp -P ${{ env.INSTANCE_PORT }} \
-              -i ${{ env.INSTANCE_KEY }} \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }}:~/${{ env.WVM_REPO_NAME }}/${{ env.FILENAME_OVA }} ${{ github.workspace }}/${{ env.FILENAME_OVA }}
-
-      - name: Standarizing OVA
-        run: |
-          sudo chmod 0777 ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_SET_DEFAULT_SCRIPT_NAME }}
-          sed -i "s|ovf:capacity=\"40\"|ovf:capacity=\"50\"|g" ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_OVF_TEMPLATE_NAME }}
-          sudo bash ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_SET_DEFAULT_SCRIPT_NAME }} "${{ env.OVA_SCRIPTS_PATH }}/" "${{ github.workspace }}/${{ env.FILENAME_OVA }}" "${{ github.workspace }}/${{ env.FILENAME_OVA }}" ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_OVF_TEMPLATE_NAME }} "${{ env.WAZUH_VERSION }}"
-
-      - name: Create latest version copy
-        if: ${{ inputs.is_stage == false }}
-        run: |
-          cp ${{ github.workspace }}/${{ env.FILENAME_COMMIT_OVA }} ${{ github.workspace }}/${{ env.FILENAME_LATEST_OVA }}
-
-      - name: Exporting OVA to final repository
-        id: export_ova
-        run: |
-          # Upload version commit-based OVA
-          aws s3 cp --quiet ${{ github.workspace }}/${{ env.FILENAME_OVA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_OVA }}
-          echo "S3 OVA URI: s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_OVA }}"
-
-          # Upload latest version OVA if applicable
-          if [ "${{ env.BUILD_LATEST }}" == "true" ]; then
-            aws s3 cp --quiet ${{ github.workspace }}/${{ env.FILENAME_LATEST_OVA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_LATEST_OVA }}
-            echo "S3 OVA URI (latest): s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_LATEST_OVA }}"
-          fi
-
-          # Set output for orchestrator workflows
-          OVA_S3_PATH="s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_OVA }}"
-          echo "ova_s3_path=${OVA_S3_PATH}" >> $GITHUB_OUTPUT
-
-      - name: Generating sha512 files
-        if: ${{ inputs.checksum == true }}
-        run: |
-          # Generate and upload sha512 for commit-based version
-          sha512sum ${{ github.workspace }}/${{ env.FILENAME_OVA }} > ${{ github.workspace }}/${{ env.FILENAME_SHA }}
-          aws s3 cp --quiet ${{ github.workspace }}/${{ env.FILENAME_SHA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_SHA }}
-          echo "S3 sha512 URI: s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_SHA }}"
-
-          # Generate and upload sha512 for latest version if applicable
-          if [ "${{ env.BUILD_LATEST }}" == "true" ]; then
-            sha512sum ${{ github.workspace }}/${{ env.FILENAME_LATEST_OVA }} > ${{ github.workspace }}/${{ env.FILENAME_LATEST_SHA }}
-            aws s3 cp --quiet ${{ github.workspace }}/${{ env.FILENAME_LATEST_SHA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_LATEST_SHA }}
-            echo "S3 sha512 URI (latest): s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_LATEST_SHA }}"
-          fi
-
-      - name: Delete allocated VM
-        if: always() && steps.alloc_vm_ova.outcome == 'success' && inputs.destroy == true
-        run: python3 wazuh-automation/deployability/modules/allocation/main.py --action delete --track-output ${{ env.ALLOCATOR_PATH }}/track.yml
-
-      - name: Compress Allocator directory
-        id: generate_artifacts
-        if: always() && steps.alloc_vm_ova.outcome == 'success' && inputs.destroy == false
-        run: zip -P "${{ secrets.ZIP_ARTIFACTS_PASSWORD }}" -r ${{ env.ALLOCATOR_PATH }}.zip ${{ env.ALLOCATOR_PATH }}
-        continue-on-error: true
-
-      - name: Upload Allocator directory as artifact
-        if: always() && steps.generate_artifacts.outcome == 'success'
+          echo "Generated file: ${{ steps.sign-dev-artifact-urls.outputs.artifact_urls_file }}"
+          echo "Content:"
+          cat ${{ steps.sign-dev-artifact-urls.outputs.artifact_urls_file }}
+      
+      - name: Upload signed URLs as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: instance_info
-          path: ${{ env.ALLOCATOR_PATH }}.zip
+          name: signed-artifact-urls-${{ inputs.process }}
+          path: ${{ steps.sign-dev-artifact-urls.outputs.artifact_urls_file }}
