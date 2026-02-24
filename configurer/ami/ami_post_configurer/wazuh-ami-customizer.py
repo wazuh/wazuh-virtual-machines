@@ -212,6 +212,7 @@ def stop_components_services() -> None:
 
     logger.debug("Stopping Wazuh components services...")
 
+    stop_service("wazuh-agent")
     stop_service("wazuh-indexer")
     stop_service("wazuh-manager")
     stop_service("wazuh-dashboard")
@@ -300,6 +301,9 @@ def start_components_services() -> None:
     start_service("wazuh-dashboard")
     time.sleep(20)  # Wait for dashboard to initialize
     verify_dashboard_connection()
+
+    enable_service("wazuh-agent")
+    start_service("wazuh-agent")
 
     logger.debug("Wazuh components services started")
 
