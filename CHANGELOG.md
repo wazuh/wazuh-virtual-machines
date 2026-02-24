@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Ensure the wazuh agent is stopped in the ami customization process ([#608](https://github.com/wazuh/wazuh-virtual-machines/pull/608))
 - Add agent clean up to the AMI post configurer module ([#607](https://github.com/wazuh/wazuh-virtual-machines/pull/607))
 - Fix file name convetion ([#604](https://github.com/wazuh/wazuh-virtual-machines/pull/604))
 - Add agent configuration process in core configurer ([#601](https://github.com/wazuh/wazuh-virtual-machines/pull/601))
