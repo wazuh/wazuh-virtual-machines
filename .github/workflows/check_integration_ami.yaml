@@ -87,19 +87,25 @@ jobs:
       - name: Create check run
         id: create_check
         uses: actions/github-script@v7
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          HEAD_SHA: ${{ steps.pr_data.outputs.pr_head_sha }}
         with:
           script: |
+            const commentBody = process.env.COMMENT_BODY;
+            const headSha = process.env.HEAD_SHA;
+
             const { data: check } = await github.rest.checks.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               name: 'AMI Build & Test',
-              head_sha: '${{ steps.pr_data.outputs.pr_head_sha }}',
+              head_sha: headSha,
               status: 'in_progress',
               started_at: new Date().toISOString(),
               details_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
               output: {
                 title: '🔨 Building AMI images...',
-                summary: `Triggered by comment: \`${{ github.event.comment.body }}\``,
+                summary: `Triggered by comment: \`${commentBody}\``,
                 text: 'Building AMI images (amd64 + arm64) and running integration tests'
               }
             });
@@ -174,35 +180,47 @@ jobs:
 
       - name: Deregister AMI amd64
         if: ${{ needs.build_ami.outputs.ami_id_amd64 != '' }}
+        env:
+          AMI_ID: ${{ needs.build_ami.outputs.ami_id_amd64 }}
         run: |
-          AMI_ID="${{ needs.build_ami.outputs.ami_id_amd64 }}"
+          if [[ ! "$AMI_ID" =~ ^ami-[0-9a-f]{17}$ ]]; then
+            echo "Invalid AMI ID format: $AMI_ID"
+            exit 1
+          fi
+
           echo "Deregistering AMI: ${AMI_ID}"
 
-          SNAPSHOTS=$(aws ec2 describe-images --image-ids ${AMI_ID} --query 'Images[0].BlockDeviceMappings[*].Ebs.SnapshotId' --output text 2>/dev/null || true)
+          SNAPSHOTS=$(aws ec2 describe-images --image-ids "${AMI_ID}" --query 'Images[0].BlockDeviceMappings[*].Ebs.SnapshotId' --output text 2>/dev/null || true)
 
-          aws ec2 deregister-image --image-id ${AMI_ID} || echo "Failed to deregister AMI ${AMI_ID}"
+          aws ec2 deregister-image --image-id "${AMI_ID}" || echo "Failed to deregister AMI ${AMI_ID}"
 
           if [ -n "$SNAPSHOTS" ]; then
             for SNAPSHOT in $SNAPSHOTS; do
               echo "Deleting snapshot: ${SNAPSHOT}"
-              aws ec2 delete-snapshot --snapshot-id ${SNAPSHOT} || echo "Failed to delete snapshot ${SNAPSHOT}"
+              aws ec2 delete-snapshot --snapshot-id "${SNAPSHOT}" || echo "Failed to delete snapshot ${SNAPSHOT}"
             done
           fi
 
       - name: Deregister AMI arm64
         if: ${{ needs.build_ami.outputs.ami_id_arm64 != '' }}
+        env:
+          AMI_ID: ${{ needs.build_ami.outputs.ami_id_arm64 }}
         run: |
-          AMI_ID="${{ needs.build_ami.outputs.ami_id_arm64 }}"
+          if [[ ! "$AMI_ID" =~ ^ami-[0-9a-f]{17}$ ]]; then
+            echo "Invalid AMI ID format: $AMI_ID"
+            exit 1
+          fi
+
           echo "Deregistering AMI: ${AMI_ID}"
 
-          SNAPSHOTS=$(aws ec2 describe-images --image-ids ${AMI_ID} --query 'Images[0].BlockDeviceMappings[*].Ebs.SnapshotId' --output text 2>/dev/null || true)
+          SNAPSHOTS=$(aws ec2 describe-images --image-ids "${AMI_ID}" --query 'Images[0].BlockDeviceMappings[*].Ebs.SnapshotId' --output text 2>/dev/null || true)
 
-          aws ec2 deregister-image --image-id ${AMI_ID} || echo "Failed to deregister AMI ${AMI_ID}"
+          aws ec2 deregister-image --image-id "${AMI_ID}" || echo "Failed to deregister AMI ${AMI_ID}"
 
           if [ -n "$SNAPSHOTS" ]; then
             for SNAPSHOT in $SNAPSHOTS; do
               echo "Deleting snapshot: ${SNAPSHOT}"
-              aws ec2 delete-snapshot --snapshot-id ${SNAPSHOT} || echo "Failed to delete snapshot ${SNAPSHOT}"
+              aws ec2 delete-snapshot --snapshot-id "${SNAPSHOT}" || echo "Failed to delete snapshot ${SNAPSHOT}"
             done
           fi
 
