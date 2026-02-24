@@ -39,6 +39,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Fix check vulnerabilities ([#609](https://github.com/wazuh/wazuh-virtual-machines/pull/609))
 - Fix ami `pre configurer` tests([#595](https://github.com/wazuh/wazuh-virtual-machines/pull/595))
 - Add arch suffix to the allocator artifact in the builder AMI workflow ([#556](https://github.com/wazuh/wazuh-virtual-machines/pull/556))
 - Updated Amazon linux upgrade method. ([#540](https://github.com/wazuh/wazuh-virtual-machines/pull/540))
