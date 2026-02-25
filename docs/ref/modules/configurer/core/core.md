@@ -4,9 +4,9 @@ The `core` module is responsible for configuring all Wazuh components and their 
 
 ## Main functionalities
 
-- Installation of Wazuh components.
+- Installation of Wazuh components (Wazuh Server, Wazuh Indexer, Wazuh Dashboard, and Wazuh Agent).
 - Certificate generation for each component.
-- Configuration of each component’s configuration files.
+- Configuration of each component's configuration files, including the Wazuh Agent connection settings.
 - Starting all necessary services.
 
 > This module assumes that the `provisioner` has already been executed on the machine. That means all required packages and the `certs-tool` must be available beforehand.

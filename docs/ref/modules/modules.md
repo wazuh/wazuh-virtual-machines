@@ -18,6 +18,6 @@ These modules are executed through a single CLI. The available CLI options are:
 | `--execute`            | Yes | Module to execute | `provisioner`, `core-configurer`, `ova-pre-configurer`, `ova-post-configurer`, `ami-pre-configurer`, `ami-post-configurer`, `all-ami` | - |
 | `--arch`               | No | Architecture to use | `x86_64`, `amd64`, `arm64`, `aarch64` | `x86_64` |
 | `--dependencies`       | No | Path to the dependencies file | - | `provisioner/static/wazuh_dependencies.yaml` |
-| `--component`          | No | Component to provision | `wazuh_indexer`, `wazuh_server`, `wazuh_dashboard`, `all` | `all` |
+| `--component`          | No | Component to provision | `wazuh_indexer`, `wazuh_server`, `wazuh_dashboard`, `wazuh_agent`, `all` | `all` |
 
 > This CLI can be executed using **Hatch** or by creating a **venv**. For more information on how to configure it, you can check the setup of the toolchain [here](../../dev/setup.md).

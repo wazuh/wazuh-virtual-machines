@@ -17,7 +17,7 @@ The provisioner module accepts the following options:
 - `--package-type`: Type of package to provision (`rpm`, `deb`).
 - `--arch`: Target architecture (`x86_64`, `amd64`, `arm64`, `aarch64`).
 - `--dependencies`: Path to the dependencies file.
-- `--component`: Component to provision (`wazuh-manager`, `wazuh-indexer`, `wazuh-dashboard`, `all`).
+- `--component`: Component to provision (`wazuh_manager`, `wazuh_indexer`, `wazuh_dashboard`, `wazuh_agent`, `all`).
 
 ### Required Parameters
 
@@ -47,7 +47,7 @@ To run the provisioner module, the following are required:
 > - `--package-type`: `rpm`
 > - `--arch`: `x86_64`
 > - `--dependencies`: `provisioner/static/wazuh_dependencies.yaml`
-> - `--component`: `all` (Wazuh Server, Wazuh Indexer, and Wazuh Dashboard)
+> - `--component`: `all` (Wazuh Server, Wazuh Indexer, Wazuh Dashboard, and Wazuh Agent)
 
 ### Provision locally with default options
 
@@ -82,11 +82,25 @@ To run the provisioner module, the following are required:
 - Using Hatch:
 
     ``` bash
-    hatch run dev-provisioner:run --inventory <path-to-inventory> --packages-url-path <path-to-file> --component wazuh-dashboard
+    hatch run dev-provisioner:run --inventory <path-to-inventory> --packages-url-path <path-to-file> --component wazuh_dashboard
     ```
 
 - Using the command line:
 
     ``` bash
-    python -m main --execute provisioner --inventory <path-to-inventory> --packages-url-path <path-to-file> --component wazuh-dashboard
+    python -m main --execute provisioner --inventory <path-to-inventory> --packages-url-path <path-to-file> --component wazuh_dashboard
+    ```
+
+### Provision only the Wazuh Agent remotely
+
+- Using Hatch:
+
+    ``` bash
+    hatch run dev-provisioner:run --inventory <path-to-inventory> --packages-url-path <path-to-file> --component wazuh_agent
+    ```
+
+- Using the command line:
+
+    ``` bash
+    python -m main --execute provisioner --inventory <path-to-inventory> --packages-url-path <path-to-file> --component wazuh_agent
     ```
