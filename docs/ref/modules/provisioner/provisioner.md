@@ -47,7 +47,7 @@ To run the provisioner module, the following are required:
 > - `--package-type`: `rpm`
 > - `--arch`: `x86_64`
 > - `--dependencies`: `provisioner/static/wazuh_dependencies.yaml`
-> - `--component`: `all` (Wazuh Server, Wazuh Indexer, Wazuh Dashboard, and Wazuh Agent)
+> - `--component`: `all` (Wazuh Manager, Wazuh Indexer, Wazuh Dashboard, and Wazuh Agent)
 
 ### Provision locally with default options
 
