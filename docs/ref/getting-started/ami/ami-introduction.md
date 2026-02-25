@@ -2,15 +2,14 @@
 
 Wazuh provides a pre-built **Amazon Machine Image (AMI)**. An AMI is a ready-to-use template for creating virtual computing environments in **Amazon Elastic Compute Cloud (Amazon EC2)**.
 
-The latest Wazuh AMI includes the Wazuh central components:
+The latest Wazuh AMI includes all the Wazuh components:
 
-- Wazuh Server
+- Wazuh Manager
 - Wazuh Indexer
 - Wazuh Dashboard
+- Wazuh Agent
 
-It is designed to be deployed in an **All-in-One** configuration, which means that all components are installed on a single instance.
-
-> This AMI does not include the Wazuh agent. If you need to deploy Wazuh agents, you can do so separately on your desired hosts.
+It is designed to be deployed in an **All-in-One** configuration, which means that all components are installed on a single instance. The Wazuh Agent is pre-installed and configured to connect to the local Wazuh Manager.
 
 ## Compatibility
 

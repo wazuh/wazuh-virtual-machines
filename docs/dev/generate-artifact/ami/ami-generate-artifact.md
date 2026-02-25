@@ -72,7 +72,7 @@ This workflow accepts the following inputs:
   For development AMIs, you can use a different format (e.g., `-dev`).
 - `wazuh_package_type`: Package type used for the AMI: `release`, `pre-release`, or `dev`.
 - `architecture`: Determine the architecture. It must be a string list (JSON format). E.g: ["amd64", "arm64"]
-- `commit_list`: Wazuh components revisions (comma-separated string list) ["indexer-revision", "server-revision", "dashboard-revision"]'
+- `commit_list`: Wazuh components revisions (comma-separated string list) ["indexer-revision", "manager-revision", "dashboard-revision"]'
           (Only needed if the Wazuh package type is dev-latest or dev-commit)
 - `customizer_debug`: Enable debug mode in the AMI customizer
 - `destroy`: If set, the EC2 instance used for building the AMI will be destroyed once complete.
