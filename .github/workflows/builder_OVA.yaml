@@ -41,7 +41,7 @@ on:
           - dev
       commit_list:
         description: |
-          'Wazuh components revisions (comma-separated string list) ["indexer-revision", "server-revision", "dashboard-revision"]'
+          'Wazuh components revisions (comma-separated string list) ["indexer-revision", "manager-revision", "dashboard-revision"]'
           (Only needed if the Wazuh package type is dev-latest or dev-commit)
         required: true
         default: '["latest", "latest", "latest", "latest"]'

@@ -62,7 +62,7 @@ class WazuhIndexerConfigMapping(WazuhConfigMapping):
     pass
 
 
-class WazuhServerConfigMapping(WazuhConfigMapping):
+class WazuhManagerConfigMapping(WazuhConfigMapping):
     pass
 
 

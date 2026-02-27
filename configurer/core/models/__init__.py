@@ -5,5 +5,5 @@ from .wazuh_config_mapping import (
     WazuhConfigMapping,
     WazuhDashboardConfigMapping,
     WazuhIndexerConfigMapping,
-    WazuhServerConfigMapping,
+    WazuhManagerConfigMapping,
 )

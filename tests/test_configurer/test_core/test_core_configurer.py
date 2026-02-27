@@ -16,7 +16,7 @@ def example_config_file():
             {"path": "/path/indexer/config", "replace": {"keys": [".key1"], "values": ["value1"]}}
         ],
         Component.WAZUH_MANAGER: [
-            {"path": "/path/server/config", "replace": {"keys": [".key2"], "values": ['"value2"']}}
+            {"path": "/path/manager/config", "replace": {"keys": [".key2"], "values": ['"value2"']}}
         ],
         Component.WAZUH_DASHBOARD: [
             {"path": "/path/dashboard/config", "replace": {"keys": [".key3"], "values": ["value3"]}}
@@ -54,7 +54,7 @@ def test_configure(mock_paramiko, mock_start_services, mock_open_file, mock_exec
     # Replace file entries
     mock_exec_command.assert_any_call(command="sudo yq -i  '.key1 = \"value1\" ' /path/indexer/config", client=None)
     mock_exec_command.assert_any_call(
-        command='sudo yq -i  \'.key2 = ""value2"" | .key2 style="double"\' /path/server/config', client=None
+        command='sudo yq -i  \'.key2 = ""value2"" | .key2 style="double"\' /path/manager/config', client=None
     )
     mock_exec_command.assert_any_call(command="sudo yq -i  '.key3 = \"value3\" ' /path/dashboard/config", client=None)
     mock_exec_command.assert_any_call(command="sudo yq -i  '.key4 = \"value4\" ' /path/agent/config", client=None)

@@ -161,7 +161,7 @@ class CertsManager:
         Returns:
             dict: A dictionary mapping certificate keys to their respective names.
 
-        >>> Example for server:
+        >>> Example for manager:
         >>> _get_certs_name(Component.WAZUH_MANAGER, "/etc/wazuh-manager/wazuh-manager.yml", True, client)
         >>> return {
             "WAZUH_MANAGER_CERT": "wazuh-manager.pem",

@@ -64,6 +64,11 @@ omit = [
     "*/wazuh_local_ova/*",
 ]
 
+[tool.hatch.env]
+requires = [
+    "virtualenv==20.31.2",
+]
+
 [tool.hatch.envs.dev]
 description = """
 Enviroment to be used for testing all virtual-machines modules
