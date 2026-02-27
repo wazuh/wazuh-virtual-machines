@@ -96,6 +96,7 @@ def prepare_vm() -> None:
 
     logger.debug("Installing Hatch on the VM.")
     run_command('vagrant ssh -c "sudo pip3 install hatch"')
+    run_command('vagrant ssh -c "sudo pip3 install virtualenv==20.31.2"')
 
     logger.debug("Removing unnecessary files before copying the repository.")
     for filename in os.listdir("."):

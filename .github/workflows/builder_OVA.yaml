@@ -251,6 +251,7 @@ jobs:
             set -e
             sudo yum install -y python3-pip git
             sudo pip3 install hatch
+            sudo pip3 install virtualenv==20.31.2 # Problem related to hatch and virtualenv with version >= 21.0.0 (related: https://github.com/pypa/hatch/issues/2193)
           EOF
 
       - name: Clone repo on remote instance

@@ -25,7 +25,9 @@ jobs:
           python-version: '3.12'
 
       - name: Install hatch
-        run: pip install hatch
+        run: |
+          pip install hatch
+          pip install virtualenv==20.31.2 # Problem related to hatch and virtualenv with version >= 21.0.0 (related: https://github.com/pypa/hatch/issues/2193)
 
       - name: Run unit tests with coverage
         id: run_tests

@@ -664,9 +664,10 @@ jobs:
           SSH_HOST="${{ steps.allocator.outputs.ssh_user }}@${{ steps.allocator.outputs.allocator_ip }}"
 
           # Install base dependencies
+          # we install a specific version of virtualenv to avoid compatibility issues with hatch (related issue: https://github.com/pypa/hatch/issues/2193)
           echo "Installing base dependencies..."
           ssh ${SSH_OPTIONS} ${SSH_HOST} \
-              "which git || (sudo yum update -y && sudo yum install -y nc git python3 python3-pip && sudo pip3 install hatch)"
+              "which git || (sudo yum update -y && sudo yum install -y nc git python3 python3-pip && sudo pip3 install hatch && sudo pip3 install virtualenv==20.31.2)"
 
           # Clone wazuh-virtual-machines and install VirtualBox
           echo "Installing VirtualBox..."
