@@ -14,7 +14,7 @@ CERTS_TOOL_PATH = Path("/path/to/certs-tool.sh")
 
 
 class MockConfigParameters(StrEnum):
-    # Wazuh Server
+    # Wazuh Manager
     WAZUH_MANAGER_KEY = "manager.test.key"
     WAZUH_MANAGER_CERT = "manager.test.cert"
     WAZUH_MANAGER_CA = "manager.test.ca"
@@ -415,17 +415,17 @@ def test_generate_certificates_error_during_copy(mock_get_certs_name, mock_copy_
         (
             Component.WAZUH_MANAGER,
             {
-                ComponentCertsConfigParameter.WAZUH_MANAGER_CERT.name: "server-cert.pem",
-                ComponentCertsConfigParameter.WAZUH_MANAGER_KEY.name: "server-key.pem",
-                ComponentCertsConfigParameter.WAZUH_MANAGER_CA.name: "server-ca.pem",
+                ComponentCertsConfigParameter.WAZUH_MANAGER_CERT.name: "manager-cert.pem",
+                ComponentCertsConfigParameter.WAZUH_MANAGER_KEY.name: "manager-key.pem",
+                ComponentCertsConfigParameter.WAZUH_MANAGER_CA.name: "manager-ca.pem",
             },
             f"""
                 sudo rm -rf {ComponentCertsDirectory.WAZUH_MANAGER}
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_MANAGER}
-                sudo tar -xf {CERTS_TOOL_PATH.parent}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_MANAGER} ./server-cert.pem ./server-key.pem ./server-ca.pem
-                sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/server-cert.pem {ComponentCertsDirectory.WAZUH_MANAGER}/server-cert.pem
-                sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/server-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/server-key.pem
-                sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/server-ca.pem {ComponentCertsDirectory.WAZUH_MANAGER}/server-ca.pem
+                sudo tar -xf {CERTS_TOOL_PATH.parent}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_MANAGER} ./manager-cert.pem ./manager-key.pem ./manager-ca.pem
+                sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/manager-cert.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-cert.pem
+                sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/manager-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-key.pem
+                sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/manager-ca.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-ca.pem
                 sudo chmod 500 {ComponentCertsDirectory.WAZUH_MANAGER}
                 sudo find {ComponentCertsDirectory.WAZUH_MANAGER} -type f -exec chmod 400 {{}} \\;
                 sudo chown -R root:root {ComponentCertsDirectory.WAZUH_MANAGER}/
@@ -464,9 +464,9 @@ def test_copy_certs_to_component_directory_success(
             "ca": "indexer-ca.pem",
         },
         Component.WAZUH_MANAGER: {
-            "cert": "server-cert.pem",
-            "key": "server-key.pem",
-            "ca": "server-ca.pem",
+            "cert": "manager-cert.pem",
+            "key": "manager-key.pem",
+            "ca": "manager-ca.pem",
         },
         Component.WAZUH_DASHBOARD: {
             "cert": "dashboard-cert.pem",

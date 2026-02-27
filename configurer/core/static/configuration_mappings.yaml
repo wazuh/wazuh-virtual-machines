@@ -15,10 +15,10 @@ wazuh_manager:
   - path: /var/wazuh-manager/etc/wazuh-manager.conf
     replace:
       keys:
-        - .ossec_config[0].indexer.hosts.host
-        - .ossec_config[0].indexer.ssl.certificate_authorities.ca
-        - .ossec_config[0].indexer.ssl.certificate
-        - .ossec_config[0].indexer.ssl.key
+        - .wazuh_config.indexer.hosts.host
+        - .wazuh_config.indexer.ssl.certificate_authorities.ca
+        - .wazuh_config.indexer.ssl.certificate
+        - .wazuh_config.indexer.ssl.key
       values:
         - https://127.0.0.1:9200
         - /var/wazuh-manager/etc/certs/root-ca.pem
@@ -28,6 +28,6 @@ wazuh_agent:
   - path: /var/ossec/etc/ossec.conf
     replace:
       keys:
-        - .ossec_config[0].client.server.address
+        - .ossec_config[0].client.manager.address
       values:
         - 127.0.0.1

@@ -56,10 +56,13 @@ def test_set_hostname(mock_run_command):
 
 
 def test_config_grub(mock_run_command, mock_os_path_exists, mock_os_remove, mock_shutil_copy):
-    mock_os_path_exists.side_effect = lambda path: path in [
-        "/boot/grub2/wazuh.png",
-        "/etc/default/grub",
-    ]
+    mock_os_path_exists.side_effect = lambda path: (
+        path
+        in [
+            "/boot/grub2/wazuh.png",
+            "/etc/default/grub",
+        ]
+    )
 
     config_grub()
 
@@ -90,10 +93,13 @@ def test_enable_fips(mock_run_command):
 
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.os.chmod")
 def test_update_jvm_heap(mock_chmod, mock_run_command, mock_os_path_exists, mock_os_remove, mock_shutil_copy):
-    mock_os_path_exists.side_effect = lambda path: path in [
-        "/etc/automatic_set_ram.sh",
-        "/etc/systemd/system/updateIndexerHeap.service",
-    ]
+    mock_os_path_exists.side_effect = lambda path: (
+        path
+        in [
+            "/etc/automatic_set_ram.sh",
+            "/etc/systemd/system/updateIndexerHeap.service",
+        ]
+    )
 
     update_jvm_heap()
 
@@ -120,11 +126,14 @@ def test_update_jvm_heap(mock_chmod, mock_run_command, mock_os_path_exists, mock
 
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.os.chmod")
 def test_add_wazuh_starter_service(mock_chmod, mock_run_command, mock_os_path_exists, mock_os_remove, mock_shutil_copy):
-    mock_os_path_exists.side_effect = lambda path: path in [
-        "/etc/systemd/system/wazuh-starter.service",
-        "/etc/systemd/system/wazuh-starter.timer",
-        "/etc/.wazuh-starter.sh",
-    ]
+    mock_os_path_exists.side_effect = lambda path: (
+        path
+        in [
+            "/etc/systemd/system/wazuh-starter.service",
+            "/etc/systemd/system/wazuh-starter.timer",
+            "/etc/.wazuh-starter.sh",
+        ]
+    )
 
     add_wazuh_starter_service()
 

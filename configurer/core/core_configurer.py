@@ -22,7 +22,7 @@ class CoreConfigurer:
         Configures the core components and manages certificates.
 
         This method performs the following steps:
-        1. Configures the Wazuh components (Indexer, Server, Dashboard) by replacing file entries
+        1. Configures the Wazuh components (Indexer, Manager, Dashboard) by replacing file entries
         using the WazuhComponentConfigManager.
         2. Generates certificates using the CertsManager and copy them to the current component certs directory.
         3. Starts the Wazuh services.

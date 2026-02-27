@@ -14,13 +14,11 @@ class ComponentCertsDirectory(StrEnum):
 
 
 class ComponentCertsConfigParameter(StrEnum):
-    # Wazuh Server
-    # We use ossec_config[0] because there is more than one ossec_config entry in the wazuh-manager.conf file and need to
-    # identify the correct one.
-    # This siyntax is needed for yq to correctly identify the path to modify.
-    WAZUH_MANAGER_KEY = "ossec_config[0].indexer.ssl.key"
-    WAZUH_MANAGER_CERT = "ossec_config[0].indexer.ssl.certificate"
-    WAZUH_MANAGER_CA = "ossec_config[0].indexer.ssl.certificate_authorities.ca"
+    # This syntax is needed for yq to correctly identify the path to modify.
+    # Wazuh Manager
+    WAZUH_MANAGER_KEY = "wazuh_config.indexer.ssl.key"
+    WAZUH_MANAGER_CERT = "wazuh_config.indexer.ssl.certificate"
+    WAZUH_MANAGER_CA = "wazuh_config.indexer.ssl.certificate_authorities.ca"
     # Wazuh Indexer
     WAZUH_INDEXER_KEY = "plugins.security.ssl.http.pemkey_filepath"
     WAZUH_INDEXER_CERT = "plugins.security.ssl.http.pemcert_filepath"

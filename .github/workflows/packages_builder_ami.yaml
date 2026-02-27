@@ -43,7 +43,7 @@ on:
         type: string
       commit_list:
         description: |
-          'Wazuh components revisions (comma-separated string list) ["indexer-revision", "server-revision", "dashboard-revision", "agent-revision", "assistant-revision"]'
+          'Wazuh components revisions (comma-separated string list) ["indexer-revision", "manager-revision", "dashboard-revision", "agent-revision", "assistant-revision"]'
           (Only needed if the Wazuh package type is dev)
         required: true
         default: '["latest", "latest", "latest", "latest", "latest"]'
