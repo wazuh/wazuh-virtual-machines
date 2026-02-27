@@ -72,7 +72,7 @@ def modify_file_local(filepath: Path, replacements: list[tuple[str, str]]) -> No
         content = file.read()
 
     for pattern, replacement in replacements:
-        content = re.sub(pattern, replacement, content)
+        content = re.sub(pattern, replacement, content, flags=re.MULTILINE)
 
     with open(filepath, "w") as file:
         file.write(content)

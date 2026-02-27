@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Update documentation adding the Wazuh Agent information ([#611](https://github.com/wazuh/wazuh-virtual-machines/pull/611))
 - Ensure the wazuh agent is stopped in the AMI customization process ([#608](https://github.com/wazuh/wazuh-virtual-machines/pull/608))
 - Add agent clean up to the AMI post configurer module ([#607](https://github.com/wazuh/wazuh-virtual-machines/pull/607))
 - Fix file name convetion ([#604](https://github.com/wazuh/wazuh-virtual-machines/pull/604))
@@ -16,6 +17,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Updated ova post configurer with agent/manager separation. ([#612](https://github.com/wazuh/wazuh-virtual-machines/pull/612))
 - Add WF to execute PR Check with build and test OVA and AMI ([#583](https://github.com/wazuh/wazuh-virtual-machines/pull/583))
 - Add WF to execute PR Check with build and test OVA and AMI ([#594](https://github.com/wazuh/wazuh-virtual-machines/pull/594))
 - Add WF to execute PR Check with build and test OVA and AMI ([#598](https://github.com/wazuh/wazuh-virtual-machines/pull/598))
@@ -39,6 +41,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Fix check vulnerabilities ([#609](https://github.com/wazuh/wazuh-virtual-machines/pull/609))
 - Fix ami `pre configurer` tests([#595](https://github.com/wazuh/wazuh-virtual-machines/pull/595))
 - Add arch suffix to the allocator artifact in the builder AMI workflow ([#556](https://github.com/wazuh/wazuh-virtual-machines/pull/556))
 - Updated Amazon linux upgrade method. ([#540](https://github.com/wazuh/wazuh-virtual-machines/pull/540))

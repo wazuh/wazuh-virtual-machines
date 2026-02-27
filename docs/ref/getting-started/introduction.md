@@ -2,7 +2,7 @@
 
 This section introduces the two deployment options developed in the Wazuh Virtual Machines repository.
 
-Wazuh provides the option to deploy two types of virtual machines with a base all-in-one (AIO) installation that includes the main Wazuh components. This allows us to have a ready-to-use virtual machine without needing to configure any components, making it completely transparent to the user.
+Wazuh provides the option to deploy two types of virtual machines with a base all-in-one (AIO) installation that includes all the Wazuh components: the Wazuh Manager, Wazuh Indexer, Wazuh Dashboard, and Wazuh Agent. This allows us to have a ready-to-use virtual machine without needing to configure any components, making it completely transparent to the user.
 
 We can deploy two types of virtual machines:
 

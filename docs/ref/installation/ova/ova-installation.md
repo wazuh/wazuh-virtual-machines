@@ -28,12 +28,12 @@ The OVA can be deployed by downloading the `.ova` file from the official Wazuh d
 Shortly after starting the VM, the Wazuh dashboard can be accessed from the web interface by using the following credentials:
 
 ```bash
-URL: https://<wazuh_server_ip>
+URL: https://<wazuh_manager_ip>
 user: admin
 password: admin
 ```
 
-You can find `<wazuh_server_ip>` by typing the following command in the VM:
+You can find `<wazuh_manager_ip>` by typing the following command in the VM:
 
 ```bash
 ip a

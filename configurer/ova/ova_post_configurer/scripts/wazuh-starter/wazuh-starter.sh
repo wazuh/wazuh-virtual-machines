@@ -78,13 +78,6 @@ function verify_dashboard() {
   done
 }
 
-function remove_kibana_index() {
-  logger "Removing Kibana index"
-  curl -XDELETE -k -u admin:admin https://127.0.0.1:9200/.kibana*
-  logger "Restarting Wazuh Dashboard"
-  systemctl restart wazuh-dashboard
-}
-
 function clean_configuration(){
   logger "Cleaning configuration files"
   eval "rm -rf /var/log/wazuh-starter.log"
@@ -103,11 +96,12 @@ starter_service wazuh-indexer
 verify_indexer
 
 starter_service wazuh-manager
+starter_service wazuh-agent
 
 starter_service wazuh-dashboard
-remove_kibana_index
 verify_dashboard
 systemctl enable wazuh-manager
+systemctl enable wazuh-agent
 systemctl enable wazuh-dashboard
 
 clean_configuration
