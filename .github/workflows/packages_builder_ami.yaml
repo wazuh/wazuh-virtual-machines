@@ -188,7 +188,6 @@ jobs:
           source ${{ env.WORKFLOW_VENV }}/bin/activate
           pip install --upgrade pip
           pip install hatch pyyaml
-          pip install virtualenv==20.31.2 # Problem related to hatch and virtualenv with version >= 21.0.0 (related: https://github.com/pypa/hatch/issues/2193)
 
       - name: Get Wazuh version
         run: |
