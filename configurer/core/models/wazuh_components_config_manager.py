@@ -10,7 +10,7 @@ from .wazuh_config_mapping import (
     WazuhAgentConfigMapping,
     WazuhDashboardConfigMapping,
     WazuhIndexerConfigMapping,
-    WazuhServerConfigMapping,
+    WazuhManagerConfigMapping,
 )
 
 logger = Logger("ConfigManager")
@@ -48,9 +48,9 @@ class WazuhComponentConfigManager:
         return None
 
     @property
-    def manager_mapping(self) -> WazuhServerConfigMapping | None:
+    def manager_mapping(self) -> WazuhManagerConfigMapping | None:
         if self.config_mappings_file.get(Component.WAZUH_MANAGER, None):
-            return WazuhServerConfigMapping(self.config_mappings_file[Component.WAZUH_MANAGER])
+            return WazuhManagerConfigMapping(self.config_mappings_file[Component.WAZUH_MANAGER])
         return None
 
     @property

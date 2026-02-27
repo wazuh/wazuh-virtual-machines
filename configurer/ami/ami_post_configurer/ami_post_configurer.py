@@ -47,7 +47,7 @@ class AmiPostConfigurer:
               of the service that will create the custom certs for each instance.
             - Set up python environment located in the custom directory that will be used for the
               certificates creation service.
-            - Stop Wazuh server, indexer, and dashboard services.
+            - Stop Wazuh manager, indexer, and dashboard services.
             - Change SSH port to the default value.
             - Clean up cloud instance files, journal logs, yum cache, and logout files.
             - Enable journal log storage.
@@ -178,7 +178,7 @@ class AmiPostConfigurer:
 
     def stop_wazuh_manager(self, client: paramiko.SSHClient) -> None:
         """
-        Stop the Wazuh server service.
+        Stop the Wazuh manager service.
 
         Args:
             client (paramiko.SSHClient): An active SSH client used to execute commands on the remote machine.

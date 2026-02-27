@@ -11,7 +11,7 @@ logger = Logger("Package provision")
 
 class PackageInfo(BaseModel):
     """
-    PackageInfo class represents the information about the main packages for Wazuh (indexer, server and dashboard).
+    PackageInfo class represents the information about the main packages for Wazuh (indexer, manager and dashboard).
 
     Attributes:
         packages_url_content (dict): Dictionary containing URLs for different packages.

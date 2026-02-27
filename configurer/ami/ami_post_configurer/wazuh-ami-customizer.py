@@ -234,11 +234,11 @@ def verify_indexer_connection(password: str = "admin") -> None:
     verify_component_connection(Component.WAZUH_INDEXER, command)
 
 
-def verify_server_connection(password: str = "wazuh-wui") -> None:
+def verify_manager_connection(password: str = "wazuh-wui") -> None:
     """
-    Verifies the connection to the Wazuh server API.
-    This function sends a request to the Wazuh server API endpoint and checks the response.
-    It ensures that the Wazuh server API is running and accessible after the custom certificates have been configured.
+    Verifies the connection to the Wazuh manager API.
+    This function sends a request to the Wazuh manager API endpoint and checks the response.
+    It ensures that the Wazuh manager API is running and accessible after the custom certificates have been configured.
 
     Returns:
         None
@@ -295,7 +295,7 @@ def start_components_services() -> None:
 
     enable_service("wazuh-manager")
     start_service("wazuh-manager")
-    verify_server_connection()
+    verify_manager_connection()
 
     enable_service("wazuh-dashboard")
     start_service("wazuh-dashboard")
@@ -347,25 +347,25 @@ def retrieve_users(component: str) -> list:
         users = list(users_data.keys())
         logger.debug(f"Indexer users retrieved: {users}")
 
-    elif component == "server":
+    elif component == "manager":
         token_command = "curl -s -u wazuh:wazuh -k -X POST 'https://127.0.0.1:55000/security/user/authenticate?raw=true' --max-time 300 --retry 5 --retry-delay 5"
         token, token_error = exec_command(command=token_command)
         if token_error:
-            logger.error(f"Error retrieving server token: {token_error}")
-            raise RuntimeError("Error retrieving server token")
+            logger.error(f"Error retrieving manager token: {token_error}")
+            raise RuntimeError("Error retrieving manager token")
 
         command = f'curl -XGET -H "Authorization: Bearer {token}" -H "Content-Type: application/json" "https://127.0.0.1:55000/security/users" -ks -u wazuh:wazuh'
         output, error_output = exec_command(command=command)
         if error_output:
-            logger.error(f"Error retrieving server users: {error_output}")
-            raise RuntimeError("Error retrieving server users")
+            logger.error(f"Error retrieving manager users: {error_output}")
+            raise RuntimeError("Error retrieving manager users")
 
         users_data = json.loads(output)
         users = [user["username"] for user in users_data["data"]["affected_items"]]
-        logger.debug(f"Server users retrieved: {users}")
+        logger.debug(f"Manager users retrieved: {users}")
 
     else:
-        raise ValueError("Invalid component specified. Use 'indexer' or 'server'.")
+        raise ValueError("Invalid component specified. Use 'indexer' or 'manager'.")
 
     return users
 
@@ -377,7 +377,7 @@ def change_passwords() -> None:
     instance_id = get_instance_id()
 
     indexer_users = retrieve_users("indexer")
-    server_users = retrieve_users("server")
+    manager_users = retrieve_users("manager")
 
     logger.debug("Changing passwords to instance ID")
 
@@ -391,20 +391,20 @@ def change_passwords() -> None:
             logger.error(f"Error changing password for indexer user {user}: {error_output}")
             raise RuntimeError(f"Error changing password for indexer user {user}")
 
-    for user in server_users:
-        logger.debug(f"Changing password for server user: {user}")
+    for user in manager_users:
+        logger.debug(f"Changing password for manager user: {user}")
         command = f"""
         bash {PASSWORD_TOOL_PATH} -A -au {user} -ap {user} -u {user} -p {instance_id}
         """
         _, error_output = exec_command(command=command)
         if error_output:
-            logger.error(f"Error changing password for server user {user}: {error_output}")
-            raise RuntimeError(f"Error changing password for server user {user}")
+            logger.error(f"Error changing password for manager user {user}: {error_output}")
+            raise RuntimeError(f"Error changing password for manager user {user}")
 
     logger.debug("Passwords changed. Verifying indexer connection with new password")
     verify_indexer_connection(password=instance_id)
-    logger.debug("Verifying server API connection with new password")
-    verify_server_connection(password=instance_id)
+    logger.debug("Verifying manager API connection with new password")
+    verify_manager_connection(password=instance_id)
     logger.debug("Changing passwords finished successfully")
 
 

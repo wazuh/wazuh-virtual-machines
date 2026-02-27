@@ -45,13 +45,13 @@ on:
           - dev
       commit_list:
         description: |
-          'Wazuh components revisions (comma-separated string list) ["indexer-revision", "server-revision", "dashboard-revision"]'
+          'Wazuh components revisions (comma-separated string list) ["indexer-revision", "manager-revision", "dashboard-revision"]'
           (Only needed if the Wazuh package type is dev-latest or dev-commit)
         required: true
         default: '["latest", "latest", "latest", "latest"]'
         type: string
-      WAZUH_SERVER_VERSION_REVISION:
-        description: 'Expected Wazuh server version-revision'
+      WAZUH_MANAGER_VERSION_REVISION:
+        description: 'Expected Wazuh manager version-revision'
         required: false
         type: string
       WAZUH_INDEXER_VERSION_REVISION:
@@ -121,7 +121,7 @@ on:
         type: string
         required: false
         default: '["latest", "latest", "latest", "latest"]'
-      WAZUH_SERVER_VERSION_REVISION:
+      WAZUH_MANAGER_VERSION_REVISION:
         type: string
         required: false
       WAZUH_INDEXER_VERSION_REVISION:
@@ -144,7 +144,7 @@ on:
         default: false
 
 env:
-  WAZUH_SERVER_EXPECTED_VERSION: ${{ inputs.WAZUH_SERVER_VERSION_REVISION }}
+  WAZUH_MANAGER_EXPECTED_VERSION: ${{ inputs.WAZUH_MANAGER_VERSION_REVISION }}
   WAZUH_INDEXER_EXPECTED_VERSION: ${{ inputs.WAZUH_INDEXER_VERSION_REVISION }}
   WAZUH_DASHBOARD_EXPECTED_VERSION: ${{ inputs.WAZUH_DASHBOARD_VERSION_REVISION }}
   WAZUH_AUTOMATION_REFERENCE: ${{ inputs.WAZUH_AUTOMATION_REFERENCE || 'main' }}

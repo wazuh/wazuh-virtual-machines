@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - Updated ova post configurer with agent/manager separation. ([#612](https://github.com/wazuh/wazuh-virtual-machines/pull/612))
+- Change server references to manager due to breaking changes ([#613](https://github.com/wazuh/wazuh-virtual-machines/pull/613))
 - Add WF to execute PR Check with build and test OVA and AMI ([#583](https://github.com/wazuh/wazuh-virtual-machines/pull/583))
 - Add WF to execute PR Check with build and test OVA and AMI ([#594](https://github.com/wazuh/wazuh-virtual-machines/pull/594))
 - Add WF to execute PR Check with build and test OVA and AMI ([#598](https://github.com/wazuh/wazuh-virtual-machines/pull/598))
