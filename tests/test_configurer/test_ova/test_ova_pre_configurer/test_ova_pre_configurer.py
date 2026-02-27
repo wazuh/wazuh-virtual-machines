@@ -63,7 +63,7 @@ def test_run_vagrant_up_failure_then_success(mock_run_command, mock_logger):
     mock_run_command.side_effect = side_effect
     result = run_vagrant_up(max_retries=2)
     assert result is True
-    assert mock_logger.debug.call_count == 3
+    assert mock_logger.debug.call_count == 2
     mock_logger.warning.assert_called_once_with("Vagrant VM failed to start on attemtp 1. Retrying...")
     mock_logger.info_success.assert_called_once_with("Vagrant VM started.")
     assert mock_run_command.call_count == 3
@@ -75,12 +75,66 @@ def test_run_vagrant_up_max_retries_exceeded(mock_logger, mock_run_command):
     mock_run_command.return_value = ("", "", [1])
     with pytest.raises(RuntimeError, match="Vagrant VM failed to start after maximum retries."):
         run_vagrant_up(max_retries=3)
-    assert mock_logger.debug.call_count == 6
+    assert mock_logger.debug.call_count == 3
     assert mock_logger.warning.call_count == 3
     mock_logger.error.assert_called_once_with("Max attemps reached. Failed execution.")
     assert mock_run_command.call_count == 6
     mock_run_command.assert_any_call("vagrant up", output=True)
     mock_run_command.assert_any_call("vagrant destroy -f")
+
+
+def test_run_vagrant_up_with_vagrantfile_success(mock_logger, mock_run_command):
+    from pathlib import Path
+
+    vagrantfile = Path("/custom/path/Vagrantfile")
+    mock_run_command.return_value = ("", "", [0])
+    result = run_vagrant_up(vagrantfile=vagrantfile)
+    assert result is True
+    mock_logger.debug.assert_called_with("Attempt 1 to run 'vagrant up'.")
+    mock_logger.info_success.assert_called_once_with("Vagrant VM started.")
+    mock_run_command.assert_called_once_with(f"VAGRANT_VAGRANTFILE={vagrantfile} vagrant up", output=True)
+
+
+def test_run_vagrant_up_with_vagrantfile_failure_then_success(mock_run_command, mock_logger):
+    from pathlib import Path
+
+    vagrantfile = Path("/custom/path/Vagrantfile")
+
+    def side_effect(command, output=True):
+        if f"VAGRANT_VAGRANTFILE={vagrantfile} vagrant up" in command:
+            if side_effect.counter == 0:
+                side_effect.counter += 1
+                return ("", "Error", [1])
+            return ("", "", [0])
+        elif f"VAGRANT_VAGRANTFILE={vagrantfile} vagrant destroy -f" in command:
+            return ("", "", [0])
+        return ("", "", [0])
+
+    side_effect.counter = 0
+    mock_run_command.side_effect = side_effect
+    result = run_vagrant_up(max_retries=2, vagrantfile=vagrantfile)
+    assert result is True
+    assert mock_logger.debug.call_count == 2
+    mock_logger.warning.assert_called_once_with("Vagrant VM failed to start on attemtp 1. Retrying...")
+    mock_logger.info_success.assert_called_once_with("Vagrant VM started.")
+    assert mock_run_command.call_count == 3
+    mock_run_command.assert_any_call(f"VAGRANT_VAGRANTFILE={vagrantfile} vagrant up", output=True)
+    mock_run_command.assert_any_call(f"VAGRANT_VAGRANTFILE={vagrantfile} vagrant destroy -f")
+
+
+def test_run_vagrant_up_with_vagrantfile_max_retries_exceeded(mock_logger, mock_run_command):
+    from pathlib import Path
+
+    vagrantfile = Path("/custom/path/Vagrantfile")
+    mock_run_command.return_value = ("", "", [1])
+    with pytest.raises(RuntimeError, match="Vagrant VM failed to start after maximum retries."):
+        run_vagrant_up(max_retries=3, vagrantfile=vagrantfile)
+    assert mock_logger.debug.call_count == 3
+    assert mock_logger.warning.call_count == 3
+    mock_logger.error.assert_called_once_with("Max attemps reached. Failed execution.")
+    assert mock_run_command.call_count == 6
+    mock_run_command.assert_any_call(f"VAGRANT_VAGRANTFILE={vagrantfile} vagrant up", output=True)
+    mock_run_command.assert_any_call(f"VAGRANT_VAGRANTFILE={vagrantfile} vagrant destroy -f")
 
 
 @patch("configurer.ova.ova_pre_configurer.ova_pre_configurer.run_vagrant_up")

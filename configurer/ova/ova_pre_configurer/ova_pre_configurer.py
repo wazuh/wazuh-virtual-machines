@@ -54,8 +54,8 @@ def run_vagrant_up(max_retries: int = 10, vagrantfile: Path | None = None) -> bo
 
         logger.warning(f"Vagrant VM failed to start on attemtp {attempts}. Retrying...")
 
-        logger.debug("Destroying Vagrant machine")
-        run_command("vagrant destroy -f")
+        destroy_command = f"VAGRANT_VAGRANTFILE={vagrantfile} vagrant destroy -f" if vagrantfile else "vagrant destroy -f"
+        run_command(destroy_command)
 
         if attempts == max_retries:
             logger.error("Max attemps reached. Failed execution.")

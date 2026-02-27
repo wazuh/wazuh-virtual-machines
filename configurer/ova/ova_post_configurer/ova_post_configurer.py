@@ -1,6 +1,7 @@
 import json
 import os
 import shutil
+import re
 from pathlib import Path
 
 from configurer.utils import run_command
@@ -140,6 +141,38 @@ def add_wazuh_starter_service() -> None:
     run_command(commands)
 
 
+def configure_sshd() -> None:
+    """
+    Configures the SSH daemon to disable root login, enable password authentication,
+    and disable AuthorizedKeysCommand, in an idempotent and robust way.
+    """
+    logger.debug("Applying robust SSH configuration.")
+    def set_ssh_config(filepath: Path) -> None:
+        if not filepath.exists():
+            return
+
+        content = filepath.read_text()
+
+        # Remove any existing PasswordAuthentication, PermitRootLogin, AuthorizedKeysCommand directives
+        content = re.sub(r"^[ \t]*#?[ \t]*PasswordAuthentication.*$", "", content, flags=re.MULTILINE)
+        content = re.sub(r"^[ \t]*#?[ \t]*PermitRootLogin.*$", "", content, flags=re.MULTILINE)
+        content = re.sub(r"^[ \t]*#?[ \t]*AuthorizedKeysCommand.*$", "", content, flags=re.MULTILINE)
+
+        # Squeeze max line breaks
+        content = re.sub(r"\n{3,}", "\n\n", content)
+
+        # Append our settings
+        content = content.rstrip() + "\n\nPasswordAuthentication yes\nPermitRootLogin no\n"
+        filepath.write_text(content)
+
+    set_ssh_config(Path("/etc/ssh/sshd_config"))
+
+    sshd_config_d = Path("/etc/ssh/sshd_config.d")
+    if sshd_config_d.is_dir():
+        for conf_file in sshd_config_d.glob("*.conf"):
+            set_ssh_config(conf_file)
+
+
 def steps_system_config() -> None:
     """
     This function is the migration of the older systemConfig located in steps.sh.
@@ -176,20 +209,7 @@ def steps_system_config() -> None:
 
     set_hostname()
 
-    modify_file(
-        filepath=Path("/etc/ssh/sshd_config"),
-        replacements=[("PermitRootLogin yes", "#PermitRootLogin yes")],
-        client=None,
-    )
-
-    modify_file(
-        filepath=Path("/etc/ssh/sshd_config"),
-        replacements=[("PasswordAuthentication no", "PasswordAuthentication yes")],
-        client=None,
-    )
-
-    with open("/etc/ssh/sshd_config", "a") as file:
-        file.write("\nPermitRootLogin no\n")
+    configure_sshd()
 
     # Retrieve Wazuh Version from Version.json
     with open("VERSION.json") as file:
@@ -327,6 +347,50 @@ def post_conf_delete_generated_network_files() -> None:
         file.unlink(missing_ok=True)
 
 
+def clean_generated_logs(
+    log_directory_path: Path = Path("/var/log"),
+    wazuh_indexer_log_path: Path = Path("/var/log/wazuh-indexer"),
+    wazuh_manager_log_path: Path = Path("/var/wazuh-manager/logs"),
+    wazuh_agent_log_path: Path = Path("/var/ossec/logs"),
+    wazuh_dashboard_log_path: Path = Path("/var/log/wazuh-dashboard"),
+) -> None:
+    """
+    Cleans up generated log files during the configuration in specified directories by truncating their contents.
+
+    Checks if the specified log directories exist and contain files. If so, it
+    truncates the contents of all files within those directories to free up space while
+    retaining the file structure.
+
+    Args:
+        log_directory_path (Path): Path to the general log directory. Defaults to /var/log.
+        wazuh_indexer_log_path (Path): Path to the Wazuh indexer log directory.
+        wazuh_manager_log_path (Path): Path to the Wazuh manager log directory.
+        wazuh_agent_log_path (Path): Path to the Wazuh agent log directory.
+        wazuh_dashboard_log_path (Path): Path to the Wazuh dashboard log directory.
+
+    Returns:
+        None
+    """
+    logger.debug(f'Cleaning up generated logs in "{log_directory_path}"')
+
+    log_dirs = [
+        log_directory_path,
+        wazuh_indexer_log_path,
+        wazuh_manager_log_path,
+        wazuh_agent_log_path,
+        wazuh_dashboard_log_path,
+    ]
+
+    for log_dir in log_dirs:
+        if log_dir.is_dir():
+            files = list(log_dir.rglob("*"))
+            for f in files:
+                if f.is_file():
+                    with open(f, "w") as fh:
+                        fh.truncate(0)
+
+    logger.info_success("Generated logs cleaned up successfully")
+
 def post_conf_clean() -> None:
     """
     Cleans up system logs, clears command history, removes cached package data, and updates SSH configuration.
@@ -346,26 +410,15 @@ def post_conf_clean() -> None:
     post_conf_deactivate_cloud_init()
     post_conf_delete_generated_network_files()
 
-    log_clean_commands = [
-        "find /var/log/ -type f -exec bash -c 'cat /dev/null > {}' \\;",
-        r"find /var/log/wazuh-indexer -type f -execdir sh -c 'cat /dev/null > \"$1\"' _ {} \;",
-        "rm -rf /var/log/wazuh-install.log",
-    ]
-    run_command(log_clean_commands)
+    clean_generated_logs()
 
     run_command("cat /dev/null > ~/.bash_history && history -c")
 
     yum_clean_commands = ["sudo yum clean all", "sudo rm -rf /var/cache/yum/*"]
     run_command(yum_clean_commands)
 
-    sshd_config_changes = [
-        (r"^#?AuthorizedKeysCommand.*", ""),
-        (r"^#?AuthorizedKeysCommandUser.*", ""),
-    ]
-    sshd_config_path = Path("/etc/ssh/sshd_config")
-    modify_file(filepath=sshd_config_path, replacements=sshd_config_changes, client=None)
+    configure_sshd()
     run_command("sudo systemctl restart sshd")
-
 
 def main() -> None:
     """
@@ -390,6 +443,7 @@ def main() -> None:
     steps_system_config()
 
     run_command("systemctl stop wazuh-manager")
+    run_command("systemctl stop wazuh-agent")
     run_command("curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/wazuh-*' -k")
 
     run_command("bash /usr/share/wazuh-indexer/bin/indexer-security-init.sh -ho 127.0.0.1")
@@ -397,6 +451,7 @@ def main() -> None:
     commands = [
         "systemctl stop wazuh-indexer wazuh-dashboard",
         "systemctl disable wazuh-manager",
+        "systemctl disable wazuh-agent",
         "systemctl disable wazuh-dashboard",
     ]
     run_command(commands)
