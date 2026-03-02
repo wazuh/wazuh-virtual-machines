@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
-from generic.helpers import change_inventory_user, exec_command, modify_file
+from generic.helpers import add_content_to_file, change_inventory_user, exec_command, modify_file
 
 
 @pytest.fixture
@@ -171,3 +171,38 @@ def test_change_inventory_user_preserves_rest_of_file():
         change_inventory_user(inventory_path, "admin")
 
     m().write.assert_called_once_with(expected)
+
+
+def test_add_content_to_file_local_success(mock_exec_command):
+    filepath = Path("test.txt")
+    content = "new line"
+
+    add_content_to_file(filepath, content)
+
+    expected_command = f"echo '{content}' | sudo tee -a {filepath} > /dev/null"
+    mock_exec_command.assert_called_once_with(expected_command, None)
+
+
+def test_add_content_to_file_remote_success(mock_exec_command):
+    filepath = Path("remote.txt")
+    content = "remote line"
+    mock_client = MagicMock()
+
+    mock_exec_command.return_value = ("", "")
+
+    add_content_to_file(filepath, content, client=mock_client)
+
+    expected_command = f"echo '{content}' | sudo tee -a {filepath} > /dev/null"
+    mock_exec_command.assert_called_once_with(expected_command, mock_client)
+
+
+def test_add_content_to_file_raises_on_stderr_local(mock_exec_command):
+    filepath = Path("test.txt")
+    content = "line"
+    mock_exec_command.return_value = ("", "Permission denied")
+
+    with pytest.raises(
+        RuntimeError,
+        match="Failed to append to test.txt: Error appending to test.txt: Permission denied",
+    ):
+        add_content_to_file(filepath, content)

@@ -11,6 +11,7 @@ from configurer.ova.ova_post_configurer.ova_post_configurer import (
     add_wazuh_starter_service,
     clean_generated_logs,
     config_grub,
+    configure_ssh,
     configure_sshd,
     enable_fips,
     main,
@@ -216,13 +217,11 @@ def test_configure_sshd_str_is_converted_to_path(mock_modify_file):
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.update_jvm_heap")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.enable_fips")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.config_grub")
-@patch("configurer.ova.ova_post_configurer.ova_post_configurer.configure_sshd")
 @patch("builtins.open", new_callable=mock_open)
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.json.load")
 def test_steps_system_config(
     mock_json_load,
     mock_open_file,
-    mock_configure_sshd,
     mock_config_grub,
     mock_enable_fips,
     mock_update_jvm_heap,
@@ -247,8 +246,6 @@ def test_steps_system_config(
     mock_run_command.assert_any_call("echo 'root:wazuh' | chpasswd")
 
     mock_set_hostname.assert_called_once()
-
-    mock_configure_sshd.assert_called_once()
 
     mock_open_file.assert_any_call("VERSION.json")
     mock_run_command.assert_any_call(f"sudo bash {SCRIPTS_PATH}/messages.sh no 5.0.0-alpha0 wazuh-user")
@@ -312,8 +309,6 @@ def test_post_conf_change_ssh_crypto_policies(mock_run_command):
     handle = m()
     written_content = "".join(call.args[0] for call in handle.write.call_args_list)
     assert written_content == expected_content
-
-    mock_run_command.assert_called_once_with("systemctl restart sshd")
 
 
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.Path")
@@ -430,7 +425,6 @@ def test_clean_generated_logs(mock_file_open):
     assert mock_file_handle.truncate.call_count == 2
 
 
-@patch("configurer.ova.ova_post_configurer.ova_post_configurer.configure_sshd")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.clean_generated_logs")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.post_conf_deactivate_cloud_init")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.post_conf_delete_generated_network_files")
@@ -438,7 +432,6 @@ def test_post_conf_clean(
     mock_post_conf_delete_generated_network_files,
     mock_post_conf_deactivate_cloud_init,
     mock_clean_generated_logs,
-    mock_configure_sshd,
     mock_run_command,
 ):
     post_conf_clean()
@@ -456,19 +449,109 @@ def test_post_conf_clean(
         ]
     )
 
+
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.configure_sshd")
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.post_conf_change_ssh_crypto_policies")
+def test_configure_ssh(
+    mock_post_conf_change_ssh_crypto_policies,
+    mock_configure_sshd,
+    mock_run_command,
+):
+    configure_ssh()
+
     mock_configure_sshd.assert_called_once()
 
-    mock_run_command.assert_any_call("sudo systemctl restart sshd")
+    mock_post_conf_change_ssh_crypto_policies.assert_called_once()
+
+    # Verify that sshd is restarted after configuration changes
+    mock_run_command.assert_any_call("systemctl restart sshd")
+
+
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.add_content_to_file")
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.configure_sshd")
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.post_conf_change_ssh_crypto_policies")
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.Path")
+def test_configure_ssh_processes_conf_files(
+    mock_path_class,
+    mock_post_conf_change_ssh_crypto_policies,
+    mock_configure_sshd,
+    mock_add_content_to_file,
+    mock_run_command,
+):
+    """configure_ssh must call configure_sshd + add_content_to_file on every .conf file found."""
+    conf_file_1 = MagicMock(name="50-cloud-init.conf")
+    conf_file_2 = MagicMock(name="60-custom.conf")
+
+    mock_sshd_config = MagicMock()
+    mock_sshd_config_d = MagicMock()
+    mock_sshd_config_d.is_dir.return_value = True
+    mock_sshd_config_d.glob.return_value = [conf_file_1, conf_file_2]
+
+    def path_side_effect(arg):
+        if str(arg) == "/etc/ssh/sshd_config":
+            return mock_sshd_config
+        elif str(arg) == "/etc/ssh/sshd_config.d":
+            return mock_sshd_config_d
+        return MagicMock()
+
+    mock_path_class.side_effect = path_side_effect
+
+    configure_ssh()
+
+    # configure_sshd called for main sshd_config + each .conf file
+    assert mock_configure_sshd.call_count == 3
+    mock_configure_sshd.assert_any_call(mock_sshd_config)
+    mock_configure_sshd.assert_any_call(conf_file_1)
+    mock_configure_sshd.assert_any_call(conf_file_2)
+
+    # add_content_to_file called once per .conf file with the correct content
+    assert mock_add_content_to_file.call_count == 2
+    mock_add_content_to_file.assert_any_call(conf_file_1, "\nPermitRootLogin no\nPasswordAuthentication yes\n")
+    mock_add_content_to_file.assert_any_call(conf_file_2, "\nPermitRootLogin no\nPasswordAuthentication yes\n")
+
+    mock_sshd_config_d.glob.assert_called_once_with("*.conf")
+
+
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.add_content_to_file")
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.configure_sshd")
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.post_conf_change_ssh_crypto_policies")
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.Path")
+def test_configure_ssh_skips_conf_files_when_no_sshd_config_d(
+    mock_path_class,
+    mock_post_conf_change_ssh_crypto_policies,
+    mock_configure_sshd,
+    mock_add_content_to_file,
+    mock_run_command,
+):
+    """When sshd_config.d does not exist, only the main sshd_config must be processed."""
+    mock_sshd_config = MagicMock()
+    mock_sshd_config_d = MagicMock()
+    mock_sshd_config_d.is_dir.return_value = False
+
+    def path_side_effect(arg):
+        if str(arg) == "/etc/ssh/sshd_config":
+            return mock_sshd_config
+        elif str(arg) == "/etc/ssh/sshd_config.d":
+            return mock_sshd_config_d
+        return MagicMock()
+
+    mock_path_class.side_effect = path_side_effect
+
+    configure_ssh()
+
+    mock_configure_sshd.assert_called_once_with(mock_sshd_config)
+    mock_add_content_to_file.assert_not_called()
+    mock_sshd_config_d.glob.assert_not_called()
 
 
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.steps_system_config")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.steps_clean")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.post_conf_create_network_config")
-@patch("configurer.ova.ova_post_configurer.ova_post_configurer.post_conf_change_ssh_crypto_policies")
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.configure_ssh")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.post_conf_clean")
 def test_main(
     mock_post_conf_clean,
-    mock_post_conf_change_ssh_crypto_policies,
+    mock_configure_ssh,
     mock_post_conf_create_network_config,
     mock_steps_clean,
     mock_steps_system_config,
@@ -497,5 +580,5 @@ def test_main(
     mock_steps_clean.assert_called_once()
 
     mock_post_conf_create_network_config.assert_called_once()
-    mock_post_conf_change_ssh_crypto_policies.assert_called_once()
+    mock_configure_ssh.assert_called_once()
     mock_post_conf_clean.assert_called_once()

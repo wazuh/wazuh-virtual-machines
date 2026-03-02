@@ -398,6 +398,19 @@ def post_conf_clean() -> None:
 
 
 def configure_ssh() -> None:
+    """Apply SSH hardening and restart the SSH daemon.
+
+    This routine updates SSH crypto policies, modifies the main
+    ``/etc/ssh/sshd_config`` file, and, if present, iterates over all
+    ``*.conf`` files in ``/etc/ssh/sshd_config.d`` to apply the same
+    configuration updates and append explicit directives to disable root
+    login and enable password authentication.
+
+    Finally, it restarts the ``sshd`` service so all changes take effect.
+
+    Returns:
+        None
+    """
     post_conf_change_ssh_crypto_policies()
     configure_sshd(Path("/etc/ssh/sshd_config"))
 
