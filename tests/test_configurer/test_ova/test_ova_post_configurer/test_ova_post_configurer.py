@@ -450,23 +450,6 @@ def test_post_conf_clean(
     )
 
 
-@patch("configurer.ova.ova_post_configurer.ova_post_configurer.configure_sshd")
-@patch("configurer.ova.ova_post_configurer.ova_post_configurer.post_conf_change_ssh_crypto_policies")
-def test_configure_ssh(
-    mock_post_conf_change_ssh_crypto_policies,
-    mock_configure_sshd,
-    mock_run_command,
-):
-    configure_ssh()
-
-    mock_configure_sshd.assert_called_once()
-
-    mock_post_conf_change_ssh_crypto_policies.assert_called_once()
-
-    # Verify that sshd is restarted after configuration changes
-    mock_run_command.assert_any_call("systemctl restart sshd")
-
-
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.add_content_to_file")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.configure_sshd")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.post_conf_change_ssh_crypto_policies")
@@ -497,6 +480,8 @@ def test_configure_ssh_processes_conf_files(
     mock_path_class.side_effect = path_side_effect
 
     configure_ssh()
+
+    mock_post_conf_change_ssh_crypto_policies.assert_called_once()
 
     # configure_sshd called for main sshd_config + each .conf file
     assert mock_configure_sshd.call_count == 3
