@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -84,7 +85,6 @@ def test_run_vagrant_up_max_retries_exceeded(mock_logger, mock_run_command):
 
 
 def test_run_vagrant_up_with_vagrantfile_success(mock_logger, mock_run_command):
-    from pathlib import Path
 
     vagrantfile = Path("/custom/path/Vagrantfile")
     mock_run_command.return_value = ("", "", [0])
@@ -96,7 +96,6 @@ def test_run_vagrant_up_with_vagrantfile_success(mock_logger, mock_run_command):
 
 
 def test_run_vagrant_up_with_vagrantfile_failure_then_success(mock_run_command, mock_logger):
-    from pathlib import Path
 
     vagrantfile = Path("/custom/path/Vagrantfile")
 
@@ -123,7 +122,6 @@ def test_run_vagrant_up_with_vagrantfile_failure_then_success(mock_run_command, 
 
 
 def test_run_vagrant_up_with_vagrantfile_max_retries_exceeded(mock_logger, mock_run_command):
-    from pathlib import Path
 
     vagrantfile = Path("/custom/path/Vagrantfile")
     mock_run_command.return_value = ("", "", [1])
