@@ -83,14 +83,12 @@ def test_config_grub(mock_run_command, mock_os_path_exists, mock_os_remove, mock
 
 def test_enable_fips(mock_run_command):
     enable_fips()
-    mock_run_command.assert_called_once_with(
-        [
-            "yum update -y",
-            "yum install -y dracut-fips",
-            "dracut -f",
-            "/sbin/grubby --update-kernel=ALL --args='fips=1'",
-        ]
-    )
+    mock_run_command.assert_called_once_with([
+        "yum update -y",
+        "yum install -y dracut-fips",
+        "dracut -f",
+        "/sbin/grubby --update-kernel=ALL --args='fips=1'",
+    ])
 
 
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.os.chmod")
@@ -165,75 +163,38 @@ def test_add_wazuh_starter_service(mock_chmod, mock_run_command, mock_os_path_ex
 
     mock_chmod.assert_called_once_with("/etc/.wazuh-starter.sh", 0o755)
 
-    mock_run_command.assert_called_once_with(
-        [
-            "systemctl daemon-reload",
-            "systemctl enable wazuh-starter.timer",
-            "systemctl enable wazuh-starter.service",
-        ]
-    )
+    mock_run_command.assert_called_once_with([
+        "systemctl daemon-reload",
+        "systemctl enable wazuh-starter.timer",
+        "systemctl enable wazuh-starter.service",
+    ])
 
 
-@patch("configurer.ova.ova_post_configurer.ova_post_configurer.Path")
-def test_configure_sshd(mock_path_class):
-    # Mock main sshd_config file
-    mock_main_config = MagicMock()
-    mock_main_config.exists.return_value = True
-    mock_main_config.read_text.return_value = (
-        "# Some comment\n"
-        "PasswordAuthentication no\n"
-        "PermitRootLogin yes\n"
-        "AuthorizedKeysCommand /usr/bin/some-command\n"
-        "OtherSetting value\n"
-    )
-
-    # Mock sshd_config.d directory and files
-    mock_config_d = MagicMock()
-    mock_config_d.is_dir.return_value = True
-
-    mock_conf_file = MagicMock()
-    mock_conf_file.exists.return_value = True
-    mock_conf_file.read_text.return_value = (
-        "PasswordAuthentication no\n"
-        "# PermitRootLogin yes\n"
-    )
-
-    mock_config_d.glob.return_value = [mock_conf_file]
-
-    # Setup Path mock to return different objects for different calls
-    def path_side_effect(arg):
-        if arg == "/etc/ssh/sshd_config":
-            return mock_main_config
-        elif arg == "/etc/ssh/sshd_config.d":
-            return mock_config_d
-        return MagicMock()
-
-    mock_path_class.side_effect = path_side_effect
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.modify_file")
+def test_configure_sshd(mock_modify_file):
+    expected_replacements = [
+        (r"^[ \t]*#?[ \t]*PasswordAuthentication.*$", "PasswordAuthentication yes"),
+        (r"^[ \t]*#?[ \t]*PermitRootLogin.*$", "PermitRootLogin no"),
+        (r"^[ \t]*#?[ \t]*AuthorizedKeysCommand.*$", ""),
+    ]
 
     configure_sshd()
 
-    # Verify main config was processed
-    mock_main_config.exists.assert_called_once()
-    mock_main_config.read_text.assert_called_once()
-    assert mock_main_config.write_text.call_count == 1
+    mock_modify_file.assert_called_once_with(Path("/etc/ssh/sshd_config"), expected_replacements)
 
-    # Check the content written to main config
-    written_content = mock_main_config.write_text.call_args[0][0]
-    assert "PasswordAuthentication yes" in written_content
-    assert "PermitRootLogin no" in written_content
-    assert "PasswordAuthentication no" not in written_content
-    assert "PermitRootLogin yes" not in written_content
-    assert "AuthorizedKeysCommand" not in written_content
-    assert "OtherSetting value" in written_content
 
-    # Verify sshd_config.d directory was checked
-    mock_config_d.is_dir.assert_called_once()
-    mock_config_d.glob.assert_called_once_with("*.conf")
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.modify_file")
+def test_configure_sshd_custom_path(mock_modify_file):
+    custom_path = Path("/custom/sshd_config")
+    expected_replacements = [
+        (r"^[ \t]*#?[ \t]*PasswordAuthentication.*$", "PasswordAuthentication yes"),
+        (r"^[ \t]*#?[ \t]*PermitRootLogin.*$", "PermitRootLogin no"),
+        (r"^[ \t]*#?[ \t]*AuthorizedKeysCommand.*$", ""),
+    ]
 
-    # Verify conf file was processed
-    mock_conf_file.exists.assert_called_once()
-    mock_conf_file.read_text.assert_called_once()
-    assert mock_conf_file.write_text.call_count == 1
+    configure_sshd(custom_path)
+
+    mock_modify_file.assert_called_once_with(custom_path, expected_replacements)
 
 
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.set_hostname")
@@ -279,17 +240,14 @@ def test_steps_system_config(
     mock_run_command.assert_any_call(f"sudo bash {SCRIPTS_PATH}/messages.sh no 5.0.0-alpha0 wazuh-user")
 
 
-
 def test_steps_clean(mock_run_command):
     steps_clean()
-    mock_run_command.assert_called_once_with(
-        [
-            "rm -f /securityadmin_demo.sh",
-            "yum clean all",
-            "systemctl daemon-reload",
-            "cat /dev/null > ~/.bash_history && history -c",
-        ]
-    )
+    mock_run_command.assert_called_once_with([
+        "rm -f /securityadmin_demo.sh",
+        "yum clean all",
+        "systemctl daemon-reload",
+        "cat /dev/null > ~/.bash_history && history -c",
+    ])
 
 
 @patch("builtins.open", new_callable=mock_open)
@@ -475,12 +433,10 @@ def test_post_conf_clean(
 
     mock_run_command.assert_any_call("cat /dev/null > ~/.bash_history && history -c")
 
-    mock_run_command.assert_any_call(
-        [
-            "sudo yum clean all",
-            "sudo rm -rf /var/cache/yum/*",
-        ]
-    )
+    mock_run_command.assert_any_call([
+        "sudo yum clean all",
+        "sudo rm -rf /var/cache/yum/*",
+    ])
 
     mock_configure_sshd.assert_called_once()
 
@@ -511,14 +467,12 @@ def test_main(
 
     mock_run_command.assert_any_call("bash /usr/share/wazuh-indexer/bin/indexer-security-init.sh -ho 127.0.0.1")
 
-    mock_run_command.assert_any_call(
-        [
-            "systemctl stop wazuh-indexer wazuh-dashboard",
-            "systemctl disable wazuh-manager",
-            "systemctl disable wazuh-agent",
-            "systemctl disable wazuh-dashboard",
-        ]
-    )
+    mock_run_command.assert_any_call([
+        "systemctl stop wazuh-indexer wazuh-dashboard",
+        "systemctl disable wazuh-manager",
+        "systemctl disable wazuh-agent",
+        "systemctl disable wazuh-dashboard",
+    ])
 
     mock_steps_clean.assert_called_once()
 
