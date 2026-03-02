@@ -1,7 +1,6 @@
 import json
 import os
 import shutil
-import re
 from pathlib import Path
 
 from configurer.utils import run_command
@@ -141,36 +140,23 @@ def add_wazuh_starter_service() -> None:
     run_command(commands)
 
 
-def configure_sshd() -> None:
+def configure_sshd(ssh_config_file: Path | str = Path("/etc/ssh/sshd_config")) -> None:
     """
     Configures the SSH daemon to disable root login, enable password authentication,
     and disable AuthorizedKeysCommand, in an idempotent and robust way.
     """
     logger.debug("Applying robust SSH configuration.")
-    def set_ssh_config(filepath: Path) -> None:
-        if not filepath.exists():
-            return
 
-        content = filepath.read_text()
+    if not isinstance(ssh_config_file, Path):
+        ssh_config_file = Path(ssh_config_file)
 
-        # Remove any existing PasswordAuthentication, PermitRootLogin, AuthorizedKeysCommand directives
-        content = re.sub(r"^[ \t]*#?[ \t]*PasswordAuthentication.*$", "", content, flags=re.MULTILINE)
-        content = re.sub(r"^[ \t]*#?[ \t]*PermitRootLogin.*$", "", content, flags=re.MULTILINE)
-        content = re.sub(r"^[ \t]*#?[ \t]*AuthorizedKeysCommand.*$", "", content, flags=re.MULTILINE)
-
-        # Squeeze max line breaks
-        content = re.sub(r"\n{3,}", "\n\n", content)
-
-        # Append our settings
-        content = content.rstrip() + "\n\nPasswordAuthentication yes\nPermitRootLogin no\n"
-        filepath.write_text(content)
-
-    set_ssh_config(Path("/etc/ssh/sshd_config"))
-
-    sshd_config_d = Path("/etc/ssh/sshd_config.d")
-    if sshd_config_d.is_dir():
-        for conf_file in sshd_config_d.glob("*.conf"):
-            set_ssh_config(conf_file)
+    # Remove any existing PasswordAuthentication, PermitRootLogin, AuthorizedKeysCommand directives
+    replace_content = [
+        (r"^[ \t]*#?[ \t]*PasswordAuthentication.*$", "PasswordAuthentication yes"),
+        (r"^[ \t]*#?[ \t]*PermitRootLogin.*$", "PermitRootLogin no"),
+        (r"^[ \t]*#?[ \t]*AuthorizedKeysCommand.*$", ""),
+    ]
+    modify_file(ssh_config_file, replace_content)
 
 
 def steps_system_config() -> None:
@@ -391,6 +377,7 @@ def clean_generated_logs(
 
     logger.info_success("Generated logs cleaned up successfully")
 
+
 def post_conf_clean() -> None:
     """
     Cleans up system logs, clears command history, removes cached package data, and updates SSH configuration.
@@ -419,6 +406,7 @@ def post_conf_clean() -> None:
 
     configure_sshd()
     run_command("sudo systemctl restart sshd")
+
 
 def main() -> None:
     """
