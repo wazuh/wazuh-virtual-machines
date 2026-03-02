@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 
 from configurer.utils import run_command
-from generic.helpers import modify_file
+from generic.helpers import add_content_to_file, modify_file
 from utils import Logger
 
 logger = Logger("OVA PostConfigurer - Main module")
@@ -171,12 +171,8 @@ def steps_system_config() -> None:
     5. Adding the Wazuh starter service.
     6. Changing the root password to 'wazuh'.
     7. Setting the system hostname.
-    8. Modifying the SSH configuration to:
-        - Comment out the `PermitRootLogin yes` directive.
-        - Enable password authentication by replacing `PasswordAuthentication no` with `PasswordAuthentication yes`.
-        - Append `PermitRootLogin no` to the SSH configuration file.
-    9. Retrieving the Wazuh version and stage from the `VERSION.json` file.
-    10. Running a script to display messages with the Wazuh version and user information.
+    8. Retrieving the Wazuh version and stage from the `VERSION.json` file.
+    9. Running a script to display messages with the Wazuh version and user information.
 
     Returns:
         None
@@ -194,8 +190,6 @@ def steps_system_config() -> None:
     run_command("echo 'root:wazuh' | chpasswd")
 
     set_hostname()
-
-    configure_sshd()
 
     # Retrieve Wazuh Version from Version.json
     with open("VERSION.json") as file:
@@ -286,8 +280,6 @@ def post_conf_change_ssh_crypto_policies(config_path: str = "/etc/crypto-policie
                 file.write(new_values[key] + "\n")
             else:
                 file.write(line)
-
-    run_command("systemctl restart sshd")
 
 
 def post_conf_deactivate_cloud_init() -> None:
@@ -404,8 +396,18 @@ def post_conf_clean() -> None:
     yum_clean_commands = ["sudo yum clean all", "sudo rm -rf /var/cache/yum/*"]
     run_command(yum_clean_commands)
 
-    configure_sshd()
-    run_command("sudo systemctl restart sshd")
+
+def configure_ssh() -> None:
+    post_conf_change_ssh_crypto_policies()
+    configure_sshd(Path("/etc/ssh/sshd_config"))
+
+    sshd_config_d = Path("/etc/ssh/sshd_config.d")
+    if sshd_config_d.is_dir():
+        for conf_file in sshd_config_d.glob("*.conf"):
+            configure_sshd(conf_file)
+            add_content_to_file(conf_file, "\nPermitRootLogin no\nPasswordAuthentication yes\n")
+
+    run_command("systemctl restart sshd")
 
 
 def main() -> None:
@@ -421,6 +423,10 @@ def main() -> None:
     7. Applies post-configuration changes, including:
         - Creating network configuration.
         - Changing SSH cryptographic policies.
+        - Modifying the SSH configuration to:
+            - Comment out the `PermitRootLogin yes` directive.
+            - Enable password authentication by replacing `PasswordAuthentication no` with `PasswordAuthentication yes`.
+            - Append `PermitRootLogin no` to the SSH configuration file.
         - Performing additional cleanup tasks.
 
     Returns:
@@ -448,7 +454,7 @@ def main() -> None:
 
     logger.debug("Applying post-configuration changes.")
     post_conf_create_network_config()
-    post_conf_change_ssh_crypto_policies()
+    configure_ssh()
     post_conf_clean()
     logger.info_success("OVA PostConfigurer completed.")
 

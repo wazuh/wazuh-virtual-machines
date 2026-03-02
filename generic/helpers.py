@@ -65,6 +65,32 @@ def modify_file(filepath: Path, replacements: list[tuple[str, str]], client: par
         raise RuntimeError(f"Failed to modify {filepath}: {str(e)}") from e
 
 
+def add_content_to_file(filepath: Path, content: str, client: paramiko.SSHClient | None = None) -> None:
+    """
+    Appends content to a file either locally or on a remote server.
+
+    This function appends the specified content to the end of a file.
+    If an SSH client is provided, the content is appended to a remote file.
+    Otherwise, the content is appended to a local file.
+
+    Args:
+        filepath (Path): The path to the file to which the content will be appended.
+        content (str): The content to append to the file.
+        client (paramiko.SSHClient | None, optional): An SSH client instance for remote
+            file modification. If None, the file is modified locally. Defaults to None.
+
+    Returns:
+        None
+    """
+    try:
+        command = f"echo '{content}' | sudo tee -a {filepath} > /dev/null"
+        output, error_output = exec_command(command, client)
+        if error_output:
+            raise RuntimeError(f"Error appending to {filepath}: {error_output}")
+    except Exception as e:
+        raise RuntimeError(f"Failed to append to {filepath}: {str(e)}") from e
+
+
 def change_inventory_user(inventory_path: Path, new_user: str) -> None:
     with open(inventory_path) as file:
         content = file.read()
