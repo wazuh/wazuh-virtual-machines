@@ -83,12 +83,14 @@ def test_config_grub(mock_run_command, mock_os_path_exists, mock_os_remove, mock
 
 def test_enable_fips(mock_run_command):
     enable_fips()
-    mock_run_command.assert_called_once_with([
-        "yum update -y",
-        "yum install -y dracut-fips",
-        "dracut -f",
-        "/sbin/grubby --update-kernel=ALL --args='fips=1'",
-    ])
+    mock_run_command.assert_called_once_with(
+        [
+            "yum update -y",
+            "yum install -y dracut-fips",
+            "dracut -f",
+            "/sbin/grubby --update-kernel=ALL --args='fips=1'",
+        ]
+    )
 
 
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.os.chmod")
@@ -163,11 +165,13 @@ def test_add_wazuh_starter_service(mock_chmod, mock_run_command, mock_os_path_ex
 
     mock_chmod.assert_called_once_with("/etc/.wazuh-starter.sh", 0o755)
 
-    mock_run_command.assert_called_once_with([
-        "systemctl daemon-reload",
-        "systemctl enable wazuh-starter.timer",
-        "systemctl enable wazuh-starter.service",
-    ])
+    mock_run_command.assert_called_once_with(
+        [
+            "systemctl daemon-reload",
+            "systemctl enable wazuh-starter.timer",
+            "systemctl enable wazuh-starter.service",
+        ]
+    )
 
 
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.modify_file")
@@ -195,6 +199,16 @@ def test_configure_sshd_custom_path(mock_modify_file):
     configure_sshd(custom_path)
 
     mock_modify_file.assert_called_once_with(custom_path, expected_replacements)
+
+
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.modify_file")
+def test_configure_sshd_str_is_converted_to_path(mock_modify_file):
+    """When a plain string is passed, it must be converted to Path before calling modify_file."""
+    configure_sshd("/etc/ssh/sshd_config")
+
+    call_path = mock_modify_file.call_args[0][0]
+    assert isinstance(call_path, Path)
+    assert call_path == Path("/etc/ssh/sshd_config")
 
 
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.set_hostname")
@@ -242,12 +256,14 @@ def test_steps_system_config(
 
 def test_steps_clean(mock_run_command):
     steps_clean()
-    mock_run_command.assert_called_once_with([
-        "rm -f /securityadmin_demo.sh",
-        "yum clean all",
-        "systemctl daemon-reload",
-        "cat /dev/null > ~/.bash_history && history -c",
-    ])
+    mock_run_command.assert_called_once_with(
+        [
+            "rm -f /securityadmin_demo.sh",
+            "yum clean all",
+            "systemctl daemon-reload",
+            "cat /dev/null > ~/.bash_history && history -c",
+        ]
+    )
 
 
 @patch("builtins.open", new_callable=mock_open)
@@ -433,10 +449,12 @@ def test_post_conf_clean(
 
     mock_run_command.assert_any_call("cat /dev/null > ~/.bash_history && history -c")
 
-    mock_run_command.assert_any_call([
-        "sudo yum clean all",
-        "sudo rm -rf /var/cache/yum/*",
-    ])
+    mock_run_command.assert_any_call(
+        [
+            "sudo yum clean all",
+            "sudo rm -rf /var/cache/yum/*",
+        ]
+    )
 
     mock_configure_sshd.assert_called_once()
 
@@ -467,12 +485,14 @@ def test_main(
 
     mock_run_command.assert_any_call("bash /usr/share/wazuh-indexer/bin/indexer-security-init.sh -ho 127.0.0.1")
 
-    mock_run_command.assert_any_call([
-        "systemctl stop wazuh-indexer wazuh-dashboard",
-        "systemctl disable wazuh-manager",
-        "systemctl disable wazuh-agent",
-        "systemctl disable wazuh-dashboard",
-    ])
+    mock_run_command.assert_any_call(
+        [
+            "systemctl stop wazuh-indexer wazuh-dashboard",
+            "systemctl disable wazuh-manager",
+            "systemctl disable wazuh-agent",
+            "systemctl disable wazuh-dashboard",
+        ]
+    )
 
     mock_steps_clean.assert_called_once()
 
