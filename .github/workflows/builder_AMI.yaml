@@ -125,8 +125,10 @@ env:
     PRE_PROD_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PRE }}
     DEV_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_ARTIFACTS }}
     ARTIFACTS_URLS_FILENAME: "artifact_urls.yml"
+    LOCAL_ARTIFACTS_URLS_FILEPATH: /tmp/artifact_urls.yml
     DEV_ARTIFACTS_URLS_PATH: "deployment"
-    GENERATE_PRESIGNED_URLS_SCRIPT_PATH: ${{ github.workspace }}/.github/scripts/generate_presigned_dev_urls.py
+    GENERATE_PRESIGNED_URLS_SCRIPT_PATH: ${{ github.workspace }}/wazuh-automation/tools/sign_urls/generate_presigned_dev_urls.py
+    PRESIGNED_URLS_SCRIPT_PROCESS: "build_ami"
     CUSTOMIZER_SERVICE_FILE: ${{ github.workspace }}/configurer/ami/ami_pre_configurer/scripts/wazuh-ami-customizer.service
 
 permissions:
@@ -247,13 +249,20 @@ jobs:
           else
             LOCAL_AWS_S3_BUCKET_DEV=${{ vars.AWS_S3_BUCKET_DEV }}
             echo LOCAL_AWS_S3_BUCKET_DEV=$LOCAL_AWS_S3_BUCKET_DEV >> $GITHUB_ENV
-            aws s3api get-object --bucket ${{ env.DEV_ARTIFACTS_URLS_BUCKET }} --key ${{ env.DEV_ARTIFACTS_URLS_PATH }}/${{ env.ARTIFACTS_URLS_FILENAME }} $LOCAL_ARTIFACTS_URLS_FILEPATH
           fi
 
       - name: Generate presigned URLs for artifacts for dev packages
         if: inputs.wazuh_package_type == 'dev'
         run: |
-          python ${{ env.GENERATE_PRESIGNED_URLS_SCRIPT_PATH }}
+          python ${{ env.GENERATE_PRESIGNED_URLS_SCRIPT_PATH }} \
+            --process ${{ env.PRESIGNED_URLS_SCRIPT_PROCESS }} \
+            --wazuh-version ${{ env.WAZUH_VERSION }} \
+            --aws-s3-bucket-dev ${{ env.LOCAL_AWS_S3_BUCKET_DEV }} \
+            --indexer-revision $(echo ${{ env.COMMIT_LIST }} | jq -r '.[0]') \
+            --manager-revision $(echo ${{ env.COMMIT_LIST }} | jq -r '.[1]') \
+            --dashboard-revision $(echo ${{ env.COMMIT_LIST }} | jq -r '.[2]') \
+            --agent-revision $(echo ${{ env.COMMIT_LIST }} | jq -r '.[3]') \
+            --assistant-revision $(echo ${{ env.COMMIT_LIST }} | jq -r '.[4]') \
 
       - name: Set customizer debug mode environment variable
         if: inputs.customizer_debug == true
