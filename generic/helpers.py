@@ -49,49 +49,6 @@ def modify_file(filepath: Path, replacements: list[tuple[str, str]], client: par
     Returns:
         None
     """
-    if not client:
-        modify_file_local(filepath, replacements)
-    else:
-        modify_file_remote(filepath, replacements, client)
-
-
-def modify_file_local(filepath: Path, replacements: list[tuple[str, str]]) -> None:
-    """
-    Modify the content of a local file by applying a series of search-and-replace operations.
-
-    Args:
-        filepath (Path): The path to the file to be modified.
-        replacements (List[tuple[str, str]]): A list of tuples where each tuple contains a
-            pattern (str) to search for and a replacement (str) to substitute. Firts string is the pattern to search for,
-            and the second string is the replacement.
-
-    Returns:
-        None
-    """
-    with open(filepath) as file:
-        content = file.read()
-
-    for pattern, replacement in replacements:
-        content = re.sub(pattern, replacement, content)
-
-    with open(filepath, "w") as file:
-        file.write(content)
-
-
-def modify_file_remote(filepath: Path, replacements: list[tuple[str, str]], client: paramiko.SSHClient) -> None:
-    """
-    Modifies the content of a remote file by applying a series of search-and-replace operations.
-
-    Args:
-        filepath (Path): The path to the remote file to be modified.
-        replacements (List[tuple[str, str]]): A list of tuples where each tuple contains a pattern to search for
-            and its corresponding replacement string. Firts string is the pattern to search for,
-            and the second string is the replacement.
-        client (paramiko.SSHClient): An active SSH client used to execute commands on the remote machine.
-
-    Returns:
-        None
-    """
     try:
         output, error_output = exec_command(f"sudo cat {filepath}", client)
         if error_output:
@@ -106,6 +63,32 @@ def modify_file_remote(filepath: Path, replacements: list[tuple[str, str]], clie
             raise RuntimeError(f"Error writing to {filepath}: {error_output}")
     except Exception as e:
         raise RuntimeError(f"Failed to modify {filepath}: {str(e)}") from e
+
+
+def add_content_to_file(filepath: Path, content: str, client: paramiko.SSHClient | None = None) -> None:
+    """
+    Appends content to a file either locally or on a remote server.
+
+    This function appends the specified content to the end of a file.
+    If an SSH client is provided, the content is appended to a remote file.
+    Otherwise, the content is appended to a local file.
+
+    Args:
+        filepath (Path): The path to the file to which the content will be appended.
+        content (str): The content to append to the file.
+        client (paramiko.SSHClient | None, optional): An SSH client instance for remote
+            file modification. If None, the file is modified locally. Defaults to None.
+
+    Returns:
+        None
+    """
+    try:
+        command = f"echo '{content}' | sudo tee -a {filepath} > /dev/null"
+        output, error_output = exec_command(command, client)
+        if error_output:
+            raise RuntimeError(f"Error appending to {filepath}: {error_output}")
+    except Exception as e:
+        raise RuntimeError(f"Failed to append to {filepath}: {str(e)}") from e
 
 
 def change_inventory_user(inventory_path: Path, new_user: str) -> None:
