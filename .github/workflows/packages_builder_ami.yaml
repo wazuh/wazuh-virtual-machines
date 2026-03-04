@@ -259,15 +259,16 @@ jobs:
       - name: Generate presigned URLs for artifacts for dev packages
         if: inputs.wazuh_package_type == 'dev'
         run: |
+          COMMITS='${{ env.COMMIT_LIST }}'
           python ${{ env.GENERATE_PRESIGNED_URLS_SCRIPT_PATH }} \
             --process ${{ env.PRESIGNED_URLS_SCRIPT_PROCESS }} \
             --wazuh-version ${{ env.WAZUH_VERSION }} \
             --aws-s3-bucket-dev ${{ env.LOCAL_AWS_S3_BUCKET_DEV }} \
-            --indexer-revision $(echo ${{ env.COMMIT_LIST }} | jq -r '.[0]') \
-            --manager-revision $(echo ${{ env.COMMIT_LIST }} | jq -r '.[1]') \
-            --dashboard-revision $(echo ${{ env.COMMIT_LIST }} | jq -r '.[2]') \
-            --agent-revision $(echo ${{ env.COMMIT_LIST }} | jq -r '.[3]') \
-            --assistant-revision $(echo ${{ env.COMMIT_LIST }} | jq -r '.[4]')
+            --indexer-revision   $(echo "$COMMITS" | jq -r '.[0]') \
+            --manager-revision   $(echo "$COMMITS" | jq -r '.[1]') \
+            --dashboard-revision $(echo "$COMMITS" | jq -r '.[2]') \
+            --agent-revision     $(echo "$COMMITS" | jq -r '.[3]') \
+            --assistant-revision $(echo "$COMMITS" | jq -r '.[4]')
 
       - name: Set customizer debug mode environment variable
         if: inputs.customizer_debug == true
