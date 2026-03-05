@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 
 from configurer.utils import run_command
-from generic.helpers import modify_file
+from generic.helpers import add_content_to_file, modify_file
 from utils import Logger
 
 logger = Logger("OVA PostConfigurer - Main module")
@@ -140,6 +140,25 @@ def add_wazuh_starter_service() -> None:
     run_command(commands)
 
 
+def configure_sshd(ssh_config_file: Path | str = Path("/etc/ssh/sshd_config")) -> None:
+    """
+    Configures the SSH daemon to disable root login, enable password authentication,
+    and disable AuthorizedKeysCommand, in an idempotent and robust way.
+    """
+    logger.debug("Applying robust SSH configuration.")
+
+    if not isinstance(ssh_config_file, Path):
+        ssh_config_file = Path(ssh_config_file)
+
+    # Remove any existing PasswordAuthentication, PermitRootLogin, AuthorizedKeysCommand directives
+    replace_content = [
+        (r"^[ \t]*#?[ \t]*PasswordAuthentication.*$", "PasswordAuthentication yes"),
+        (r"^[ \t]*#?[ \t]*PermitRootLogin.*$", "PermitRootLogin no"),
+        (r"^[ \t]*#?[ \t]*AuthorizedKeysCommand.*$", ""),
+    ]
+    modify_file(ssh_config_file, replace_content)
+
+
 def steps_system_config() -> None:
     """
     This function is the migration of the older systemConfig located in steps.sh.
@@ -152,12 +171,8 @@ def steps_system_config() -> None:
     5. Adding the Wazuh starter service.
     6. Changing the root password to 'wazuh'.
     7. Setting the system hostname.
-    8. Modifying the SSH configuration to:
-        - Comment out the `PermitRootLogin yes` directive.
-        - Enable password authentication by replacing `PasswordAuthentication no` with `PasswordAuthentication yes`.
-        - Append `PermitRootLogin no` to the SSH configuration file.
-    9. Retrieving the Wazuh version and stage from the `VERSION.json` file.
-    10. Running a script to display messages with the Wazuh version and user information.
+    8. Retrieving the Wazuh version and stage from the `VERSION.json` file.
+    9. Running a script to display messages with the Wazuh version and user information.
 
     Returns:
         None
@@ -175,21 +190,6 @@ def steps_system_config() -> None:
     run_command("echo 'root:wazuh' | chpasswd")
 
     set_hostname()
-
-    modify_file(
-        filepath=Path("/etc/ssh/sshd_config"),
-        replacements=[("PermitRootLogin yes", "#PermitRootLogin yes")],
-        client=None,
-    )
-
-    modify_file(
-        filepath=Path("/etc/ssh/sshd_config"),
-        replacements=[("PasswordAuthentication no", "PasswordAuthentication yes")],
-        client=None,
-    )
-
-    with open("/etc/ssh/sshd_config", "a") as file:
-        file.write("\nPermitRootLogin no\n")
 
     # Retrieve Wazuh Version from Version.json
     with open("VERSION.json") as file:
@@ -281,8 +281,6 @@ def post_conf_change_ssh_crypto_policies(config_path: str = "/etc/crypto-policie
             else:
                 file.write(line)
 
-    run_command("systemctl restart sshd")
-
 
 def post_conf_deactivate_cloud_init() -> None:
     """
@@ -327,6 +325,51 @@ def post_conf_delete_generated_network_files() -> None:
         file.unlink(missing_ok=True)
 
 
+def clean_generated_logs(
+    log_directory_path: Path = Path("/var/log"),
+    wazuh_indexer_log_path: Path = Path("/var/log/wazuh-indexer"),
+    wazuh_manager_log_path: Path = Path("/var/wazuh-manager/logs"),
+    wazuh_agent_log_path: Path = Path("/var/ossec/logs"),
+    wazuh_dashboard_log_path: Path = Path("/var/log/wazuh-dashboard"),
+) -> None:
+    """
+    Cleans up generated log files during the configuration in specified directories by truncating their contents.
+
+    Checks if the specified log directories exist and contain files. If so, it
+    truncates the contents of all files within those directories to free up space while
+    retaining the file structure.
+
+    Args:
+        log_directory_path (Path): Path to the general log directory. Defaults to /var/log.
+        wazuh_indexer_log_path (Path): Path to the Wazuh indexer log directory.
+        wazuh_manager_log_path (Path): Path to the Wazuh manager log directory.
+        wazuh_agent_log_path (Path): Path to the Wazuh agent log directory.
+        wazuh_dashboard_log_path (Path): Path to the Wazuh dashboard log directory.
+
+    Returns:
+        None
+    """
+    logger.debug(f'Cleaning up generated logs in "{log_directory_path}"')
+
+    log_dirs = [
+        log_directory_path,
+        wazuh_indexer_log_path,
+        wazuh_manager_log_path,
+        wazuh_agent_log_path,
+        wazuh_dashboard_log_path,
+    ]
+
+    for log_dir in log_dirs:
+        if log_dir.is_dir():
+            files = list(log_dir.rglob("*"))
+            for f in files:
+                if f.is_file():
+                    with open(f, "w") as fh:
+                        fh.truncate(0)
+
+    logger.info_success("Generated logs cleaned up successfully")
+
+
 def post_conf_clean() -> None:
     """
     Cleans up system logs, clears command history, removes cached package data, and updates SSH configuration.
@@ -346,25 +389,38 @@ def post_conf_clean() -> None:
     post_conf_deactivate_cloud_init()
     post_conf_delete_generated_network_files()
 
-    log_clean_commands = [
-        "find /var/log/ -type f -exec bash -c 'cat /dev/null > {}' \\;",
-        r"find /var/log/wazuh-indexer -type f -execdir sh -c 'cat /dev/null > \"$1\"' _ {} \;",
-        "rm -rf /var/log/wazuh-install.log",
-    ]
-    run_command(log_clean_commands)
+    clean_generated_logs()
 
     run_command("cat /dev/null > ~/.bash_history && history -c")
 
     yum_clean_commands = ["sudo yum clean all", "sudo rm -rf /var/cache/yum/*"]
     run_command(yum_clean_commands)
 
-    sshd_config_changes = [
-        (r"^#?AuthorizedKeysCommand.*", ""),
-        (r"^#?AuthorizedKeysCommandUser.*", ""),
-    ]
-    sshd_config_path = Path("/etc/ssh/sshd_config")
-    modify_file(filepath=sshd_config_path, replacements=sshd_config_changes, client=None)
-    run_command("sudo systemctl restart sshd")
+
+def configure_ssh() -> None:
+    """Apply SSH hardening and restart the SSH daemon.
+
+    This routine updates SSH crypto policies, modifies the main
+    ``/etc/ssh/sshd_config`` file, and, if present, iterates over all
+    ``*.conf`` files in ``/etc/ssh/sshd_config.d`` to apply the same
+    configuration updates and append explicit directives to disable root
+    login and enable password authentication.
+
+    Finally, it restarts the ``sshd`` service so all changes take effect.
+
+    Returns:
+        None
+    """
+    post_conf_change_ssh_crypto_policies()
+    configure_sshd(Path("/etc/ssh/sshd_config"))
+
+    sshd_config_d = Path("/etc/ssh/sshd_config.d")
+    if sshd_config_d.is_dir():
+        for conf_file in sshd_config_d.glob("*.conf"):
+            configure_sshd(conf_file)
+            add_content_to_file(conf_file, "\nPermitRootLogin no\nPasswordAuthentication yes\n")
+
+    run_command("systemctl restart sshd")
 
 
 def main() -> None:
@@ -380,6 +436,10 @@ def main() -> None:
     7. Applies post-configuration changes, including:
         - Creating network configuration.
         - Changing SSH cryptographic policies.
+        - Modifying the SSH configuration to:
+            - Comment out the `PermitRootLogin yes` directive.
+            - Enable password authentication by replacing `PasswordAuthentication no` with `PasswordAuthentication yes`.
+            - Append `PermitRootLogin no` to the SSH configuration file.
         - Performing additional cleanup tasks.
 
     Returns:
@@ -390,6 +450,7 @@ def main() -> None:
     steps_system_config()
 
     run_command("systemctl stop wazuh-manager")
+    run_command("systemctl stop wazuh-agent")
     run_command("curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/wazuh-*' -k")
 
     run_command("bash /usr/share/wazuh-indexer/bin/indexer-security-init.sh -ho 127.0.0.1")
@@ -397,6 +458,7 @@ def main() -> None:
     commands = [
         "systemctl stop wazuh-indexer wazuh-dashboard",
         "systemctl disable wazuh-manager",
+        "systemctl disable wazuh-agent",
         "systemctl disable wazuh-dashboard",
     ]
     run_command(commands)
@@ -405,7 +467,7 @@ def main() -> None:
 
     logger.debug("Applying post-configuration changes.")
     post_conf_create_network_config()
-    post_conf_change_ssh_crypto_policies()
+    configure_ssh()
     post_conf_clean()
     logger.info_success("OVA PostConfigurer completed.")
 

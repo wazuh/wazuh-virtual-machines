@@ -17,7 +17,8 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Adapt wazuh-virtual-machines workflows to support the new dev artifact urls signing centralized script ([#614](https://github.com/wazuh/wazuh-virtual-machines/pull/614))
+- Adapt workflows to support the new dev artifact urls signing centralized script ([#614](https://github.com/wazuh/wazuh-virtual-machines/pull/614))
+- Updated ova post configurer with agent/manager separation. ([#612](https://github.com/wazuh/wazuh-virtual-machines/pull/612))
 - Change server references to manager due to breaking changes ([#613](https://github.com/wazuh/wazuh-virtual-machines/pull/613))
 - Add WF to execute PR Check with build and test OVA and AMI ([#583](https://github.com/wazuh/wazuh-virtual-machines/pull/583))
 - Add WF to execute PR Check with build and test OVA and AMI ([#594](https://github.com/wazuh/wazuh-virtual-machines/pull/594))

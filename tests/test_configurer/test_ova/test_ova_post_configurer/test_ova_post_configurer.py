@@ -9,7 +9,10 @@ from configurer.ova.ova_post_configurer.ova_post_configurer import (
     UTILS_PATH,
     WAZUH_STARTER_PATH,
     add_wazuh_starter_service,
+    clean_generated_logs,
     config_grub,
+    configure_ssh,
+    configure_sshd,
     enable_fips,
     main,
     post_conf_change_ssh_crypto_policies,
@@ -172,18 +175,53 @@ def test_add_wazuh_starter_service(mock_chmod, mock_run_command, mock_os_path_ex
     )
 
 
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.modify_file")
+def test_configure_sshd(mock_modify_file):
+    expected_replacements = [
+        (r"^[ \t]*#?[ \t]*PasswordAuthentication.*$", "PasswordAuthentication yes"),
+        (r"^[ \t]*#?[ \t]*PermitRootLogin.*$", "PermitRootLogin no"),
+        (r"^[ \t]*#?[ \t]*AuthorizedKeysCommand.*$", ""),
+    ]
+
+    configure_sshd()
+
+    mock_modify_file.assert_called_once_with(Path("/etc/ssh/sshd_config"), expected_replacements)
+
+
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.modify_file")
+def test_configure_sshd_custom_path(mock_modify_file):
+    custom_path = Path("/custom/sshd_config")
+    expected_replacements = [
+        (r"^[ \t]*#?[ \t]*PasswordAuthentication.*$", "PasswordAuthentication yes"),
+        (r"^[ \t]*#?[ \t]*PermitRootLogin.*$", "PermitRootLogin no"),
+        (r"^[ \t]*#?[ \t]*AuthorizedKeysCommand.*$", ""),
+    ]
+
+    configure_sshd(custom_path)
+
+    mock_modify_file.assert_called_once_with(custom_path, expected_replacements)
+
+
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.modify_file")
+def test_configure_sshd_str_is_converted_to_path(mock_modify_file):
+    """When a plain string is passed, it must be converted to Path before calling modify_file."""
+    configure_sshd("/etc/ssh/sshd_config")
+
+    call_path = mock_modify_file.call_args[0][0]
+    assert isinstance(call_path, Path)
+    assert call_path == Path("/etc/ssh/sshd_config")
+
+
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.set_hostname")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.add_wazuh_starter_service")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.update_jvm_heap")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.enable_fips")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.config_grub")
-@patch("configurer.ova.ova_post_configurer.ova_post_configurer.modify_file")
 @patch("builtins.open", new_callable=mock_open)
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.json.load")
 def test_steps_system_config(
     mock_json_load,
-    mock_open,
-    mock_modify_file,
+    mock_open_file,
     mock_config_grub,
     mock_enable_fips,
     mock_update_jvm_heap,
@@ -209,21 +247,7 @@ def test_steps_system_config(
 
     mock_set_hostname.assert_called_once()
 
-    mock_modify_file.assert_any_call(
-        filepath=Path("/etc/ssh/sshd_config"),
-        replacements=[("PermitRootLogin yes", "#PermitRootLogin yes")],
-        client=None,
-    )
-    mock_modify_file.assert_any_call(
-        filepath=Path("/etc/ssh/sshd_config"),
-        replacements=[("PasswordAuthentication no", "PasswordAuthentication yes")],
-        client=None,
-    )
-
-    mock_open.assert_any_call("/etc/ssh/sshd_config", "a")
-    mock_open.return_value.__enter__().write.assert_called_once_with("\nPermitRootLogin no\n")
-
-    mock_open.assert_any_call("VERSION.json")
+    mock_open_file.assert_any_call("VERSION.json")
     mock_run_command.assert_any_call(f"sudo bash {SCRIPTS_PATH}/messages.sh no 5.0.0-alpha0 wazuh-user")
 
 
@@ -286,8 +310,6 @@ def test_post_conf_change_ssh_crypto_policies(mock_run_command):
     written_content = "".join(call.args[0] for call in handle.write.call_args_list)
     assert written_content == expected_content
 
-    mock_run_command.assert_called_once_with("systemctl restart sshd")
-
 
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.Path")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.shutil.rmtree")
@@ -341,24 +363,82 @@ def test_post_conf_delete_generated_network_files(mock_path):
     mock_vagrant_file.unlink.assert_called_once_with(missing_ok=True)
 
 
+@patch("builtins.open", new_callable=mock_open)
+def test_clean_generated_logs(mock_file_open):
+    # Mock directories
+    mock_log_dir = MagicMock()
+    mock_log_dir.is_dir.return_value = True
+
+    mock_indexer_dir = MagicMock()
+    mock_indexer_dir.is_dir.return_value = True
+
+    mock_manager_dir = MagicMock()
+    mock_manager_dir.is_dir.return_value = False
+
+    mock_agent_dir = MagicMock()
+    mock_agent_dir.is_dir.return_value = True
+
+    mock_dashboard_dir = MagicMock()
+    mock_dashboard_dir.is_dir.return_value = False
+
+    # Mock files in directories
+    mock_file1 = MagicMock()
+    mock_file1.is_file.return_value = True
+
+    mock_file2 = MagicMock()
+    mock_file2.is_file.return_value = True
+
+    mock_subdir = MagicMock()
+    mock_subdir.is_file.return_value = False
+
+    mock_log_dir.rglob.return_value = [mock_file1, mock_subdir]
+    mock_indexer_dir.rglob.return_value = [mock_file2]
+    mock_agent_dir.rglob.return_value = []
+
+    clean_generated_logs(
+        log_directory_path=mock_log_dir,
+        wazuh_indexer_log_path=mock_indexer_dir,
+        wazuh_manager_log_path=mock_manager_dir,
+        wazuh_agent_log_path=mock_agent_dir,
+        wazuh_dashboard_log_path=mock_dashboard_dir,
+    )
+
+    # Verify directories were checked
+    mock_log_dir.is_dir.assert_called()
+    mock_indexer_dir.is_dir.assert_called()
+    mock_manager_dir.is_dir.assert_called()
+    mock_agent_dir.is_dir.assert_called()
+    mock_dashboard_dir.is_dir.assert_called()
+
+    # Verify rglob was called on existing directories
+    mock_log_dir.rglob.assert_called_once_with("*")
+    mock_indexer_dir.rglob.assert_called_once_with("*")
+    mock_agent_dir.rglob.assert_called_once_with("*")
+
+    # Verify files were opened and truncated
+    assert mock_file_open.call_count == 2  # Only for files, not subdirs
+    mock_file_open.assert_any_call(mock_file1, "w")
+    mock_file_open.assert_any_call(mock_file2, "w")
+
+    # Verify truncate was called
+    mock_file_handle = mock_file_open.return_value.__enter__.return_value
+    assert mock_file_handle.truncate.call_count == 2
+
+
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.clean_generated_logs")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.post_conf_deactivate_cloud_init")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.post_conf_delete_generated_network_files")
-@patch("configurer.ova.ova_post_configurer.ova_post_configurer.modify_file")
 def test_post_conf_clean(
-    mock_modify_file,
     mock_post_conf_delete_generated_network_files,
     mock_post_conf_deactivate_cloud_init,
+    mock_clean_generated_logs,
     mock_run_command,
 ):
     post_conf_clean()
 
-    mock_run_command.assert_any_call(
-        [
-            "find /var/log/ -type f -exec bash -c 'cat /dev/null > {}' \\;",
-            r"find /var/log/wazuh-indexer -type f -execdir sh -c 'cat /dev/null > \"$1\"' _ {} \;",
-            "rm -rf /var/log/wazuh-install.log",
-        ]
-    )
+    mock_post_conf_deactivate_cloud_init.assert_called_once()
+    mock_post_conf_delete_generated_network_files.assert_called_once()
+    mock_clean_generated_logs.assert_called_once()
 
     mock_run_command.assert_any_call("cat /dev/null > ~/.bash_history && history -c")
 
@@ -369,26 +449,94 @@ def test_post_conf_clean(
         ]
     )
 
-    mock_modify_file.assert_called_once_with(
-        filepath=Path("/etc/ssh/sshd_config"),
-        replacements=[
-            (r"^#?AuthorizedKeysCommand.*", ""),
-            (r"^#?AuthorizedKeysCommandUser.*", ""),
-        ],
-        client=None,
-    )
 
-    mock_run_command.assert_any_call("sudo systemctl restart sshd")
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.add_content_to_file")
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.configure_sshd")
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.post_conf_change_ssh_crypto_policies")
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.Path")
+def test_configure_ssh_processes_conf_files(
+    mock_path_class,
+    mock_post_conf_change_ssh_crypto_policies,
+    mock_configure_sshd,
+    mock_add_content_to_file,
+    mock_run_command,
+):
+    """configure_ssh must call configure_sshd + add_content_to_file on every .conf file found."""
+    conf_file_1 = MagicMock(name="50-cloud-init.conf")
+    conf_file_2 = MagicMock(name="60-custom.conf")
+
+    mock_sshd_config = MagicMock()
+    mock_sshd_config_d = MagicMock()
+    mock_sshd_config_d.is_dir.return_value = True
+    mock_sshd_config_d.glob.return_value = [conf_file_1, conf_file_2]
+
+    def path_side_effect(arg):
+        if str(arg) == "/etc/ssh/sshd_config":
+            return mock_sshd_config
+        elif str(arg) == "/etc/ssh/sshd_config.d":
+            return mock_sshd_config_d
+        return MagicMock()
+
+    mock_path_class.side_effect = path_side_effect
+
+    configure_ssh()
+
+    mock_post_conf_change_ssh_crypto_policies.assert_called_once()
+
+    # configure_sshd called for main sshd_config + each .conf file
+    assert mock_configure_sshd.call_count == 3
+    mock_configure_sshd.assert_any_call(mock_sshd_config)
+    mock_configure_sshd.assert_any_call(conf_file_1)
+    mock_configure_sshd.assert_any_call(conf_file_2)
+
+    # add_content_to_file called once per .conf file with the correct content
+    assert mock_add_content_to_file.call_count == 2
+    mock_add_content_to_file.assert_any_call(conf_file_1, "\nPermitRootLogin no\nPasswordAuthentication yes\n")
+    mock_add_content_to_file.assert_any_call(conf_file_2, "\nPermitRootLogin no\nPasswordAuthentication yes\n")
+
+    mock_sshd_config_d.glob.assert_called_once_with("*.conf")
+
+
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.add_content_to_file")
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.configure_sshd")
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.post_conf_change_ssh_crypto_policies")
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.Path")
+def test_configure_ssh_skips_conf_files_when_no_sshd_config_d(
+    mock_path_class,
+    mock_post_conf_change_ssh_crypto_policies,
+    mock_configure_sshd,
+    mock_add_content_to_file,
+    mock_run_command,
+):
+    """When sshd_config.d does not exist, only the main sshd_config must be processed."""
+    mock_sshd_config = MagicMock()
+    mock_sshd_config_d = MagicMock()
+    mock_sshd_config_d.is_dir.return_value = False
+
+    def path_side_effect(arg):
+        if str(arg) == "/etc/ssh/sshd_config":
+            return mock_sshd_config
+        elif str(arg) == "/etc/ssh/sshd_config.d":
+            return mock_sshd_config_d
+        return MagicMock()
+
+    mock_path_class.side_effect = path_side_effect
+
+    configure_ssh()
+
+    mock_configure_sshd.assert_called_once_with(mock_sshd_config)
+    mock_add_content_to_file.assert_not_called()
+    mock_sshd_config_d.glob.assert_not_called()
 
 
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.steps_system_config")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.steps_clean")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.post_conf_create_network_config")
-@patch("configurer.ova.ova_post_configurer.ova_post_configurer.post_conf_change_ssh_crypto_policies")
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.configure_ssh")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.post_conf_clean")
 def test_main(
     mock_post_conf_clean,
-    mock_post_conf_change_ssh_crypto_policies,
+    mock_configure_ssh,
     mock_post_conf_create_network_config,
     mock_steps_clean,
     mock_steps_system_config,
@@ -399,6 +547,7 @@ def test_main(
     mock_steps_system_config.assert_called_once()
 
     mock_run_command.assert_any_call("systemctl stop wazuh-manager")
+    mock_run_command.assert_any_call("systemctl stop wazuh-agent")
 
     mock_run_command.assert_any_call("curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/wazuh-*' -k")
 
@@ -408,6 +557,7 @@ def test_main(
         [
             "systemctl stop wazuh-indexer wazuh-dashboard",
             "systemctl disable wazuh-manager",
+            "systemctl disable wazuh-agent",
             "systemctl disable wazuh-dashboard",
         ]
     )
@@ -415,5 +565,5 @@ def test_main(
     mock_steps_clean.assert_called_once()
 
     mock_post_conf_create_network_config.assert_called_once()
-    mock_post_conf_change_ssh_crypto_policies.assert_called_once()
+    mock_configure_ssh.assert_called_once()
     mock_post_conf_clean.assert_called_once()
