@@ -87,10 +87,10 @@ jobs:
       id: "pr-check-${{ needs.get_pr_info.outputs.pr_number }}"
       wazuh_virtual_machines_reference: ${{ needs.get_pr_info.outputs.pr_head_ref }}
       wazuh_automation_reference: 'main'
-      is_stage: true
-      ova_revision: '0'
+      is_stage: false
+      ova_revision: "PR#${{ needs.get_pr_info.outputs.pr_number }}"
       wazuh_package_type: dev
-      commit_list: '["latest", "latest", "latest", "latest"]'
+      commit_list: '["latest", "latest", "latest", "latest", "latest"]'
       destroy: true
       checksum: false
       is_pr_check: true
@@ -104,9 +104,10 @@ jobs:
       WAZUH_AUTOMATION_REFERENCE: 'main'
       test_type: ova
       wazuh_package_type: dev
-      commit_list: '["latest", "latest", "latest", "latest"]'
+      commit_list: '["latest", "latest", "latest", "latest", "latest"]'
       TESTS: ALL
       log_level: INFO
+      ova_revision: ${{ needs.build_ova.outputs.ova_revision }}
     secrets: inherit
 
   update_check_success:

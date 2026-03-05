@@ -22,10 +22,10 @@ on:
         required: false
       ami_revision:
         description: |
-          'For AMI candidates must be a number, e,g: -1.'
-          'To build a development AMI, use another revision format, e.g: -dev'
+          'For AMI candidates must be a number, e,g: 1.'
+          'To build a development AMI, use another revision format, e.g: dev'
         required: false
-        default: '-1'
+        default: '1'
       wazuh_package_type:
         description: 'Wazuh package type to be used in the AMI'
         required: true
@@ -81,7 +81,7 @@ on:
       ami_revision:
         type: string
         required: false
-        default: '-1'
+        default: '1'
       wazuh_package_type:
         type: string
         required: false

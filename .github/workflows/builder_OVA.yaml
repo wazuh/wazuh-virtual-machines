@@ -94,6 +94,9 @@ on:
       ova_s3_path:
         description: 'S3 URI of the built OVA'
         value: ${{ jobs.build_and_run.outputs.ova_s3_path }}
+      ova_revision:
+        description: 'Revision of the built OVA'
+        value: ${{ inputs.ova_revision }}
 
 env:
     COMPOSITE_NAME: "amazon-2023-amd64"
