@@ -179,9 +179,9 @@ jobs:
           aws-region: us-east-1
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Install and configure python and workflow dependencies
         run: |
@@ -255,16 +255,21 @@ jobs:
       - name: Generate presigned URLs for artifacts for dev packages
         if: inputs.wazuh_package_type == 'dev'
         run: |
-          COMMITS='${{ env.COMMIT_LIST }}'
+          INDEXER_REVISION=$(echo "$COMMIT_LIST" | jq -r '.[0]')
+          MANAGER_REVISION=$(echo "$COMMIT_LIST" | jq -r '.[1]')
+          DASHBOARD_REVISION=$(echo "$COMMIT_LIST" | jq -r '.[2]')
+          AGENT_REVISION=$(echo "$COMMIT_LIST" | jq -r '.[3]')
+          ASSISTANT_REVISION=$(echo "$COMMIT_LIST" | jq -r '.[4]')
+
           python ${{ env.GENERATE_PRESIGNED_URLS_SCRIPT_PATH }} \
             --process ${{ env.PRESIGNED_URLS_SCRIPT_PROCESS }} \
             --wazuh-version ${{ env.WAZUH_VERSION }} \
             --aws-s3-bucket-dev ${{ env.LOCAL_AWS_S3_BUCKET_DEV }} \
-            --indexer-revision   $(echo "$COMMITS" | jq -r '.[0]') \
-            --manager-revision   $(echo "$COMMITS" | jq -r '.[1]') \
-            --dashboard-revision $(echo "$COMMITS" | jq -r '.[2]') \
-            --agent-revision     $(echo "$COMMITS" | jq -r '.[3]') \
-            --assistant-revision $(echo "$COMMITS" | jq -r '.[4]')
+            --indexer-revision   $INDEXER_REVISION \
+            --manager-revision   $MANAGER_REVISION \
+            --dashboard-revision $DASHBOARD_REVISION \
+            --agent-revision     $AGENT_REVISION \
+            --assistant-revision $ASSISTANT_REVISION
 
       - name: Set customizer debug mode environment variable
         if: inputs.customizer_debug == true
