@@ -380,7 +380,7 @@ jobs:
 
       - name: Delete allocated VM
         if: always() && steps.alloc_vm_ova.outcome == 'success' && inputs.destroy == true
-        run: nohup aws ec2 terminate-instances --instance-ids ${{ env.INSTANCE_ID }} --region ${{ env.AWS_REGION }} --skip-os-shutdown > /dev/null 2>&1 &
+        run: aws ec2 terminate-instances --instance-ids ${{ env.INSTANCE_ID }} --region ${{ env.AWS_REGION }} --skip-os-shutdown
 
       - name: Compress Allocator directory
         id: generate_artifacts
