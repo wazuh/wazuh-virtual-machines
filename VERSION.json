@@ -1,4 +1,8 @@
 {
+<<<<<<< HEAD
     "version": "5.0.0",
+=======
+    "version": "4.14.5",
+>>>>>>> origin/4.14.5
     "stage": "alpha0"
 }
