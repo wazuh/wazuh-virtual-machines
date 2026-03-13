@@ -125,7 +125,8 @@ permissions:
 
 jobs:
   build_and_run:
-    runs-on: ubuntu-22.04
+    runs-on:
+      group: wz-linux-amd64
     outputs:
       ova_s3_path: ${{ steps.export_ova.outputs.ova_s3_path }}
     steps:
