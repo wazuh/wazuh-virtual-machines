@@ -1,6 +1,60 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [5.0.0]
+
+### Added
+
+- Update documentation adding the Wazuh Agent information ([#611](https://github.com/wazuh/wazuh-virtual-machines/pull/611))
+- Ensure the wazuh agent is stopped in the AMI customization process ([#608](https://github.com/wazuh/wazuh-virtual-machines/pull/608))
+- Add agent clean up to the AMI post configurer module ([#607](https://github.com/wazuh/wazuh-virtual-machines/pull/607))
+- Fix file name convetion ([#604](https://github.com/wazuh/wazuh-virtual-machines/pull/604))
+- Add agent configuration process in core configurer ([#601](https://github.com/wazuh/wazuh-virtual-machines/pull/601))
+- Add the wazuh agent installation in the provisioner module. ([#602](https://github.com/wazuh/wazuh-virtual-machines/pull/602))
+- Add documentation for local ova build ([#562](https://github.com/wazuh/wazuh-virtual-machines/pull/562))
+- Add the installation assistant tools revision in the generate presigned urls script ([#531](https://github.com/wazuh/wazuh-virtual-machines/pull/531))
+- Added debug mode to customizer script for AMI. ([#513](https://github.com/wazuh/wazuh-virtual-machines/pull/513))
+
+### Changed
+
+- Adapt workflows to support the new dev artifact urls signing centralized script ([#614](https://github.com/wazuh/wazuh-virtual-machines/pull/614))
+- Updated ova post configurer with agent/manager separation. ([#612](https://github.com/wazuh/wazuh-virtual-machines/pull/612))
+- Change server references to manager due to breaking changes ([#613](https://github.com/wazuh/wazuh-virtual-machines/pull/613))
+- Add WF to execute PR Check with build and test OVA and AMI ([#583](https://github.com/wazuh/wazuh-virtual-machines/pull/583))
+- Add WF to execute PR Check with build and test OVA and AMI ([#594](https://github.com/wazuh/wazuh-virtual-machines/pull/594))
+- Add WF to execute PR Check with build and test OVA and AMI ([#598](https://github.com/wazuh/wazuh-virtual-machines/pull/598))
+- Add WF to execute PR Check with build and test OVA and AMI ([#597](https://github.com/wazuh/wazuh-virtual-machines/pull/597))
+- Add WF to execute PR Check with build and test OVA and AMI ([#593](https://github.com/wazuh/wazuh-virtual-machines/pull/593))
+- Add WF to execute PR Check with build and test OVA and AMI ([#591](https://github.com/wazuh/wazuh-virtual-machines/pull/591))
+- Change manager /var/ossec/ references to /var/wazuh-manager/ ([#588](https://github.com/wazuh/wazuh-virtual-machines/pull/588))
+- Adapt the integration test module ([#555](https://github.com/wazuh/wazuh-virtual-machines/pull/555))
+- Remove latest AMI creation and add informative tags to new AMIs ([#563](https://github.com/wazuh/wazuh-virtual-machines/pull/563))
+- Change URL sign expiration time and add debug messages ([#553](https://github.com/wazuh/wazuh-virtual-machines/pull/553))
+- Add suport to is_stage procedure and tagging with commit and latest ([#529](https://github.com/wazuh/wazuh-virtual-machines/pull/529))
+- Change passwords update process in AMI build ([#530](https://github.com/wazuh/wazuh-virtual-machines/pull/530))
+- Wazuh AMI Documentation updated with ARM support. ([#515](https://github.com/wazuh/wazuh-virtual-machines/pull/515))
+- OVA composite names update ([#510](https://github.com/wazuh/wazuh-virtual-machines/pull/510))
+- Adapted Wazuh AMI generation code for ARM64 support. ([#507](https://github.com/wazuh/wazuh-virtual-machines/pull/507))
+- Change signing script and rework AMI and OVA workflow ([#472](https://github.com/wazuh/wazuh-virtual-machines/pull/472))
+- Add password-tool to the AMI configuration process ([#473](https://github.com/wazuh/wazuh-virtual-machines/pull/473))
+- Update AWS S3 OVA path ([#465](https://github.com/wazuh/wazuh-virtual-machines/pull/465))
+- Update certificate handling and configuration ([#468](https://github.com/wazuh/wazuh-virtual-machines/pull/468))
+- Update indexes deleted in OVA and AMI builds. ([#459](https://github.com/wazuh/wazuh-virtual-machines/pull/459))
+
+### Fixed
+
+- Fix check vulnerabilities ([#609](https://github.com/wazuh/wazuh-virtual-machines/pull/609))
+- Fix ami `pre configurer` tests([#595](https://github.com/wazuh/wazuh-virtual-machines/pull/595))
+- Add arch suffix to the allocator artifact in the builder AMI workflow ([#556](https://github.com/wazuh/wazuh-virtual-machines/pull/556))
+- Updated Amazon linux upgrade method. ([#540](https://github.com/wazuh/wazuh-virtual-machines/pull/540))
+- Fix cloud-init leftovers and network configuration in OVA build for 5.0 ([#534](https://github.com/wazuh/wazuh-virtual-machines/pull/534))
+- Fix vagrant up inconsistencies at the renewed OVA build process ([#474](https://github.com/wazuh/wazuh-virtual-machines/pull/474))
+- Fix vagrant up inconsistencies at the start. ([#435](https://github.com/wazuh/wazuh-virtual-machines/pull/435))
+
+### Deleted
+
+- Removed OVA and AMI deprecated files. ([#554](https://github.com/wazuh/wazuh-virtual-machines/pull/554))
+
 ## [4.14.5]
 
 ### Added

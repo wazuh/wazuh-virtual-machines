@@ -1,0 +1,6 @@
+[book]
+title = "Wazuh Virtual Machines Documentation"
+authors = ["Wazuh DevOps Team"]
+description = "The technical documentation for the Wazuh OVA and the Wazuh AMI, composed by the development documentation and the reference manual."
+language = "en"
+src = "."
