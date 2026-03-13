@@ -219,7 +219,7 @@ jobs:
         run: |
           python3 wazuh-automation/deployability/modules/allocation/main.py --action create --provider aws --size ${{ env.INSTANCE_TYPE }} --composite-name ${{ env.COMPOSITE_NAME }} --working-dir ${{ env.ALLOCATOR_PATH }} \
             --track-output ${{ env.ALLOCATOR_PATH }}/track.yml --inventory-output ${{ env.ALLOCATOR_PATH }}/inventory.yml --instance-name gha_${{ github.run_id }}_ova_build \
-            --label-team devops --label-termination-date 1d
+            --label-team devops --label-termination-date 1d --custom-tags "purpose:build-ova,WorkflowRun:${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
           INSTANCE_HOSTNAME=$(yq '.all.hosts.[].ansible_host' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
           INSTANCE_PORT=$(yq '.all.hosts.[].ansible_port' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
@@ -229,6 +229,10 @@ jobs:
           echo INSTANCE_PORT=$INSTANCE_PORT >> $GITHUB_ENV
           echo INSTANCE_KEY=$INSTANCE_KEY >> $GITHUB_ENV
           echo INSTANCE_USER=$INSTANCE_USER >> $GITHUB_ENV
+
+          INSTANCE_ID=$(yq '.identifier' ${{ env.ALLOCATOR_PATH }}/track.yml)
+          echo "::add-mask::$INSTANCE_ID"
+          echo INSTANCE_ID=$INSTANCE_ID >> $GITHUB_ENV
 
       - name: Get artifacts URLs file
         run: |
@@ -376,7 +380,7 @@ jobs:
 
       - name: Delete allocated VM
         if: always() && steps.alloc_vm_ova.outcome == 'success' && inputs.destroy == true
-        run: python3 wazuh-automation/deployability/modules/allocation/main.py --action delete --track-output ${{ env.ALLOCATOR_PATH }}/track.yml
+        run: aws ec2 terminate-instances --instance-ids ${{ env.INSTANCE_ID }} --region ${{ env.AWS_REGION }} --skip-os-shutdown
 
       - name: Compress Allocator directory
         id: generate_artifacts
