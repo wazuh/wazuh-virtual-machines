@@ -136,7 +136,8 @@ permissions:
 
 jobs:
   Build_AMI:
-    runs-on: ubuntu-22.04
+    runs-on:
+      group: wz-linux-amd64
     strategy:
       fail-fast: false
       matrix:
@@ -406,7 +407,8 @@ jobs:
   collect_ami_ids:
     needs: Build_AMI
     if: always() && inputs.is_pr_check == true
-    runs-on: ubuntu-latest
+    runs-on:
+      group: wz-linux-amd64
     outputs:
       ami_id_amd64: ${{ steps.get_ids.outputs.ami_id_amd64 }}
       ami_id_arm64: ${{ steps.get_ids.outputs.ami_id_arm64 }}
