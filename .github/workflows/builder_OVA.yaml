@@ -363,7 +363,9 @@ jobs:
       - name: Compress Allocator directory
         id: compress_allocator
         if: always() && steps.alloc_vm_ova.outcome == 'success'
-        run: zip -P "${{ secrets.ZIP_ARTIFACTS_PASSWORD }}" -r ${{ env.ALLOCATOR_PATH }}.zip ${{ env.ALLOCATOR_PATH }}
+        run: |
+          cd "$(dirname ${{ env.ALLOCATOR_PATH }})"
+          zip -P "${{ secrets.ZIP_ARTIFACTS_PASSWORD }}" -r ${{ env.ALLOCATOR_PATH }}.zip "$(basename ${{ env.ALLOCATOR_PATH }})"
         continue-on-error: true
 
       - name: Upload Allocator directory as artifact
