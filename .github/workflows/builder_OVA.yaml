@@ -391,19 +391,15 @@ jobs:
         run: |
           SOURCE_FILE="${{ needs.build.outputs.ova_source_filename }}"
           DEST_FILE="${{ matrix.filename }}"
-
-          if [ "$SOURCE_FILE" != "$DEST_FILE" ]; then
-            cp "$SOURCE_FILE" "$DEST_FILE"
-          fi
-
-          aws s3 cp --quiet "$DEST_FILE" "s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/$DEST_FILE"
+          aws s3 cp --quiet "$SOURCE_FILE" "s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/$DEST_FILE"
           echo "S3 OVA URI: s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/$DEST_FILE"
 
       - name: Generate and upload sha512
         if: ${{ inputs.checksum == true }}
         run: |
+          SOURCE_FILE="${{ needs.build.outputs.ova_source_filename }}"
           DEST_FILE="${{ matrix.filename }}"
-          sha512sum "$DEST_FILE" > "${DEST_FILE}.sha512"
+          sha512sum "$SOURCE_FILE" | sed "s|$SOURCE_FILE|$DEST_FILE|" > "${DEST_FILE}.sha512"
           aws s3 cp --quiet "${DEST_FILE}.sha512" "s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${DEST_FILE}.sha512"
           echo "S3 sha512 URI: s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${DEST_FILE}.sha512"
 
@@ -431,19 +427,15 @@ jobs:
         run: |
           SOURCE_FILE="${{ needs.build.outputs.box_source_filename }}"
           DEST_FILE="${{ matrix.filename }}"
-
-          if [ "$SOURCE_FILE" != "$DEST_FILE" ]; then
-            cp "$SOURCE_FILE" "$DEST_FILE"
-          fi
-
-          aws s3 cp --quiet "$DEST_FILE" "s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/$DEST_FILE"
+          aws s3 cp --quiet "$SOURCE_FILE" "s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/$DEST_FILE"
           echo "S3 BOX URI: s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/$DEST_FILE"
 
       - name: Generate and upload sha512
         if: ${{ inputs.checksum == true }}
         run: |
+          SOURCE_FILE="${{ needs.build.outputs.box_source_filename }}"
           DEST_FILE="${{ matrix.filename }}"
-          sha512sum "$DEST_FILE" > "${DEST_FILE}.sha512"
+          sha512sum "$SOURCE_FILE" | sed "s|$SOURCE_FILE|$DEST_FILE|" > "${DEST_FILE}.sha512"
           aws s3 cp --quiet "${DEST_FILE}.sha512" "s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${DEST_FILE}.sha512"
           echo "S3 sha512 URI: s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${DEST_FILE}.sha512"
 
@@ -453,6 +445,13 @@ jobs:
     runs-on:
       group: wz-linux-amd64
     steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
+          role-session-name: "OVA-Cleanup"
+          aws-region: "${{ env.AWS_REGION }}"
+
       - name: Checkout wazuh/wazuh-automation repository
         uses: actions/checkout@v4
         with:
