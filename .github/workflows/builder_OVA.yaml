@@ -238,7 +238,6 @@ jobs:
           echo INSTANCE_USER=$INSTANCE_USER >> $GITHUB_ENV
 
           INSTANCE_ID=$(yq '.identifier' ${{ env.ALLOCATOR_PATH }}/track.yml)
-          echo "::add-mask::$INSTANCE_ID"
           echo INSTANCE_ID=$INSTANCE_ID >> $GITHUB_ENV
           echo INSTANCE_ID=$INSTANCE_ID >> $GITHUB_OUTPUT
 
@@ -467,5 +466,5 @@ jobs:
           aws-region: "${{ env.AWS_REGION }}"
 
       - name: Delete allocated VM
-        if: inputs.destroy == true
+        if: inputs.destroy == true && needs.build.outputs.instance_id != ''
         run: aws ec2 terminate-instances --instance-ids ${{ needs.build.outputs.instance_id }} --region ${{ env.AWS_REGION }} --skip-os-shutdown
