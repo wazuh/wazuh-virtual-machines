@@ -134,6 +134,7 @@ jobs:
       ova_source_filename: ${{ steps.set_filenames.outputs.ova_source_filename }}
       box_source_filename: ${{ steps.set_filenames.outputs.box_source_filename }}
       ova_s3_path: ${{ steps.set_filenames.outputs.ova_s3_path }}
+      instance_id: ${{ steps.alloc_vm_ova.outputs.INSTANCE_ID }}
     steps:
       - name: View parameters
         run: echo "${{ toJson(inputs) }}"
@@ -467,4 +468,4 @@ jobs:
 
       - name: Delete allocated VM
         if: inputs.destroy == true
-        run: aws ec2 terminate-instances --instance-ids ${{ env.INSTANCE_ID }} --region ${{ env.AWS_REGION }} --skip-os-shutdown
+        run: aws ec2 terminate-instances --instance-ids ${{ needs.build.outputs.instance_id }} --region ${{ env.AWS_REGION }} --skip-os-shutdown
