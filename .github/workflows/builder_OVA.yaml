@@ -225,7 +225,7 @@ jobs:
         run: |
           python3 wazuh-automation/deployability/modules/allocation/main.py --action create --provider aws --size ${{ env.INSTANCE_TYPE }} --composite-name ${{ env.COMPOSITE_NAME }} --working-dir ${{ env.ALLOCATOR_PATH }} \
             --track-output ${{ env.ALLOCATOR_PATH }}/track.yml --inventory-output ${{ env.ALLOCATOR_PATH }}/inventory.yml --instance-name gha_${{ github.run_id }}_ova_build \
-            --label-team devops --label-termination-date 1d
+            --label-team devops --label-termination-date 1d --custom-tags "purpose:build-ova,WorkflowRun:${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
           INSTANCE_HOSTNAME=$(yq '.all.hosts.[].ansible_host' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
           INSTANCE_PORT=$(yq '.all.hosts.[].ansible_port' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
@@ -235,6 +235,11 @@ jobs:
           echo INSTANCE_PORT=$INSTANCE_PORT >> $GITHUB_ENV
           echo INSTANCE_KEY=$INSTANCE_KEY >> $GITHUB_ENV
           echo INSTANCE_USER=$INSTANCE_USER >> $GITHUB_ENV
+
+          INSTANCE_ID=$(yq '.identifier' ${{ env.ALLOCATOR_PATH }}/track.yml)
+          echo "::add-mask::$INSTANCE_ID"
+          echo INSTANCE_ID=$INSTANCE_ID >> $GITHUB_ENV
+          echo INSTANCE_ID=$INSTANCE_ID >> $GITHUB_OUTPUT
 
       - name: Get artifacts URLs file
         run: |
@@ -362,7 +367,7 @@ jobs:
 
       - name: Compress Allocator directory
         id: compress_allocator
-        if: always() && steps.alloc_vm_ova.outcome == 'success'
+        if: always() && steps.alloc_vm_ova.outcome == 'success' && inputs.destroy == false
         run: |
           cd "$(dirname ${{ env.ALLOCATOR_PATH }})"
           zip -P "${{ secrets.ZIP_ARTIFACTS_PASSWORD }}" -r ${{ env.ALLOCATOR_PATH }}.zip "$(basename ${{ env.ALLOCATOR_PATH }})"
@@ -460,30 +465,6 @@ jobs:
           role-session-name: "OVA-Cleanup"
           aws-region: "${{ env.AWS_REGION }}"
 
-      - name: Checkout wazuh/wazuh-automation repository
-        uses: actions/checkout@v4
-        with:
-          repository: wazuh/wazuh-automation
-          ref: ${{ inputs.wazuh_automation_reference }}
-          token: ${{ secrets.GH_CLONE_TOKEN }}
-          path: wazuh-automation
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-
-      - name: Install allocator requirements
-        run: pip3 install -r wazuh-automation/deployability/deps/requirements.txt
-
-      - name: Download Allocator directory
-        uses: actions/download-artifact@v4
-        with:
-          name: allocator-info
-
-      - name: Unzip Allocator directory
-        run: unzip -P "${{ secrets.ZIP_ARTIFACTS_PASSWORD }}" -o "$(basename ${{ env.ALLOCATOR_PATH }}).zip" -d "$(dirname ${{ env.ALLOCATOR_PATH }})"
-
       - name: Delete allocated VM
         if: inputs.destroy == true
-        run: python3 wazuh-automation/deployability/modules/allocation/main.py --action delete --track-output ${{ env.ALLOCATOR_PATH }}/track.yml
+        run: aws ec2 terminate-instances --instance-ids ${{ env.INSTANCE_ID }} --region ${{ env.AWS_REGION }} --skip-os-shutdown
