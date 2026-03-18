@@ -13,7 +13,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- None
+- Fix bumper script early exit ([#630](https://github.com/wazuh/wazuh-virtual-machines/pull/630))
 
 ### Deleted
 
