@@ -93,7 +93,7 @@ on:
     outputs:
       ova_s3_path:
         description: 'S3 URI of the built OVA'
-        value: ${{ jobs.build_and_run.outputs.ova_s3_path }}
+        value: ${{ jobs.build.outputs.ova_s3_path }}
       ova_revision:
         description: 'Revision of the built OVA'
         value: ${{ inputs.ova_revision }}
@@ -118,17 +118,23 @@ env:
     OVA_SCRIPTS_PATH: "${{ github.workspace }}/utils/scripts/ova_build"
     OVA_SET_DEFAULT_SCRIPT_NAME: "setOVADefault.sh"
     OVA_OVF_TEMPLATE_NAME: "wazuh_ovf_template"
+    BOX_DEFAULT_NAME: "al2023"
 
 permissions:
   id-token: write   # This is required for requesting the JWT
   contents: read    # This is required for actions/checkout
 
 jobs:
-  build_and_run:
+  build:
     runs-on:
       group: wz-linux-amd64
     outputs:
-      ova_s3_path: ${{ steps.export_ova.outputs.ova_s3_path }}
+      ova_matrix: ${{ steps.set_filenames.outputs.ova_matrix }}
+      box_matrix: ${{ steps.set_filenames.outputs.box_matrix }}
+      ova_source_filename: ${{ steps.set_filenames.outputs.ova_source_filename }}
+      box_source_filename: ${{ steps.set_filenames.outputs.box_source_filename }}
+      ova_s3_path: ${{ steps.set_filenames.outputs.ova_s3_path }}
+      instance_id: ${{ steps.alloc_vm_ova.outputs.INSTANCE_ID }}
     steps:
       - name: View parameters
         run: echo "${{ toJson(inputs) }}"
@@ -181,35 +187,35 @@ jobs:
           echo WAZUH_MINOR=$WAZUH_MINOR >> $GITHUB_ENV
 
       - name: Setting FILENAME var
+        id: set_filenames
         run: |
           COMMIT_SHA=$(git rev-parse --short ${{ github.sha }})
 
           if [ ${{ inputs.is_stage }} == true ]; then
             # Stage build: wazuh-5.0.0-1
-            FILENAME="wazuh-${{ env.WAZUH_VERSION }}-${{ inputs.ova_revision }}"
-            echo "FILENAME=$FILENAME" >> $GITHUB_ENV
-            echo "FILENAME_OVA=$FILENAME.ova" >> $GITHUB_ENV
-            echo "FILENAME_SHA=$FILENAME.ova.sha512" >> $GITHUB_ENV
-            echo "BUILD_LATEST=false" >> $GITHUB_ENV
+            FILENAME_OVA="wazuh-${{ env.WAZUH_VERSION }}-${{ inputs.ova_revision }}.ova"
+            FILENAME_BOX="ova-${{ env.BOX_DEFAULT_NAME }}-base-${{ env.WAZUH_VERSION }}-${{ inputs.ova_revision }}.box"
+            OVA_MATRIX=$(jq -nc '[{"filename": $f}]' --arg f "$FILENAME_OVA")
+            BOX_MATRIX=$(jq -nc '[{"filename": $f}]' --arg f "$FILENAME_BOX")
           else
             # Dev build: both latest and commit versions
-            FILENAME_LATEST="wazuh-${{ env.WAZUH_VERSION }}-latest"
-            FILENAME_COMMIT="wazuh-${{ env.WAZUH_VERSION }}-${{ inputs.ova_revision }}_${COMMIT_SHA}"
-
-            echo "FILENAME_LATEST=$FILENAME_LATEST" >> $GITHUB_ENV
-            echo "FILENAME_LATEST_OVA=$FILENAME_LATEST.ova" >> $GITHUB_ENV
-            echo "FILENAME_LATEST_SHA=$FILENAME_LATEST.ova.sha512" >> $GITHUB_ENV
-
-            echo "FILENAME_COMMIT=$FILENAME_COMMIT" >> $GITHUB_ENV
-            echo "FILENAME_COMMIT_OVA=$FILENAME_COMMIT.ova" >> $GITHUB_ENV
-            echo "FILENAME_COMMIT_SHA=$FILENAME_COMMIT.ova.sha512" >> $GITHUB_ENV
-
-            # Use commit version as primary for intermediate steps
-            echo "FILENAME=$FILENAME_COMMIT" >> $GITHUB_ENV
-            echo "FILENAME_OVA=$FILENAME_COMMIT.ova" >> $GITHUB_ENV
-            echo "FILENAME_SHA=$FILENAME_COMMIT.ova.sha512" >> $GITHUB_ENV
-            echo "BUILD_LATEST=true" >> $GITHUB_ENV
+            FILENAME_OVA="wazuh-${{ env.WAZUH_VERSION }}-${{ inputs.ova_revision }}_${COMMIT_SHA}.ova"
+            FILENAME_BOX="ova-${{ env.BOX_DEFAULT_NAME }}-base-${{ env.WAZUH_VERSION }}-${{ inputs.ova_revision }}_${COMMIT_SHA}.box"
+            FILENAME_OVA_LATEST="wazuh-${{ env.WAZUH_VERSION }}-latest.ova"
+            FILENAME_BOX_LATEST="ova-${{ env.BOX_DEFAULT_NAME }}-base-${{ env.WAZUH_VERSION }}-latest.box"
+            OVA_MATRIX=$(jq -nc '[{"filename": $f1}, {"filename": $f2}]' --arg f1 "$FILENAME_OVA" --arg f2 "$FILENAME_OVA_LATEST")
+            BOX_MATRIX=$(jq -nc '[{"filename": $f1}, {"filename": $f2}]' --arg f1 "$FILENAME_BOX" --arg f2 "$FILENAME_BOX_LATEST")
           fi
+
+          echo "FILENAME_OVA=$FILENAME_OVA" >> $GITHUB_ENV
+          echo "FILENAME_BOX=$FILENAME_BOX" >> $GITHUB_ENV
+          echo "ova_matrix=$OVA_MATRIX" >> $GITHUB_OUTPUT
+          echo "box_matrix=$BOX_MATRIX" >> $GITHUB_OUTPUT
+          echo "ova_source_filename=$FILENAME_OVA" >> $GITHUB_OUTPUT
+          echo "box_source_filename=$FILENAME_BOX" >> $GITHUB_OUTPUT
+
+          OVA_S3_PATH="s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/$FILENAME_OVA"
+          echo "ova_s3_path=$OVA_S3_PATH" >> $GITHUB_OUTPUT
 
       - name: Install and set allocator requirements
         run: |
@@ -232,8 +238,8 @@ jobs:
           echo INSTANCE_USER=$INSTANCE_USER >> $GITHUB_ENV
 
           INSTANCE_ID=$(yq '.identifier' ${{ env.ALLOCATOR_PATH }}/track.yml)
-          echo "::add-mask::$INSTANCE_ID"
           echo INSTANCE_ID=$INSTANCE_ID >> $GITHUB_ENV
+          echo INSTANCE_ID=$INSTANCE_ID >> $GITHUB_OUTPUT
 
       - name: Get artifacts URLs file
         run: |
@@ -335,6 +341,11 @@ jobs:
           scp -P ${{ env.INSTANCE_PORT }} \
               -i ${{ env.INSTANCE_KEY }} \
               ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }}:~/${{ env.WVM_REPO_NAME }}/${{ env.FILENAME_OVA }} ${{ github.workspace }}/${{ env.FILENAME_OVA }}
+      - name: Getting Amazon Linux 2023 Vagrant Box from AWS instance
+        run: |
+          scp -P ${{ env.INSTANCE_PORT }} \
+              -i ${{ env.INSTANCE_KEY }} \
+              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }}:~/${{ env.WVM_REPO_NAME }}/${{ env.BOX_DEFAULT_NAME }}.box ${{ github.workspace }}/${{ env.FILENAME_BOX }}
 
       - name: Standarizing OVA
         run: |
@@ -342,56 +353,118 @@ jobs:
           sed -i "s|ovf:capacity=\"40\"|ovf:capacity=\"50\"|g" ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_OVF_TEMPLATE_NAME }}
           sudo bash ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_SET_DEFAULT_SCRIPT_NAME }} "${{ env.OVA_SCRIPTS_PATH }}/" "${{ github.workspace }}/${{ env.FILENAME_OVA }}" "${{ github.workspace }}/${{ env.FILENAME_OVA }}" ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_OVF_TEMPLATE_NAME }} "${{ env.WAZUH_VERSION }}"
 
-      - name: Create latest version copy
-        if: ${{ inputs.is_stage == false }}
-        run: |
-          cp ${{ github.workspace }}/${{ env.FILENAME_COMMIT_OVA }} ${{ github.workspace }}/${{ env.FILENAME_LATEST_OVA }}
+      - name: Upload built OVA as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-ova
+          path: ${{ github.workspace }}/${{ env.FILENAME_OVA }}
 
-      - name: Exporting OVA to final repository
-        id: export_ova
-        run: |
-          # Upload version commit-based OVA
-          aws s3 cp --quiet ${{ github.workspace }}/${{ env.FILENAME_OVA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_OVA }}
-          echo "S3 OVA URI: s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_OVA }}"
-
-          # Upload latest version OVA if applicable
-          if [ "${{ env.BUILD_LATEST }}" == "true" ]; then
-            aws s3 cp --quiet ${{ github.workspace }}/${{ env.FILENAME_LATEST_OVA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_LATEST_OVA }}
-            echo "S3 OVA URI (latest): s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_LATEST_OVA }}"
-          fi
-
-          # Set output for orchestrator workflows
-          OVA_S3_PATH="s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_OVA }}"
-          echo "ova_s3_path=${OVA_S3_PATH}" >> $GITHUB_OUTPUT
-
-      - name: Generating sha512 files
-        if: ${{ inputs.checksum == true }}
-        run: |
-          # Generate and upload sha512 for commit-based version
-          sha512sum ${{ github.workspace }}/${{ env.FILENAME_OVA }} > ${{ github.workspace }}/${{ env.FILENAME_SHA }}
-          aws s3 cp --quiet ${{ github.workspace }}/${{ env.FILENAME_SHA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_SHA }}
-          echo "S3 sha512 URI: s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_SHA }}"
-
-          # Generate and upload sha512 for latest version if applicable
-          if [ "${{ env.BUILD_LATEST }}" == "true" ]; then
-            sha512sum ${{ github.workspace }}/${{ env.FILENAME_LATEST_OVA }} > ${{ github.workspace }}/${{ env.FILENAME_LATEST_SHA }}
-            aws s3 cp --quiet ${{ github.workspace }}/${{ env.FILENAME_LATEST_SHA }} s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_LATEST_SHA }}
-            echo "S3 sha512 URI (latest): s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${{ env.FILENAME_LATEST_SHA }}"
-          fi
-
-      - name: Delete allocated VM
-        if: always() && steps.alloc_vm_ova.outcome == 'success' && inputs.destroy == true
-        run: aws ec2 terminate-instances --instance-ids ${{ env.INSTANCE_ID }} --region ${{ env.AWS_REGION }} --skip-os-shutdown
+      - name: Upload built BOX as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-box
+          path: ${{ github.workspace }}/${{ env.FILENAME_BOX }}
 
       - name: Compress Allocator directory
-        id: generate_artifacts
+        id: compress_allocator
         if: always() && steps.alloc_vm_ova.outcome == 'success' && inputs.destroy == false
-        run: zip -P "${{ secrets.ZIP_ARTIFACTS_PASSWORD }}" -r ${{ env.ALLOCATOR_PATH }}.zip ${{ env.ALLOCATOR_PATH }}
+        run: |
+          cd "$(dirname ${{ env.ALLOCATOR_PATH }})"
+          zip -P "${{ secrets.ZIP_ARTIFACTS_PASSWORD }}" -r ${{ env.ALLOCATOR_PATH }}.zip "$(basename ${{ env.ALLOCATOR_PATH }})"
         continue-on-error: true
 
       - name: Upload Allocator directory as artifact
-        if: always() && steps.generate_artifacts.outcome == 'success'
+        if: always() && steps.compress_allocator.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: instance_info
+          name: allocator-info
           path: ${{ env.ALLOCATOR_PATH }}.zip
+
+  upload_ova:
+    needs: build
+    runs-on:
+      group: wz-linux-amd64
+    strategy:
+      matrix:
+        include: ${{ fromJson(needs.build.outputs.ova_matrix) }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
+          role-session-name: "OVA-Upload"
+          aws-region: "${{ env.AWS_REGION }}"
+
+      - name: Download built OVA
+        uses: actions/download-artifact@v4
+        with:
+          name: built-ova
+
+      - name: Upload OVA to S3
+        run: |
+          SOURCE_FILE="${{ needs.build.outputs.ova_source_filename }}"
+          DEST_FILE="${{ matrix.filename }}"
+          aws s3 cp --quiet "$SOURCE_FILE" "s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/$DEST_FILE"
+          echo "S3 OVA URI: s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/$DEST_FILE"
+
+      - name: Generate and upload sha512
+        if: ${{ inputs.checksum == true }}
+        run: |
+          SOURCE_FILE="${{ needs.build.outputs.ova_source_filename }}"
+          DEST_FILE="${{ matrix.filename }}"
+          sha512sum "$SOURCE_FILE" | sed "s|$SOURCE_FILE|$DEST_FILE|" > "${DEST_FILE}.sha512"
+          aws s3 cp --quiet "${DEST_FILE}.sha512" "s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${DEST_FILE}.sha512"
+          echo "S3 sha512 URI: s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${DEST_FILE}.sha512"
+
+  upload_box:
+    needs: build
+    runs-on:
+      group: wz-linux-amd64
+    strategy:
+      matrix:
+        include: ${{ fromJson(needs.build.outputs.box_matrix) }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
+          role-session-name: "BOX-Upload"
+          aws-region: "${{ env.AWS_REGION }}"
+
+      - name: Download built BOX
+        uses: actions/download-artifact@v4
+        with:
+          name: built-box
+
+      - name: Upload BOX to S3
+        run: |
+          SOURCE_FILE="${{ needs.build.outputs.box_source_filename }}"
+          DEST_FILE="${{ matrix.filename }}"
+          aws s3 cp --quiet "$SOURCE_FILE" "s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/$DEST_FILE"
+          echo "S3 BOX URI: s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/$DEST_FILE"
+
+      - name: Generate and upload sha512
+        if: ${{ inputs.checksum == true }}
+        run: |
+          SOURCE_FILE="${{ needs.build.outputs.box_source_filename }}"
+          DEST_FILE="${{ matrix.filename }}"
+          sha512sum "$SOURCE_FILE" | sed "s|$SOURCE_FILE|$DEST_FILE|" > "${DEST_FILE}.sha512"
+          aws s3 cp --quiet "${DEST_FILE}.sha512" "s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${DEST_FILE}.sha512"
+          echo "S3 sha512 URI: s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${DEST_FILE}.sha512"
+
+  cleanup:
+    needs: [build, upload_ova, upload_box]
+    if: always() && needs.build.result != 'skipped'
+    runs-on:
+      group: wz-linux-amd64
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
+          role-session-name: "OVA-Cleanup"
+          aws-region: "${{ env.AWS_REGION }}"
+
+      - name: Delete allocated VM
+        if: inputs.destroy == true && needs.build.outputs.instance_id != ''
+        run: aws ec2 terminate-instances --instance-ids ${{ needs.build.outputs.instance_id }} --region ${{ env.AWS_REGION }} --skip-os-shutdown
