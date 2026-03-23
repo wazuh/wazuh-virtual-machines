@@ -120,7 +120,7 @@ def setup_execution_environment(vm_name: str, box_name: str = VAGRANT_BOX_NAME) 
     logger.info_success("Vagrantfile created successfully")
 
 
-def configure_vagrant_vm(packages_url_filename: str, box_url: str) -> str:
+def configure_vagrant_vm(packages_url_filename: Path, box_url: str) -> str:
     """
     Configures a Vagrant virtual machine (VM) for the Wazuh environment.
     Para ello crea una Vagrant VM y dentro de ella, se ejecuta Hatch con la configuración
