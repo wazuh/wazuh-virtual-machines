@@ -125,7 +125,7 @@ def configure_vagrant_vm(packages_url_filename: Path, box_url: str) -> str:
     Configures a Vagrant virtual machine (VM) for the Wazuh environment.
     Para ello crea una Vagrant VM y dentro de ella, se ejecuta Hatch con la configuración
     usada para crear la OVA productiva.
-    # ingles
+
     This function is responsible for setting up the Wazuh environment in a Vagrant VM.
     It creates a Vagrant VM and executes Hatch with the configuration used to create the production OVA.
 
@@ -134,11 +134,18 @@ def configure_vagrant_vm(packages_url_filename: Path, box_url: str) -> str:
     """
 
     logger.debug_title("Creating the Wazuh environment into the VM")
+    
+    try:
+        logger.debug(f"Copying {packages_url_filename} to the {CURRENT_PATH} directory")
+        shutil.copy(packages_url_filename, CURRENT_PATH / ARTIFACT_URLS_FILENAME)
+    except shutil.SameFileError:
+        logger.debug(f"File {CURRENT_PATH / ARTIFACT_URLS_FILENAME} already exists. No need to copy it.")
+
     logger.debug("Downloading and adding the Vagrant box")
 
     urllib.request.urlretrieve(box_url, CURRENT_PATH / f"{VAGRANT_BOX_NAME}.box")
 
-    exec_command(f"vagrant box add {CURRENT_PATH / f'{VAGRANT_BOX_NAME}.box'}")
+    exec_command(f"vagrant box add --name {VAGRANT_BOX_NAME} {CURRENT_PATH / f'{VAGRANT_BOX_NAME}.box'}")
     run_vagrant_up(vagrantfile=CURRENT_PATH / "Vagrantfile")
 
     vagrant_uuid_file = VAGRANT_METADATA_PATH / "index_uuid"
@@ -150,7 +157,7 @@ def configure_vagrant_vm(packages_url_filename: Path, box_url: str) -> str:
         the logs generated during the configuration will be displayed in the console. 
     """)
 
-    command = f"vagrant ssh {vagrant_uuid} -c 'cd /tmp/ && sudo hatch run dev-ova-post-configurer:run --packages-url-path {packages_url_filename}'"
+    command = f"vagrant ssh {vagrant_uuid} -c 'cd /tmp/ && sudo hatch run dev-ova-post-configurer:run --packages-url-path {CURRENT_PATH / ARTIFACT_URLS_FILENAME}'"
     output, error_output = exec_command(command=command)
     if error_output:
         raise RuntimeError(f"Error running command in the remote VM: {error_output}")
