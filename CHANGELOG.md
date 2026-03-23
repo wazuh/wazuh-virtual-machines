@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Environment selection for local OVA builds and AL2023 box integration ([#633](https://github.com/wazuh/wazuh-virtual-machines/pull/633))
 - Update documentation adding the Wazuh Agent information ([#611](https://github.com/wazuh/wazuh-virtual-machines/pull/611))
 - Ensure the wazuh agent is stopped in the AMI customization process ([#608](https://github.com/wazuh/wazuh-virtual-machines/pull/608))
 - Add agent clean up to the AMI post configurer module ([#607](https://github.com/wazuh/wazuh-virtual-machines/pull/607))
