@@ -3,8 +3,8 @@
 
 Vagrant.configure("2") do |config|
 
-  config.vm.box_url = "https://packages-dev.wazuh.com/vms/ova/al2023.box"
-  config.vm.box = "al2023"
+  config.vm.box_url = "{{ box_url }}"
+  config.vm.box = "{{ box_name }}"
   config.vm.hostname = "wazuh"
   config.vm.provider "virtualbox" do |vb|
     vb.name = "{{ vm_name }}"
