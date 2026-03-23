@@ -157,7 +157,7 @@ def configure_vagrant_vm(packages_url_filename: Path, box_url: str) -> str:
         the logs generated during the configuration will be displayed in the console. 
     """)
 
-    command = f"vagrant ssh {vagrant_uuid} -c 'cd /tmp/ && sudo hatch run dev-ova-post-configurer:run --packages-url-path {CURRENT_PATH / ARTIFACT_URLS_FILENAME}'"
+    command = f"vagrant ssh {vagrant_uuid} -c 'cd /tmp/ && sudo hatch run dev-ova-post-configurer:run --packages-url-path {Path("wazuh_local_ova") / ARTIFACT_URLS_FILENAME}'"
     output, error_output = exec_command(command=command)
     if error_output:
         raise RuntimeError(f"Error running command in the remote VM: {error_output}")
