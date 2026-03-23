@@ -75,9 +75,8 @@ def create_ova(
 
     setup_execution_environment(
         vm_name=name,
-        box_url=box_url,
     )
-    vagrant_uuid = configure_vagrant_vm(packages_url_filename=artifact_urls_path.name)
+    vagrant_uuid = configure_vagrant_vm(packages_url_filename=artifact_urls_path.name, box_url=box_url)
     export_ova_image(vagrant_uuid=vagrant_uuid, name=name, ova_dest=output)
 
     if checksum:

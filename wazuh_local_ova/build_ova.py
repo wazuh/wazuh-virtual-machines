@@ -87,14 +87,13 @@ def get_box_url_from_artifact_urls(artifact_urls_path: Path) -> str:
     return box_url
 
 
-def setup_execution_environment(vm_name: str, box_url: str, box_name: str = VAGRANT_BOX_NAME) -> None:
+def setup_execution_environment(vm_name: str, box_name: str = VAGRANT_BOX_NAME) -> None:
     """
     Set up the execution environment for the OVA image creation. This includes rendering the Vagrantfile with the specified VM name and box source.
     The Vagrantfile is used to configure the virtual machine for the OVA image creation process.
 
     Args:
         vm_name (str): The name of the virtual machine that will be created throught the Vagrantfile.
-        box_url (str): The URL pointing to the Vagrant box file for the selected environment.
         box_name (str): The name to register the Vagrant box under. Defaults to ``al2023``.
 
     Returns:
@@ -104,7 +103,6 @@ def setup_execution_environment(vm_name: str, box_url: str, box_name: str = VAGR
 
     vagrant_context = {
         "vm_name": vm_name,
-        "box_url": box_url,
         "box_name": box_name,
     }
     script_dir = CURRENT_PATH / "templates"
@@ -122,7 +120,7 @@ def setup_execution_environment(vm_name: str, box_url: str, box_name: str = VAGR
     logger.info_success("Vagrantfile created successfully")
 
 
-def configure_vagrant_vm(packages_url_filename: str) -> str:
+def configure_vagrant_vm(packages_url_filename: str, box_url: str) -> str:
     """
     Configures a Vagrant virtual machine (VM) for the Wazuh environment.
     Para ello crea una Vagrant VM y dentro de ella, se ejecuta Hatch con la configuración
@@ -136,8 +134,11 @@ def configure_vagrant_vm(packages_url_filename: str) -> str:
     """
 
     logger.debug_title("Creating the Wazuh environment into the VM")
-    logger.debug("Running vagrant up")
+    logger.debug("Downloading and adding the Vagrant box")
 
+    urllib.request.urlretrieve(box_url, CURRENT_PATH / f"{VAGRANT_BOX_NAME}.box")
+
+    exec_command(f"vagrant box add {CURRENT_PATH / f'{VAGRANT_BOX_NAME}.box'}")
     run_vagrant_up(vagrantfile=CURRENT_PATH / "Vagrantfile")
 
     vagrant_uuid_file = VAGRANT_METADATA_PATH / "index_uuid"
