@@ -1,16 +1,23 @@
 import re
 import shutil
+import urllib.request
 from pathlib import Path
+from typing import Literal
+
+import yaml
 
 from configurer.ova.ova_pre_configurer.ova_pre_configurer import run_vagrant_up
 from generic import exec_command
 from utils import Logger
 
-from .helpers import clean_output_lines, get_wazuh_version, render_vagrantfile
+from .enums import ArtifactFilePath, EnvironmentType
+from .helpers import clean_output_lines, get_wazuh_stage, get_wazuh_version, render_vagrantfile
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 CURRENT_PATH = Path(__file__).resolve().parent
-DEFAULT_URL_FILENAME = "artifacts_urls.yaml"
+ARTIFACT_URLS_FILENAME = "artifact_urls.yml"
+VAGRANT_BOX_YAML_KEY = "wazuh_ova_base_box"
+VAGRANT_BOX_NAME = "wazuh_local_ova_base_box"
 VERSION_FILENAME = "VERSION.json"
 STANDARIZE_OVA_FILENAME = "setOVADefault.sh"
 OVA_OVF_TEMPLATE = "wazuh_ovf_template"
@@ -23,32 +30,85 @@ OVA_OVF_TEMPLATE_FILEPATH = OVA_SCRIPTS_PATH / OVA_OVF_TEMPLATE
 logger = Logger("Build Local OVA")
 
 
-def setup_execution_environment(vm_name: str, packages_url_path: str) -> None:
+def fetch_artifact_urls_file(
+    environment: Literal[EnvironmentType.PRE_RELEASE, EnvironmentType.RELEASE],
+) -> Path:
     """
-    Set up the execution environment for the OVA image creation. This includes copying the packages URL file
-    to the root directory and rendering the Vagrantfile with the specified VM name.
+    Fetch the artifact URLs file based on the selected environment.
+
+    - Release / Pre-release: downloads ``artifact_urls.yml`` transparently from the
+      corresponding URL defined in ``ArtifactFilePath`` for the selected environment.
+      The version and stage (revision) are read automatically from ``VERSION.json``.
+
+    Args:
+        environment (EnvironmentType): The target environment. Only Release and
+            Pre-release are relevant for this function, as the Dev environment
+            uses a local file.
+
+    Returns:
+        Path: Local path to the artifact URLs file.
+    """
+
+    wazuh_version = get_wazuh_version(VERSION_FILEPATH)
+    wazuh_stage = get_wazuh_stage(VERSION_FILEPATH)
+    url = ArtifactFilePath[environment.name].build(version=wazuh_version, revision=wazuh_stage)
+    local_path = CURRENT_PATH / ARTIFACT_URLS_FILENAME
+
+    logger.debug(f"Downloading artifact URLs file from {url}")
+    urllib.request.urlretrieve(url, local_path)
+
+    if not local_path.exists():
+        raise FileNotFoundError(f"Failed to download the artifact URLs file from {url}")
+
+    return local_path
+
+
+def get_box_url_from_artifact_urls(artifact_urls_path: Path) -> str:
+    """
+    Parse the artifact URLs YAML file and return the vagrant box URL.
+
+    The YAML file must contain the key defined by ``VAGRANT_BOX_YAML_KEY``
+    whose value is the URL/S3-path to the ``.box`` file.
+
+    Args:
+        artifact_urls_path (Path): Path to the artifact URLs YAML file.
+
+    Returns:
+        str: The vagrant box URL.
+    """
+    with open(artifact_urls_path) as f:
+        urls = yaml.safe_load(f)
+
+    box_url = urls.get(VAGRANT_BOX_YAML_KEY)
+    if not box_url:
+        raise ValueError(
+            f"Key '{VAGRANT_BOX_YAML_KEY}' not found in {artifact_urls_path}. Please add it to the artifact URLs file."
+        )
+    return box_url
+
+
+def setup_execution_environment(vm_name: str, box_url: str, box_name: str = VAGRANT_BOX_NAME) -> None:
+    """
+    Set up the execution environment for the OVA image creation. This includes rendering the Vagrantfile with the specified VM name and box source.
     The Vagrantfile is used to configure the virtual machine for the OVA image creation process.
 
     Args:
         vm_name (str): The name of the virtual machine that will be created throught the Vagrantfile.
-        packages_url_path (str): The path to the packages URL file.
+        box_url (str): The URL pointing to the Vagrant box file for the selected environment.
+        box_name (str): The name to register the Vagrant box under. Defaults to ``al2023``.
 
     Returns:
         None
     """
     logger.debug_title("Setting up execution environment")
 
-    try:
-        logger.debug(f"Copying {packages_url_path} to the root directory")
-        shutil.copy(packages_url_path, ROOT_DIR)
-    except shutil.SameFileError:
-        logger.debug(f"File {packages_url_path} already exists in the root directory.")
-
     vagrant_context = {
         "vm_name": vm_name,
+        "box_url": box_url,
+        "box_name": box_name,
     }
-    script_dir = ROOT_DIR / "wazuh_local_ova" / "templates"
-    output_vagrantfile = ROOT_DIR / "wazuh_local_ova" / "Vagrantfile"
+    script_dir = CURRENT_PATH / "templates"
+    output_vagrantfile = CURRENT_PATH / "Vagrantfile"
 
     logger.debug("Creating Vagrantfile")
 
@@ -62,7 +122,7 @@ def setup_execution_environment(vm_name: str, packages_url_path: str) -> None:
     logger.info_success("Vagrantfile created successfully")
 
 
-def configure_vagrant_vm(packages_url_filename: str = DEFAULT_URL_FILENAME) -> str:
+def configure_vagrant_vm(packages_url_filename: str) -> str:
     """
     Configures a Vagrant virtual machine (VM) for the Wazuh environment.
     Para ello crea una Vagrant VM y dentro de ella, se ejecuta Hatch con la configuración
@@ -78,7 +138,7 @@ def configure_vagrant_vm(packages_url_filename: str = DEFAULT_URL_FILENAME) -> s
     logger.debug_title("Creating the Wazuh environment into the VM")
     logger.debug("Running vagrant up")
 
-    run_vagrant_up(vagrantfile=ROOT_DIR / "wazuh_local_ova" / "Vagrantfile")
+    run_vagrant_up(vagrantfile=CURRENT_PATH / "Vagrantfile")
 
     vagrant_uuid_file = VAGRANT_METADATA_PATH / "index_uuid"
     with open(vagrant_uuid_file) as file:

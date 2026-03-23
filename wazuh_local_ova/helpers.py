@@ -49,6 +49,25 @@ def get_wazuh_version(version_file: Path) -> str:
             raise ValueError(f"Version not found in {version_file}")
 
 
+def get_wazuh_stage(version_file: Path) -> str:
+    """
+    Get the Wazuh stage from the given file.
+
+    Args:
+        version_file (Path): The path to the version file.
+
+    Returns:
+        str: The Wazuh stage (e.g. ``"alpha0"``).
+    """
+    with open(version_file) as file:
+        version = file.read()
+        match = re.search(r'"stage"\s*:\s*"([^"]+)"', version)
+        if match:
+            return match.group(1)
+        else:
+            raise ValueError(f"Stage not found in {version_file}")
+
+
 def clean_output_lines(output: str, pattern: Pattern[str]) -> str:
     """
     Clean the output lines by removing lines that match the given pattern.
