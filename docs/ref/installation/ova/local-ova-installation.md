@@ -55,7 +55,7 @@ wazuh_dashboard_arm64_rpm: "http://example.com/wazuh-dashboard-arm64.rpm"
 ...
 ```
 
-The `wazuh_ova_base_box` key is required and must point to the Vagrant `.box` file used as the base for the OVA build.
+The `wazuh_ova_base_box` key is required. Its value must be a URL pointing to the Vagrant `.box` file. The build process downloads this file and registers it as a Vagrant box (using `vagrant box add --name`) before starting the VM. The Vagrantfile itself only references the box by name.
 
 Follow the steps below to create the Wazuh virtual machine:
 
