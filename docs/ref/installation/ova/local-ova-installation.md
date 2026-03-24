@@ -19,7 +19,7 @@ To create the Wazuh OVA locally, we will use the `wazuh_local_ova` module. This 
 | `--name` | `-n` | Name of the generated `.ova` file | No | `wazuh-local-ova` |
 | `--output` | `-o` | Directory where the `.ova` file will be stored | No | Current directory |
 | `--environment` | `-e` | Environment to use for fetching Wazuh packages (`release`, `pre-release`, `dev`) | No | `release` |
-| `--packages-url-path` | `-p` | Path to the local artifact URLs file. Only used when `--environment` is `dev` | No | `./artifact_urls.yml` |
+| `--packages-url-path` | `-p` | Path to the local artifact URLs file. Only used when `--environment` is `dev` | No | `./artifact_urls.yaml` |
 | `--checksum` | `-c` | Generate a `.sha512` file for the OVA | No | `False` |
 
 ### Environments

@@ -36,7 +36,7 @@ class ArtifactFilePath(StrEnum):
             'https://packages-staging.xdrsiem.wazuh.info/pre-release/5.x/artifact_urls_5.0.0-1.yaml'
 
             >>> ArtifactFilePath.DEV.build()
-            '.'
+            './artifact_urls.yaml'
         """
         major = version.split(".")[0] if version else ""
         return self.value.format_map(
