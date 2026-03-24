@@ -129,6 +129,12 @@ def configure_vagrant_vm(packages_url_filename: Path, box_url: str) -> str:
     This function is responsible for setting up the Wazuh environment in a Vagrant VM.
     It creates a Vagrant VM and executes Hatch with the configuration used to create the production OVA.
 
+    Args:
+        packages_url_filename (Path): Path to the artifact URLs YAML file to be copied into the current
+            directory as ``ARTIFACT_URLS_FILENAME`` for use by the VM configuration.
+        box_url (str): URL pointing to the ``.box`` file that will be downloaded and added
+            as the Vagrant box for the VM.
+
     Returns:
         str: The UUID of the configured Vagrant VM.
     """
@@ -151,13 +157,14 @@ def configure_vagrant_vm(packages_url_filename: Path, box_url: str) -> str:
         raise RuntimeError(f"Vagrant box '{VAGRANT_BOX_NAME}' already exists.")
 
     box_file = CURRENT_PATH / f"{VAGRANT_BOX_NAME}.box"
-    urllib.request.urlretrieve(box_url, box_file)
+    try:
+        urllib.request.urlretrieve(box_url, box_file)
+        _, error_output = exec_command(f"vagrant box add --name {VAGRANT_BOX_NAME} {box_file}")
+        if error_output:
+            raise RuntimeError(f"Error adding Vagrant box: {error_output}")
+    finally:
+        box_file.unlink(missing_ok=True)
 
-    _, error_output = exec_command(f"vagrant box add --name {VAGRANT_BOX_NAME} {box_file}")
-    if error_output:
-        raise RuntimeError(f"Error adding Vagrant box: {error_output}")
-
-    box_file.unlink(missing_ok=True)
     run_vagrant_up(vagrantfile=CURRENT_PATH / "Vagrantfile")
 
     vagrant_uuid_file = VAGRANT_METADATA_PATH / "index_uuid"

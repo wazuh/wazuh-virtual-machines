@@ -1,8 +1,9 @@
-import logging
 from pathlib import Path
 from typing import Annotated
 
 import typer
+
+from utils import Logger
 
 from .build_ova import (
     configure_vagrant_vm,
@@ -14,7 +15,7 @@ from .build_ova import (
 )
 from .enums import ArtifactFilePath, EnvironmentType
 
-logger = logging.getLogger(__name__)
+logger = Logger(__name__)
 app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 
 
