@@ -35,10 +35,7 @@ def create_ova(
         typer.Option(
             "--packages-url-path",
             "-p",
-            help=(
-                "Path to the local artifact URLs file. "
-                f"Only used when --environment is '{EnvironmentType.DEV}'."
-            ),
+            help=(f"Path to the local artifact URLs file. Only used when --environment is '{EnvironmentType.DEV}'."),
         ),
     ] = ArtifactFilePath.DEV,
     checksum: Annotated[

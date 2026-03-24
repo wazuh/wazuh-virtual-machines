@@ -4,6 +4,8 @@ from re import Pattern
 
 from jinja2 import Environment, FileSystemLoader
 
+from generic import exec_command
+
 
 def render_vagrantfile(
     context: dict, template_dir: str, template_file: str = "Vagrantfile.j2", output_path: str = "Vagrantfile"
@@ -66,6 +68,20 @@ def get_wazuh_stage(version_file: Path) -> str:
             return match.group(1)
         else:
             raise ValueError(f"Stage not found in {version_file}")
+
+
+def vagrant_box_exists(box_name: str) -> bool:
+    """
+    Check whether a Vagrant box with the given name is already registered.
+
+    Args:
+        box_name (str): The name of the Vagrant box to look up.
+
+    Returns:
+        bool: ``True`` if the box is registered, ``False`` otherwise.
+    """
+    output, _ = exec_command("vagrant box list")
+    return any(line.startswith(box_name) for line in output.splitlines())
 
 
 def clean_output_lines(output: str, pattern: Pattern[str]) -> str:

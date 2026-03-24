@@ -11,7 +11,7 @@ from generic import exec_command
 from utils import Logger
 
 from .enums import ArtifactFilePath, EnvironmentType
-from .helpers import clean_output_lines, get_wazuh_stage, get_wazuh_version, render_vagrantfile
+from .helpers import clean_output_lines, get_wazuh_stage, get_wazuh_version, render_vagrantfile, vagrant_box_exists
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 CURRENT_PATH = Path(__file__).resolve().parent
@@ -36,7 +36,7 @@ def fetch_artifact_urls_file(
     """
     Fetch the artifact URLs file based on the selected environment.
 
-    - Release / Pre-release: downloads ``artifact_urls.yml`` transparently from the
+    - Release / Pre-release: downloads ``artifact_urls.yaml`` transparently from the
       corresponding URL defined in ``ArtifactFilePath`` for the selected environment.
       The version and stage (revision) are read automatically from ``VERSION.json``.
 
@@ -79,6 +79,9 @@ def get_box_url_from_artifact_urls(artifact_urls_path: Path) -> str:
     with open(artifact_urls_path) as f:
         urls = yaml.safe_load(f)
 
+    if not isinstance(urls, dict):
+        raise ValueError(f"Invalid format in {artifact_urls_path}.")
+
     box_url = urls.get(VAGRANT_BOX_YAML_KEY)
     if not box_url:
         raise ValueError(
@@ -87,14 +90,13 @@ def get_box_url_from_artifact_urls(artifact_urls_path: Path) -> str:
     return box_url
 
 
-def setup_execution_environment(vm_name: str, box_name: str = VAGRANT_BOX_NAME) -> None:
+def setup_execution_environment(vm_name: str) -> None:
     """
     Set up the execution environment for the OVA image creation. This includes rendering the Vagrantfile with the specified VM name and box source.
     The Vagrantfile is used to configure the virtual machine for the OVA image creation process.
 
     Args:
         vm_name (str): The name of the virtual machine that will be created throught the Vagrantfile.
-        box_name (str): The name to register the Vagrant box under. Defaults to ``wazuh_local_ova_base_box``.
 
     Returns:
         None
@@ -103,7 +105,7 @@ def setup_execution_environment(vm_name: str, box_name: str = VAGRANT_BOX_NAME) 
 
     vagrant_context = {
         "vm_name": vm_name,
-        "box_name": box_name,
+        "box_name": VAGRANT_BOX_NAME,
     }
     script_dir = CURRENT_PATH / "templates"
     output_vagrantfile = CURRENT_PATH / "Vagrantfile"
@@ -132,7 +134,7 @@ def configure_vagrant_vm(packages_url_filename: Path, box_url: str) -> str:
     """
 
     logger.debug_title("Creating the Wazuh environment into the VM")
-    
+
     try:
         logger.debug(f"Copying {packages_url_filename} to the {CURRENT_PATH} directory")
         shutil.copy(packages_url_filename, CURRENT_PATH / ARTIFACT_URLS_FILENAME)
@@ -141,9 +143,21 @@ def configure_vagrant_vm(packages_url_filename: Path, box_url: str) -> str:
 
     logger.debug("Downloading and adding the Vagrant box")
 
-    urllib.request.urlretrieve(box_url, CURRENT_PATH / f"{VAGRANT_BOX_NAME}.box")
+    if vagrant_box_exists(VAGRANT_BOX_NAME):
+        logger.warning(
+            f"Vagrant box '{VAGRANT_BOX_NAME}' already exists. "
+            f"Remove it with 'vagrant box remove {VAGRANT_BOX_NAME}' and re-run."
+        )
+        raise RuntimeError(f"Vagrant box '{VAGRANT_BOX_NAME}' already exists.")
 
-    exec_command(f"vagrant box add --name {VAGRANT_BOX_NAME} {CURRENT_PATH / f'{VAGRANT_BOX_NAME}.box'}")
+    box_file = CURRENT_PATH / f"{VAGRANT_BOX_NAME}.box"
+    urllib.request.urlretrieve(box_url, box_file)
+
+    _, error_output = exec_command(f"vagrant box add --name {VAGRANT_BOX_NAME} {box_file}")
+    if error_output:
+        raise RuntimeError(f"Error adding Vagrant box: {error_output}")
+
+    box_file.unlink(missing_ok=True)
     run_vagrant_up(vagrantfile=CURRENT_PATH / "Vagrantfile")
 
     vagrant_uuid_file = VAGRANT_METADATA_PATH / "index_uuid"
@@ -155,7 +169,7 @@ def configure_vagrant_vm(packages_url_filename: Path, box_url: str) -> str:
         the logs generated during the configuration will be displayed in the console. 
     """)
 
-    command = f"vagrant ssh {vagrant_uuid} -c 'cd /tmp/ && sudo hatch run dev-ova-post-configurer:run --packages-url-path {Path("wazuh_local_ova") / ARTIFACT_URLS_FILENAME}'"
+    command = f"vagrant ssh {vagrant_uuid} -c 'cd /tmp/ && sudo hatch run dev-ova-post-configurer:run --packages-url-path {Path('wazuh_local_ova') / ARTIFACT_URLS_FILENAME}'"
     output, error_output = exec_command(command=command)
     if error_output:
         raise RuntimeError(f"Error running command in the remote VM: {error_output}")
@@ -239,4 +253,5 @@ def generate_checksum(name: str, ova_dest: str) -> None:
     if error_output:
         raise RuntimeError(f"Error generating SHA512 checksum: {error_output}")
 
+    logger.info_success(f"SHA512 checksum generated: {ova_dest}/{name}.sha512")
     logger.info_success(f"SHA512 checksum generated: {ova_dest}/{name}.sha512")
