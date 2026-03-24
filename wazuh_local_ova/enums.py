@@ -10,7 +10,7 @@ class EnvironmentType(StrEnum):
 class ArtifactFilePath(StrEnum):
     RELEASE = "https://packages.wazuh.com/production/{major}.x/artifact_urls_{wazuh-version}.yaml"
     PRE_RELEASE = "https://packages-staging.xdrsiem.wazuh.info/pre-release/{major}.x/artifact_urls_{wazuh-version}-{wazuh-revision}.yaml"
-    DEV = "./artifact_urls.yml"
+    DEV = "./artifact_urls.yaml"
 
     def build(self, version: str = "", revision: str = "") -> str:
         """

@@ -94,7 +94,7 @@ def setup_execution_environment(vm_name: str, box_name: str = VAGRANT_BOX_NAME) 
 
     Args:
         vm_name (str): The name of the virtual machine that will be created throught the Vagrantfile.
-        box_name (str): The name to register the Vagrant box under. Defaults to ``al2023``.
+        box_name (str): The name to register the Vagrant box under. Defaults to ``wazuh_local_ova_base_box``.
 
     Returns:
         None
