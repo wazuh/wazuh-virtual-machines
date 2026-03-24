@@ -15,7 +15,7 @@ from .helpers import clean_output_lines, get_wazuh_stage, get_wazuh_version, ren
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 CURRENT_PATH = Path(__file__).resolve().parent
-ARTIFACT_URLS_FILENAME = "artifact_urls.yml"
+ARTIFACT_URLS_FILENAME = "artifact_urls.yaml"
 VAGRANT_BOX_YAML_KEY = "wazuh_ova_base_box"
 VAGRANT_BOX_NAME = "wazuh_local_ova_base_box"
 VERSION_FILENAME = "VERSION.json"
