@@ -185,9 +185,8 @@ def test_prepare_vm(mock_os, mock_logger, mock_run_command):
         check=True,
     )
 
-    mock_os.remove.assert_any_call("al2023.box")
     mock_os.remove.assert_any_call("al2023.log")
-    assert mock_os.remove.call_count == 2
+    assert mock_os.remove.call_count == 1
 
 
 @patch("configurer.ova.ova_pre_configurer.ova_pre_configurer.os")
@@ -212,12 +211,15 @@ def test_prepare_vm_no_al2023_files(mock_os, mock_logger, mock_run_command):
 
 @patch("configurer.ova.ova_pre_configurer.ova_pre_configurer.os")
 def test_prepare_vm_al2023_directories_not_removed(mock_os, mock_logger, mock_run_command):
-    mock_os.listdir.return_value = ["al2023_dir", "al2023.box", "other_file.txt"]
-    mock_os.path.isfile.side_effect = lambda x: x == "al2023.box" or x == "other_file.txt"
+    mock_os.listdir.return_value = ["al2023_dir", "al2023.box", "al2023.ova", "al2023.pdf", "other_file.txt"]
+    mock_os.path.isfile.side_effect = lambda x: Path(x).suffix != ""
 
     prepare_vm()
 
-    mock_os.remove.assert_called_once_with("al2023.box")
+    assert mock_os.remove.call_count == 2
+    mock_os.remove.assert_any_call("al2023.ova")
+    mock_os.remove.assert_any_call("al2023.pdf")
+    
 
 
 @patch("configurer.ova.ova_pre_configurer.ova_pre_configurer.prepare_vm")
