@@ -81,7 +81,9 @@ def vagrant_box_exists(box_name: str) -> bool:
         bool: ``True`` if the box is registered, ``False`` otherwise.
     """
     output, _ = exec_command("vagrant box list")
-    return any(line.startswith(box_name) for line in output.splitlines())
+
+    pattern = re.compile(rf"^{re.escape(box_name)}(?=\s|\(|$)")
+    return any(pattern.search(line) for line in output.splitlines())
 
 
 def clean_output_lines(output: str, pattern: Pattern[str]) -> str:

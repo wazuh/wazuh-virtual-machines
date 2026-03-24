@@ -253,5 +253,4 @@ def generate_checksum(name: str, ova_dest: str) -> None:
     if error_output:
         raise RuntimeError(f"Error generating SHA512 checksum: {error_output}")
 
-    logger.info_success(f"SHA512 checksum generated: {ova_dest}/{name}.sha512")
-    logger.info_success(f"SHA512 checksum generated: {ova_dest}/{name}.sha512")
+    logger.info_success(f"SHA512 checksum generated: {ova_dest}/{name}.ova.sha512")
