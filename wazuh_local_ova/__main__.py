@@ -36,7 +36,7 @@ def create_ova(
             "--packages-url-path",
             "-p",
             help=(
-                "Path to the local artifact URLs file or directory. "
+                "Path to the local artifact URLs file. "
                 f"Only used when --environment is '{EnvironmentType.DEV}'."
             ),
         ),
