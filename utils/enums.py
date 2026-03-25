@@ -10,7 +10,7 @@ class Component(StrEnum):
 
 
 class PasswordToolComponent(StrEnum):
-    PASSWORD_TOOL = "password-tool.sh"
+    PASSWORDS_TOOL = "passwords-tool.sh"
 
 
 class CertificatesComponent(StrEnum):
@@ -23,4 +23,4 @@ class RemoteDirectories(StrEnum):
     TOOLS_DIR = f"{WAZUH_ROOT_DIR}/tools"
     PACKAGES = f"{WAZUH_ROOT_DIR}/packages"
     CERTS = f"{TOOLS_DIR}/certs"
-    PASSWORD_TOOL = f"{TOOLS_DIR}"
+    PASSWORDS_TOOL = f"{TOOLS_DIR}"

@@ -5,7 +5,7 @@ from pydantic import AnyUrl
 
 from generic import exec_command, remote_connection
 from models import Inventory
-from provisioner.models import CertsInfo, ComponentInfo, PasswordToolInfo
+from provisioner.models import CertsInfo, ComponentInfo, PasswordsToolInfo
 from provisioner.utils import Component_arch, Package_manager, Package_type
 from utils import CertificatesComponent, Component, Logger, PasswordToolComponent, RemoteDirectories
 
@@ -30,7 +30,7 @@ class Provisioner:
 
     inventory: Inventory | None
     certs: CertsInfo
-    password_tool: PasswordToolInfo
+    passwords_tool: PasswordsToolInfo
     components: list[ComponentInfo]
     arch: Component_arch = Component_arch.X86_64
     package_type: Package_type = Package_type.RPM
@@ -50,7 +50,7 @@ class Provisioner:
         1. Logs the start of the provisioning process.
         2. Provisions the certs_tool using `certs_tool_provision`.
         3. Provision the config file using `certs_config_provision`.
-        4. Provisions the password tool using `password_tool_provision`.
+        4. Provisions the password tool using `passwords_tool_provision`.
         5. Iterates over each component and performs the following:
             a. Logs the start of provisioning for the component.
             b. Provisions dependencies for the component using `dependencies_provision`.
@@ -67,7 +67,7 @@ class Provisioner:
 
         logger.debug_title("Provisioning password tool")
 
-        self.password_tool_provision(client)
+        self.passwords_tool_provision(client)
 
         logger.debug_title("Provisioning special dependencies")
 
@@ -109,7 +109,7 @@ class Provisioner:
         """
         self.tool_provision(self.certs.config_url, f"{RemoteDirectories.CERTS}", CertificatesComponent.CONFIG, client)
 
-    def password_tool_provision(self, client: paramiko.SSHClient | None = None) -> None:
+    def passwords_tool_provision(self, client: paramiko.SSHClient | None = None) -> None:
         """
         Provisions the password tool on the specified client.
 
@@ -121,9 +121,9 @@ class Provisioner:
             client (paramiko.SSHClient): The SSH client used to connect to the remote machine.
         """
         self.tool_provision(
-            self.password_tool.url,
-            f"{RemoteDirectories.PASSWORD_TOOL}",
-            PasswordToolComponent.PASSWORD_TOOL,
+            self.passwords_tool.url,
+            f"{RemoteDirectories.PASSWORDS_TOOL}",
+            PasswordToolComponent.PASSWORDS_TOOL,
             client,
         )
 

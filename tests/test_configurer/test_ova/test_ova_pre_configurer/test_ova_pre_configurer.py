@@ -219,7 +219,6 @@ def test_prepare_vm_al2023_directories_not_removed(mock_os, mock_logger, mock_ru
     assert mock_os.remove.call_count == 2
     mock_os.remove.assert_any_call("al2023.ova")
     mock_os.remove.assert_any_call("al2023.pdf")
-    
 
 
 @patch("configurer.ova.ova_pre_configurer.ova_pre_configurer.prepare_vm")

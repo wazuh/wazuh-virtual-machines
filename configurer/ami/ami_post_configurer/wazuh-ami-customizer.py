@@ -13,7 +13,7 @@ LOGFILE = Path("/var/log/wazuh-ami-customizer.log")
 TEMP_DIR = Path("/etc/wazuh-ami-customizer")
 CERTS_TOOL_PATH = Path(f"{TEMP_DIR}/certs-tool.sh")
 CERTS_TOOL_CONFIG_PATH = Path(f"{TEMP_DIR}/config.yml")
-PASSWORD_TOOL_PATH = Path(f"{TEMP_DIR}/password-tool.sh")
+PASSWORDS_TOOL_PATH = Path(f"{TEMP_DIR}/passwords-tool.sh")
 SERVICE_PATH = "/etc/systemd/system"
 SERVICE_NAME = f"{SERVICE_PATH}/wazuh-ami-customizer.service"
 SERVICE_TIMER_NAME = f"{SERVICE_PATH}/wazuh-ami-customizer.timer"
@@ -384,7 +384,7 @@ def change_passwords() -> None:
     for user in indexer_users:
         logger.debug(f"Changing password for indexer user: {user}")
         command = f"""
-        bash {PASSWORD_TOOL_PATH} -u {user} -p {instance_id}
+        bash {PASSWORDS_TOOL_PATH} -u {user} -p {instance_id}
         """
         _, error_output = exec_command(command=command)
         if error_output:
@@ -394,7 +394,7 @@ def change_passwords() -> None:
     for user in manager_users:
         logger.debug(f"Changing password for manager user: {user}")
         command = f"""
-        bash {PASSWORD_TOOL_PATH} -A -au {user} -ap {user} -u {user} -p {instance_id}
+        bash {PASSWORDS_TOOL_PATH} -A -au {user} -ap {user} -u {user} -p {instance_id}
         """
         _, error_output = exec_command(command=command)
         if error_output:

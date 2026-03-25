@@ -3,10 +3,7 @@ from pathlib import Path
 import yaml
 from pydantic import AnyUrl
 
-from provisioner.utils import (
-    Component_arch,
-    Package_type,
-)
+from provisioner.utils import Component_arch, Package_type
 from utils import CertificatesComponent, Component, PasswordToolComponent
 
 
@@ -54,11 +51,11 @@ def get_component_packages(raw_urls_content: dict, component: Component) -> dict
     component_packages: dict = {}
 
     for component_key in raw_urls_content:
-        if component.lower() in component_key:
-            if component not in component_packages:
-                component_packages[component.lower()] = []
+        if component.name.lower() in component_key:
+            if component.name.lower() not in component_packages:
+                component_packages[component.name.lower()] = []
 
-            component_packages[component.lower()].append(raw_urls_content.get(component_key))
+            component_packages[component.name.lower()].append(raw_urls_content.get(component_key))
 
     return component_packages
 
@@ -158,27 +155,27 @@ def format_certificates_urls_file(raw_urls_path: Path) -> dict:
     return certificates_urls
 
 
-def format_password_tool_urls_file(raw_urls_path: Path) -> AnyUrl | None:
+def format_passwords_tool_urls_file(raw_urls_path: Path) -> AnyUrl | None:
     """
-    Formats a file containing raw URLs into a string of password tool URL.
+    Formats a file containing raw URLs into a string of passwords tool URL.
 
     This function reads a file containing raw URLs and retrieves the URL
-    for the password tool.
+    for the passwords tool.
 
-    >>> raw_urls_path = Path("password_tool_urls.yaml")
-    >>> format_password_tool_urls_file(raw_urls_path)
-    'https://packages.wazuh.com/password-tool-example/password_tool'
+    >>> raw_urls_path = Path("passwords_tool_urls.yaml")
+    >>> format_passwords_tool_urls_file(raw_urls_path)
+    'https://packages.wazuh.com/passwords-tool-example/passwords_tool'
 
     Args:
         raw_urls_path (Path): The path to the file containing the raw URLs.
 
     Returns:
-        str: The URL for the password tool.
+        str: The URL for the passwords tool.
     """
     raw_urls_content = file_to_dict(raw_urls_path)
 
     for component_name, url in raw_urls_content.items():
-        if PasswordToolComponent.PASSWORD_TOOL.name.lower() in component_name.lower():
+        if PasswordToolComponent.PASSWORDS_TOOL.name.lower() in component_name.lower():
             return AnyUrl(url)
     return None
 
@@ -209,14 +206,14 @@ def format_component_urls_file(raw_urls_path: Path) -> dict:
         dict: A dictionary where the keys are component names (in lowercase) and the values are dictionaries containing
               the organized URLs by architecture and type.
     """
-    urls_file_content = {component.lower(): {} for component in Component if component.lower() != "all"}
+    urls_file_content = {component.name.lower(): {} for component in Component if component.name.lower() != "all"}
     raw_urls_content = file_to_dict(raw_urls_path)
 
     for component in Component:
-        if component.lower() != "all":
+        if component.name.lower() != "all":
             component_packages = get_component_packages(raw_urls_content, component)
-            component_arch = get_component_packages_by_arch(component_packages.get(component.lower(), {}))
+            component_arch = get_component_packages_by_arch(component_packages.get(component.name.lower(), {}))
             component_type = get_component_packages_by_type(component_arch)
-            urls_file_content.get(component.lower(), {}).update(component_type)
+            urls_file_content.get(component.name.lower(), {}).update(component_type)
 
     return urls_file_content
