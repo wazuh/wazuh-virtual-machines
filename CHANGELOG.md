@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Change password tool to passwords tool (add a 's') ([#637](https://github.com/wazuh/wazuh-virtual-machines/pull/637))
 - Updated wazuh-virtual-machines documentation config and tooling versions to meet new standards. ([#631](https://github.com/wazuh/wazuh-virtual-machines/pull/631))
 - Decoupled ova base instance deletion from the ova build workflow ([#619](https://github.com/wazuh/wazuh-virtual-machines/pull/619))
 - Update artifact generation jobs to use wz-linux dedicated runner group ([#621](https://github.com/wazuh/wazuh-virtual-machines/pull/621))
