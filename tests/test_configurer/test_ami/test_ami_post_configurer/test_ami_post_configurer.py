@@ -78,8 +78,8 @@ def test_create_custom_dir_success(mock_create_structure, mock_generate_yaml, mo
         "remote_certs_path": RemoteDirectories.CERTS,
         "certs_tool": CertificatesComponent.CERTS_TOOL,
         "certs_config": CertificatesComponent.CONFIG,
-        "password_tool_path": RemoteDirectories.PASSWORD_TOOL,
-        "password_tool": PasswordToolComponent.PASSWORD_TOOL,
+        "passwords_tool_path": RemoteDirectories.PASSWORDS_TOOL,
+        "passwords_tool": PasswordToolComponent.PASSWORDS_TOOL,
     }
 
     mock_generate_yaml.return_value = {"template": "test_value"}

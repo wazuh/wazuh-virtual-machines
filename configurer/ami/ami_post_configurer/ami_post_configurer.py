@@ -107,8 +107,8 @@ class AmiPostConfigurer:
             "remote_certs_path": RemoteDirectories.CERTS,
             "certs_tool": CertificatesComponent.CERTS_TOOL,
             "certs_config": CertificatesComponent.CONFIG,
-            "password_tool_path": RemoteDirectories.PASSWORD_TOOL,
-            "password_tool": PasswordToolComponent.PASSWORD_TOOL,
+            "passwords_tool_path": RemoteDirectories.PASSWORDS_TOOL,
+            "passwords_tool": PasswordToolComponent.PASSWORDS_TOOL,
         }
         directory_template = generate_yaml(
             context=context,

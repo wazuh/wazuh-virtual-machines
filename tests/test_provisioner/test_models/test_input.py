@@ -10,7 +10,7 @@ from provisioner.models.certs_info import CertsInfo
 from provisioner.models.components_dependencies import ComponentsDependencies
 from provisioner.models.input import Input
 from provisioner.models.package_info import PackageInfo
-from provisioner.models.password_tool_info import PasswordToolInfo
+from provisioner.models.passwords_tool_info import PasswordsToolInfo
 from provisioner.utils import Component_arch, Package_type
 from utils import Component
 
@@ -138,37 +138,37 @@ def test_inventory_content_no_host_name(mock_open):
     assert inventory_content.ansible_ssh_common_args == "-o StrictHostKeyChecking=no"
 
 
-@patch("provisioner.models.input.format_password_tool_urls_file")
-def test_password_tool_url_success(mock_format_password_tool_urls_file):
-    mock_format_password_tool_urls_file.return_value = "https://packages-dev.wazuh.com/password-tool"
+@patch("provisioner.models.input.format_passwords_tool_urls_file")
+def test_passwords_tool_url_success(mock_format_passwords_tool_urls_file):
+    mock_format_passwords_tool_urls_file.return_value = "https://packages-dev.wazuh.com/password-tool"
 
-    password_tool_content = INPUT_EXAMPLE.password_tool_content
+    passwords_tool_content = INPUT_EXAMPLE.passwords_tool_content
 
-    mock_format_password_tool_urls_file.assert_called_once_with(Path("/path/to/packages_url"))
-    assert isinstance(password_tool_content, PasswordToolInfo)
-    assert password_tool_content.url == AnyUrl("https://packages-dev.wazuh.com/password-tool")
-
-
-@patch("provisioner.models.input.format_password_tool_urls_file")
-def test_password_tool_url_with_wrong_format(mock_format_password_tool_urls_file):
-    mock_format_password_tool_urls_file.return_value = "https://wrong-url-not-in-allowwed/password-tool"
-
-    with pytest.raises(ValueError, match="URL for password-tool is not for Wazuh packages."):
-        _ = INPUT_EXAMPLE.password_tool_content
+    mock_format_passwords_tool_urls_file.assert_called_once_with(Path("/path/to/packages_url"))
+    assert isinstance(passwords_tool_content, PasswordsToolInfo)
+    assert passwords_tool_content.url == AnyUrl("https://packages-dev.wazuh.com/password-tool")
 
 
-@patch("provisioner.models.input.format_password_tool_urls_file")
-def test_password_tool_url_none_value(mock_format_password_tool_urls_file):
-    mock_format_password_tool_urls_file.return_value = None
+@patch("provisioner.models.input.format_passwords_tool_urls_file")
+def test_passwords_tool_url_with_wrong_format(mock_format_passwords_tool_urls_file):
+    mock_format_passwords_tool_urls_file.return_value = "https://wrong-url-not-in-allowwed/passwords-tool"
 
-    with pytest.raises(ValueError, match="Password tool URL not found in the packages URL file."):
-        _ = INPUT_EXAMPLE.password_tool_content
+    with pytest.raises(ValueError, match="URL for passwords-tool is not for Wazuh packages."):
+        _ = INPUT_EXAMPLE.passwords_tool_content
+
+
+@patch("provisioner.models.input.format_passwords_tool_urls_file")
+def test_passwords_tool_url_none_value(mock_format_passwords_tool_urls_file):
+    mock_format_passwords_tool_urls_file.return_value = None
+
+    with pytest.raises(ValueError, match="Passwords tool URL not found in the packages URL file."):
+        _ = INPUT_EXAMPLE.passwords_tool_content
 
 
 @patch(
-    "provisioner.models.input.format_password_tool_urls_file",
+    "provisioner.models.input.format_passwords_tool_urls_file",
     side_effect=FileNotFoundError,
 )
-def test_password_tool_url_file_not_found(mock_format_password_tool_urls_file):
-    with pytest.raises(FileNotFoundError, match="Password tool file not found at /path/to/packages_url"):
-        _ = INPUT_EXAMPLE.password_tool_content
+def test_passwords_tool_url_file_not_found(mock_format_passwords_tool_urls_file):
+    with pytest.raises(FileNotFoundError, match="Passwords tool file not found at /path/to/packages_url"):
+        _ = INPUT_EXAMPLE.passwords_tool_content

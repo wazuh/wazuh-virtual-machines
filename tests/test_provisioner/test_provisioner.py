@@ -6,7 +6,7 @@ from pydantic import AnyUrl
 
 from provisioner.models.certs_info import CertsInfo
 from provisioner.models.component_info import ComponentInfo
-from provisioner.models.password_tool_info import PasswordToolInfo
+from provisioner.models.passwords_tool_info import PasswordsToolInfo
 from provisioner.provisioner import Provisioner
 from provisioner.utils import Package_manager, Package_type
 from utils.enums import Component
@@ -33,13 +33,13 @@ def component_info_valid(valid_inventory):
             "config": "http://packages-dev.wazuh.com/example/config.yml",
         }
     )
-    password_tool = PasswordToolInfo(url=AnyUrl("http://packages-dev.wazuh.com/example/password-tool.sh"))
+    passwords_tool = PasswordsToolInfo(url=AnyUrl("http://packages-dev.wazuh.com/example/passwords-tool.sh"))
 
     package_type = Package_type.RPM
     return Provisioner(
         inventory=valid_inventory,
         certs=certs,
-        password_tool=password_tool,
+        passwords_tool=passwords_tool,
         components=[component_manager],
         package_type=package_type,
     )
@@ -63,7 +63,7 @@ def test_provision_success(mock_paramiko, mock_logger, component_info_valid, moc
     tools_expect_commands = [
         "mkdir -p ~/wazuh-configure/tools/certs && curl -s -o ~/wazuh-configure/tools/certs/certs-tool.sh 'http://packages-dev.wazuh.com/example/certs-tool.sh'",
         "mkdir -p ~/wazuh-configure/tools/certs && curl -s -o ~/wazuh-configure/tools/certs/config.yml 'http://packages-dev.wazuh.com/example/config.yml'",
-        "mkdir -p ~/wazuh-configure/tools && curl -s -o ~/wazuh-configure/tools/password-tool.sh 'http://packages-dev.wazuh.com/example/password-tool.sh'",
+        "mkdir -p ~/wazuh-configure/tools && curl -s -o ~/wazuh-configure/tools/passwords-tool.sh 'http://packages-dev.wazuh.com/example/passwords-tool.sh'",
     ]
 
     dependencies_expect_commands = [
