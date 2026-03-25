@@ -33,7 +33,7 @@ def component_info_valid(valid_inventory):
             "config": "http://packages-dev.wazuh.com/example/config.yml",
         }
     )
-    passwords_tool = PasswordsToolInfo(url=AnyUrl("http://packages-dev.wazuh.com/example/password-tool.sh"))
+    passwords_tool = PasswordsToolInfo(url=AnyUrl("http://packages-dev.wazuh.com/example/passwords-tool.sh"))
 
     package_type = Package_type.RPM
     return Provisioner(
@@ -63,7 +63,7 @@ def test_provision_success(mock_paramiko, mock_logger, component_info_valid, moc
     tools_expect_commands = [
         "mkdir -p ~/wazuh-configure/tools/certs && curl -s -o ~/wazuh-configure/tools/certs/certs-tool.sh 'http://packages-dev.wazuh.com/example/certs-tool.sh'",
         "mkdir -p ~/wazuh-configure/tools/certs && curl -s -o ~/wazuh-configure/tools/certs/config.yml 'http://packages-dev.wazuh.com/example/config.yml'",
-        "mkdir -p ~/wazuh-configure/tools && curl -s -o ~/wazuh-configure/tools/password-tool.sh 'http://packages-dev.wazuh.com/example/password-tool.sh'",
+        "mkdir -p ~/wazuh-configure/tools && curl -s -o ~/wazuh-configure/tools/passwords-tool.sh 'http://packages-dev.wazuh.com/example/passwords-tool.sh'",
     ]
 
     dependencies_expect_commands = [

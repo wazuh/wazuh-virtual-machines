@@ -10,7 +10,7 @@ class Component(StrEnum):
 
 
 class PasswordToolComponent(StrEnum):
-    PASSWORDS_TOOL = "password-tool.sh"
+    PASSWORDS_TOOL = "passwords-tool.sh"
 
 
 class CertificatesComponent(StrEnum):
