@@ -248,7 +248,7 @@ def verify_manager_connection(password: str = "wazuh-wui") -> None:
     verify_component_connection(Component.WAZUH_MANAGER, command)
 
 
-def verify_dashboard_connection() -> None:
+def verify_dashboard_connection(password: str = "admin") -> None:
     """
     Verifies the connection to the Wazuh dashboard.
     This function sends a request to the Wazuh dashboard endpoint and checks the response.
@@ -258,7 +258,7 @@ def verify_dashboard_connection() -> None:
         None
     """
 
-    command = 'curl -XGET https://localhost:443/status -uadmin:admin -k -w "%{http_code}" -s -o /dev/null'
+    command = f'curl -XGET https://localhost:443/status -uadmin:{password} -k -w "%{{http_code}}" -s -o /dev/null'
     verify_component_connection(Component.WAZUH_DASHBOARD, command)
 
 
@@ -408,67 +408,6 @@ def change_passwords() -> None:
     logger.debug("Changing passwords finished successfully")
 
 
-def dashboard_wazuh_api_check() -> None:
-    """
-    Checks if the Wazuh dashboard has started successfully by looking for a specific log entry.
-
-    Returns:
-        None
-    """
-
-    logger.debug("Checking Wazuh dashboard startup...")
-
-    command = "systemctl status wazuh-dashboard"
-    retries = 5
-    wait_time = 10
-
-    for attempt in range(retries):
-        output, _ = exec_command(command=command)
-        # Check if error logs exist
-        if 'error","healthcheck","server-api:connection-compatibility' in output:
-            logger.debug("Found server API connection error in dashboard logs. Restarting wazuh-dashboard...")
-            stop_service("wazuh-dashboard")
-            time.sleep(10)
-            start_service("wazuh-dashboard")
-            logger.debug("Waiting 10 seconds after restart...")
-            time.sleep(10)
-
-            # Verify successful startup with compatibility message
-            verify_retries = 5
-            verify_wait = 10
-            for verify_attempt in range(verify_retries):
-                verify_output, _ = exec_command(command=command)
-                if (
-                    'info","healthcheck","server-api:connection-compatibility' in verify_output
-                    and "is compatible with the dashboard version" in verify_output
-                ):
-                    logger.debug("Wazuh dashboard started successfully with server API compatibility confirmed")
-                    return
-
-                if verify_attempt < verify_retries - 1:
-                    logger.debug(f"Compatibility message not found, retrying in {verify_wait} seconds...")
-                    time.sleep(verify_wait)
-
-            logger.error("Wazuh dashboard restart did not result in successful server API connection")
-            raise RuntimeError("Wazuh dashboard failed to connect to server API after restart")
-
-        # Check if success log already exists
-        if (
-            'info","healthcheck","server-api:connection-compatibility' in output
-            and "is compatible with the dashboard version" in output
-        ):
-            logger.debug("Wazuh dashboard has started successfully")
-            return
-
-        if attempt < retries - 1:
-            wait = wait_time * (attempt + 1)
-            logger.debug(f"Dashboard not ready, retrying in {wait} seconds...")
-            time.sleep(wait)
-        else:
-            logger.error("Wazuh dashboard startup check failed after all retries")
-            raise RuntimeError("Wazuh dashboard startup check failed")
-
-
 def clean_up() -> None:
     """
     Cleans up temporary files and directories created during the process.
@@ -516,7 +455,7 @@ if __name__ == "__main__":
         change_passwords()
         start_service("wazuh-dashboard")
         time.sleep(10)  # Wait for dashboard to initialize
-        dashboard_wazuh_api_check()
+        verify_dashboard_connection(get_instance_id())
         start_ssh_service()
 
         if not args.debug:
