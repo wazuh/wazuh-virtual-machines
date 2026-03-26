@@ -158,8 +158,7 @@ env:
   PROD_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PROD }}
   PRE_PROD_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PRE }}
   DEV_ARTIFACTS_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_ARTIFACTS }}
-  ARTIFACT_URLS_FILENAME: "artifact_urls.yml"
-  LOCAL_ARTIFACT_URLS_FILEPATH: /tmp/artifact_urls.yml
+  LOCAL_ARTIFACT_URLS_FILEPATH: /tmp/${{ vars.ARTIFACT_URL_FILE_NAME }}
   GENERATE_PRESIGNED_URLS_SCRIPT_PATH: ${{ github.workspace }}/wazuh-automation/tools/sign_urls/generate_presigned_dev_urls.py
   PRESIGNED_URLS_SCRIPT_PROCESS: "test_ova"
 
@@ -573,25 +572,22 @@ jobs:
           WAZUH_VERSION=$(jq -r '.version' wazuh-virtual-machines/VERSION.json)
           WAZUH_MAJOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1)
           WAZUH_MINOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1-2)
+          WAZUH_REVISION=$(jq -r '.stage' wazuh-virtual-machines/VERSION.json)
           echo "WAZUH_VERSION=$WAZUH_VERSION" >> $GITHUB_ENV
           echo "WAZUH_MAJOR=$WAZUH_MAJOR" >> $GITHUB_ENV
           echo "WAZUH_MINOR=$WAZUH_MINOR" >> $GITHUB_ENV
-          echo "Wazuh version: $WAZUH_VERSION (major: $WAZUH_MAJOR, minor: $WAZUH_MINOR)"
+          echo "WAZUH_REVISION=$WAZUH_REVISION" >> $GITHUB_ENV
+          echo "Wazuh version: $WAZUH_VERSION (major: $WAZUH_MAJOR, minor: $WAZUH_MINOR, revision: $WAZUH_REVISION)"
 
-      - name: Get artifact URLs file
+      - name: Get artifacts URLs file
         run: |
-          PACKAGE_TYPE="${{ inputs.wazuh_package_type || 'dev' }}"
-          echo "Package type: $PACKAGE_TYPE"
-
-          if [ "$PACKAGE_TYPE" == "prod" ]; then
-            echo "Downloading from PROD bucket..."
-            aws s3api get-object --bucket ${{ env.PROD_ARTIFACTS_URLS_BUCKET }} --key ${{ env.WAZUH_MINOR }}/${{ env.ARTIFACTS_URLS_FILENAME }} $LOCAL_ARTIFACT_URLS_FILEPATH
-          elif [ "$PACKAGE_TYPE" == "pre-prod" ]; then
-            echo "Downloading from PRE-PROD bucket..."
-            aws s3api get-object --bucket ${{ env.PRE_PROD_ARTIFACTS_URLS_BUCKET }} --key ${{ env.WAZUH_MINOR }}/${{ env.ARTIFACTS_URLS_FILENAME }} $LOCAL_ARTIFACT_URLS_FILEPATH
+          if [ "${{ inputs.wazuh_package_type }}" == "prod" ]; then
+            curl -f "https://${{ vars.PACKAGES_PROD_URL }}/production/${{ env.WAZUH_MAJOR }}.x/artifact_urls_${{ env.WAZUH_VERSION }}.yaml" -o ${{ env.LOCAL_ARTIFACT_URLS_FILEPATH }}
+          elif [ "${{ inputs.wazuh_package_type }}" == "pre-prod" ]; then
+            curl -f "https://${{ vars.PACKAGES_STAGING_URL }}/pre-release/${{ env.WAZUH_MAJOR }}.x/artifact_urls_${{ env.WAZUH_VERSION }}-${{ env.WAZUH_REVISION }}.yaml" -o ${{ env.LOCAL_ARTIFACT_URLS_FILEPATH }}
           else
             LOCAL_AWS_S3_BUCKET_DEV=${{ vars.AWS_S3_BUCKET_DEV }}
-            echo "LOCAL_AWS_S3_BUCKET_DEV=$LOCAL_AWS_S3_BUCKET_DEV" >> $GITHUB_ENV
+            echo LOCAL_AWS_S3_BUCKET_DEV=$LOCAL_AWS_S3_BUCKET_DEV >> $GITHUB_ENV
           fi
 
       - name: Generate presigned URLs for dev packages
