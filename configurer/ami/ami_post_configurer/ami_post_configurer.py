@@ -290,6 +290,12 @@ class AmiPostConfigurer:
         """
 
         logger.debug("Changing SSH port to default (22)")
+
+        # Remove custom SSH port configuration file if it exists
+        remove_command = "sudo rm -f /etc/ssh/sshd_config.d/90-ssh-port.conf"
+        exec_command(command=remove_command, client=client)
+
+        # Comment out any Port directive in main sshd_config
         replacements = [
             (r"Port \d+", "#Port 22"),
         ]
@@ -298,6 +304,7 @@ class AmiPostConfigurer:
             replacements=replacements,
             client=client,
         )
+
         command = "sudo systemctl restart sshd.service"
         _, error_output = exec_command(command=command, client=client)
         if error_output:
