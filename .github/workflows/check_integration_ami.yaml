@@ -144,7 +144,7 @@ jobs:
       WAZUH_AUTOMATION_REFERENCE: 'main'
       test_type: ami
       host: ${{ needs.build_ami.outputs.ami_id_amd64 }}
-      instance_type: c5ad.xlarge
+      instance_type: c5a.2xlarge
       TESTS: ALL
       log_level: INFO
     secrets: inherit
@@ -162,7 +162,7 @@ jobs:
       WAZUH_AUTOMATION_REFERENCE: 'main'
       test_type: ami
       host: ${{ needs.build_ami.outputs.ami_id_arm64 }}
-      instance_type: c6g.xlarge
+      instance_type: c6g.2xlarge
       TESTS: ALL
       log_level: INFO
     secrets: inherit
