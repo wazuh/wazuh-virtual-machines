@@ -109,8 +109,7 @@ env:
     COMMIT_LIST: ${{ inputs.commit_list }}
     PROD_ARTIFACT_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PROD }}
     PRE_PROD_ARTIFACT_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PRE }}
-    ARTIFACT_URLS_FILENAME: "artifact_urls.yml"
-    LOCAL_ARTIFACT_URLS_FILEPATH: /tmp/artifact_urls.yml
+    LOCAL_ARTIFACT_URLS_FILEPATH: /tmp/${{ vars.ARTIFACT_URL_FILE_NAME }}
     GENERATE_PRESIGNED_URLS_SCRIPT_PATH: ${{ github.workspace }}/wazuh-automation/tools/sign_urls/generate_presigned_dev_urls.py
     PRESIGNED_URLS_SCRIPT_PROCESS: "build_ova"
     WVM_REPO_NAME: ${{ github.event.repository.name }}
@@ -182,9 +181,11 @@ jobs:
           WAZUH_VERSION=$(jq -r '.version' VERSION.json)
           WAZUH_MAJOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1)
           WAZUH_MINOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1-2)
+          WAZUH_REVISION=$(jq -r '.stage' VERSION.json)
           echo WAZUH_VERSION=$WAZUH_VERSION >> $GITHUB_ENV
           echo WAZUH_MAJOR=$WAZUH_MAJOR >> $GITHUB_ENV
           echo WAZUH_MINOR=$WAZUH_MINOR >> $GITHUB_ENV
+          echo WAZUH_REVISION=$WAZUH_REVISION >> $GITHUB_ENV
 
       - name: Setting FILENAME var
         id: set_filenames
@@ -244,9 +245,9 @@ jobs:
       - name: Get artifacts URLs file
         run: |
           if [ "${{ inputs.wazuh_package_type }}" == "prod" ]; then
-            aws s3api get-object --bucket ${{ env.PROD_ARTIFACT_URLS_BUCKET }} --key ${{ env.WAZUH_MINOR }}/${{ env.ARTIFACT_URLS_FILENAME }} $LOCAL_ARTIFACT_URLS_FILEPATH
+            curl -f "https://${{ vars.PACKAGES_PROD_URL }}/production/${{ env.WAZUH_MAJOR }}.x/artifact_urls_${{ env.WAZUH_VERSION }}.yaml" -o ${{ env.LOCAL_ARTIFACT_URLS_FILEPATH }}
           elif [ "${{ inputs.wazuh_package_type }}" == "pre-prod" ]; then
-            aws s3api get-object --bucket ${{ env.PRE_PROD_ARTIFACT_URLS_BUCKET }} --key ${{ env.WAZUH_MINOR }}/${{ env.ARTIFACT_URLS_FILENAME }} $LOCAL_ARTIFACT_URLS_FILEPATH
+            curl -f "https://${{ vars.PACKAGES_STAGING_URL }}/pre-release/${{ env.WAZUH_MAJOR }}.x/artifact_urls_${{ env.WAZUH_VERSION }}-${{ env.WAZUH_REVISION }}.yaml" -o ${{ env.LOCAL_ARTIFACT_URLS_FILEPATH }}
           else
             LOCAL_AWS_S3_BUCKET_DEV=${{ vars.AWS_S3_BUCKET_DEV }}
             echo LOCAL_AWS_S3_BUCKET_DEV=$LOCAL_AWS_S3_BUCKET_DEV >> $GITHUB_ENV
@@ -318,7 +319,7 @@ jobs:
               ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} << EOF
             set -e
             cd ${{ env.WVM_REPO_NAME }}
-            sudo vagrant ssh -c 'cd /tmp/wazuh-virtual-machines && sudo hatch run dev-ova-post-configurer:run --packages-url-path ${{ env.ARTIFACT_URLS_FILENAME }}'
+            sudo vagrant ssh -c 'cd /tmp/wazuh-virtual-machines && sudo hatch run dev-ova-post-configurer:run --packages-url-path $(basename ${{ env.LOCAL_ARTIFACT_URLS_FILEPATH }})'
           EOF
 
       - name: Stop the Vagrant VM, modify the network and export it as OVA
