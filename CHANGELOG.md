@@ -49,6 +49,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Fixed Wazuh ami default ssh port. ([#641](https://github.com/wazuh/wazuh-virtual-machines/pull/641))
 - Replace incorrect dashboard API check function in AMI customizer ([#636](https://github.com/wazuh/wazuh-virtual-machines/pull/636))
 - Fix check vulnerabilities ([#609](https://github.com/wazuh/wazuh-virtual-machines/pull/609))
 - Fix ami `pre configurer` tests([#595](https://github.com/wazuh/wazuh-virtual-machines/pull/595))
