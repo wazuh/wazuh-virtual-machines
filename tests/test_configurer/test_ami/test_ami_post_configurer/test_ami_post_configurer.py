@@ -270,14 +270,17 @@ def test_change_ssh_port_to_default_and_restart_service(
     replacements = [
         (r"Port \d+", "#Port 22"),
     ]
-    command = "sudo systemctl restart sshd.service"
+    remove_command = "sudo rm -f /etc/ssh/sshd_config.d/90-ssh-port.conf"
+    restart_command = "sudo systemctl restart sshd.service"
     ssh_file = "/etc/ssh/sshd_config"
 
     mock_modify_file.assert_called_once_with(
         filepath=Path(ssh_file), replacements=replacements, client=mock_paramiko.return_value
     )
 
-    mock_exec_command.assert_called_once_with(command=command, client=mock_paramiko.return_value)
+    assert mock_exec_command.call_count == 2
+    mock_exec_command.assert_any_call(command=remove_command, client=mock_paramiko.return_value)
+    mock_exec_command.assert_any_call(command=restart_command, client=mock_paramiko.return_value)
 
     mock_logger.debug.assert_called_once_with("Changing SSH port to default (22)")
     mock_logger.info_success.assert_called_once_with("SSH port changed to default successfully")
@@ -289,10 +292,11 @@ def test_change_ssh_port_to_default_and_restart_service_fails_restarting_service
     replacements = [
         (r"Port \d+", "#Port 22"),
     ]
-    command = "sudo systemctl restart sshd.service"
+    restart_command = "sudo systemctl restart sshd.service"
     ssh_file = "/etc/ssh/sshd_config"
 
-    mock_exec_command.return_value = ("", "Command failed")
+    # First call (remove) succeeds, second call (restart) fails
+    mock_exec_command.side_effect = [("", ""), ("", "Command failed")]
 
     with pytest.raises(Exception, match="Error restarting the SSH service: Command failed"):
         mock_ami_post_configurer.change_ssh_port_to_default(mock_paramiko.return_value)
@@ -301,7 +305,7 @@ def test_change_ssh_port_to_default_and_restart_service_fails_restarting_service
         filepath=Path(ssh_file), replacements=replacements, client=mock_paramiko.return_value
     )
 
-    mock_exec_command.assert_called_once_with(command=command, client=mock_paramiko.return_value)
+    assert mock_exec_command.call_count == 2
 
     mock_logger.error.assert_called_once_with("Error restarting the SSH service")
 
