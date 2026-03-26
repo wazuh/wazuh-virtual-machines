@@ -101,7 +101,11 @@ def prepare_vm() -> None:
 
     logger.debug("Removing unnecessary files before copying the repository.")
     for filename in os.listdir("."):
-        if filename.startswith(Path(VAGRANT_BOX_PATH).stem) and filename != Path(VAGRANT_BOX_PATH).name and os.path.isfile(filename):
+        if (
+            filename.startswith(Path(VAGRANT_BOX_PATH).stem)
+            and filename != Path(VAGRANT_BOX_PATH).name
+            and os.path.isfile(filename)
+        ):
             os.remove(filename)
 
     logger.debug("Copying the wazuh-virtual-machines repository to the VM.")

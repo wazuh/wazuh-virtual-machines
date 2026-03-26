@@ -8,7 +8,7 @@ from provisioner.models.utils.file_formatter import (
     file_to_dict,
     format_certificates_urls_file,
     format_component_urls_file,
-    format_password_tool_urls_file,
+    format_passwords_tool_urls_file,
     get_component_packages,
     get_component_packages_by_arch,
     get_component_packages_by_type,
@@ -257,17 +257,17 @@ def test_format_component_urls_file_non_existent(mock_file):
 @patch(
     "builtins.open",
     new_callable=mock_open,
-    read_data="password_tool: https://packages.wazuh.com/password-tool-example/password_tool",
+    read_data="passwords_tool: https://packages.wazuh.com/password-tool-example/passwords_tool",
 )
-def test_format_password_tool_urls_file_valid(mock_file):
-    result = format_password_tool_urls_file(Path("fake_password_tool_urls.yaml"))
-    assert str(result) == "https://packages.wazuh.com/password-tool-example/password_tool"
+def test_format_passwords_tool_urls_file_valid(mock_file):
+    result = format_passwords_tool_urls_file(Path("fake_passwords_tool_urls.yaml"))
+    assert str(result) == "https://packages.wazuh.com/password-tool-example/passwords_tool"
 
 
 @patch("builtins.open", new_callable=mock_open, read_data="{}")
-def test_format_password_tool_urls_file_empty(mock_file):
+def test_format_passwords_tool_urls_file_empty(mock_file):
     with pytest.raises(ValueError, match="No content found in raw URLs file"):
-        format_password_tool_urls_file(Path("fake_password_tool_urls.yaml"))
+        format_passwords_tool_urls_file(Path("fake_passwords_tool_urls.yaml"))
 
 
 @patch(
@@ -275,6 +275,6 @@ def test_format_password_tool_urls_file_empty(mock_file):
     new_callable=mock_open,
     read_data="other_tool: https://packages.wazuh.com/other-tool/",
 )
-def test_format_password_tool_urls_file_no_match(mock_file):
-    result = format_password_tool_urls_file(Path("fake_password_tool_urls.yaml"))
+def test_format_passwords_tool_urls_file_no_match(mock_file):
+    result = format_passwords_tool_urls_file(Path("fake_passwords_tool_urls.yaml"))
     assert result is None

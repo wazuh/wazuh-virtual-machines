@@ -236,7 +236,7 @@ def test_main(
     mock_provisioner_class.assert_called_once_with(
         inventory=mock_input_instance.inventory_content,
         certs=mock_input_instance.certificates_content,
-        password_tool=mock_input_instance.password_tool_content,
+        passwords_tool=mock_input_instance.passwords_tool_content,
         components=mock_components,
         arch=mock_input_instance.arch,
         package_type=mock_input_instance.package_type,
