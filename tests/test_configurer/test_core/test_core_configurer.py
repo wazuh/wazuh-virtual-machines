@@ -119,6 +119,11 @@ def test_start_services_success(mock_exec_command, mock_logger):
     {start_service_command_template}
     sudo /usr/share/wazuh-indexer/bin/indexer-security-init.sh
     """
+    keystore_command_template = f"""
+    {start_service_command_template}
+    sudo /var/wazuh-manager/bin/wazuh-manager-keystore -f indexer -k username -v admin
+    sudo /var/wazuh-manager/bin/wazuh-manager-keystore -f indexer -k password -v admin
+    """
 
     for command_call in mock_exec_command.call_args_list:
         command_call.kwargs["command"] = command_call.kwargs["command"].replace("\n", "").replace(" ", "")
@@ -131,7 +136,7 @@ def test_start_services_success(mock_exec_command, mock_logger):
         client=None,
     )
     mock_exec_command.assert_any_call(
-        command=start_service_command_template.format(component="wazuh-manager").replace("\n", "").replace(" ", ""),
+        command=keystore_command_template.format(component="wazuh-manager").replace("\n", "").replace(" ", ""),
         client=None,
     )
     mock_exec_command.assert_any_call(

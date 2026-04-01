@@ -288,7 +288,7 @@ class CertsManager:
                 sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["ca"]} {ComponentCertsDirectory.WAZUH_MANAGER}/{certs_name[ComponentCertsConfigParameter.WAZUH_MANAGER_CA.name]}
                 sudo chmod 500 {ComponentCertsDirectory.WAZUH_MANAGER}
                 sudo find {ComponentCertsDirectory.WAZUH_MANAGER} -type f -exec chmod 400 {{}} \\;
-                sudo chown -R root:root {ComponentCertsDirectory.WAZUH_MANAGER}/
+                sudo chown -R wazuh-manager:wazuh-manager {ComponentCertsDirectory.WAZUH_MANAGER}/
                 """
         elif component == Component.WAZUH_DASHBOARD:
             command = f"""

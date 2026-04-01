@@ -449,20 +449,6 @@ jobs:
               console.log('Created new comment');
             }
 
-      - name: Set job status
-        if: always()
-        run: |
-          if [[ "${{ env.test_status }}" == "PASS" ]]; then
-            echo "Tests passed successfully!"
-            exit 0
-          elif [[ "${{ env.test_status }}" == "WARNING" ]]; then
-            echo "Tests passed with warnings!"
-            exit 0
-          else
-            echo "Tests failed with status: ${{ env.test_status }}"
-            exit 1
-          fi
-
   ami-cleanup:
     needs: [ami-setup, test-ami]
     if: ${{ always() && needs.ami-setup.result != 'skipped' && !inputs.keep_instance_alive }}
@@ -966,20 +952,6 @@ jobs:
               });
               console.log('Created new comment');
             }
-
-      - name: Set job status
-        if: always()
-        run: |
-          if [[ "${{ env.test_status }}" == "PASS" ]]; then
-            echo "Tests passed successfully!"
-            exit 0
-          elif [[ "${{ env.test_status }}" == "WARNING" ]]; then
-            echo "Tests passed with warnings!"
-            exit 0
-          else
-            echo "Tests failed with status: ${{ env.test_status }}"
-            exit 1
-          fi
 
   ova-cleanup:
     needs: [ova-setup, test-ova]

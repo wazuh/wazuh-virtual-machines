@@ -428,7 +428,7 @@ def test_generate_certificates_error_during_copy(mock_get_certs_name, mock_copy_
                 sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/manager-ca.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-ca.pem
                 sudo chmod 500 {ComponentCertsDirectory.WAZUH_MANAGER}
                 sudo find {ComponentCertsDirectory.WAZUH_MANAGER} -type f -exec chmod 400 {{}} \\;
-                sudo chown -R root:root {ComponentCertsDirectory.WAZUH_MANAGER}/
+                sudo chown -R wazuh-manager:wazuh-manager {ComponentCertsDirectory.WAZUH_MANAGER}/
             """,
         ),
         (
