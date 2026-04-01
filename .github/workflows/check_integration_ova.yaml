@@ -88,7 +88,7 @@ jobs:
       wazuh_virtual_machines_reference: ${{ needs.get_pr_info.outputs.pr_head_ref }}
       wazuh_automation_reference: 'main'
       is_stage: false
-      ova_revision: "PR#${{ needs.get_pr_info.outputs.pr_number }}"
+      ova_revision: "PR-${{ needs.get_pr_info.outputs.pr_number }}"
       wazuh_package_type: dev
       commit_list: '["latest", "latest", "latest", "latest", "latest"]'
       destroy: true

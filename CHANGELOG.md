@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Fix manager certificates ownership ([#648](https://github.com/wazuh/wazuh-virtual-machines/pull/648))
 - Change artifact suffix and prod and pre-prod urls ([#640](https://github.com/wazuh/wazuh-virtual-machines/pull/640))
 - Change password tool to passwords tool (add a 's') ([#637](https://github.com/wazuh/wazuh-virtual-machines/pull/637))
 - Updated wazuh-virtual-machines documentation config and tooling versions to meet new standards. ([#631](https://github.com/wazuh/wazuh-virtual-machines/pull/631))
