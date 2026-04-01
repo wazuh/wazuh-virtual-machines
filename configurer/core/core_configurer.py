@@ -70,6 +70,12 @@ class CoreConfigurer:
                 if component == Component.WAZUH_INDEXER:
                     command += "sudo /usr/share/wazuh-indexer/bin/indexer-security-init.sh"
 
+                if component == Component.WAZUH_MANAGER:
+                    command += """
+                    sudo /var/wazuh-manager/bin/wazuh-manager-keystore -f indexer -k username -v admin
+                    sudo /var/wazuh-manager/bin/wazuh-manager-keystore -f indexer -k password -v admin
+                    """
+
                 output, error_output = exec_command(command=command, client=client)
                 if error_output:
                     logger.error(f"Error starting {component} service")
