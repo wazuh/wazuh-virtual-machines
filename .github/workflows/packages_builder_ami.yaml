@@ -376,13 +376,12 @@ jobs:
           aws ec2 create-tags --resources ${{ env.AMI_ID }} --tags $TAGS
           echo "Tagged AMI ${{ env.AMI_ID }} with tags: $TAGS"
 
-      - name: Share AMI with wazuh-dev account
+      - name: Share AMI with wazuh-dev and xdrsiem-dev accounts
         if: success()
         run: |
           aws ec2 modify-image-attribute \
             --image-id ${{ env.AMI_ID }} \
-            --launch-permission "Add=[{UserId=${{ secrets.AWS_ACCOUNT_ID_WAZUH_DEV }}}]"
-          echo "Shared AMI ${{ env.AMI_ID }} with account ${{ secrets.AWS_ACCOUNT_ID_WAZUH_DEV }}"
+            --launch-permission "Add=[{UserId=${{ secrets.AWS_ACCOUNT_ID_WAZUH_DEV }}},{UserId=${{ secrets.AWS_ACCOUNT_ID_XDRSIEM_DEV }}}]"
 
       - name: Save AMI ID to artifact
         if: success() && inputs.is_pr_check == true
