@@ -139,12 +139,12 @@ jobs:
         run: echo "${{ toJson(inputs) }}"
 
       - name: Checkout wazuh/wazuh-virtual-machines repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.wazuh_virtual_machines_reference }}
 
       - name: Checkout wazuh/wazuh-automation repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: wazuh/wazuh-automation
           ref: ${{ inputs.wazuh_automation_reference }}

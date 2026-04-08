@@ -73,11 +73,11 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- None
+- The versions of the actions used in the workflows are updated. ([#651](https://github.com/wazuh/wazuh-virtual-machines/pull/651))
 
 ### Fixed
 
-- None
+- Fix bumper script early exit ([#630](https://github.com/wazuh/wazuh-virtual-machines/pull/630))
 
 ### Deleted
 
