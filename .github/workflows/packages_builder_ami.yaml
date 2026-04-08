@@ -68,12 +68,12 @@ jobs:
         run: echo "${{ toJson(inputs) }}"
 
       - name: Checkout wazuh/wazuh-virtual-machines repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.wazuh_virtual_machines_reference }}
 
       - name: Configure aws credentials
-        uses: aws-actions/configure-aws-credentials@v3
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
           aws-region: us-east-1
@@ -103,7 +103,7 @@ jobs:
         run: ansible --version
 
       - name: Checkout wazuh/wazuh-automation repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: wazuh/wazuh-automation
           ref: ${{ inputs.wazuh_automation_reference }}
@@ -239,7 +239,7 @@ jobs:
 
       - name: Upload Allocator directory as artifact
         if: always() && steps.generate_artifacts.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: instance_info
           path: ${{ env.ALLOCATOR_PATH }}.zip
