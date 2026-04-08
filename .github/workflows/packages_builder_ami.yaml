@@ -8,53 +8,126 @@ on:
         description: "ID used to identify the workflow uniquely."
         type: string
         required: false
-      is_stage:
-        description: "Is stage?"
-        type: boolean
-        default: false
       wazuh_virtual_machines_reference:
         description: 'Branch or tag of the wazuh-virtual-machines repository'
         required: true
       wazuh_automation_reference:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
-        default: '4.14.5'
-      wazuh_installation_assistant_reference:
-        description: 'Branch or tag of the wazuh-installation-assistant repository'
-        required: true
-        default: '4.14.5'
-      debug:
-        description: 'Verbosity level on playbooks execution'
-        required: true
-        default: '-v'
-        type: choice
-        options:
-          - -v
-          - -vv
-          - -vvv
-          - -vvvv
+        default: 'main'
+      is_stage:
+        description: "Is stage?"
+        type: boolean
+        default: false
+        required: false
       ami_revision:
         description: |
-          'For AMI candidates must be a number, e,g: -1.'
-          'To build a development AMI, use another revision format, e.g: -dev'
+          'For AMI candidates must be a number, e,g: 1.'
+          'To build a development AMI, use another revision format, e.g: dev'
         required: false
-        default: '-1'
-      destroy:
+        default: '1'
+      wazuh_package_type:
+        description: 'Wazuh package type to be used in the AMI'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - prod
+          - pre-prod
+          - dev
+      architecture:
+        description: |
+          'Determine the architecture. It must be a string list (JSON format). E.g: ["amd64", "arm64"]'
+        required: true
+        default: '["amd64", "arm64"]'
+        type: string
+      commit_list:
+        description: |
+          'Wazuh components revisions (comma-separated string list) ["indexer-revision", "manager-revision", "dashboard-revision", "agent-revision", "assistant-revision"]'
+          (Only needed if the Wazuh package type is dev)
+        required: true
+        default: '["latest", "latest", "latest", "latest", "latest"]'
+        type: string
+      customizer_debug:
+        description: 'Enable debug mode in the AMI customizer'
+        required: false
+        default: false
         type: boolean
+      issue:
+        description: 'URL of the GitHub issue related to this build'
+        required: false
+        type: string
+      destroy:
         description: 'Destroy the base instance after the AMI is created'
         required: false
         default: true
+        type: boolean
   workflow_call:
     inputs:
       id:
         type: string
         required: false
+      wazuh_virtual_machines_reference:
+        type: string
+        required: true
+      wazuh_automation_reference:
+        type: string
+        required: false
+        default: 'main'
+      is_stage:
+        type: boolean
+        required: false
+        default: false
+      ami_revision:
+        type: string
+        required: false
+        default: '1'
+      wazuh_package_type:
+        type: string
+        required: false
+        default: 'dev'
+      architecture:
+        type: string
+        required: false
+        default: '["amd64", "arm64"]'
+      commit_list:
+        type: string
+        required: false
+        default: '["latest", "latest", "latest", "latest", "latest"]'
+      customizer_debug:
+        type: boolean
+        required: false
+        default: false
+      issue:
+        type: string
+        required: false
+      destroy:
+        type: boolean
+        required: false
+        default: true
+      is_pr_check:
+        type: boolean
+        required: false
+        default: false
+    outputs:
+      ami_id_amd64:
+        description: 'AMI ID for amd64 architecture'
+        value: ${{ jobs.collect_ami_ids.outputs.ami_id_amd64 }}
+      ami_id_arm64:
+        description: 'AMI ID for arm64 architecture'
+        value: ${{ jobs.collect_ami_ids.outputs.ami_id_arm64 }}
 
 env:
-    LAST_STAGE: ""
-    COMPOSITE_NAME: "linux-amazon-2023ami-amd64"
     ALLOCATOR_PATH: "/tmp/allocatorvm_ami"
-    PLAYBOOKS_PATH: "${{ github.workspace }}/ami/playbooks/"
+    WORKFLOW_VENV: "${{ github.workspace }}/workflow_venv"
+    COMMIT_LIST: ${{ inputs.commit_list }}
+    PROD_ARTIFACT_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PROD }}
+    PRE_PROD_ARTIFACT_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PRE }}
+    DEV_ARTIFACT_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_ARTIFACTS }}
+    LOCAL_ARTIFACT_URLS_FILEPATH: /tmp/${{ vars.ARTIFACT_URL_FILE_NAME }}
+    GENERATE_PRESIGNED_URLS_SCRIPT_PATH: ${{ github.workspace }}/wazuh-automation/tools/sign_urls/generate_presigned_dev_urls.py
+    PRESIGNED_URLS_SCRIPT_PROCESS: "build_ami"
+    CUSTOMIZER_SERVICE_FILE: ${{ github.workspace }}/configurer/ami/ami_pre_configurer/scripts/wazuh-ami-customizer.service
 
 permissions:
   id-token: write
@@ -62,45 +135,34 @@ permissions:
 
 jobs:
   Build_AMI:
-    runs-on: ubuntu-22.04
+    runs-on:
+      group: wz-linux-amd64
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ${{ fromJson(inputs.architecture) }}
+
     steps:
       - name: View parameters
         run: echo "${{ toJson(inputs) }}"
+
+      - name: Validate Issue URL
+        if: inputs.issue != ''
+        run: |
+          ISSUE_URL="${{ inputs.issue }}"
+          # Regex to check for a valid URL starting with https://github.com/wazuh/
+          if [[ "$ISSUE_URL" =~ ^https://github\.com/wazuh/.* ]]; then
+            echo "Valid Wazuh GitHub issue URL provided."
+            echo "ISSUE_TAG_KEY=Issue" >> $GITHUB_ENV
+            echo "ISSUE_TAG_VALUE=$ISSUE_URL" >> $GITHUB_ENV
+          else
+            echo "::warning::The provided issue URL is not valid or does not belong to the Wazuh project."
+          fi
 
       - name: Checkout wazuh/wazuh-virtual-machines repository
         uses: actions/checkout@v6
         with:
           ref: ${{ inputs.wazuh_virtual_machines_reference }}
-
-      - name: Configure aws credentials
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
-          aws-region: us-east-1
-
-      - name: Install jq
-        run: sudo apt-get install jq
-
-      - name: Get Wazuh version
-        run: |
-            WAZUH_VERSION=$(jq -r '.version' VERSION.json)
-            echo WAZUH_VERSION=$WAZUH_VERSION >> $GITHUB_ENV
-
-      - name: Install Python and create virtual environment
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y python3 python3-pip
-          python3 -m venv ami_env
-          source ami_env/bin/activate
-          python3 -m pip install --upgrade pip
-          echo PATH=$PATH >> $GITHUB_ENV
-
-      - name: Install Ansible
-        run: |
-          python3 -m pip install ansible-core==2.16
-
-      - name: Ansible version
-        run: ansible --version
 
       - name: Checkout wazuh/wazuh-automation repository
         uses: actions/checkout@v6
@@ -110,56 +172,120 @@ jobs:
           token: ${{ secrets.GH_CLONE_TOKEN }}
           path: wazuh-automation
 
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
+          aws-region: us-east-1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install and configure python and workflow dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+          sudo wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
+          sudo apt-get install -y python3-venv
+          python3 -m venv ${{ env.WORKFLOW_VENV }}
+          source ${{ env.WORKFLOW_VENV }}/bin/activate
+          pip install --upgrade pip
+          pip install hatch pyyaml
+
+      - name: Get Wazuh version
+        run: |
+          WAZUH_VERSION=$(jq -r '.version' VERSION.json)
+          WAZUH_MAJOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1)
+          WAZUH_MINOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1-2)
+          WAZUH_REVISION=$(jq -r '.stage' VERSION.json)
+          COMMIT_SHA=$(git rev-parse --short ${{ github.sha }})
+
+          ARCH_FLAG=""
+          ARCH_SUFFIX=""
+          if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+            ARCH_FLAG="--arch aarch64"
+            ARCH_SUFFIX="_aarch64"
+          else
+            ARCH_SUFFIX="_x86_64"
+          fi
+
+          if [ ${{ inputs.is_stage }} == true ]; then
+            # Stage build: Wazuh_v5.0.0-1_x86_64
+            AMI_NAME="Wazuh_v${WAZUH_VERSION}-${{ inputs.ami_revision }}${ARCH_SUFFIX}"
+          else
+            # Dev builds: commit versions
+            AMI_NAME="Wazuh_v${WAZUH_VERSION}-${{ inputs.ami_revision }}${ARCH_SUFFIX}_${COMMIT_SHA}"
+          fi
+
+          COMPOSITE_NAME="amazon-2023-${{ matrix.arch }}"
+          echo COMPOSITE_NAME=$COMPOSITE_NAME >> $GITHUB_ENV
+          echo ARCH_FLAG=$ARCH_FLAG >> $GITHUB_ENV
+          echo AMI_NAME=$AMI_NAME >> $GITHUB_ENV
+          echo WAZUH_VERSION=$WAZUH_VERSION >> $GITHUB_ENV
+          echo WAZUH_MAJOR=$WAZUH_MAJOR >> $GITHUB_ENV
+          echo WAZUH_MINOR=$WAZUH_MINOR >> $GITHUB_ENV
+          echo WAZUH_REVISION=$WAZUH_REVISION >> $GITHUB_ENV
+          echo ARCH_SUFFIX=$ARCH_SUFFIX >> $GITHUB_ENV
+
       - name: Install and set allocator requirements
         run: |
-          python3 -m pip install -r wazuh-automation/deployability/deps/requirements.txt
+          pip install -r wazuh-automation/deployability/deps/requirements.txt
 
       - name: Execute allocator module that will create the base instance
         id: alloc_vm_ami
         run: |
-          python3 wazuh-automation/deployability/modules/allocation/main.py --action create --provider aws --size large --composite-name ${{ env.COMPOSITE_NAME }} --working-dir ${{ env.ALLOCATOR_PATH }} \
+          python wazuh-automation/deployability/modules/allocation/main.py --action create --provider aws --size large --composite-name ${{ env.COMPOSITE_NAME }} --working-dir ${{ env.ALLOCATOR_PATH }} \
             --track-output ${{ env.ALLOCATOR_PATH }}/track.yml --inventory-output ${{ env.ALLOCATOR_PATH }}/inventory.yml --instance-name gha_${{ github.run_id }}_ami_build \
             --label-team devops --label-termination-date 1d
-          sed -n '/hosts:/,/^[^ ]/p' ${{ env.ALLOCATOR_PATH }}/inventory.yml | grep "ansible_" | sed 's/^[ ]*//g' > ${{ env.ALLOCATOR_PATH }}/inventory_mod.yml
+          INSTANCE_ID=$(yq '.all.hosts | keys | .[0]' ${{ env.ALLOCATOR_PATH }}/inventory.yml)
+          echo INSTANCE_ID=$INSTANCE_ID >> $GITHUB_ENV
 
-          sed 's/: */=/g' ${{ env.ALLOCATOR_PATH }}/inventory_mod.yml > ${{ env.ALLOCATOR_PATH }}/inventory_vars.yml
-          sed -n 's/^identifier: \(.*\)$/identifier=\1/p' ${{ env.ALLOCATOR_PATH }}/track.yml >> ${{ env.ALLOCATOR_PATH }}/inventory_vars.yml
-          source ${{ env.ALLOCATOR_PATH }}/inventory_vars.yml
-
-          echo "::add-mask::$ansible_host"
-          echo "::add-mask::$ansible_port"
-          echo "::add-mask::$ansible_user"
-          echo "::add-mask::$ansible_ssh_private_key_file"
-          echo "::add-mask::$ansible_ssh_common_args"
-          echo "::add-mask::$identifier"
-
-          cat "${{ env.ALLOCATOR_PATH }}/inventory_vars.yml" >> $GITHUB_ENV
-
-      - name: Generate inventory
+      - name: Get artifacts URLs file
         run: |
-          echo "[gha_instance]" > ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini
-          echo "${{ env.ansible_host }} ansible_port=${{ env.ansible_port }} ansible_user=${{ env.ansible_user }} ansible_ssh_private_key_file=${{ env.ansible_ssh_private_key_file }} ansible_ssh_common_args='${{ env.ansible_ssh_common_args }}'" >> ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini
-
-      - name: Is stage check
-        run: |
-          if [ ${{ inputs.is_stage }} == true ]; then
-            LAST_STAGE=$(jq -r '.stage' VERSION.json)
-            echo "LAST_STAGE=$LAST_STAGE" >> $GITHUB_ENV
+          if [ "${{ inputs.wazuh_package_type }}" == "prod" ]; then
+            curl -f "https://${{ vars.PACKAGES_PROD_URL }}/production/${{ env.WAZUH_MAJOR }}.x/artifact_urls_${{ env.WAZUH_VERSION }}.yaml" -o ${{ env.LOCAL_ARTIFACT_URLS_FILEPATH }}
+          elif [ "${{ inputs.wazuh_package_type }}" == "pre-prod" ]; then
+            curl -f "https://${{ vars.PACKAGES_STAGING_URL }}/pre-release/${{ env.WAZUH_MAJOR }}.x/artifact_urls_${{ env.WAZUH_VERSION }}-${{ env.WAZUH_REVISION }}.yaml" -o ${{ env.LOCAL_ARTIFACT_URLS_FILEPATH }}
+          else
+            LOCAL_AWS_S3_BUCKET_DEV=${{ vars.AWS_S3_BUCKET_DEV }}
+            echo LOCAL_AWS_S3_BUCKET_DEV=$LOCAL_AWS_S3_BUCKET_DEV >> $GITHUB_ENV
           fi
 
-      - name: Run Ansible playbook to install Wazuh components
+      - name: Generate presigned URLs for artifacts for dev packages
+        if: inputs.wazuh_package_type == 'dev'
         run: |
-          ANSIBLE_CALLBACK_RESULT_FORMAT=yaml ansible-playbook -i ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini \
-          ${{ env.PLAYBOOKS_PATH }}/build_ami_packages.yaml \
-          --extra-vars \
-          "installation_assistant_reference=${{ inputs.wazuh_installation_assistant_reference }} \
-          last_stage=${{ env.LAST_STAGE }}" \
-          "${{ inputs.debug }}"
+          INDEXER_REVISION=$(echo "$COMMIT_LIST" | jq -r '.[0]')
+          MANAGER_REVISION=$(echo "$COMMIT_LIST" | jq -r '.[1]')
+          DASHBOARD_REVISION=$(echo "$COMMIT_LIST" | jq -r '.[2]')
+          AGENT_REVISION=$(echo "$COMMIT_LIST" | jq -r '.[3]')
+          ASSISTANT_REVISION=$(echo "$COMMIT_LIST" | jq -r '.[4]')
 
+          python ${{ env.GENERATE_PRESIGNED_URLS_SCRIPT_PATH }} \
+            --process ${{ env.PRESIGNED_URLS_SCRIPT_PROCESS }} \
+            --wazuh-version ${{ env.WAZUH_VERSION }} \
+            --aws-s3-bucket-dev ${{ env.LOCAL_AWS_S3_BUCKET_DEV }} \
+            --indexer-revision   $INDEXER_REVISION \
+            --manager-revision   $MANAGER_REVISION \
+            --dashboard-revision $DASHBOARD_REVISION \
+            --agent-revision     $AGENT_REVISION \
+            --assistant-revision $ASSISTANT_REVISION
+
+      - name: Set customizer debug mode environment variable
+        if: inputs.customizer_debug == true
+        run: |
+          sed -i 's|ExecStart=.* -m wazuh-ami-customizer$|& --debug|' ${{ env.CUSTOMIZER_SERVICE_FILE }}
+
+      - name: Execute configuration AMI process
+        run: |
+          source ${{ env.WORKFLOW_VENV }}/bin/activate
+          hatch run dev:run --inventory ${{ env.ALLOCATOR_PATH }}/inventory.yml --packages-url-path ${{ env.LOCAL_ARTIFACT_URLS_FILEPATH }} --execute all-ami ${{ env.ARCH_FLAG }}
 
       - name: Stop instance
         run: |
-          aws ec2 stop-instances --instance-ids ${{ env.identifier }}
+          aws ec2 stop-instances --instance-ids ${{ env.INSTANCE_ID }}
 
       - name: Check EC2 instance status until stopped
         id: check_status
@@ -169,7 +295,7 @@ jobs:
           ELAPSED=0
 
           while [ $ELAPSED -lt $TIMEOUT ]; do
-            STATUS=$(aws ec2 describe-instances --instance-ids ${{ env.identifier }} --query 'Reservations[*].Instances[*].State.Name' --output text)
+            STATUS=$(aws ec2 describe-instances --instance-ids ${{ env.INSTANCE_ID }} --query 'Reservations[*].Instances[*].State.Name' --output text)
             echo "Instance status: $STATUS"
 
             if [ "$STATUS" == "stopped" ]; then
@@ -190,11 +316,11 @@ jobs:
       - name: Build AMI from instance
         if: success()
         run: |
-          AMI_NAME="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.ami_revision }}"
-          aws ec2 create-image --instance-id ${{ env.identifier }} --name "$AMI_NAME" --no-reboot
-          AMI_ID=$(aws ec2 describe-images --filters "Name=name,Values=$AMI_NAME" --query 'Images[*].ImageId' --output text)
+          # Create AMI
+          aws ec2 create-image --instance-id ${{ env.INSTANCE_ID }} --name "${{ env.AMI_NAME }}" --no-reboot
+          AMI_ID=$(aws ec2 describe-images --filters "Name=name,Values=${{ env.AMI_NAME }}" --query 'Images[*].ImageId' --output text)
           echo "AMI_ID=$AMI_ID" >> $GITHUB_ENV
-          echo "AMI creation started with name $AMI_NAME"
+          echo "AMI creation started with name ${{ env.AMI_NAME }}"
 
       - name: Check AMI status until available
         id: check_ami_status
@@ -203,29 +329,64 @@ jobs:
           INTERVAL=30
           ELAPSED=0
 
-          while [ $ELAPSED -lt $TIMEOUT ]; do
-            STATUS=$(aws ec2 describe-images --image-ids ${{ env.AMI_ID }} --query 'Images[*].State' --output text)
-            echo "AMI status: $STATUS"
+          # Function to check AMI status
+          check_ami() {
+            local ami_id=$1
+            local ami_name=$2
 
-            if [ "$STATUS" == "available" ]; then
-              echo "AMI is available."
-              break
-            fi
+            echo "Checking status for AMI: $ami_name ($ami_id)"
 
-            echo "Waiting for AMI ${{ env.AMI_ID }} to be available..."
-            sleep $INTERVAL
-            ELAPSED=$((ELAPSED + INTERVAL))
-          done
+            while [ $ELAPSED -lt $TIMEOUT ]; do
+              STATUS=$(aws ec2 describe-images --image-ids $ami_id --query 'Images[*].State' --output text)
+              echo "AMI $ami_name status: $STATUS"
 
-          if [ $ELAPSED -ge $TIMEOUT ]; then
-            echo "Timeout reached. The AMI ${{ env.AMI_ID }} is still not available."
-            exit 1
-          fi
+              if [ "$STATUS" == "available" ]; then
+                echo "AMI $ami_name is available."
+                return 0
+              fi
+
+              echo "Waiting for AMI $ami_id to be available..."
+              sleep $INTERVAL
+              ELAPSED=$((ELAPSED + INTERVAL))
+            done
+
+            echo "Timeout reached. The AMI $ami_id is still not available."
+            return 1
+          }
+
+          # Check AMI
+          check_ami "${{ env.AMI_ID }}" "${{ env.AMI_NAME }}"
 
       - name: Tag AMI
         if: success()
         run: |
-          aws ec2 create-tags --resources ${{ env.AMI_ID }} --tags Key=Name,Value="Wazuh_v${{ env.WAZUH_VERSION }}${{ inputs.ami_revision }}"
+          if [ "${{ inputs.is_stage }}" == "true" ]; then
+            DEV_TAG_VALUE="False"
+          else
+            DEV_TAG_VALUE="True"
+          fi
+
+          # Tag AMI
+          TAGS="Key=Name,Value=${{ env.AMI_NAME }} Key=Dev,Value=$DEV_TAG_VALUE Key=WorkflowRun,Value=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          if [ -n "${{ env.ISSUE_TAG_KEY }}" ]; then
+            TAGS="$TAGS Key=${{ env.ISSUE_TAG_KEY }},Value=${{ env.ISSUE_TAG_VALUE }}"
+          fi
+
+          aws ec2 create-tags --resources ${{ env.AMI_ID }} --tags $TAGS
+          echo "Tagged AMI ${{ env.AMI_ID }} with tags: $TAGS"
+
+      - name: Save AMI ID to artifact
+        if: success() && inputs.is_pr_check == true
+        run: echo "${{ env.AMI_ID }}" > ami_id.txt
+
+      - name: Upload AMI ID artifact
+        if: success() && inputs.is_pr_check == true
+        uses: actions/upload-artifact@v4
+        with:
+          name: ami_id_${{ matrix.arch }}
+          path: ami_id.txt
+          overwrite: true
 
       - name: Delete allocated VM
         if: always() && steps.alloc_vm_ami.outcome == 'success' && inputs.destroy == true
@@ -241,5 +402,37 @@ jobs:
         if: always() && steps.generate_artifacts.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
-          name: instance_info
+          name: instance_info${{ env.ARCH_SUFFIX }}
           path: ${{ env.ALLOCATOR_PATH }}.zip
+
+  collect_ami_ids:
+    needs: Build_AMI
+    if: always() && inputs.is_pr_check == true
+    runs-on:
+      group: wz-linux-amd64
+    outputs:
+      ami_id_amd64: ${{ steps.get_ids.outputs.ami_id_amd64 }}
+      ami_id_arm64: ${{ steps.get_ids.outputs.ami_id_arm64 }}
+    steps:
+      - name: Download AMI ID artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ami_id_*
+          merge-multiple: false
+
+      - name: Get AMI IDs
+        id: get_ids
+        run: |
+          echo "ami_id_amd64=" >> $GITHUB_OUTPUT
+          echo "ami_id_arm64=" >> $GITHUB_OUTPUT
+
+          if [ -f ami_id_amd64/ami_id.txt ]; then
+            AMI_ID_AMD64=$(cat ami_id_amd64/ami_id.txt)
+            echo "ami_id_amd64=${AMI_ID_AMD64}" >> $GITHUB_OUTPUT
+            echo "AMI ID amd64: ${AMI_ID_AMD64}"
+          fi
+          if [ -f ami_id_arm64/ami_id.txt ]; then
+            AMI_ID_ARM64=$(cat ami_id_arm64/ami_id.txt)
+            echo "ami_id_arm64=${AMI_ID_ARM64}" >> $GITHUB_OUTPUT
+            echo "AMI ID arm64: ${AMI_ID_ARM64}"
+          fi
