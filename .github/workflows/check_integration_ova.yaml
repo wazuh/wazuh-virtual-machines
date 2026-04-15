@@ -86,7 +86,7 @@ jobs:
     with:
       id: "pr-check-${{ needs.get_pr_info.outputs.pr_number }}"
       wazuh_virtual_machines_reference: ${{ needs.get_pr_info.outputs.pr_head_ref }}
-      wazuh_automation_reference: 'main'
+      wazuh_automation_reference: 'v5.0.0-beta1'
       is_stage: false
       ova_revision: "PR-${{ needs.get_pr_info.outputs.pr_number }}"
       wazuh_package_type: dev
@@ -101,7 +101,7 @@ jobs:
     uses: ./.github/workflows/test-vm.yaml
     with:
       WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ needs.get_pr_info.outputs.pr_head_ref }}
-      WAZUH_AUTOMATION_REFERENCE: 'main'
+      WAZUH_AUTOMATION_REFERENCE: 'v5.0.0-beta1'
       test_type: ova
       wazuh_package_type: dev
       commit_list: '["latest", "latest", "latest", "latest", "latest"]'
