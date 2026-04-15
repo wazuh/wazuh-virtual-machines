@@ -45,7 +45,7 @@ update_version_in_files() {
     done
     m_m_files=( $(grep_command "${OLD_MAJOR}\.${OLD_MINOR}" "${DIR}") )
     for file in "${m_m_files[@]}"; do
-        sed -i -E "/[0-9]+\.[0-9]+\.[0-9]+/! s/(^|[^0-9.])(${OLD_MAJOR}\.${OLD_MINOR})([^0-9.]|$)/\1${NEW_MAJOR}.${NEW_MINOR}\3/g" "$file"
+        sed -i -E "s/(^|[^0-9.])(${OLD_MAJOR}\.${OLD_MINOR})([^0-9.]|$)/\1${NEW_MAJOR}.${NEW_MINOR}\3/g" "$file"
         if [[ $(git diff --name-only "${file}") ]]; then
             FILES_EDITED+=("${file}")
         fi
