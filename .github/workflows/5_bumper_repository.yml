@@ -1,0 +1,39 @@
+name: Repository bumper 5.x
+run-name: Bump ${{ github.ref_name }} (${{ inputs.id }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Target version (e.g. 1.2.3)'
+        default: ''
+        required: false
+        type: string
+      stage:
+        description: 'Version stage (e.g. alpha0)'
+        default: ''
+        required: false
+        type: string
+      set_as_main:
+        description: "Enable main branch mode: bump version values only, keep branch references pointing to main"
+        required: false
+        type: boolean
+        default: false
+      issue-link:
+        description: 'Issue link in format https://github.com/wazuh/<REPO>/issues/<ISSUE-NUMBER>'
+        required: true
+        type: string
+      id:
+        description: 'Optional identifier for the run'
+        required: false
+        type: string
+
+jobs:
+  bump:
+    name: Repository bumper 5.x
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      pull-requests: write
+
+
