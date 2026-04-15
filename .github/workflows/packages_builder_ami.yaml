@@ -14,7 +14,7 @@ on:
       wazuh_automation_reference:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
-        default: 'main'
+        default: 'v5.0.0-beta1'
       is_stage:
         description: "Is stage?"
         type: boolean
@@ -73,7 +73,7 @@ on:
       wazuh_automation_reference:
         type: string
         required: false
-        default: 'main'
+        default: 'v5.0.0-beta1'
       is_stage:
         type: boolean
         required: false
