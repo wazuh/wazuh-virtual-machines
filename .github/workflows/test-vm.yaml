@@ -7,7 +7,7 @@ on:
       WAZUH_AUTOMATION_REFERENCE:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
-        default: '5.1.0'
+        default: '5.2.0'
       WAZUH_VIRTUAL_MACHINES_REFERENCE:
         description: 'Branch or tag of the wazuh-virtual-machines repository'
         required: true
@@ -99,7 +99,7 @@ on:
       WAZUH_AUTOMATION_REFERENCE:
         type: string
         required: false
-        default: '5.1.0'
+        default: '5.2.0'
       WAZUH_VIRTUAL_MACHINES_REFERENCE:
         type: string
         required: true
@@ -155,7 +155,7 @@ env:
   WAZUH_MANAGER_EXPECTED_VERSION: ${{ inputs.WAZUH_MANAGER_VERSION_REVISION }}
   WAZUH_INDEXER_EXPECTED_VERSION: ${{ inputs.WAZUH_INDEXER_VERSION_REVISION }}
   WAZUH_DASHBOARD_EXPECTED_VERSION: ${{ inputs.WAZUH_DASHBOARD_VERSION_REVISION }}
-  WAZUH_AUTOMATION_REFERENCE: ${{ inputs.WAZUH_AUTOMATION_REFERENCE || '5.1.0' }}
+  WAZUH_AUTOMATION_REFERENCE: ${{ inputs.WAZUH_AUTOMATION_REFERENCE || '5.2.0' }}
   WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ inputs.WAZUH_VIRTUAL_MACHINES_REFERENCE }}
   AWS_REGION: ${{ inputs.AWS_REGION }}
   COMMIT_LIST: ${{ inputs.commit_list }}

@@ -14,7 +14,7 @@ on:
       wazuh_automation_reference:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
-        default: '5.1.0'
+        default: '5.2.0'
       is_stage:
         description: "Is stage?"
         type: boolean
@@ -73,7 +73,7 @@ on:
       wazuh_automation_reference:
         type: string
         required: false
-        default: '5.1.0'
+        default: '5.2.0'
       is_stage:
         type: boolean
         required: false
@@ -213,7 +213,7 @@ jobs:
           fi
 
           if [ ${{ inputs.is_stage }} == true ]; then
-            # Stage build: Wazuh_v5.1.0-1_x86_64
+            # Stage build: Wazuh_v5.2.0-1_x86_64
             AMI_NAME="Wazuh_v${WAZUH_VERSION}-${{ inputs.ami_revision }}${ARCH_SUFFIX}"
           else
             # Dev builds: commit versions
