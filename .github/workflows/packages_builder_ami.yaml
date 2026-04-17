@@ -230,6 +230,18 @@ jobs:
           echo WAZUH_REVISION=$WAZUH_REVISION >> $GITHUB_ENV
           echo ARCH_SUFFIX=$ARCH_SUFFIX >> $GITHUB_ENV
 
+      - name: Check if AMI already exists
+        run: |
+          EXISTING_AMI=$(aws ec2 describe-images \
+            --filters "Name=name,Values=${{ env.AMI_NAME }}" \
+            --query 'Images[*].ImageId' \
+            --output text)
+          if [ -n "$EXISTING_AMI" ]; then
+            echo "::error::AMI '${{ env.AMI_NAME }}' already exists in AWS (ID: $EXISTING_AMI). Stopping the workflow to avoid duplicate builds."
+            exit 1
+          fi
+          echo "No existing AMI found with name '${{ env.AMI_NAME }}'. Proceeding with build."
+
       - name: Install and set allocator requirements
         run: |
           pip install -r wazuh-automation/deployability/deps/requirements.txt
