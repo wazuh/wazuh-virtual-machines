@@ -193,7 +193,7 @@ jobs:
           COMMIT_SHA=$(git rev-parse --short ${{ github.sha }})
 
           if [ ${{ inputs.is_stage }} == true ]; then
-            # Stage build: wazuh-5.0.0-1
+            # Stage build: wazuh-5.9.9-1
             FILENAME_OVA="wazuh-${{ env.WAZUH_VERSION }}-${{ inputs.ova_revision }}.ova"
             FILENAME_BOX="ova-${{ env.BOX_DEFAULT_NAME }}-base-${{ env.WAZUH_VERSION }}-${{ inputs.ova_revision }}.box"
             OVA_MATRIX=$(jq -nc '[{"filename": $f}]' --arg f "$FILENAME_OVA")
