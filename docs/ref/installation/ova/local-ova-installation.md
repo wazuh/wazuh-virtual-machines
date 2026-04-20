@@ -59,10 +59,10 @@ The `wazuh_ova_base_box` key is required. Its value must be a URL pointing to th
 
 Follow the steps below to create the Wazuh virtual machine:
 
-1. Clone the Wazuh Virtual Machines repository and select the Wazuh version you want to install in the OVA, in this case `5.0.0`:
+1. Clone the Wazuh Virtual Machines repository and select the Wazuh version you want to install in the OVA, in this case `5.0.1`:
 
    ```bash
-   git clone https://github.com/wazuh/wazuh-virtual-machines && cd wazuh-virtual-machines/ && git checkout v5.0.0
+   git clone https://github.com/wazuh/wazuh-virtual-machines && cd wazuh-virtual-machines/ && git checkout v5.0.1
    ```
 
 2. Execute the following command to build the OVA image. The command to use depends on the environment:

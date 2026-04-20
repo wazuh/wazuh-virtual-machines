@@ -213,7 +213,7 @@ jobs:
           fi
 
           if [ ${{ inputs.is_stage }} == true ]; then
-            # Stage build: Wazuh_v5.0.0-1_x86_64
+            # Stage build: Wazuh_v5.0.1-1_x86_64
             AMI_NAME="Wazuh_v${WAZUH_VERSION}-${{ inputs.ami_revision }}${ARCH_SUFFIX}"
           else
             # Dev builds: commit versions
