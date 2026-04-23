@@ -7,7 +7,7 @@ on:
       WAZUH_AUTOMATION_REFERENCE:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
-        default: 'main'
+        default: 'v1.2.3-alpha8'
       WAZUH_VIRTUAL_MACHINES_REFERENCE:
         description: 'Branch or tag of the wazuh-virtual-machines repository'
         required: true
@@ -99,7 +99,7 @@ on:
       WAZUH_AUTOMATION_REFERENCE:
         type: string
         required: false
-        default: 'main'
+        default: 'v1.2.3-alpha8'
       WAZUH_VIRTUAL_MACHINES_REFERENCE:
         type: string
         required: true
