@@ -229,7 +229,7 @@ def test_steps_system_config(
     mock_set_hostname,
     mock_run_command,
 ):
-    mock_json_load.return_value = {"version": "1.2.3", "stage": "alpha0"}
+    mock_json_load.return_value = {"version": "5.0.0", "stage": "alpha0"}
 
     steps_system_config()
 
@@ -248,7 +248,7 @@ def test_steps_system_config(
     mock_set_hostname.assert_called_once()
 
     mock_open_file.assert_any_call("VERSION.json")
-    mock_run_command.assert_any_call(f"sudo bash {SCRIPTS_PATH}/messages.sh no 1.2.3-alpha0 wazuh-user")
+    mock_run_command.assert_any_call(f"sudo bash {SCRIPTS_PATH}/messages.sh no 5.0.0-alpha0 wazuh-user")
 
 
 def test_steps_clean(mock_run_command):
