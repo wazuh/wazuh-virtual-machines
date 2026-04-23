@@ -127,7 +127,7 @@ Trigger OVA integration tests by commenting on the PR:
 |----------|---------|
 | EC2 metal instance | ✅ Auto-terminated |
 | VirtualBox VM | ✅ Auto-deleted |
-| OVA file in S3 (`development/wazuh/1.x/secondary/ova/`) | ⚠️ Manual cleanup if needed |
+| OVA file in S3 (`development/wazuh/5.x/secondary/ova/`) | ⚠️ Manual cleanup if needed |
 
 ### Check Results
 

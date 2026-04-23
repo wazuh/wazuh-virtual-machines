@@ -20,7 +20,7 @@ on:
       wazuh_automation_reference:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
-        default: 'v1.2.3-alpha8'
+        default: 'main'
       is_stage:
         description: "Is stage?"
         type: boolean
@@ -65,7 +65,7 @@ on:
       wazuh_automation_reference:
         type: string
         required: false
-        default: 'v1.2.3-alpha8'
+        default: 'main'
       is_stage:
         type: boolean
         required: false
@@ -105,7 +105,7 @@ env:
     ALLOCATOR_PATH: "/tmp/allocatorvm_ova"
     WORKFLOW_VENV: "${{ github.workspace }}/workflow_venv"
     S3_BUCKET_TO_STORE_OVA: ${{ vars.AWS_S3_BUCKET }}
-    S3_PATH_TO_STORE_OVA: "development/wazuh/1.x/secondary/ova"
+    S3_PATH_TO_STORE_OVA: "development/wazuh/5.x/secondary/ova"
     COMMIT_LIST: ${{ inputs.commit_list }}
     PROD_ARTIFACT_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PROD }}
     PRE_PROD_ARTIFACT_URLS_BUCKET: ${{ vars.AWS_S3_BUCKET_PRE }}
@@ -193,7 +193,7 @@ jobs:
           COMMIT_SHA=$(git rev-parse --short ${{ github.sha }})
 
           if [ ${{ inputs.is_stage }} == true ]; then
-            # Stage build: wazuh-1.2.3-1
+            # Stage build: wazuh-5.0.0-1
             FILENAME_OVA="wazuh-${{ env.WAZUH_VERSION }}-${{ inputs.ova_revision }}.ova"
             FILENAME_BOX="ova-${{ env.BOX_DEFAULT_NAME }}-base-${{ env.WAZUH_VERSION }}-${{ inputs.ova_revision }}.box"
             OVA_MATRIX=$(jq -nc '[{"filename": $f}]' --arg f "$FILENAME_OVA")
