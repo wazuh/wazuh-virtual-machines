@@ -34,10 +34,10 @@ on:
       instance_type:
         description: 'EC2 instance type for AMI tests'
         required: false
-        default: 'c5ad.xlarge'
+        default: 'c5ad.2xlarge'
         type: choice
         options:
-          - c5ad.xlarge
+          - c5ad.2xlarge
       wazuh_package_type:
         description: 'Wazuh package type for OVA URL resolution'
         required: true
@@ -116,7 +116,7 @@ on:
       instance_type:
         type: string
         required: false
-        default: 'c5ad.xlarge'
+        default: 'c5ad.2xlarge'
       wazuh_package_type:
         type: string
         required: false
