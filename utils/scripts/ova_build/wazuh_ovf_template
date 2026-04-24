@@ -30,7 +30,7 @@
     </AnnotationSection>
     <OperatingSystemSection ovf:id="101" vmw:osType="otherLinux64Guest">
       <Info>The kind of installed guest operating system</Info>
-      <Description>Linux - Amazon Linux 2</Description>
+      <Description>Linux - Amazon Linux 2023</Description>
     </OperatingSystemSection>
     <VirtualHardwareSection>
       <Info>Virtual hardware requirements</Info>
@@ -43,18 +43,18 @@
       <Item>
         <rasd:AllocationUnits>hertz * 10^6</rasd:AllocationUnits>
         <rasd:Description>Number of Virtual CPUs</rasd:Description>
-        <rasd:ElementName>4 virtual CPU(s)</rasd:ElementName>
+        <rasd:ElementName>8 virtual CPU(s)</rasd:ElementName>
         <rasd:InstanceID>1</rasd:InstanceID>
         <rasd:ResourceType>3</rasd:ResourceType>
-        <rasd:VirtualQuantity>4</rasd:VirtualQuantity>
+        <rasd:VirtualQuantity>8</rasd:VirtualQuantity>
       </Item>
       <Item>
         <rasd:AllocationUnits>byte * 2^20</rasd:AllocationUnits>
         <rasd:Description>Memory Size</rasd:Description>
-        <rasd:ElementName>8192MB of memory</rasd:ElementName>
+        <rasd:ElementName>16384MB of memory</rasd:ElementName>
         <rasd:InstanceID>2</rasd:InstanceID>
         <rasd:ResourceType>4</rasd:ResourceType>
-        <rasd:VirtualQuantity>8192</rasd:VirtualQuantity>
+        <rasd:VirtualQuantity>16384</rasd:VirtualQuantity>
       </Item>
       <Item>
         <rasd:Address>1</rasd:Address>

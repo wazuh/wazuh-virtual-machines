@@ -2,7 +2,7 @@
 
 In this section, we describe how to create a virtual machine (VM) in Open Virtual Appliance (OVA) format with the Wazuh manager, dashboard, and indexer components pre-installed. To build it locally, we will use the `wazuh_local_ova` module from the [Wazuh Virtual Machines](https://github.com/wazuh/wazuh-virtual-machines/tree/main/wazuh_local_ova) repository.
 
-You need a system with a minimum of 4 CPU cores and 8 GB of RAM to build the virtual machine. Ensure that these dependencies are installed on the system:
+You need a system with a minimum of 8 CPU cores and 16 GB of RAM to build the virtual machine. Ensure that these dependencies are installed on the system:
 
 - Virtual Box
 - Vagrant
