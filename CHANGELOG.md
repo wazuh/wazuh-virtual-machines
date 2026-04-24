@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- Added 5.x bumper revert changes#684 ([#684](https://github.com/wazuh/wazuh-virtual-machines/pull/684))
+- Added 5.x bumper revert changes ([#684](https://github.com/wazuh/wazuh-virtual-machines/pull/684))
 - Added set-as-main option to repository bumper. ([#663](https://github.com/wazuh/wazuh-virtual-machines/pull/663))
 - Add step to share AMI with the wazuh-dev and xdrsiem-dev accounts ([#650](https://github.com/wazuh/wazuh-virtual-machines/pull/650))
 - Environment selection for local OVA builds and AL2023 box integration ([#633](https://github.com/wazuh/wazuh-virtual-machines/pull/633))
