@@ -21,6 +21,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Changed OVA and AMI deployment requirements and documentation ([#694](https://github.com/wazuh/wazuh-virtual-machines/pull/694))
 - Reverted PR 641. ([#649](https://github.com/wazuh/wazuh-virtual-machines/pull/649))
 - Fix manager certificates ownership ([#648](https://github.com/wazuh/wazuh-virtual-machines/pull/648))
 - Change artifact suffix and prod and pre-prod urls ([#640](https://github.com/wazuh/wazuh-virtual-machines/pull/640))
