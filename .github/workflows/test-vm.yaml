@@ -34,10 +34,10 @@ on:
       instance_type:
         description: 'EC2 instance type for AMI tests'
         required: false
-        default: 'c5ad.xlarge'
+        default: 'c5ad.2xlarge'
         type: choice
         options:
-          - c5ad.xlarge
+          - c5ad.2xlarge
       wazuh_package_type:
         description: 'Wazuh package type for OVA URL resolution'
         required: true
@@ -116,7 +116,7 @@ on:
       instance_type:
         type: string
         required: false
-        default: 'c5ad.xlarge'
+        default: 'c5ad.2xlarge'
       wazuh_package_type:
         type: string
         required: false
@@ -745,8 +745,8 @@ jobs:
           echo "Importing OVA to VirtualBox..."
           ssh ${SSH_OPTIONS} ${SSH_HOST} "VBoxManage import ${{ steps.download.outputs.ova_path }} --vsys 0 --vmname ${VM_NAME}"
 
-          echo "Configuring VM resources (memory: 8192MB, CPUs: 4)..."
-          ssh ${SSH_OPTIONS} ${SSH_HOST} "VBoxManage modifyvm ${VM_NAME} --memory 8192 --cpus 4 --nic1 nat"
+          echo "Configuring VM resources (memory: 16384MB, CPUs: 8)..."
+          ssh ${SSH_OPTIONS} ${SSH_HOST} "VBoxManage modifyvm ${VM_NAME} --memory 16384 --cpus 8 --nic1 nat"
 
           echo "Starting VM in headless mode..."
           ssh ${SSH_OPTIONS} ${SSH_HOST} "VBoxManage startvm ${VM_NAME} --type headless"
