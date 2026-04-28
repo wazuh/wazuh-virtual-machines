@@ -9,10 +9,10 @@ from provisioner.utils import AllowedUrlHost
     "url",
     [
         "https://packages.wazuh.com/4.x/yum/",
-        "https://packages-dev.wazuh.com/doing/tests"
+        "https://packages-staging.xdrsiem.wazuh.info/doing/tests"
         "htts://xdrsiem-packages-dev-internal"
         "https://packages.wazuh.com"
-        "https://packages-dev.wazuh.com",
+        "https://packages-staging.xdrsiem.wazuh.info",
         "https://xdrsiem-packages-dev-internal",
     ],
 )
