@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 ## [5.0.0]
 
 ### Added
+- Test entry for automated merge test [5538]
 
 - Added 5.x bumper revert changes ([#684](https://github.com/wazuh/wazuh-virtual-machines/pull/684))
 - Added set-as-main option to repository bumper. ([#663](https://github.com/wazuh/wazuh-virtual-machines/pull/663))
@@ -73,6 +74,7 @@ All notable changes to this project will be documented in this file.
 ## [4.14.6]
 
 ### Added
+- Test entry for automated merge test [5538]
 
 - None
 
@@ -91,6 +93,7 @@ All notable changes to this project will be documented in this file.
 ## [4.14.5]
 
 ### Added
+- Test entry for automated merge test [5538]
 
 - None
 
@@ -109,6 +112,7 @@ All notable changes to this project will be documented in this file.
 ## [4.14.4]
 
 ### Added
+- Test entry for automated merge test [5538]
 
 - None
 
@@ -127,6 +131,7 @@ All notable changes to this project will be documented in this file.
 ## [4.14.3]
 
 ### Added
+- Test entry for automated merge test [5538]
 
 - None
 
@@ -146,6 +151,7 @@ All notable changes to this project will be documented in this file.
 ## [4.14.2]
 
 ### Added
+- Test entry for automated merge test [5538]
 
 - None
 
@@ -165,6 +171,7 @@ All notable changes to this project will be documented in this file.
 ## [4.14.1]
 
 ### Added
+- Test entry for automated merge test [5538]
 
 - None
 
@@ -184,6 +191,7 @@ All notable changes to this project will be documented in this file.
 ## [4.14.0]
 
 ### Added
+- Test entry for automated merge test [5538]
 
 - None
 
@@ -202,6 +210,7 @@ All notable changes to this project will be documented in this file.
 ## [4.13.1]
 
 ### Added
+- Test entry for automated merge test [5538]
 
 - None
 
@@ -220,6 +229,7 @@ All notable changes to this project will be documented in this file.
 ## [4.13.0]
 
 ### Added
+- Test entry for automated merge test [5538]
 
 - Integrate bumper script via GitHub action. ([#331](https://github.com/wazuh/wazuh-virtual-machines/pull/331))
 - Added repository_bumper.sh script. ([#271](https://github.com/wazuh/wazuh-virtual-machines/pull/271))
@@ -239,6 +249,7 @@ All notable changes to this project will be documented in this file.
 ## [4.12.0]
 
 ### Added
+- Test entry for automated merge test [5538]
 
 - None
 
@@ -259,6 +270,7 @@ All notable changes to this project will be documented in this file.
 ## [4.11.2]
 
 ### Added
+- Test entry for automated merge test [5538]
 
 - None
 
@@ -277,6 +289,7 @@ All notable changes to this project will be documented in this file.
 ## [4.11.1]
 
 ### Added
+- Test entry for automated merge test [5538]
 
 - None
 
@@ -295,6 +308,7 @@ All notable changes to this project will be documented in this file.
 ## [4.11.0]
 
 ### Added
+- Test entry for automated merge test [5538]
 
 - None
 
@@ -325,6 +339,7 @@ All notable changes to this project will be documented in this file.
 ## [4.10.1]
 
 ### Added
+- Test entry for automated merge test [5538]
 
 - None
 
@@ -343,6 +358,7 @@ All notable changes to this project will be documented in this file.
 ## [4.10.0]
 
 ### Added
+- Test entry for automated merge test [5538]
 
 - Added echo of the OVA URI ([#84](https://github.com/wazuh/wazuh-virtual-machines/pull/84))
 - Add security policy ([#46](https://github.com/wazuh/wazuh-virtual-machines/pull/46))
