@@ -248,7 +248,7 @@ jobs:
           if [ "${{ inputs.wazuh_package_type }}" == "prod" ]; then
             curl -f "https://${{ vars.PACKAGES_PROD_URL }}/production/${{ env.WAZUH_MAJOR }}.x/artifact-urls/artifact_urls_${{ env.WAZUH_VERSION }}.yaml" -o ${{ env.LOCAL_ARTIFACT_URLS_FILEPATH }}
           elif [ "${{ inputs.wazuh_package_type }}" == "pre-prod" ]; then
-            curl -f "https://${{ vars.PACKAGES_STAGING_URL }}/pre-release/${{ env.WAZUH_MAJOR }}.x/artifact-urls/artifact_urls_${{ env.WAZUH_VERSION }}-${{ env.WAZUH_REVISION }}.yaml" -o ${{ env.LOCAL_ARTIFACT_URLS_FILEPATH }}
+            curl -f "https://${{ vars.PACKAGES_STAGING_URL }}/staging-test/pre-release/5.x/artifact-urls/artifact_urls_5.0.0-alpha99.yaml" -o ${{ env.LOCAL_ARTIFACT_URLS_FILEPATH }}
           else
             LOCAL_AWS_S3_BUCKET_DEV=${{ vars.AWS_S3_BUCKET_DEV }}
             echo LOCAL_AWS_S3_BUCKET_DEV=$LOCAL_AWS_S3_BUCKET_DEV >> $GITHUB_ENV
