@@ -408,14 +408,14 @@ jobs:
           aws s3 cp --quiet "$SOURCE_FILE" "s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/$DEST_FILE"
           echo "S3 OVA URI: s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/$DEST_FILE"
 
-      - name: Generate and upload sha512
+      - name: Generate and upload OVA sha512
         if: ${{ inputs.checksum == true }}
         run: |
           SOURCE_FILE="${{ needs.build.outputs.ova_source_filename }}"
           DEST_FILE="${{ matrix.filename }}"
           sha512sum "$SOURCE_FILE" | sed "s|$SOURCE_FILE|$DEST_FILE|" > "${DEST_FILE}.sha512"
           aws s3 cp --quiet "${DEST_FILE}.sha512" "s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${DEST_FILE}.sha512"
-          echo "S3 sha512 URI: s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${DEST_FILE}.sha512"
+          echo "S3 OVA sha512 URI: s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${DEST_FILE}.sha512"
 
   upload_box:
     needs: build
@@ -444,14 +444,14 @@ jobs:
           aws s3 cp --quiet "$SOURCE_FILE" "s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/$DEST_FILE"
           echo "S3 BOX URI: s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/$DEST_FILE"
 
-      - name: Generate and upload sha512
+      - name: Generate and upload BOX sha512
         if: ${{ inputs.checksum == true }}
         run: |
           SOURCE_FILE="${{ needs.build.outputs.box_source_filename }}"
           DEST_FILE="${{ matrix.filename }}"
           sha512sum "$SOURCE_FILE" | sed "s|$SOURCE_FILE|$DEST_FILE|" > "${DEST_FILE}.sha512"
           aws s3 cp --quiet "${DEST_FILE}.sha512" "s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${DEST_FILE}.sha512"
-          echo "S3 sha512 URI: s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${DEST_FILE}.sha512"
+          echo "S3 BOX sha512 URI: s3://${{ env.S3_BUCKET_TO_STORE_OVA }}/${{ env.S3_PATH_TO_STORE_OVA }}/${DEST_FILE}.sha512"
 
   cleanup:
     needs: [build, upload_ova, upload_box]
