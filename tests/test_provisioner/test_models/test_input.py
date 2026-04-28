@@ -140,13 +140,13 @@ def test_inventory_content_no_host_name(mock_open):
 
 @patch("provisioner.models.input.format_passwords_tool_urls_file")
 def test_passwords_tool_url_success(mock_format_passwords_tool_urls_file):
-    mock_format_passwords_tool_urls_file.return_value = "https://packages-dev.wazuh.com/password-tool"
+    mock_format_passwords_tool_urls_file.return_value = "https://packages-staging.xdrsiem.wazuh.info/password-tool"
 
     passwords_tool_content = INPUT_EXAMPLE.passwords_tool_content
 
     mock_format_passwords_tool_urls_file.assert_called_once_with(Path("/path/to/packages_url"))
     assert isinstance(passwords_tool_content, PasswordsToolInfo)
-    assert passwords_tool_content.url == AnyUrl("https://packages-dev.wazuh.com/password-tool")
+    assert passwords_tool_content.url == AnyUrl("https://packages-staging.xdrsiem.wazuh.info/password-tool")
 
 
 @patch("provisioner.models.input.format_passwords_tool_urls_file")

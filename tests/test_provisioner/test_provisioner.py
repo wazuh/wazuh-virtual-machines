@@ -24,16 +24,16 @@ def component_info_valid(valid_inventory):
     dependencies = ["dependency1", "dependency2"]
     component_manager = ComponentInfo(
         name=Component.WAZUH_MANAGER,
-        package_url=AnyUrl("http://packages-dev.wazuh.com"),
+        package_url=AnyUrl("http://packages-staging.xdrsiem.wazuh.info"),
         dependencies=dependencies,
     )
     certs = CertsInfo(
         certs_url_content={
-            "certs_tool": "http://packages-dev.wazuh.com/example/certs-tool.sh",
-            "config": "http://packages-dev.wazuh.com/example/config.yml",
+            "certs_tool": "http://packages-staging.xdrsiem.wazuh.info/example/certs-tool.sh",
+            "config": "http://packages-staging.xdrsiem.wazuh.info/example/config.yml",
         }
     )
-    passwords_tool = PasswordsToolInfo(url=AnyUrl("http://packages-dev.wazuh.com/example/passwords-tool.sh"))
+    passwords_tool = PasswordsToolInfo(url=AnyUrl("http://packages-staging.xdrsiem.wazuh.info/example/passwords-tool.sh"))
 
     package_type = Package_type.RPM
     return Provisioner(
@@ -61,9 +61,9 @@ def test_provision_success(mock_paramiko, mock_logger, component_info_valid, moc
     mock_paramiko.return_value = mock_client_instance
 
     tools_expect_commands = [
-        "mkdir -p ~/wazuh-configure/tools/certs && curl -s -o ~/wazuh-configure/tools/certs/certs-tool.sh 'http://packages-dev.wazuh.com/example/certs-tool.sh'",
-        "mkdir -p ~/wazuh-configure/tools/certs && curl -s -o ~/wazuh-configure/tools/certs/config.yml 'http://packages-dev.wazuh.com/example/config.yml'",
-        "mkdir -p ~/wazuh-configure/tools && curl -s -o ~/wazuh-configure/tools/passwords-tool.sh 'http://packages-dev.wazuh.com/example/passwords-tool.sh'",
+        "mkdir -p ~/wazuh-configure/tools/certs && curl -s -o ~/wazuh-configure/tools/certs/certs-tool.sh 'http://packages-staging.xdrsiem.wazuh.info/example/certs-tool.sh'",
+        "mkdir -p ~/wazuh-configure/tools/certs && curl -s -o ~/wazuh-configure/tools/certs/config.yml 'http://packages-staging.xdrsiem.wazuh.info/example/config.yml'",
+        "mkdir -p ~/wazuh-configure/tools && curl -s -o ~/wazuh-configure/tools/passwords-tool.sh 'http://packages-staging.xdrsiem.wazuh.info/example/passwords-tool.sh'",
     ]
 
     dependencies_expect_commands = [
@@ -74,7 +74,7 @@ def test_provision_success(mock_paramiko, mock_logger, component_info_valid, moc
     ]
 
     package_expect_commands = [
-        "mkdir -p ~/wazuh-configure/packages && curl -s -o ~/wazuh-configure/packages/wazuh_manager.rpm 'http://packages-dev.wazuh.com/'",
+        "mkdir -p ~/wazuh-configure/packages && curl -s -o ~/wazuh-configure/packages/wazuh_manager.rpm 'http://packages-staging.xdrsiem.wazuh.info/'",
         "sudo dnf install -y ~/wazuh-configure/packages/wazuh_manager.rpm",
     ]
 
@@ -127,7 +127,7 @@ def test_certs_tool_provision_success(
     getattr(component_info_valid, certs_method)(mock_client_instance)
 
     mock_exec_command.assert_called_once_with(
-        command=f"mkdir -p ~/wazuh-configure/tools/certs && curl -s -o ~/wazuh-configure/tools/certs/{certs_component} 'http://packages-dev.wazuh.com/example/{certs_component}'",
+        command=f"mkdir -p ~/wazuh-configure/tools/certs && curl -s -o ~/wazuh-configure/tools/certs/{certs_component} 'http://packages-staging.xdrsiem.wazuh.info/example/{certs_component}'",
         client=mock_client_instance,
     )
     mock_logger.debug.assert_any_call(f"Provisioning {certs_component}")
@@ -149,7 +149,7 @@ def test_certs_tool_provision_failure(
         getattr(component_info_valid, certs_method)(mock_client_instance)
 
     mock_exec_command.assert_called_once_with(
-        command=f"mkdir -p ~/wazuh-configure/tools/certs && curl -s -o ~/wazuh-configure/tools/certs/{certs_component} 'http://packages-dev.wazuh.com/example/{certs_component}'",
+        command=f"mkdir -p ~/wazuh-configure/tools/certs && curl -s -o ~/wazuh-configure/tools/certs/{certs_component} 'http://packages-staging.xdrsiem.wazuh.info/example/{certs_component}'",
         client=mock_client_instance,
     )
     mock_logger.debug.assert_any_call(f"Provisioning {certs_component}")
@@ -230,7 +230,7 @@ def test_packages_provision_success(
     mock_exec_command.assert_has_calls(
         [
             mock.call(
-                command=f"mkdir -p ~/wazuh-configure/packages && curl -s -o {expected_path} 'http://packages-dev.wazuh.com/'",
+                command=f"mkdir -p ~/wazuh-configure/packages && curl -s -o {expected_path} 'http://packages-staging.xdrsiem.wazuh.info/'",
                 client=mock_client_instance,
             ),
             mock.call(
@@ -250,19 +250,19 @@ def test_packages_provision_success(
         (
             Package_manager.YUM,
             Component.WAZUH_MANAGER,
-            "http://packages-dev.wazuh.com/wazuh_manager.rpm",
+            "http://packages-staging.xdrsiem.wazuh.info/wazuh_manager.rpm",
             "wazuh_manager.rpm",
         ),
         (
             Package_manager.YUM,
             Component.WAZUH_AGENT,
-            "http://packages-dev.wazuh.com/wazuh_agent.rpm",
+            "http://packages-staging.xdrsiem.wazuh.info/wazuh_agent.rpm",
             "wazuh_agent.rpm",
         ),
         (
             Package_manager.APT,
             Component.WAZUH_INDEXER,
-            "http://packages-dev.wazuh.com/wazuh_indexer.deb",
+            "http://packages-staging.xdrsiem.wazuh.info/wazuh_indexer.deb",
             "wazuh_indexer.deb",
         ),
     ],
@@ -295,9 +295,9 @@ def test_get_package_by_url_success(
 @pytest.mark.parametrize(
     "component_name, package_url, error_output",
     [
-        (Component.WAZUH_MANAGER, "http://packages-dev.wazuh.com/wazuh_manager.rpm", "Error output"),
-        (Component.WAZUH_AGENT, "http://packages-dev.wazuh.com/wazuh_agent.rpm", "Error output"),
-        (Component.WAZUH_INDEXER, "http://packages-dev.wazuh.com/wazuh_indexer.deb", "Error output"),
+        (Component.WAZUH_MANAGER, "http://packages-staging.xdrsiem.wazuh.info/wazuh_manager.rpm", "Error output"),
+        (Component.WAZUH_AGENT, "http://packages-staging.xdrsiem.wazuh.info/wazuh_agent.rpm", "Error output"),
+        (Component.WAZUH_INDEXER, "http://packages-staging.xdrsiem.wazuh.info/wazuh_indexer.deb", "Error output"),
     ],
 )
 @patch("paramiko.SSHClient")
