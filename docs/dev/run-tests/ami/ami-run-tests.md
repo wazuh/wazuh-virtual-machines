@@ -92,8 +92,8 @@ Trigger AMI integration tests by commenting on the PR:
    - Cleans up build instances
 
 2. **Test AMI**
-   - Launches a `c5ad.xlarge` instance for amd64
-   - Launches a `c6g.xlarge` instance for arm64
+   - Launches a `c5ad.2xlarge` instance for amd64
+   - Launches a `c6g.2xlarge` instance for arm64
    - Runs integration tests on both:
      - Certificates validation
      - Service status checks
@@ -107,8 +107,8 @@ Trigger AMI integration tests by commenting on the PR:
 
 | Architecture | Instance Type | Base AMI |
 |--------------|---------------|----------|
-| amd64 (x86_64) | c5ad.xlarge | Amazon Linux 2023 x86_64 |
-| arm64 (aarch64) | c6g.xlarge | Amazon Linux 2023 ARM64 |
+| amd64 (x86_64) | c5ad.2xlarge | Amazon Linux 2023 x86_64 |
+| arm64 (aarch64) | c6g.2xlarge | Amazon Linux 2023 ARM64 |
 
 ### Resources
 
