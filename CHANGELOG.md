@@ -57,6 +57,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Fix AMI ARM build failing when fetching the manager package ([#745](https://github.com/wazuh/wazuh-virtual-machines/pull/745))
 - Added merge step in bumper workflow. ([#671](https://github.com/wazuh/wazuh-virtual-machines/pull/671))
 - Fixed Wazuh ami default ssh port. ([#641](https://github.com/wazuh/wazuh-virtual-machines/pull/641))
 - Replace incorrect dashboard API check function in AMI customizer ([#636](https://github.com/wazuh/wazuh-virtual-machines/pull/636))

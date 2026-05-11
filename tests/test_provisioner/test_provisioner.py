@@ -33,7 +33,9 @@ def component_info_valid(valid_inventory):
             "config": "http://packages-staging.xdrsiem.wazuh.info/example/config.yml",
         }
     )
-    passwords_tool = PasswordsToolInfo(url=AnyUrl("http://packages-staging.xdrsiem.wazuh.info/example/passwords-tool.sh"))
+    passwords_tool = PasswordsToolInfo(
+        url=AnyUrl("http://packages-staging.xdrsiem.wazuh.info/example/passwords-tool.sh")
+    )
 
     package_type = Package_type.RPM
     return Provisioner(
