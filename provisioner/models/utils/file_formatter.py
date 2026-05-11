@@ -32,12 +32,18 @@ def file_to_dict(raw_urls_path: Path) -> dict:
 def get_component_packages(raw_urls_content: dict, component: Component) -> dict:
     """
     Extracts and organizes package information for a specified component from raw URL content.
+
+    A key in raw_urls_content is considered a match only if it contains both the component
+    name and one of the supported architectures (from Component_arch), formatted as
+    '{component_name}_{arch}'. This prevents false positives from keys that share a common
+    prefix with the component name.
+
     >>> raw_urls_content = {
-    ...     "wazuh_indexer_url_amd64_deb": "https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/",
-    ...     "wazuh_indexer_url_arm64_deb": "https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/",
-    ...     "wazuh_manager_url_amd64_deb": "https://packages.wazuh.com/wazuh-manager-example/amd64/deb/",
+    ...     "wazuh_indexer_amd64_deb": "https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/",
+    ...     "wazuh_indexer_arm64_deb": "https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/",
+    ...     "wazuh_manager_amd64_deb": "https://packages.wazuh.com/wazuh-manager-example/amd64/deb/",
     ... }
-    >>> component = Component.WAZUH_MANAGER
+    >>> component = Component.WAZUH_INDEXER
     >>> get_component_packages(raw_urls_content, component)
     {'wazuh_indexer': ['https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/', 'https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/']}
 
@@ -46,12 +52,16 @@ def get_component_packages(raw_urls_content: dict, component: Component) -> dict
         component (Component): The component object for which packages need to be extracted.
 
     Returns:
-        dict: A dictionary where the key is the component name (in lowercase) and the value is a list of packages associated with that component.
+        dict: A dictionary where the key is the component name (in lowercase) and the value
+              is a list of package URLs whose keys match '{component_name}_{arch}' for any
+              supported architecture in Component_arch.
     """
     component_packages: dict = {}
 
+    valid_keys = [f"{component.name.lower()}_{arch.lower()}" for arch in Component_arch]
+
     for component_key in raw_urls_content:
-        if component.name.lower() in component_key:
+        if any(valid_key in component_key for valid_key in valid_keys):
             if component.name.lower() not in component_packages:
                 component_packages[component.name.lower()] = []
 
@@ -188,9 +198,9 @@ def format_component_urls_file(raw_urls_path: Path) -> dict:
         raw_urls_path (Path): The path to the raw URLs file.
     >>> raw_urls_path = Path("component_urls.yaml")
     ... raw_urls_content = {
-    ...     "wazuh_indexer_url_amd64_deb": "https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/",
-    ...     "wazuh_indexer_url_arm64_deb": "https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/",
-    ...     "wazuh_manager_url_x86_64_rpm": "https://packages.wazuh.com/wazuh-manager-example/x86_64/rpm/",
+    ...     "wazuh_indexer_amd64_deb": "https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/",
+    ...     "wazuh_indexer_arm64_deb": "https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/",
+    ...     "wazuh_manager_x86_64_rpm": "https://packages.wazuh.com/wazuh-manager-example/x86_64/rpm/",
     ... }
     ... format_component_urls_file(raw_urls_path)
     {'wazuh_indexer': {'deb': {'amd64': 'https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/',

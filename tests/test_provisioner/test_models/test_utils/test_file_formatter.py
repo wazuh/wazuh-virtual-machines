@@ -35,9 +35,11 @@ def test_file_to_dict_non_existent_file(mock_file):
 
 def test_get_component_packages_valid():
     raw_urls_content = {
-        "wazuh_indexer_url_amd64_deb": "https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/",
-        "wazuh_indexer_url_arm64_deb": "https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/",
-        "wazuh_manager_url_amd64_deb": "https://packages.wazuh.com/wazuh-manager-example/amd64/deb/",
+        "wazuh_indexer_amd64_deb": "https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/",
+        "wazuh_indexer_debug_arm64_deb": "https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/",
+        "wazuh_indexer_arm64_deb": "https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/",
+        "wazuh_manager_amd64_deb": "https://packages.wazuh.com/wazuh-manager-example/amd64/deb/",
+        "wazuh_manager_debug_amd64_deb": "https://packages.wazuh.com/wazuh-manager-example/debug/amd64/deb/",
     }
     component = Component.WAZUH_INDEXER
     expected_output = {
@@ -53,6 +55,7 @@ def test_get_component_packages_no_matching_component():
     raw_urls_content = {
         "wazuh_indexer_url_amd64_deb": "https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/",
         "wazuh_indexer_url_arm64_deb": "https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/",
+        "wazuh_manager_extralines_arm64_deb": "https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/",
     }
     component = Component.WAZUH_MANAGER
     expected_output = {}
@@ -182,10 +185,10 @@ def test_format_certificates_urls_file_partial(mock_file):
     "builtins.open",
     new_callable=mock_open,
     read_data="""
-wazuh_indexer_url_amd64_deb: https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/
-wazuh_indexer_url_arm64_deb: https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/
-wazuh_manager_url_x86_64_rpm: https://packages.wazuh.com/wazuh-manager-example/x86_64/rpm/
-wazuh_agent_url_amd64_deb: https://packages.wazuh.com/wazuh-agent-example/amd64/deb/
+wazuh_indexer_amd64_deb: https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/
+wazuh_indexer_arm64_deb: https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/
+wazuh_manager_extralines_x86_64_rpm: https://packages.wazuh.com/wazuh-manager-example/x86_64/rpm/
+wazuh_agent_amd64_deb: https://packages.wazuh.com/wazuh-agent-example/amd64/deb/
 """,
 )
 def test_format_component_urls_file_valid(mock_file):
@@ -197,12 +200,7 @@ def test_format_component_urls_file_valid(mock_file):
             },
             "rpm": {},
         },
-        "wazuh_manager": {
-            "deb": {},
-            "rpm": {
-                "x86_64": "https://packages.wazuh.com/wazuh-manager-example/x86_64/rpm/",
-            },
-        },
+        "wazuh_manager": {"deb": {}, "rpm": {}},
         "wazuh_dashboard": {"deb": {}, "rpm": {}},
         "wazuh_agent": {
             "deb": {
@@ -224,8 +222,8 @@ def test_format_component_urls_file_empty(mock_file):
     "builtins.open",
     new_callable=mock_open,
     read_data="""
-wazuh_indexer_url_amd64_deb: https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/
-wazuh_manager_url_arm64_rpm: https://packages.wazuh.com/wazuh-manager-example/x86_64/rpm/
+wazuh_indexer_amd64_deb: https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/
+wazuh_manager_arm64_rpm: https://packages.wazuh.com/wazuh-manager-example/x86_64/rpm/
 """,
 )
 def test_format_component_urls_file_partial(mock_file):
