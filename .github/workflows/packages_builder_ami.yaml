@@ -384,11 +384,11 @@ jobs:
             --launch-permission "Add=[{UserId=${{ secrets.AWS_ACCOUNT_ID_WAZUH_DEV }}},{UserId=${{ secrets.AWS_ACCOUNT_ID_XDRSIEM_DEV }}}]"
 
       - name: Save AMI ID to artifact
-        if: success() && inputs.is_pr_check == true
+        if: success() && (inputs.is_pr_check == true || inputs.is_stage == true)
         run: echo "${{ env.AMI_ID }}" > ami_id.txt
 
       - name: Upload AMI ID artifact
-        if: success() && inputs.is_pr_check == true
+        if: success() && (inputs.is_pr_check == true || inputs.is_stage == true)
         uses: actions/upload-artifact@v4
         with:
           name: ami_id_${{ matrix.arch }}
@@ -443,3 +443,82 @@ jobs:
             echo "ami_id_arm64=${AMI_ID_ARM64}" >> $GITHUB_OUTPUT
             echo "AMI ID arm64: ${AMI_ID_ARM64}"
           fi
+
+  update_os_yml:
+    needs: Build_AMI
+    if: always() && inputs.is_stage == true
+    runs-on:
+      group: wz-linux-amd64
+    steps:
+      - name: Checkout wazuh/wazuh-virtual-machines repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.wazuh_virtual_machines_reference }}
+
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
+          aws-region: us-east-1
+
+      - name: Install yq
+        run: |
+          sudo wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
+
+      - name: Get Wazuh version
+        run: |
+          WAZUH_VERSION=$(jq -r '.version' VERSION.json)
+          WAZUH_VERSION_NODOTS=$(echo "${WAZUH_VERSION}" | tr -d '.')
+          echo WAZUH_VERSION_NODOTS=${WAZUH_VERSION_NODOTS} >> $GITHUB_ENV
+
+      - name: Download AMI ID artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ami_id_*
+          merge-multiple: false
+
+      - name: Update os.yml with new AMIs
+        run: |
+          OS_YML_LOCAL=/tmp/os.yml
+          OS_YML_S3_PATH="s3://${{ vars.AWS_S3_BUCKET_ARTIFACTS_PUB }}/${{ vars.AWS_ARTIFACTS_PUB_OS_PATH }}os.yml"
+
+          # Download current os.yml from S3
+          aws s3 cp "${OS_YML_S3_PATH}" "${OS_YML_LOCAL}"
+
+          # CAUTION: the following commands modify the os.yml file, blank spaces are relevant
+          for ARCH in amd64 arm64; do
+            AMI_FILE="ami_id_${ARCH}/ami_id.txt"
+            if [ ! -f "${AMI_FILE}" ]; then
+              echo "No AMI ID found for ${ARCH}, skipping."
+              continue
+            fi
+
+            export OS_KEY="wazuh_ami-${{ env.WAZUH_VERSION_NODOTS }}-${ARCH}"
+            export AMI_VALUE=$(cat "${AMI_FILE}")
+
+            ENTRY_EXISTS=$(yq '.aws.[env(OS_KEY)] != null' "${OS_YML_LOCAL}")
+
+            if [ "${ENTRY_EXISTS}" == "true" ]; then
+              # Entry exists: update only the ami value with yq
+              yq -i '.aws.[env(OS_KEY)].ami = env(AMI_VALUE)' "${OS_YML_LOCAL}"
+            else
+              NEW_BLOCK=$(printf '  %s:\n    ami: %s\n    user: wazuh-user' "${OS_KEY}" "${AMI_VALUE}")
+              if grep -q '# Wazuh AMIs' "${OS_YML_LOCAL}"; then
+                # Comment exists: insert the new entry right after the comment line
+                sed -i "/# Wazuh AMIs/a\\${NEW_BLOCK}" "${OS_YML_LOCAL}"
+              else
+                # Comment does not exist: append comment and new entry at the end of the file
+                printf '  # Wazuh AMIs\n%s\n' "${NEW_BLOCK}" >> "${OS_YML_LOCAL}"
+              fi
+            fi
+          done
+
+          # Upload updated os.yml back to S3
+          aws s3 cp "${OS_YML_LOCAL}" "${OS_YML_S3_PATH}"
+
+          # Set public-read ACL so the file is accessible to everyone
+          aws s3api put-object-acl \
+            --bucket "${{ vars.AWS_S3_BUCKET_ARTIFACTS_PUB }}" \
+            --key "${{ vars.AWS_ARTIFACTS_PUB_OS_PATH }}os.yml" \
+            --acl public-read
