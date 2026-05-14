@@ -500,10 +500,10 @@ jobs:
             ENTRY_EXISTS=$(yq '.aws.[env(OS_KEY)] != null' "${OS_YML_LOCAL}")
 
             if [ "${ENTRY_EXISTS}" == "true" ]; then
-              # Entry exists: update only the ami value with yq
-              yq -i '.aws.[env(OS_KEY)].ami = env(AMI_VALUE)' "${OS_YML_LOCAL}"
+              # Entry exists: update ami and ensure zone is set
+              yq -i '.aws.[env(OS_KEY)].ami = env(AMI_VALUE) | .aws.[env(OS_KEY)].zone = "us-east-1"' "${OS_YML_LOCAL}"
             else
-              NEW_BLOCK=$(printf '  %s:\n    ami: %s\n    user: wazuh-user' "${OS_KEY}" "${AMI_VALUE}")
+              NEW_BLOCK=$(printf '  %s:\n    ami: %s\n    zone: us-east-1\n    user: wazuh-user' "${OS_KEY}" "${AMI_VALUE}")
               if grep -q '# Wazuh AMIs' "${OS_YML_LOCAL}"; then
                 # Comment exists: insert the new entry right after the comment line
                 sed -i "/# Wazuh AMIs/a\\${NEW_BLOCK}" "${OS_YML_LOCAL}"
