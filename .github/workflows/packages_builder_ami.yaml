@@ -503,13 +503,14 @@ jobs:
               # Entry exists: update ami and ensure zone is set
               yq -i '.aws.[env(OS_KEY)].ami = env(AMI_VALUE) | .aws.[env(OS_KEY)].zone = "us-east-1"' "${OS_YML_LOCAL}"
             else
-              NEW_BLOCK=$(printf '  %s:\n    ami: %s\n    zone: us-east-1\n    user: wazuh-user' "${OS_KEY}" "${AMI_VALUE}")
               if grep -q '# Wazuh AMIs' "${OS_YML_LOCAL}"; then
-                # Comment exists: insert the new entry right after the comment line
-                sed -i "/# Wazuh AMIs/a\\${NEW_BLOCK}" "${OS_YML_LOCAL}"
+                # Comment exists: insert the new entry right after the comment line using awk
+                awk -v key="${OS_KEY}" -v ami="${AMI_VALUE}" \
+                  '/# Wazuh AMIs/{print; printf "  %s:\n    ami: %s\n    zone: us-east-1\n    user: wazuh-user\n", key, ami; next}1' \
+                  "${OS_YML_LOCAL}" > "${OS_YML_LOCAL}.tmp" && mv "${OS_YML_LOCAL}.tmp" "${OS_YML_LOCAL}"
               else
                 # Comment does not exist: append comment and new entry at the end of the file
-                printf '  # Wazuh AMIs\n%s\n' "${NEW_BLOCK}" >> "${OS_YML_LOCAL}"
+                printf '  # Wazuh AMIs\n  %s:\n    ami: %s\n    zone: us-east-1\n    user: wazuh-user\n' "${OS_KEY}" "${AMI_VALUE}" >> "${OS_YML_LOCAL}"
               fi
             fi
           done
