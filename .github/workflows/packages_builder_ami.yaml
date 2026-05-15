@@ -366,8 +366,14 @@ jobs:
             DEV_TAG_VALUE="True"
           fi
 
+          if [ "${{ matrix.arch }}" == "arm64" ]; then
+            RECOMMENDED_INSTANCE_TYPE="c6g.2xlarge"
+          else
+            RECOMMENDED_INSTANCE_TYPE="c5a.2xlarge"
+          fi
+
           # Tag AMI
-          TAGS="Key=Name,Value=${{ env.AMI_NAME }} Key=Dev,Value=$DEV_TAG_VALUE Key=WorkflowRun,Value=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          TAGS="Key=Name,Value=${{ env.AMI_NAME }} Key=Dev,Value=$DEV_TAG_VALUE Key=WorkflowRun,Value=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} Key=RecommendedInstanceType,Value=$RECOMMENDED_INSTANCE_TYPE"
 
           if [ -n "${{ env.ISSUE_TAG_KEY }}" ]; then
             TAGS="$TAGS Key=${{ env.ISSUE_TAG_KEY }},Value=${{ env.ISSUE_TAG_VALUE }}"
