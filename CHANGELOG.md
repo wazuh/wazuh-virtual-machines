@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Added updating os.yml with the latest stage AMIs ([#752](https://github.com/wazuh/wazuh-virtual-machines/pull/752))
 - Added RecommendedInstanceType to the AMI builds ([#756](https://github.com/wazuh/wazuh-virtual-machines/pull/756))
 - Added identifier to OVA BOX sha512 URI ([#701](https://github.com/wazuh/wazuh-virtual-machines/pull/701))
 - Added 5.x bumper revert changes ([#684](https://github.com/wazuh/wazuh-virtual-machines/pull/684))
