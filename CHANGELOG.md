@@ -13,7 +13,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- None
+- Updated AMI and OVA builds for 4.10.4 version. ([757](https://github.com/wazuh/wazuh-virtual-machines/pull/757))
 
 ### Deleted
 
