@@ -1,6 +1,17 @@
 # OVA Installation
 
 The OVA can be deployed by downloading the `.ova` file from the official Wazuh documentation.
+You can do this by running the following command:
+
+```bash
+curl -sO https://packages.wazuh.com/production/5.x/vm/wazuh-5.0.0-1.ova
+```
+
+To use `pre-release` packages instead, use the following command:
+
+```bash
+curl -sO https://packages-staging.xdrsiem.wazuh.info/pre-release/5.x/vm/wazuh-5.0.0-<STAGE>.ova
+```
 
 ## Import and access the virtual machine
 
