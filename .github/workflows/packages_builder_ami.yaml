@@ -23,7 +23,7 @@ on:
       is_nightly:
         description: "Is nightly build?"
         type: boolean
-        required: false       
+        required: false
         default: false
       ami_revision:
         description: |
@@ -85,7 +85,7 @@ on:
         default: false
       is_nightly:
         type: boolean
-        required: false      
+        required: false
         default: false
       ami_revision:
         type: string
