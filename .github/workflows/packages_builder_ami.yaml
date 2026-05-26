@@ -20,6 +20,11 @@ on:
         type: boolean
         default: false
         required: false
+      is_nightly:
+        description: "Is nightly build?"
+        type: boolean
+        required: false       
+        default: false
       ami_revision:
         description: |
           'For AMI candidates must be a number, e,g: 1.'
@@ -77,6 +82,10 @@ on:
       is_stage:
         type: boolean
         required: false
+        default: false
+      is_nightly:
+        type: boolean
+        required: false      
         default: false
       ami_revision:
         type: string
@@ -366,6 +375,12 @@ jobs:
             DEV_TAG_VALUE="True"
           fi
 
+          if [ "${{ inputs.is_nightly }}" == "true" ]; then
+            NIGHTLY_TAG_VALUE="True"
+          else
+            NIGHTLY_TAG_VALUE="False"
+          fi
+          
           if [ "${{ matrix.arch }}" == "arm64" ]; then
             RECOMMENDED_INSTANCE_TYPE="c6g.2xlarge"
           else
@@ -373,7 +388,7 @@ jobs:
           fi
 
           # Tag AMI
-          TAGS="Key=Name,Value=${{ env.AMI_NAME }} Key=Dev,Value=$DEV_TAG_VALUE Key=WorkflowRun,Value=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} Key=RecommendedInstanceType,Value=$RECOMMENDED_INSTANCE_TYPE"
+          TAGS="Key=Name,Value=${{ env.AMI_NAME }} Key=Dev,Value=$DEV_TAG_VALUE Key=Nightly,Value=$NIGHTLY_TAG_VALUE Key=WorkflowRun,Value=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} Key=RecommendedInstanceType,Value=$RECOMMENDED_INSTANCE_TYPE"
 
           if [ -n "${{ env.ISSUE_TAG_KEY }}" ]; then
             TAGS="$TAGS Key=${{ env.ISSUE_TAG_KEY }},Value=${{ env.ISSUE_TAG_VALUE }}"
@@ -452,7 +467,7 @@ jobs:
 
   update_os_yml:
     needs: Build_AMI
-    if: always() && inputs.is_stage == true
+    if: always() && inputs.is_stage == true && inputs.is_nightly == false
     runs-on:
       group: wz-linux-amd64
     steps:
