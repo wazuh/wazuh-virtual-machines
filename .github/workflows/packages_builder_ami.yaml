@@ -380,7 +380,7 @@ jobs:
           fi
 
           # Tag AMI
-          TAGS="Key=Name,Value=${{ env.AMI_NAME }} Key=Dev,Value=$DEV_TAG_VALUE Key=Purpose,Value=${{ inputs.purpose }} Key=WorkflowRun,Value=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} Key=RecommendedInstanceType,Value=$RECOMMENDED_INSTANCE_TYPE"
+          TAGS="Key=Name,Value=${{ env.AMI_NAME }} Key=Purpose,Value=${{ inputs.purpose }} Key=WorkflowRun,Value=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} Key=RecommendedInstanceType,Value=$RECOMMENDED_INSTANCE_TYPE"
 
           if [ -n "${{ env.ISSUE_TAG_KEY }}" ]; then
             TAGS="$TAGS Key=${{ env.ISSUE_TAG_KEY }},Value=${{ env.ISSUE_TAG_VALUE }}"
