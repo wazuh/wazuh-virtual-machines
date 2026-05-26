@@ -373,7 +373,6 @@ jobs:
       - name: Tag AMI
         if: success()
         run: |
-          
           if [ "${{ matrix.arch }}" == "arm64" ]; then
             RECOMMENDED_INSTANCE_TYPE="c6g.2xlarge"
           else
