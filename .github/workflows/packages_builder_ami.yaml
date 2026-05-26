@@ -22,8 +22,14 @@ on:
         required: false
       purpose:
         description: "Purpose of the AMI build (e.g., nightly)"
-        type: string
-        required: false
+        type: choice
+        options:
+          - nightly
+          - development
+          - release
+          - pre-release
+        required: true
+        default: development
       ami_revision:
         description: |
           'For AMI candidates must be a number, e,g: 1.'
@@ -367,18 +373,6 @@ jobs:
       - name: Tag AMI
         if: success()
         run: |
-          if [ "${{ inputs.is_stage }}" == "true" ]; then
-            DEV_TAG_VALUE="False"
-          else
-            DEV_TAG_VALUE="True"
-          fi
-
-          # if purpose exists
-          if [ -n "${{ inputs.purpose }}" ]; then
-            PURPOSE_TAG_VALUE="${{ inputs.purpose }}"
-          else
-            PURPOSE_TAG_VALUE="Not specified"
-          fi
           
           if [ "${{ matrix.arch }}" == "arm64" ]; then
             RECOMMENDED_INSTANCE_TYPE="c6g.2xlarge"
@@ -387,7 +381,7 @@ jobs:
           fi
 
           # Tag AMI
-          TAGS="Key=Name,Value=${{ env.AMI_NAME }} Key=Dev,Value=$DEV_TAG_VALUE Key=Purpose,Value=$PURPOSE_TAG_VALUE Key=WorkflowRun,Value=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} Key=RecommendedInstanceType,Value=$RECOMMENDED_INSTANCE_TYPE"
+          TAGS="Key=Name,Value=${{ env.AMI_NAME }} Key=Dev,Value=$DEV_TAG_VALUE Key=Purpose,Value=${{ inputs.purpose }} Key=WorkflowRun,Value=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} Key=RecommendedInstanceType,Value=$RECOMMENDED_INSTANCE_TYPE"
 
           if [ -n "${{ env.ISSUE_TAG_KEY }}" ]; then
             TAGS="$TAGS Key=${{ env.ISSUE_TAG_KEY }},Value=${{ env.ISSUE_TAG_VALUE }}"
@@ -466,7 +460,7 @@ jobs:
 
   update_os_yml:
     needs: Build_AMI
-    if: always() && inputs.is_stage == true && inputs.is_nightly == false
+    if: always() && inputs.is_stage == true && (inputs.purpose == 'release' || inputs.purpose == 'pre-release')
     runs-on:
       group: wz-linux-amd64
     steps:
