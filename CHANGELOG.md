@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Add purpose input to the build ami workflow ([#773](https://github.com/wazuh/wazuh-virtual-machines/pull/773))
 - Added download urls for Wazuh OVA file. ([#758](https://github.com/wazuh/wazuh-virtual-machines/pull/758))
 - Add open and reopened types for pull requests trigger in check_unit_tests workflow ([#759](https://github.com/wazuh/wazuh-virtual-machines/pull/759))
 - Added updating os.yml with the latest stage AMIs ([#752](https://github.com/wazuh/wazuh-virtual-machines/pull/752))
