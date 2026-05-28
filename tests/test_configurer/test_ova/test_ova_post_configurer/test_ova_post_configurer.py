@@ -13,6 +13,7 @@ from configurer.ova.ova_post_configurer.ova_post_configurer import (
     config_grub,
     configure_ssh,
     configure_sshd,
+    delete_wazuh_indexes,
     enable_fips,
     main,
     post_conf_change_ssh_crypto_policies,
@@ -529,12 +530,30 @@ def test_configure_ssh_skips_conf_files_when_no_sshd_config_d(
     mock_sshd_config_d.glob.assert_not_called()
 
 
+def test_delete_wazuh_indexes(mock_run_command):
+    delete_wazuh_indexes()
+
+    expected_calls = [
+        call("curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/wazuh-*' -k"),
+        call("curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/_data_stream/*' -k"),
+        call("curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/.wazuh-cti-consumers' -k"),
+        call("curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/.wazuh-threatintel-vulnerabilities-*' -k"),
+        call("curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/.wazuh-settings' -k"),
+        call("curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/.wazuh-content-manager-jobs' -k"),
+    ]
+
+    mock_run_command.assert_has_calls(expected_calls, any_order=False)
+    assert mock_run_command.call_count == 6
+
+
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.steps_system_config")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.steps_clean")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.post_conf_create_network_config")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.configure_ssh")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.post_conf_clean")
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.delete_wazuh_indexes")
 def test_main(
+    mock_delete_wazuh_indexes,
     mock_post_conf_clean,
     mock_configure_ssh,
     mock_post_conf_create_network_config,
@@ -549,7 +568,7 @@ def test_main(
     mock_run_command.assert_any_call("systemctl stop wazuh-manager")
     mock_run_command.assert_any_call("systemctl stop wazuh-agent")
 
-    mock_run_command.assert_any_call("curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/wazuh-*' -k")
+    mock_delete_wazuh_indexes.assert_called_once()
 
     mock_run_command.assert_any_call("bash /usr/share/wazuh-indexer/bin/indexer-security-init.sh -ho 127.0.0.1")
 
