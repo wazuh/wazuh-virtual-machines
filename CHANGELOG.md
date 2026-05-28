@@ -13,7 +13,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- None
+- Testing fix for is_stage in ova build. ([#783](https://github.com/wazuh/wazuh-virtual-machines/pull/783))
 
 ### Deleted
 
