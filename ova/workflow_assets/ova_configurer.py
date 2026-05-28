@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 
@@ -31,6 +32,39 @@ def clone_repositories(wia_branch, wvm_branch):
     for repo in repos:
         subprocess.run(f"git clone {repo['branch']} {repo['url']} {repo['dest']}", shell=True, check=True)
 
+def extract_stage_from_branch(wia_branch):
+    """
+    Extracts the stage (rc1, beta1, etc.) from the branch name if present.
+
+    Args:
+        wia_branch (str): Branch name of the wazuh-installation-assistant repository
+
+    Returns:
+        str: Stage name (e.g., "rc1", "beta1") or empty string if no stage found
+    """
+    # Pattern to match stage indicators: -rc1, -beta1, -rc2, etc.
+    pattern = r'-(rc\d+|beta\d+|alpha\d+)'
+    match = re.search(pattern, wia_branch, re.IGNORECASE)
+
+    if match:
+        return match.group(1)
+    return ""
+
+def update_wazuh_install_stage(wazuh_install_path, stage):
+    """
+    Updates the last_stage variable in wazuh-install.sh file.
+
+    Args:
+        wazuh_install_path (str): Path to the wazuh-install.sh file
+        stage (str): Stage name (e.g., "rc1", "beta1")
+    """
+    if not stage or not os.path.exists(wazuh_install_path):
+        return
+
+    # Use sed to replace last_stage="" with last_stage="<stage>"
+    sed_command = f'sudo sed -i \'s/last_stage=""/last_stage="{stage}"/g\' {wazuh_install_path}'
+    subprocess.run(sed_command, shell=True, check=True)
+
 def build_wazuh_install(repo_path, wia_branch):
     """
     Builds the wazuh-install.sh script and moves it to /tmp
@@ -45,8 +79,14 @@ def build_wazuh_install(repo_path, wia_branch):
         os.chdir(repo_path)
         subprocess.run(f"git checkout {wia_branch}", shell=True, check=True)
         subprocess.run("sudo bash builder.sh -i", shell=True, check=True)
+
         if os.path.exists("wazuh-install.sh"):
             subprocess.run("sudo mv wazuh-install.sh /tmp/wazuh-install.sh", shell=True, check=True)
+
+            # Check if wia_branch contains a stage indicator and update the wazuh-install.sh file
+            stage = extract_stage_from_branch(wia_branch)
+            if stage:
+                update_wazuh_install_stage("/tmp/wazuh-install.sh", stage)
 
 
 def run_provision_script(wvm_branch, repository, debug):
@@ -54,6 +94,7 @@ def run_provision_script(wvm_branch, repository, debug):
     Runs the provision.sh script
 
     Args:
+        wvm_branch (str): Branch of the wazuh-virtual-machines repository
         repository (str): Production or development repository
         debug (str): Debug mode
     """
