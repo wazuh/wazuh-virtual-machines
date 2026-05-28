@@ -31,11 +31,11 @@ class MockConfigParameters(StrEnum):
 @pytest.fixture
 def expected_config_query():
     return f"""
-            sudo yq -i '.nodes.indexer[0].name = \"{Component.WAZUH_INDEXER}\" |
+            sudo yq -i '.nodes.indexer[0].name = "indexer" |
             .nodes.indexer[0].ip = "127.0.0.1" | .nodes.indexer[0].ip style="double" |
-            .nodes.manager[0].name = \"{Component.WAZUH_MANAGER}\" |
+            .nodes.manager[0].name = "manager" |
             .nodes.manager[0].ip = "127.0.0.1" | .nodes.manager[0].ip style="double" |
-            .nodes.dashboard[0].name = \"{Component.WAZUH_DASHBOARD}\" |
+            .nodes.dashboard[0].name = "dashboard" |
             .nodes.dashboard[0].ip = "127.0.0.1" | .nodes.dashboard[0].ip style="double"
             ' {RAW_CONFIG_PATH}
             """.replace("\n", "").replace(" ", "")
