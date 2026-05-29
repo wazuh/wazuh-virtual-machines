@@ -110,7 +110,7 @@ jobs:
       commit_list: '["latest", "latest", "latest", "latest", "latest"]'
       TESTS: ALL
       log_level: INFO
-      ova_revision: ${{ needs.build_ova.outputs.ova_revision }}_${{ needs.get_pr_info.outputs.pr_head_sha_short }}
+      ova_revision: latest
     secrets: inherit
 
   update_check_success:

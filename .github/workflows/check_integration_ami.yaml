@@ -141,7 +141,7 @@ jobs:
     uses: ./.github/workflows/test-vm.yaml
     with:
       WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ needs.get_pr_info.outputs.pr_head_ref }}
-      WAZUH_AUTOMATION_REFERENCE: 'main'
+      WAZUH_AUTOMATION_REFERENCE: 'change/779-update-the-deleted-indexes-in-ova-and-ami-builds'
       test_type: ami
       host: ${{ needs.build_ami.outputs.ami_id_amd64 }}
       instance_type: c5a.2xlarge
@@ -159,7 +159,7 @@ jobs:
     uses: ./.github/workflows/test-vm.yaml
     with:
       WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ needs.get_pr_info.outputs.pr_head_ref }}
-      WAZUH_AUTOMATION_REFERENCE: 'main'
+      WAZUH_AUTOMATION_REFERENCE: 'change/779-update-the-deleted-indexes-in-ova-and-ami-builds'
       test_type: ami
       host: ${{ needs.build_ami.outputs.ami_id_arm64 }}
       instance_type: c6g.2xlarge
