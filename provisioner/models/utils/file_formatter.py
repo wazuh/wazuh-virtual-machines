@@ -155,13 +155,18 @@ def format_certificates_urls_file(raw_urls_path: Path) -> dict:
         dict: A dictionary where the keys are the lowercase names of certificate
               components and the values are the corresponding URLs.
     """
-    certificates_urls = {certs_component.name.lower(): "" for certs_component in CertificatesComponent}
+    # Only include the actual certificate files, not the component node names
+    certificates_urls = {
+        CertificatesComponent.CERTS_TOOL.name.lower(): "",
+        CertificatesComponent.CONFIG.name.lower(): ""
+    }
     raw_urls_content = file_to_dict(raw_urls_path)
 
     for component_name, url in raw_urls_content.items():
-        for certs_component in CertificatesComponent:
-            if certs_component.name.lower() in component_name:
-                certificates_urls[certs_component.name.lower()] = url
+        if CertificatesComponent.CERTS_TOOL.name.lower() in component_name:
+            certificates_urls[CertificatesComponent.CERTS_TOOL.name.lower()] = url
+        elif CertificatesComponent.CONFIG.name.lower() in component_name or "certs_config" in component_name:
+            certificates_urls[CertificatesComponent.CONFIG.name.lower()] = url
     return certificates_urls
 
 

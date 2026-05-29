@@ -35,9 +35,9 @@ class CoreConfigurer:
 
         logger.debug_title("Configuring components")
         config_mappings = WazuhComponentConfigManager(files_configuration_path=self.files_configuration_path)
-        config_mappings.replace_file_entries(CertificatesComponent.INDEXER, client=client)
-        config_mappings.replace_file_entries(CertificatesComponent.MANAGER, client=client)
-        config_mappings.replace_file_entries(CertificatesComponent.DASHBOARD, client=client)
+        config_mappings.replace_file_entries(Component.WAZUH_INDEXER, client=client)
+        config_mappings.replace_file_entries(Component.WAZUH_MANAGER, client=client)
+        config_mappings.replace_file_entries(Component.WAZUH_DASHBOARD, client=client)
         config_mappings.replace_file_entries(Component.WAZUH_AGENT, client=client)
         logger.info_success("Core configuration process finished")
 

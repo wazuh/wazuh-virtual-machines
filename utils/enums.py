@@ -14,9 +14,9 @@ class PasswordToolComponent(StrEnum):
 
 
 class CertificatesComponent(StrEnum):
-    INDEXER = auto()
-    MANAGER = auto()
-    DASHBOARD = auto()
+    INDEXER = "indexer"
+    MANAGER = "manager"
+    DASHBOARD = "dashboard"
     CERTS_TOOL = "certs-tool.sh"
     CONFIG = "config.yml"
 
