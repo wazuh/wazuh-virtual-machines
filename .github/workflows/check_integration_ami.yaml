@@ -119,7 +119,7 @@ jobs:
     with:
       id: "pr-check-${{ needs.get_pr_info.outputs.pr_number }}"
       wazuh_virtual_machines_reference: ${{ needs.get_pr_info.outputs.pr_head_ref }}
-      wazuh_automation_reference: 'main'
+      wazuh_automation_reference: 'change/779-update-the-deleted-indexes-in-ova-and-ami-builds'
       is_stage: true
       ami_revision: 'check-pr'
       wazuh_package_type: dev
