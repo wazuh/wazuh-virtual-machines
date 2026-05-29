@@ -74,11 +74,11 @@ def test_init_sets_default_cert_names(mock_set_config_file_values):
     certs_manager = CertsManager(raw_config_path=raw_config_path, certs_tool_path=certs_tool_path)
 
     assert (
-        certs_manager.components_certs_default_name[Component.WAZUH_INDEXER]["cert"] == f"{Component.WAZUH_INDEXER}.pem"
+        certs_manager.components_certs_default_name[Component.WAZUH_INDEXER]["cert"] == f"{CertificatesComponent.INDEXER}.pem"
     )
     assert (
         certs_manager.components_certs_default_name[Component.WAZUH_MANAGER]["key"]
-        == f"{Component.WAZUH_MANAGER}-key.pem"
+        == f"{CertificatesComponent.MANAGER}-key.pem"
     )
     assert certs_manager.components_certs_default_name[Component.WAZUH_DASHBOARD]["ca"] == "root-ca.pem"
     mock_set_config_file_values.assert_called_once_with(raw_config_path=raw_config_path, client=None)

@@ -24,22 +24,22 @@ class CertsManager:
         # Default name for each certificate of each component when generated with the cert-tool.
         self.components_certs_default_name = {
             Component.WAZUH_INDEXER: {
-                "cert": f"{Component.WAZUH_INDEXER}.pem",
-                "key": f"{Component.WAZUH_INDEXER}-key.pem",
+                "cert": f"{CertificatesComponent.INDEXER}.pem",
+                "key": f"{CertificatesComponent.INDEXER}-key.pem",
                 "admin-cert": "admin.pem",
                 "admin-key": "admin-key.pem",
                 "ca": "root-ca.pem",
             },
             Component.WAZUH_MANAGER: {
-                "cert": f"{Component.WAZUH_MANAGER}.pem",
-                "key": f"{Component.WAZUH_MANAGER}-key.pem",
+                "cert": f"{CertificatesComponent.MANAGER}.pem",
+                "key": f"{CertificatesComponent.MANAGER}-key.pem",
                 "admin-cert": "admin.pem",
                 "admin-key": "admin-key.pem",
                 "ca": "root-ca.pem",
             },
             Component.WAZUH_DASHBOARD: {
-                "cert": f"{Component.WAZUH_DASHBOARD}.pem",
-                "key": f"{Component.WAZUH_DASHBOARD}-key.pem",
+                "cert": f"{CertificatesComponent.DASHBOARD}.pem",
+                "key": f"{CertificatesComponent.DASHBOARD}-key.pem",
                 "ca": "root-ca.pem",
             },
         }
