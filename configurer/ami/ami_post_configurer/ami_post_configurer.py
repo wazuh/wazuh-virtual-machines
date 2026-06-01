@@ -191,20 +191,30 @@ class AmiPostConfigurer:
 
     def remove_wazuh_indexes(self, client: paramiko.SSHClient) -> None:
         """
-        Remove all wazuh-* indexes.
+        Remove all Wazuh indexer indexes and data streams.
         """
 
-        logger.debug("Removing all wazuh- indexes")
+        logger.debug("Removing Wazuh indexer indexes")
 
         base_url = "https://127.0.0.1:9200"
 
-        command = f'sudo curl -s -o /dev/null -w "%{{http_code}}" -X DELETE -u "admin:admin" -k "{base_url}/wazuh-*"'
-        _, error_output = exec_command(command=command, client=client)
-        if error_output:
-            logger.error("Error removing wazuh- indexes")
-            raise RuntimeError(f"Error removing wazuh- indexes: {error_output}")
+        indexes_to_delete = [
+            "wazuh-*",
+            "_data_stream/*",
+            ".wazuh-cti-consumers",
+            ".wazuh-threatintel-vulnerabilities-*",
+            ".wazuh-settings",
+            ".wazuh-content-manager-jobs",
+        ]
 
-        logger.debug("wazuh- indexes removed successfully")
+        for index in indexes_to_delete:
+            command = f'sudo curl -s -o /dev/null -w "%{{http_code}}" -X DELETE -u "admin:admin" -k "{base_url}/{index}"'
+            _, error_output = exec_command(command=command, client=client)
+            if error_output:
+                logger.error(f"Error removing index: {index}")
+                raise RuntimeError(f"Error removing index {index}: {error_output}")
+
+        logger.debug("Wazuh indexer indexes removed successfully")
 
     def run_security_init_script(self, client: paramiko.SSHClient) -> None:
         """

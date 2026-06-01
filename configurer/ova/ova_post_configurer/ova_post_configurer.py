@@ -423,6 +423,31 @@ def configure_ssh() -> None:
     run_command("systemctl restart sshd")
 
 
+def delete_wazuh_indexes() -> None:
+    """
+    Deletes Wazuh indexer indexes and data streams.
+
+    This function removes all Wazuh-related indexes, data streams, and configuration
+    from the Wazuh indexer (OpenSearch) to ensure a clean state.
+
+    Returns:
+        None
+    """
+    logger.debug("Deleting Wazuh indexer indexes.")
+
+    indexes_to_delete = [
+        "wazuh-*",
+        "_data_stream/*",
+        ".wazuh-cti-consumers",
+        ".wazuh-threatintel-vulnerabilities-*",
+        ".wazuh-settings",
+        ".wazuh-content-manager-jobs",
+    ]
+
+    for index in indexes_to_delete:
+        run_command(f"curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/{index}' -k")
+
+
 def main() -> None:
     """
     Main function to run the OVA PostConfigurer process.
@@ -451,7 +476,7 @@ def main() -> None:
 
     run_command("systemctl stop wazuh-manager")
     run_command("systemctl stop wazuh-agent")
-    run_command("curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/wazuh-*' -k")
+    delete_wazuh_indexes()
 
     run_command("bash /usr/share/wazuh-indexer/bin/indexer-security-init.sh -ho 127.0.0.1")
 

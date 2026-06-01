@@ -13,6 +13,7 @@ def main_methods() -> list[str]:
     return [
         "create_custom_dir",
         "create_certs_env",
+        "stop_wazuh_agent",
         "stop_wazuh_manager",
         "stop_wazuh_indexer",
         "stop_wazuh_dashboard",
@@ -166,18 +167,23 @@ def test_stop_wazuh_manager(mock_ami_post_configurer, mock_exec_command, mock_pa
 def test_stop_wazuh_indexer(mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger):
     mock_ami_post_configurer.stop_wazuh_indexer(mock_paramiko.return_value)
 
-    expected_commands = {
+    expected_commands = [
         'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/wazuh-*"',
+        'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/_data_stream/*"',
+        'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/.wazuh-cti-consumers"',
+        'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/.wazuh-threatintel-vulnerabilities-*"',
+        'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/.wazuh-settings"',
+        'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/.wazuh-content-manager-jobs"',
         "sudo /usr/share/wazuh-indexer/bin/indexer-security-init.sh",
         "sudo systemctl stop wazuh-indexer",
-    }
+    ]
 
-    called_commands = {c.kwargs["command"] for c in mock_exec_command.call_args_list}
+    called_commands = [c.kwargs["command"] for c in mock_exec_command.call_args_list]
     for cmd in expected_commands:
         assert cmd in called_commands
 
-    mock_logger.debug.assert_any_call("Removing all wazuh- indexes")
-    mock_logger.debug.assert_any_call("wazuh- indexes removed successfully")
+    mock_logger.debug.assert_any_call("Removing Wazuh indexer indexes")
+    mock_logger.debug.assert_any_call("Wazuh indexer indexes removed successfully")
     mock_logger.debug.assert_any_call("Running indexer security init script")
     mock_logger.debug.assert_any_call("Indexer security init script executed successfully")
     mock_logger.debug.assert_any_call("Stopping wazuh-indexer service")
@@ -187,23 +193,32 @@ def test_stop_wazuh_indexer(mock_ami_post_configurer, mock_exec_command, mock_pa
 def test_remove_wazuh_indexes(mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger):
     mock_ami_post_configurer.remove_wazuh_indexes(mock_paramiko.return_value)
 
-    command = (
-        'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/wazuh-*"'
-    )
+    expected_commands = [
+        'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/wazuh-*"',
+        'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/_data_stream/*"',
+        'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/.wazuh-cti-consumers"',
+        'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/.wazuh-threatintel-vulnerabilities-*"',
+        'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/.wazuh-settings"',
+        'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/.wazuh-content-manager-jobs"',
+    ]
 
-    mock_exec_command.assert_called_once_with(command=command, client=mock_paramiko.return_value)
+    assert mock_exec_command.call_count == 6
 
-    mock_logger.debug.assert_any_call("Removing all wazuh- indexes")
-    mock_logger.debug.assert_any_call("wazuh- indexes removed successfully")
+    called_commands = [c.kwargs["command"] for c in mock_exec_command.call_args_list]
+    for cmd in expected_commands:
+        assert cmd in called_commands
+
+    mock_logger.debug.assert_any_call("Removing Wazuh indexer indexes")
+    mock_logger.debug.assert_any_call("Wazuh indexer indexes removed successfully")
 
 
 def test_remove_wazuh_indexes_fail(mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger):
     mock_exec_command.return_value = ("", "Command failed")
 
-    with pytest.raises(Exception, match="Error removing wazuh- indexes: Command failed"):
+    with pytest.raises(RuntimeError, match=r"Error removing index wazuh-\*: Command failed"):
         mock_ami_post_configurer.remove_wazuh_indexes(mock_paramiko.return_value)
 
-    mock_logger.error.assert_called_once_with("Error removing wazuh- indexes")
+    mock_logger.error.assert_called_once_with("Error removing index: wazuh-*")
 
 
 def test_run_security_init_script(mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger):
