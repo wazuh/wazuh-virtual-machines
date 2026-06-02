@@ -1,7 +1,26 @@
-run-name: "Check Integration AMI - #${{ github.event.issue.number }} ${{ github.event.issue.title }}"
+run-name: "Check Integration AMI - ${{ github.event_name == 'workflow_dispatch' && format('Manual - PR #{0}', inputs.pr_number) || format('#{0} {1}', github.event.issue.number, github.event.issue.title) }}"
 name: Check Integration - AMI Build & Test
 
 on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to test'
+        required: true
+        type: number
+      pr_head_ref:
+        description: 'PR branch name (optional, will be fetched if not provided)'
+        required: false
+        type: string
+      pr_head_sha:
+        description: 'PR commit SHA (optional, will be fetched if not provided)'
+        required: false
+        type: string
+      wazuh_automation_reference:
+        description: 'Wazuh Automation branch/tag to use'
+        required: false
+        type: string
+        default: 'main'
   issue_comment:
     types: [created]
 
@@ -15,11 +34,12 @@ permissions:
 jobs:
   get_pr_info:
     if: |
-      github.event.issue.pull_request &&
-      github.event.issue.state == 'open' &&
-      !github.event.issue.draft &&
-      (contains(github.event.comment.body, '/test-integration') ||
-       contains(github.event.comment.body, '/test-ami'))
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.issue.pull_request &&
+       github.event.issue.state == 'open' &&
+       !github.event.issue.draft &&
+       (contains(github.event.comment.body, '/test-integration') ||
+        contains(github.event.comment.body, '/test-ami')))
     runs-on: ubuntu-latest
     outputs:
       issue_url: ${{ steps.get_issue.outputs.issue_url }}
@@ -27,8 +47,10 @@ jobs:
       pr_head_ref: ${{ steps.pr_data.outputs.pr_head_ref }}
       pr_head_sha: ${{ steps.pr_data.outputs.pr_head_sha }}
       check_run_id: ${{ steps.create_check.outputs.result }}
+      wazuh_automation_reference: ${{ github.event_name == 'workflow_dispatch' && inputs.wazuh_automation_reference || 'main' }}
     steps:
       - name: React to comment
+        if: github.event_name == 'issue_comment'
         uses: actions/github-script@v7
         with:
           script: |
@@ -44,12 +66,26 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          PR_NUMBER="${{ github.event.issue.number }}"
+          # Get PR number from workflow_dispatch input or issue comment
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            PR_NUMBER="${{ inputs.pr_number }}"
+            INPUT_HEAD_REF="${{ inputs.pr_head_ref }}"
+            INPUT_HEAD_SHA="${{ inputs.pr_head_sha }}"
+          else
+            PR_NUMBER="${{ github.event.issue.number }}"
+            INPUT_HEAD_REF=""
+            INPUT_HEAD_SHA=""
+          fi
 
-          # Fetch PR data from API
-          PR_DATA=$(gh api repos/${{ github.repository }}/pulls/${PR_NUMBER})
-          PR_HEAD_REF=$(echo "$PR_DATA" | jq -r '.head.ref')
-          PR_HEAD_SHA=$(echo "$PR_DATA" | jq -r '.head.sha')
+          # Fetch PR data from API if needed
+          if [ -z "$INPUT_HEAD_REF" ] || [ -z "$INPUT_HEAD_SHA" ]; then
+            PR_DATA=$(gh api repos/${{ github.repository }}/pulls/${PR_NUMBER})
+            PR_HEAD_REF=$(echo "$PR_DATA" | jq -r '.head.ref')
+            PR_HEAD_SHA=$(echo "$PR_DATA" | jq -r '.head.sha')
+          else
+            PR_HEAD_REF="$INPUT_HEAD_REF"
+            PR_HEAD_SHA="$INPUT_HEAD_SHA"
+          fi
 
           echo "pr_number=${PR_NUMBER}" >> $GITHUB_OUTPUT
           echo "pr_head_ref=${PR_HEAD_REF}" >> $GITHUB_OUTPUT
@@ -88,7 +124,7 @@ jobs:
         id: create_check
         uses: actions/github-script@v7
         env:
-          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_BODY: ${{ github.event_name == 'workflow_dispatch' && 'Manual workflow dispatch' || github.event.comment.body }}
           HEAD_SHA: ${{ steps.pr_data.outputs.pr_head_sha }}
         with:
           script: |
@@ -119,7 +155,7 @@ jobs:
     with:
       id: "pr-check-${{ needs.get_pr_info.outputs.pr_number }}"
       wazuh_virtual_machines_reference: ${{ needs.get_pr_info.outputs.pr_head_ref }}
-      wazuh_automation_reference: 'change/779-update-the-deleted-indexes-in-ova-and-ami-builds'
+      wazuh_automation_reference: ${{ needs.get_pr_info.outputs.wazuh_automation_reference }}
       is_stage: true
       ami_revision: 'check-pr'
       wazuh_package_type: dev
@@ -141,7 +177,7 @@ jobs:
     uses: ./.github/workflows/test-vm.yaml
     with:
       WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ needs.get_pr_info.outputs.pr_head_ref }}
-      WAZUH_AUTOMATION_REFERENCE: 'change/779-update-the-deleted-indexes-in-ova-and-ami-builds'
+      WAZUH_AUTOMATION_REFERENCE: ${{ needs.get_pr_info.outputs.wazuh_automation_reference }}
       test_type: ami
       host: ${{ needs.build_ami.outputs.ami_id_amd64 }}
       instance_type: c5a.2xlarge
@@ -159,7 +195,7 @@ jobs:
     uses: ./.github/workflows/test-vm.yaml
     with:
       WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ needs.get_pr_info.outputs.pr_head_ref }}
-      WAZUH_AUTOMATION_REFERENCE: 'change/779-update-the-deleted-indexes-in-ova-and-ami-builds'
+      WAZUH_AUTOMATION_REFERENCE: ${{ needs.get_pr_info.outputs.wazuh_automation_reference }}
       test_type: ami
       host: ${{ needs.build_ami.outputs.ami_id_arm64 }}
       instance_type: c6g.2xlarge
