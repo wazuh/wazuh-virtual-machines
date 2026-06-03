@@ -7,7 +7,7 @@ import pytest
 from configurer.core.models.certificates_manager import CertsManager
 from configurer.core.utils import ComponentCertsConfigParameter, ComponentCertsDirectory
 from configurer.core.utils.enums import ComponentConfigFile
-from utils import Component
+from utils import Component, CertificatesComponent
 
 RAW_CONFIG_PATH = Path("/path/to/config.yml")
 CERTS_TOOL_PATH = Path("/path/to/certs-tool.sh")
@@ -31,11 +31,11 @@ class MockConfigParameters(StrEnum):
 @pytest.fixture
 def expected_config_query():
     return f"""
-            sudo yq -i '.nodes.indexer[0].name = \"{Component.WAZUH_INDEXER}\" |
+            sudo yq -i '.nodes.indexer[0].name = \"{CertificatesComponent.INDEXER}\" |
             .nodes.indexer[0].ip = "127.0.0.1" | .nodes.indexer[0].ip style="double" |
-            .nodes.manager[0].name = \"{Component.WAZUH_MANAGER}\" |
+            .nodes.manager[0].name = \"{CertificatesComponent.MANAGER}\" |
             .nodes.manager[0].ip = "127.0.0.1" | .nodes.manager[0].ip style="double" |
-            .nodes.dashboard[0].name = \"{Component.WAZUH_DASHBOARD}\" |
+            .nodes.dashboard[0].name = \"{CertificatesComponent.DASHBOARD}\" |
             .nodes.dashboard[0].ip = "127.0.0.1" | .nodes.dashboard[0].ip style="double"
             ' {RAW_CONFIG_PATH}
             """.replace("\n", "").replace(" ", "")
@@ -74,11 +74,11 @@ def test_init_sets_default_cert_names(mock_set_config_file_values):
     certs_manager = CertsManager(raw_config_path=raw_config_path, certs_tool_path=certs_tool_path)
 
     assert (
-        certs_manager.components_certs_default_name[Component.WAZUH_INDEXER]["cert"] == f"{Component.WAZUH_INDEXER}.pem"
+        certs_manager.components_certs_default_name[Component.WAZUH_INDEXER]["cert"] == f"{CertificatesComponent.INDEXER}.pem"
     )
     assert (
         certs_manager.components_certs_default_name[Component.WAZUH_MANAGER]["key"]
-        == f"{Component.WAZUH_MANAGER}-key.pem"
+        == f"{CertificatesComponent.MANAGER}-key.pem"
     )
     assert certs_manager.components_certs_default_name[Component.WAZUH_DASHBOARD]["ca"] == "root-ca.pem"
     mock_set_config_file_values.assert_called_once_with(raw_config_path=raw_config_path, client=None)

@@ -45,6 +45,7 @@ jobs:
       pr_number: ${{ steps.pr_data.outputs.pr_number }}
       pr_head_ref: ${{ steps.pr_data.outputs.pr_head_ref }}
       pr_head_sha: ${{ steps.pr_data.outputs.pr_head_sha }}
+      pr_head_sha_short: ${{ steps.pr_data.outputs.pr_head_sha_short }}
       check_run_id: ${{ steps.create_check.outputs.result }}
       wazuh_automation_reference: ${{ github.event_name == 'workflow_dispatch' && inputs.wazuh_automation_reference || 'main' }}
     steps:
@@ -89,9 +90,10 @@ jobs:
           echo "pr_number=${PR_NUMBER}" >> $GITHUB_OUTPUT
           echo "pr_head_ref=${PR_HEAD_REF}" >> $GITHUB_OUTPUT
           echo "pr_head_sha=${PR_HEAD_SHA}" >> $GITHUB_OUTPUT
+          echo "pr_head_sha_short=${PR_HEAD_SHA_SHORT}" >> $GITHUB_OUTPUT
           echo "✅ PR: #${PR_NUMBER}"
           echo "✅ Branch: ${PR_HEAD_REF}"
-          echo "✅ SHA: ${PR_HEAD_SHA}"
+          echo "✅ SHA: ${PR_HEAD_SHA} (short: ${PR_HEAD_SHA_SHORT})"
 
       - name: Create check run
         id: create_check
@@ -149,7 +151,7 @@ jobs:
       commit_list: '["latest", "latest", "latest", "latest", "latest"]'
       TESTS: ALL
       log_level: INFO
-      ova_revision: ${{ needs.build_ova.outputs.ova_revision }}
+      ova_revision: latest
     secrets: inherit
 
   update_check_success:

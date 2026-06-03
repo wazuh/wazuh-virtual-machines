@@ -5,7 +5,7 @@ import paramiko
 
 from configurer.core.utils import ComponentCertsConfigParameter, ComponentCertsDirectory, ComponentConfigFile
 from generic import exec_command
-from utils import Component, Logger
+from utils import Component, Logger, CertificatesComponent
 
 logger = Logger("CertsManager")
 
@@ -24,22 +24,22 @@ class CertsManager:
         # Default name for each certificate of each component when generated with the cert-tool.
         self.components_certs_default_name = {
             Component.WAZUH_INDEXER: {
-                "cert": f"{Component.WAZUH_INDEXER}.pem",
-                "key": f"{Component.WAZUH_INDEXER}-key.pem",
+                "cert": f"{CertificatesComponent.INDEXER}.pem",
+                "key": f"{CertificatesComponent.INDEXER}-key.pem",
                 "admin-cert": "admin.pem",
                 "admin-key": "admin-key.pem",
                 "ca": "root-ca.pem",
             },
             Component.WAZUH_MANAGER: {
-                "cert": f"{Component.WAZUH_MANAGER}.pem",
-                "key": f"{Component.WAZUH_MANAGER}-key.pem",
+                "cert": f"{CertificatesComponent.MANAGER}.pem",
+                "key": f"{CertificatesComponent.MANAGER}-key.pem",
                 "admin-cert": "admin.pem",
                 "admin-key": "admin-key.pem",
                 "ca": "root-ca.pem",
             },
             Component.WAZUH_DASHBOARD: {
-                "cert": f"{Component.WAZUH_DASHBOARD}.pem",
-                "key": f"{Component.WAZUH_DASHBOARD}-key.pem",
+                "cert": f"{CertificatesComponent.DASHBOARD}.pem",
+                "key": f"{CertificatesComponent.DASHBOARD}-key.pem",
                 "ca": "root-ca.pem",
             },
         }
@@ -86,11 +86,11 @@ class CertsManager:
 
         logger.debug("Setting config file values")
         yq_query = f"""
-            sudo yq -i '.nodes.indexer[0].name = \"{Component.WAZUH_INDEXER}\" |
+            sudo yq -i '.nodes.indexer[0].name = \"{CertificatesComponent.INDEXER}\" |
             .nodes.indexer[0].ip = "127.0.0.1" | .nodes.indexer[0].ip style="double" |
-            .nodes.manager[0].name = \"{Component.WAZUH_MANAGER}\" |
+            .nodes.manager[0].name = \"{CertificatesComponent.MANAGER}\" |
             .nodes.manager[0].ip = "127.0.0.1" | .nodes.manager[0].ip style="double" |
-            .nodes.dashboard[0].name = \"{Component.WAZUH_DASHBOARD}\" |
+            .nodes.dashboard[0].name = \"{CertificatesComponent.DASHBOARD}\" |
             .nodes.dashboard[0].ip = "127.0.0.1" | .nodes.dashboard[0].ip style="double"
             ' {raw_config_path}
             """
