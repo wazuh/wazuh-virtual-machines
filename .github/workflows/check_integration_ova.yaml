@@ -1,0 +1,216 @@
+run-name: "Check Integration OVA - ${{ github.event_name == 'workflow_dispatch' && format('Manual - PR #{0}', inputs.pr_number) || format('#{0} {1}', github.event.issue.number, github.event.issue.title) }}"
+name: Check Integration - OVA Build & Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to test'
+        required: true
+        type: number
+      pr_head_ref:
+        description: 'PR branch name (optional, will be fetched if not provided)'
+        required: false
+        type: string
+      pr_head_sha:
+        description: 'PR commit SHA (optional, will be fetched if not provided)'
+        required: false
+        type: string
+      wazuh_automation_reference:
+        description: 'Wazuh Automation branch/tag to use'
+        required: false
+        type: string
+        default: 'main'
+  issue_comment:
+    types: [created]
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+  issues: write
+  checks: write
+
+jobs:
+  get_pr_info:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.issue.pull_request &&
+       github.event.issue.state == 'open' &&
+       !github.event.issue.draft &&
+       (contains(github.event.comment.body, '/test-integration') ||
+        contains(github.event.comment.body, '/test-ova')))
+    runs-on: ubuntu-latest
+    outputs:
+      pr_number: ${{ steps.pr_data.outputs.pr_number }}
+      pr_head_ref: ${{ steps.pr_data.outputs.pr_head_ref }}
+      pr_head_sha: ${{ steps.pr_data.outputs.pr_head_sha }}
+      check_run_id: ${{ steps.create_check.outputs.result }}
+      wazuh_automation_reference: ${{ github.event_name == 'workflow_dispatch' && inputs.wazuh_automation_reference || 'main' }}
+    steps:
+      - name: React to comment
+        if: github.event_name == 'issue_comment'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'rocket'
+            });
+
+      - name: Extract PR data
+        id: pr_data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Get PR number from workflow_dispatch input or issue comment
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            PR_NUMBER="${{ inputs.pr_number }}"
+            INPUT_HEAD_REF="${{ inputs.pr_head_ref }}"
+            INPUT_HEAD_SHA="${{ inputs.pr_head_sha }}"
+          else
+            PR_NUMBER="${{ github.event.issue.number }}"
+            INPUT_HEAD_REF=""
+            INPUT_HEAD_SHA=""
+          fi
+
+          # Fetch PR data from API if needed
+          if [ -z "$INPUT_HEAD_REF" ] || [ -z "$INPUT_HEAD_SHA" ]; then
+            PR_DATA=$(gh api repos/${{ github.repository }}/pulls/${PR_NUMBER})
+            PR_HEAD_REF=$(echo "$PR_DATA" | jq -r '.head.ref')
+            PR_HEAD_SHA=$(echo "$PR_DATA" | jq -r '.head.sha')
+          else
+            PR_HEAD_REF="$INPUT_HEAD_REF"
+            PR_HEAD_SHA="$INPUT_HEAD_SHA"
+          fi
+
+          echo "pr_number=${PR_NUMBER}" >> $GITHUB_OUTPUT
+          echo "pr_head_ref=${PR_HEAD_REF}" >> $GITHUB_OUTPUT
+          echo "pr_head_sha=${PR_HEAD_SHA}" >> $GITHUB_OUTPUT
+          echo "✅ PR: #${PR_NUMBER}"
+          echo "✅ Branch: ${PR_HEAD_REF}"
+          echo "✅ SHA: ${PR_HEAD_SHA}"
+
+      - name: Create check run
+        id: create_check
+        uses: actions/github-script@v7
+        env:
+          COMMENT_BODY: ${{ github.event_name == 'workflow_dispatch' && 'Manual workflow dispatch' || github.event.comment.body }}
+          HEAD_SHA: ${{ steps.pr_data.outputs.pr_head_sha }}
+        with:
+          script: |
+            const commentBody = process.env.COMMENT_BODY;
+            const headSha = process.env.HEAD_SHA;
+
+            const { data: check } = await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'OVA Build & Test',
+              head_sha: headSha,
+              status: 'in_progress',
+              started_at: new Date().toISOString(),
+              details_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              output: {
+                title: '🔨 Building OVA...',
+                summary: `Triggered by comment: \`${commentBody}\``,
+                text: 'Building OVA image and running integration tests'
+              }
+            });
+
+            console.log('✅ Check run created:', check.id);
+            return check.id;
+
+  build_ova:
+    needs: get_pr_info
+    uses: ./.github/workflows/builder_OVA.yaml
+    with:
+      id: "pr-check-${{ needs.get_pr_info.outputs.pr_number }}"
+      wazuh_virtual_machines_reference: ${{ needs.get_pr_info.outputs.pr_head_ref }}
+      wazuh_automation_reference: ${{ needs.get_pr_info.outputs.wazuh_automation_reference }}
+      is_stage: false
+      ova_revision: "PR-${{ needs.get_pr_info.outputs.pr_number }}"
+      wazuh_package_type: dev
+      commit_list: '["latest", "latest", "latest", "latest", "latest"]'
+      destroy: true
+      checksum: false
+      is_pr_check: true
+    secrets: inherit
+
+  test_ova:
+    needs: [get_pr_info, build_ova]
+    uses: ./.github/workflows/test-vm.yaml
+    with:
+      WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ needs.get_pr_info.outputs.pr_head_ref }}
+      WAZUH_AUTOMATION_REFERENCE: ${{ needs.get_pr_info.outputs.wazuh_automation_reference }}
+      test_type: ova
+      wazuh_package_type: dev
+      commit_list: '["latest", "latest", "latest", "latest", "latest"]'
+      TESTS: ALL
+      log_level: INFO
+      ova_revision: ${{ needs.build_ova.outputs.ova_revision }}
+    secrets: inherit
+
+  update_check_success:
+    needs: [get_pr_info, build_ova, test_ova]
+    if: success()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update check - success
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.checks.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              check_run_id: ${{ needs.get_pr_info.outputs.check_run_id }},
+              status: 'completed',
+              conclusion: 'success',
+              completed_at: new Date().toISOString(),
+              output: {
+                title: '✅ OVA Build & Test - Success',
+                summary: 'All tests passed!',
+                text: `
+                  ## Results
+
+                  - ✅ OVA built successfully
+                  - ✅ Integration tests passed
+
+                  [View workflow run](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
+                `
+              }
+            });
+
+  update_check_failure:
+    needs: [get_pr_info, build_ova, test_ova]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update check - failure
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const buildStatus = '${{ needs.build_ova.result }}';
+            const testStatus = '${{ needs.test_ova.result }}';
+
+            await github.rest.checks.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              check_run_id: ${{ needs.get_pr_info.outputs.check_run_id }},
+              status: 'completed',
+              conclusion: 'failure',
+              completed_at: new Date().toISOString(),
+              output: {
+                title: '❌ OVA Build & Test - Failed',
+                summary: 'One or more steps failed',
+                text: `
+                  ## Results
+
+                  - Build OVA: ${buildStatus}
+                  - Test OVA: ${testStatus}
+
+                  [View workflow run for details](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
+                `
+              }
+            });

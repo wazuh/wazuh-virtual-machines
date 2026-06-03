@@ -1,0 +1,29 @@
+from enum import StrEnum
+
+
+class ComponentConfigFile(StrEnum):
+    WAZUH_MANAGER = "/var/wazuh-manager/etc/wazuh-manager.conf"
+    WAZUH_INDEXER = "/etc/wazuh-indexer/opensearch.yml"
+    WAZUH_DASHBOARD = "/etc/wazuh-dashboard/opensearch_dashboards.yml"
+
+
+class ComponentCertsDirectory(StrEnum):
+    WAZUH_MANAGER = "/var/wazuh-manager/etc/certs"
+    WAZUH_INDEXER = "/etc/wazuh-indexer/certs"
+    WAZUH_DASHBOARD = "/etc/wazuh-dashboard/certs"
+
+
+class ComponentCertsConfigParameter(StrEnum):
+    # This syntax is needed for yq to correctly identify the path to modify.
+    # Wazuh Manager
+    WAZUH_MANAGER_KEY = "wazuh_config.indexer.ssl.key"
+    WAZUH_MANAGER_CERT = "wazuh_config.indexer.ssl.certificate"
+    WAZUH_MANAGER_CA = "wazuh_config.indexer.ssl.certificate_authorities.ca"
+    # Wazuh Indexer
+    WAZUH_INDEXER_KEY = "plugins.security.ssl.http.pemkey_filepath"
+    WAZUH_INDEXER_CERT = "plugins.security.ssl.http.pemcert_filepath"
+    WAZUH_INDEXER_CA = "plugins.security.ssl.http.pemtrustedcas_filepath"
+    # Wazuh Dashboard
+    WAZUH_DASHBOARD_KEY = "server.ssl.key"
+    WAZUH_DASHBOARD_CERT = "server.ssl.certificate"
+    WAZUH_DASHBOARD_CA = "opensearch.ssl.certificateAuthorities"
