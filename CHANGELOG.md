@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Improve error handling in OVA build, to avoid public broken OVA ([#794](https://github.com/wazuh/wazuh-virtual-machines/pull/794))
 - Testing fix for is_stage in ova build. ([#783](https://github.com/wazuh/wazuh-virtual-machines/pull/783))
 
 ### Deleted
