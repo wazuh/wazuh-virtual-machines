@@ -14,56 +14,75 @@ CUSTOM_PATH="${ASSETS_PATH}/custom"
 INSTALL_ARGS="-a"
 
 check_services() {
-    local retries
-    local http_status
+    local retries http_status overall_ok=true
 
+    # wazuh-indexer
     echo "Checking wazuh-indexer"
     retries=0
+    local indexer_status="OK"
     while true; do
         http_status=$(curl -XGET https://localhost:9200/ -uadmin:admin -k \
             --max-time 30 -s -o /dev/null -w "%{http_code}")
         [ "${http_status}" -eq 200 ] && break
         retries=$((retries + 1))
         if [ "${retries}" -ge 5 ]; then
-            echo "ERROR: wazuh-indexer health check failed (HTTP ${http_status})"
-            exit 1
+            indexer_status="FAIL (HTTP ${http_status})"
+            overall_ok=false
+            break
         fi
         echo "wazuh-indexer not ready, retrying in 10s (${retries}/5)"
         sleep 10
     done
-    echo "wazuh-indexer OK"
 
+    # wazuh-manager
     echo "Checking wazuh-manager"
+    local manager_status="OK"
     if ! systemctl is-active --quiet wazuh-manager; then
-        echo "ERROR: wazuh-manager is not active"
+        manager_status="FAIL"
+        overall_ok=false
         systemctl status wazuh-manager || true
-        exit 1
     fi
-    echo "wazuh-manager OK"
 
+    # wazuh-dashboard
     echo "Checking wazuh-dashboard"
     retries=0
+    local dashboard_status="OK"
     while true; do
         http_status=$(curl -XGET https://localhost:443/status -uadmin:admin -k \
             --max-time 30 -s -o /dev/null -w "%{http_code}")
         [ "${http_status}" -eq 200 ] && break
         retries=$((retries + 1))
         if [ "${retries}" -ge 20 ]; then
-            echo "ERROR: wazuh-dashboard health check failed (HTTP ${http_status})"
-            exit 1
+            dashboard_status="FAIL (HTTP ${http_status})"
+            overall_ok=false
+            break
         fi
         echo "wazuh-dashboard not ready, retrying in 15s (${retries}/20)"
         sleep 15
     done
-    echo "wazuh-dashboard OK"
 
+    # filebeat
     echo "Checking filebeat"
+    local filebeat_status="OK"
     if filebeat test output 2>&1 | grep -qi "ERROR"; then
-        echo "ERROR: filebeat test output reported errors"
+        filebeat_status="FAIL"
+        overall_ok=false
         filebeat test output
+    fi
+
+    echo "=============================="
+    echo " Service health check results"
+    echo "=============================="
+    printf "  %-20s %s\n" "wazuh-indexer"   "${indexer_status}"
+    printf "  %-20s %s\n" "wazuh-manager"   "${manager_status}"
+    printf "  %-20s %s\n" "wazuh-dashboard" "${dashboard_status}"
+    printf "  %-20s %s\n" "filebeat"        "${filebeat_status}"
+    echo "=============================="
+
+    if ! $overall_ok; then
+        echo "ERROR: one or more services failed — aborting OVA generation"
         exit 1
     fi
-    echo "filebeat OK"
 
     echo "All services healthy"
 }
