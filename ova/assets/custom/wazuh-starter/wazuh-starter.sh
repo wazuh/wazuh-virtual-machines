@@ -60,6 +60,22 @@ function verify_indexer() {
   done
 }
 
+function verify_manager() {
+  logger "Waiting for Wazuh Manager to be ready"
+  retries=0
+  max_retries=10
+  while ! systemctl is-active --quiet wazuh-manager; do
+      logger -w "Wazuh Manager is not active yet, waiting 5 seconds"
+      sleep 5
+      retries=$((retries + 1))
+      if [ "${retries}" -eq "${max_retries}" ]; then
+          logger -e "Wazuh Manager failed to start after ${max_retries} retries"
+          systemctl status wazuh-manager || true
+          exit 1
+      fi
+  done
+}
+
 function verify_filebeat() {
   logger "Waiting for Filebeat to be ready"
   if  filebeat test output | grep -q -i -w "ERROR"; then
@@ -105,6 +121,8 @@ starter_service wazuh-indexer
 verify_indexer
 
 starter_service wazuh-manager
+verify_manager
+
 starter_service filebeat
 verify_filebeat
 

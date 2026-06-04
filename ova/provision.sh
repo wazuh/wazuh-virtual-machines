@@ -13,6 +13,79 @@ ASSETS_PATH="${CURRENT_PATH}/assets"
 CUSTOM_PATH="${ASSETS_PATH}/custom"
 INSTALL_ARGS="-a"
 
+check_services() {
+    local retries http_status overall_ok=true
+
+    # wazuh-indexer
+    echo "Checking wazuh-indexer"
+    retries=0
+    local indexer_status="OK"
+    while true; do
+        http_status=$(curl -XGET https://localhost:9200/ -uadmin:admin -k \
+            --max-time 30 -s -o /dev/null -w "%{http_code}")
+        [ "${http_status}" -eq 200 ] && break
+        retries=$((retries + 1))
+        if [ "${retries}" -ge 5 ]; then
+            indexer_status="FAIL (HTTP ${http_status})"
+            overall_ok=false
+            break
+        fi
+        echo "wazuh-indexer not ready, retrying in 10s (${retries}/5)"
+        sleep 10
+    done
+
+    # wazuh-manager
+    echo "Checking wazuh-manager"
+    local manager_status="OK"
+    if ! systemctl is-active --quiet wazuh-manager; then
+        manager_status="FAIL"
+        overall_ok=false
+        systemctl status wazuh-manager || true
+    fi
+
+    # wazuh-dashboard
+    echo "Checking wazuh-dashboard"
+    retries=0
+    local dashboard_status="OK"
+    while true; do
+        http_status=$(curl -XGET https://localhost:443/status -uadmin:admin -k \
+            --max-time 30 -s -o /dev/null -w "%{http_code}")
+        [ "${http_status}" -eq 200 ] && break
+        retries=$((retries + 1))
+        if [ "${retries}" -ge 20 ]; then
+            dashboard_status="FAIL (HTTP ${http_status})"
+            overall_ok=false
+            break
+        fi
+        echo "wazuh-dashboard not ready, retrying in 15s (${retries}/20)"
+        sleep 15
+    done
+
+    # filebeat
+    echo "Checking filebeat"
+    local filebeat_status="OK"
+    if filebeat test output 2>&1 | grep -qi "ERROR"; then
+        filebeat_status="FAIL"
+        overall_ok=false
+        filebeat test output
+    fi
+
+    echo "=============================="
+    echo " Service health check results"
+    echo "=============================="
+    printf "  %-20s %s\n" "wazuh-indexer"   "${indexer_status}"
+    printf "  %-20s %s\n" "wazuh-manager"   "${manager_status}"
+    printf "  %-20s %s\n" "wazuh-dashboard" "${dashboard_status}"
+    printf "  %-20s %s\n" "filebeat"        "${filebeat_status}"
+    echo "=============================="
+
+    if ! $overall_ok; then
+        echo "WARNING: one or more services reported issues (OVA generation continues)"
+    else
+        echo "All services healthy"
+    fi
+}
+
 if [[ "${PACKAGES_REPOSITORY}" == "dev" ]]; then
   INSTALL_ARGS+=" -d pre-release"
 elif [[ "${PACKAGES_REPOSITORY}" == "staging" ]]; then
@@ -40,6 +113,9 @@ preInstall
 # Install
 echo "Installing Wazuh central components"
 bash ${INSTALLER} ${INSTALL_ARGS}
+
+echo "Checking services health"
+check_services
 
 echo "Stopping Filebeat and Wazuh Manager"
 systemctl stop filebeat wazuh-manager
