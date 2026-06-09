@@ -67,14 +67,17 @@ This workflow accepts the following inputs:
 - `id`: Unique identifier for the workflow run.
 - `wazuh_virtual_machines_reference`: Branch or tag of the `wazuh-virtual-machines` repository.
 - `wazuh_automation_reference`: Branch or tag of the `wazuh-automation` repository.
+- `is_stage`: Whether this is a stage build. When `true`, the AMI name will not include the commit SHA suffix.
+- `purpose`: Purpose of the AMI build. Options: `nightly`, `development`, `release`, `pre-release`. Used as a tag on the resulting AMI.
 - `ami_revision`: Suffix for the AMI name.
-  For AMI candidates, this must be a number (e.g., `-1`).
-  For development AMIs, you can use a different format (e.g., `-dev`).
-- `wazuh_package_type`: Package type used for the AMI: `release`, `pre-release`, or `dev`.
-- `architecture`: Determine the architecture. It must be a string list (JSON format). E.g: ["amd64", "arm64"]
-- `commit_list`: Wazuh components revisions (comma-separated string list) ["indexer-revision", "manager-revision", "dashboard-revision"]'
-          (Only needed if the Wazuh package type is dev-latest or dev-commit)
-- `customizer_debug`: Enable debug mode in the AMI customizer
+  For AMI candidates, this must be a number (e.g., `1`).
+  For development AMIs, you can use a different format (e.g., `dev`).
+- `wazuh_package_type`: Package type used for the AMI: `prod`, `pre-prod`, or `dev`.
+- `architecture`: Determine the architecture. It must be a string list (JSON format). E.g: `["amd64", "arm64"]`
+- `commit_list`: Wazuh components revisions (JSON list) `["indexer-revision", "manager-revision", "dashboard-revision", "agent-revision", "assistant-revision"]`.
+  Only needed if `wazuh_package_type` is `dev`.
+- `customizer_debug`: Enable debug mode in the AMI customizer.
+- `issue`: URL of the GitHub issue related to this build. Must be a valid `https://github.com/wazuh/` URL.
 - `destroy`: If set, the EC2 instance used for building the AMI will be destroyed once complete.
 
 The resulting AMI will be stored in **AWS**.
