@@ -9,7 +9,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- None
+- Change file and workflow names for PR revamp 4.x. ([#814](https://github.com/wazuh/wazuh-virtual-machines/pull/814))
 
 ### Fixed
 
