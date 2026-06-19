@@ -94,8 +94,11 @@ jobs:
           export PATH="$PYENV_ROOT/bin:$PATH"
           eval "$(pyenv init -)"
           pyenv global 3.12.13
-          python3 -m venv ami_env
-          source ami_env/bin/activate
+          # Create the venv outside the workspace so that the later
+          # actions/checkout steps (which run "git clean -ffdx") don't delete it
+          # along with the packages installed into it, such as ansible.
+          python3 -m venv "$HOME/ami_venv"
+          source "$HOME/ami_venv/bin/activate"
           python3 -m pip install --upgrade pip
           echo PATH=$PATH >> $GITHUB_ENV
 

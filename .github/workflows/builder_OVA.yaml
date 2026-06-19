@@ -90,8 +90,11 @@ jobs:
           export PATH="$PYENV_ROOT/bin:$PATH"
           eval "$(pyenv init -)"
           pyenv global 3.12.13
-          python3 -m venv ova_venv
-          source ova_venv/bin/activate
+          # Create the venv outside the workspace so that the later
+          # actions/checkout steps (which run "git clean -ffdx") don't delete it
+          # along with the packages installed into it, such as ansible.
+          python3 -m venv "$HOME/ova_venv"
+          source "$HOME/ova_venv/bin/activate"
           python3 -m pip install --upgrade pip
           echo PATH=$PATH >> $GITHUB_ENV
 
