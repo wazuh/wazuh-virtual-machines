@@ -77,7 +77,7 @@ permissions:
 
 jobs:
   build_and_run:
-    runs-on: ubuntu-22.04
+    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: View parameters
         run: echo "${{ toJson(inputs) }}"
