@@ -27,6 +27,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Changed runners to AWS CodeBuild for main branch ([#820](https://github.com/wazuh/wazuh-virtual-machines/pull/820))
 - Changed the delete of Wazuh indexes process for OVA and AMI. ([#781](https://github.com/wazuh/wazuh-virtual-machines/pull/781))
 - Change the destination path of the artifact_urls file for pre-release and prod environments ([#698](https://github.com/wazuh/wazuh-virtual-machines/pull/698))
 - Changed OVA and AMI deployment requirements and documentation ([#694](https://github.com/wazuh/wazuh-virtual-machines/pull/694))
