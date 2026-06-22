@@ -128,6 +128,14 @@
     - name: Build install script
       shell: "bash {{ installation_assistant_directory }}/{{ builder_script_name }} -i"
 
+    - name: Show source_branch value in the built install script
+      shell: "grep -n 'source_branch' {{ installation_assistant_directory }}/{{ installer_script_name }}"
+      register: source_branch_value
+
+    - name: Print source_branch value
+      debug:
+        var: source_branch_value.stdout_lines
+
     - name: Build password change script
       shell: "bash {{ installation_assistant_directory }}/{{ builder_script_name }} -p"
 
@@ -191,6 +199,14 @@
 
     - name: Set last_stage variable
       shell: sed -i 's/last_stage=""/last_stage="{{ last_stage }}"/g' {{ installation_assistant_directory }}/{{ installer_script_name }}
+
+    - name: Show source_branch value in the built install script after setting last_stage
+      shell: "grep -n 'source_branch' {{ installation_assistant_directory }}/{{ installer_script_name }}"
+      register: source_branch_value
+
+    - name: Print source_branch value
+      debug:
+        var: source_branch_value.stdout_lines
 
     ###############################
     # Install stage
