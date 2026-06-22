@@ -84,16 +84,19 @@ jobs:
 
       - name: Install Python and create virtual environment
         run: |
-          # Select the 3.12 interpreter already present
-          # in the image, which has wheels available for all requirements.
-          export PYENV_ROOT="${PYENV_ROOT:-$HOME/.pyenv}"
-          export PATH="$PYENV_ROOT/bin:$PATH"
-          eval "$(pyenv init -)"
-          pyenv global 3.12.13
+          # Use the Python 3.12 interpreter already present in the runner image.
+          # which has prebuilt wheels for pinned deps such as pydantic==2.5.2
+          PYENV_ROOT="${PYENV_ROOT:-$HOME/.pyenv}"
+          # Pick the highest installed 3.12.x interpreter, regardless of patch version.
+          PYTHON_BIN=$(ls -d "$PYENV_ROOT"/versions/3.12.*/bin/python3.12 2>/dev/null | sort -V | tail -1)
+          if [ -z "$PYTHON_BIN" ]; then
+            echo "No Python 3.12.x found under $PYENV_ROOT/versions" >&2
+            exit 1
+          fi
           # Create the venv outside the workspace so that the later
           # actions/checkout steps (which run "git clean -ffdx") don't delete it
           # along with the packages installed into it, such as ansible.
-          python3 -m venv "$HOME/ova_venv"
+          "$PYTHON_BIN" -m venv "$HOME/ova_venv"
           source "$HOME/ova_venv/bin/activate"
           python3 -m pip install --upgrade pip
           echo PATH=$PATH >> $GITHUB_ENV
