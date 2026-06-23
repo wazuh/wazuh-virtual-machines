@@ -1,5 +1,5 @@
-run-name: Build AMI - Wazuh virtual machines ${{ inputs.id }} - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
-name: (5.x) Build AMI
+run-name: AMI Builder - Wazuh virtual machines ${{ inputs.id }} - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
+name: (5.x) AMI Builder
 
 on:
   workflow_dispatch:
