@@ -86,7 +86,7 @@ jobs:
     steps:
       - name: Install Ansible
         run: |
-          sudo apt-get update && sudo apt install -y python3 python3-pip python3-venv jq sshpass
+          sudo apt-get update && sudo apt install -y python3 python3-pip python3-venv jq sshpass iputils-ping
           sudo python3 -m venv /opt/ansible-venv
           sudo /opt/ansible-venv/bin/pip install ansible-core==2.16 pyyaml
           echo "/opt/ansible-venv/bin" >> "$GITHUB_PATH"
