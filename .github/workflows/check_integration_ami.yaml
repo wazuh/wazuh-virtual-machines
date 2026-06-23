@@ -20,7 +20,7 @@ on:
         description: 'Wazuh Automation branch/tag to use'
         required: false
         type: string
-        default: 'main'
+        default: '5.0.0'
   issue_comment:
     types: [created]
 
