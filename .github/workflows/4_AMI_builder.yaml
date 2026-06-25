@@ -58,7 +58,7 @@ permissions:
 
 jobs:
   Build_AMI:
-    runs-on: ubuntu-22.04
+    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: View parameters
         run: echo "${{ toJson(inputs) }}"
@@ -80,7 +80,11 @@ jobs:
             echo WAZUH_VERSION=$WAZUH_VERSION >> $GITHUB_ENV
 
       - name: Install Ansible
-        run: sudo apt-get update && sudo apt install -y python3 && python3 -m pip install --user ansible-core==2.16
+        run: |
+          sudo apt-get update && sudo apt install -y python3 python3-pip python3-venv
+          sudo python3 -m venv /opt/ansible-venv
+          sudo /opt/ansible-venv/bin/pip install ansible-core==2.16
+          echo "/opt/ansible-venv/bin" >> "$GITHUB_PATH"
 
       - name: Ansible version
         run: ansible --version
