@@ -148,8 +148,7 @@ permissions:
 
 jobs:
   Build_AMI:
-    runs-on:
-      group: wz-linux-amd64
+    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
     strategy:
       fail-fast: false
       matrix:
@@ -428,8 +427,7 @@ jobs:
   collect_ami_ids:
     needs: Build_AMI
     if: always() && inputs.is_pr_check == true
-    runs-on:
-      group: wz-linux-amd64
+    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
     outputs:
       ami_id_amd64: ${{ steps.get_ids.outputs.ami_id_amd64 }}
       ami_id_arm64: ${{ steps.get_ids.outputs.ami_id_arm64 }}
@@ -460,8 +458,7 @@ jobs:
   update_os_yml:
     needs: Build_AMI
     if: always() && inputs.is_stage == true && (inputs.purpose == 'release' || inputs.purpose == 'pre-release')
-    runs-on:
-      group: wz-linux-amd64
+    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Checkout wazuh/wazuh-virtual-machines repository
         uses: actions/checkout@v6

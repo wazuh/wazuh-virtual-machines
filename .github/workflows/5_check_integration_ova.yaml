@@ -40,7 +40,7 @@ jobs:
        !github.event.issue.draft &&
        (contains(github.event.comment.body, '/test-integration') ||
         contains(github.event.comment.body, '/test-ova')))
-    runs-on: ubuntu-latest
+    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
     outputs:
       pr_number: ${{ steps.pr_data.outputs.pr_number }}
       pr_head_ref: ${{ steps.pr_data.outputs.pr_head_ref }}
@@ -157,7 +157,7 @@ jobs:
   update_check_success:
     needs: [get_pr_info, build_ova, test_ova]
     if: success()
-    runs-on: ubuntu-latest
+    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Update check - success
         uses: actions/github-script@v7
@@ -187,7 +187,7 @@ jobs:
   update_check_failure:
     needs: [get_pr_info, build_ova, test_ova]
     if: failure()
-    runs-on: ubuntu-latest
+    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Update check - failure
         uses: actions/github-script@v7
