@@ -82,10 +82,10 @@ update_stage_in_files() {
 # Compute the value written into branch reference defaults ("default: '...'").
 # Without --tag, references stay branch-like (e.g. 5.0.0).
 # With --tag, references become tag-like (e.g. v5.0.0-beta3), or a plain release
-# tag (e.g. v5.0.0) when no stage (or "stable") is provided.
+# tag (e.g. v5.0.0) when no stage is provided.
 build_reference() {
     if [[ -n "$TAG" ]]; then
-        if [[ -z "$STAGE" || "$STAGE" == "stable" ]]; then
+        if [[ -z "$STAGE" ]]; then
             REFERENCE="v${VERSION}"
         else
             REFERENCE="v${VERSION}-${STAGE}"
@@ -166,7 +166,7 @@ main() {
     # Resolve and validate arguments depending on the mode
     if [[ -n "$TAG" ]]; then
         # Tag mode: version defaults to the current one; stage is optional
-        # (absent or "stable" yields a release tag without a stage suffix).
+        # (absent yields a release tag without a stage suffix).
         [[ -z "$VERSION" ]] && VERSION="$OLD_VERSION"
     else
         # Branch mode: a full version + stage bump is required
