@@ -34,15 +34,15 @@ def clone_repositories(wia_branch, wvm_branch):
 
 def extract_stage_from_branch(wia_branch):
     """
-    Extracts the stage (rc1, beta1, etc.) from the branch name if present.
+    Extracts the stage (rc2, beta1, etc.) from the branch name if present.
 
     Args:
         wia_branch (str): Branch name of the wazuh-installation-assistant repository
 
     Returns:
-        str: Stage name (e.g., "rc1", "beta1") or empty string if no stage found
+        str: Stage name (e.g., "rc2", "beta1") or empty string if no stage found
     """
-    # Pattern to match stage indicators: -rc1, -beta1, -rc2, etc.
+    # Pattern to match stage indicators: -rc2, -beta1, -rc2, etc.
     pattern = r'-(rc\d+|beta\d+|alpha\d+)'
     match = re.search(pattern, wia_branch, re.IGNORECASE)
 
@@ -56,7 +56,7 @@ def update_wazuh_install_stage(wazuh_install_path, stage):
 
     Args:
         wazuh_install_path (str): Path to the wazuh-install.sh file
-        stage (str): Stage name (e.g., "rc1", "beta1")
+        stage (str): Stage name (e.g., "rc2", "beta1")
     """
     if not stage or not os.path.exists(wazuh_install_path):
         return
