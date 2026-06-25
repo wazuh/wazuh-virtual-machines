@@ -1,5 +1,5 @@
 run-name: "Check Integration OVA - ${{ github.event_name == 'workflow_dispatch' && format('Manual - PR #{0}', inputs.pr_number) || format('#{0} {1}', github.event.issue.number, github.event.issue.title) }}"
-name: Check Integration - OVA Build & Test
+name: (5.x) Check Integration - OVA Build & Test
 
 on:
   workflow_dispatch:

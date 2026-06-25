@@ -1,5 +1,5 @@
 run-name: Wazuh Integration Test - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
-name: Wazuh Integration Test
+name: (5.x) Wazuh Integration Test
 
 on:
   workflow_dispatch:
