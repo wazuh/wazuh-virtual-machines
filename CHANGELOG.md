@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Change file and workflow names for PR revamp LTS. ([815](https://github.com/wazuh/wazuh-virtual-machines/pull/815))
 - Changed runners to AWS CodeBuild for 4.10.5 branch ([#827](https://github.com/wazuh/wazuh-virtual-machines/pull/827))
 
 ### Fixed
