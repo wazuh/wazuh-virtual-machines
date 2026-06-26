@@ -1,0 +1,232 @@
+run-name: OVA Builder ${{ inputs.id }} ${{ inputs.is_stage && ' - is stage' || '' }}${{ inputs.checksum && ' - checksum' || '' }} - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
+name: (4.x) OVA Builder
+
+on:
+  workflow_dispatch:
+    inputs:
+      id:
+        description: "ID used to identify the workflow uniquely."
+        type: string
+        required: false
+      wazuh_virtual_machines_reference:
+        description: 'Branch or tag of the wazuh-virtual-machines repository'
+        required: true
+      wazuh_installation_assistant_reference:
+        description: 'Branch or tag of the wazuh-installation-assistant repository'
+        required: true
+        default: '4.14.7'
+      wazuh_automation_reference:
+        description: 'Branch or tag of the wazuh-automation repository'
+        required: true
+        default: '4.14.7'
+      wazuh_package_repository:
+        type: choice
+        description: 'Wazuh package repository from which to download the packages'
+        required: true
+        options:
+          - prod
+          - dev
+          - staging
+      is_stage:
+        description: "Is stage?"
+        type: boolean
+        default: false
+      ova_revision:
+        type: string
+        description: 'Revision of the OVA file. Use "0" for development builds'
+        required: true
+        default: '0'
+      checksum:
+        type: boolean
+        description: |
+          Generate package checksum.
+          Default is 'false'.
+        required: false
+      debug:
+        type: choice
+        description: 'Debug mode'
+        required: false
+        options:
+          - -v
+          - -vv
+          - -vvv
+  workflow_call:
+    inputs:
+      id:
+        type: string
+        required: false
+      checksum:
+        type: boolean
+        required: false
+
+env:
+    INSTANCE_TYPE: "metal"
+    S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
+    S3_PATH: "development/wazuh/4.x/secondary/ova"
+    COMPOSITE_NAME: "linux-amazon-2023-amd64"
+    ALLOCATOR_PATH: "/tmp/allocatorvm_ova"
+    AWS_REGION: "us-east-1"
+    OVA_PATH: "/var/provision/wazuh-virtual-machines"
+    WIA_DIR: "wazuh-installation-assistant"
+    WIA_REPOSITORY: "https://github.com/wazuh/wazuh-installation-assistant"
+    WVM_REPOSITORY: "https://github.com/wazuh/wazuh-virtual-machines"
+
+permissions:
+  id-token: write   # This is required for requesting the JWT
+  contents: read    # This is required for actions/checkout
+
+jobs:
+  build_and_run:
+    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: View parameters
+        run: echo "${{ toJson(inputs) }}"
+
+      - name: Install Python and create virtual environment
+        run: |
+          # Use the Python 3.12 interpreter already present in the runner image.
+          # which has prebuilt wheels for pinned deps such as pydantic==2.5.2
+          PYENV_ROOT="${PYENV_ROOT:-$HOME/.pyenv}"
+          # Pick the highest installed 3.12.x interpreter, regardless of patch version.
+          PYTHON_BIN=$(ls -d "$PYENV_ROOT"/versions/3.12.*/bin/python3.12 2>/dev/null | sort -V | tail -1)
+          if [ -z "$PYTHON_BIN" ]; then
+            echo "No Python 3.12.x found under $PYENV_ROOT/versions" >&2
+            exit 1
+          fi
+          # Create the venv outside the workspace so that the later
+          # actions/checkout steps (which run "git clean -ffdx") don't delete it
+          # along with the packages installed into it, such as ansible.
+          "$PYTHON_BIN" -m venv "$HOME/ova_venv"
+          source "$HOME/ova_venv/bin/activate"
+          python3 -m pip install --upgrade pip
+          echo PATH=$PATH >> $GITHUB_ENV
+
+      - name: Install Ansible
+        run: |
+          sudo apt install -y jq sshpass
+          python3 -m pip install ansible-core==2.16
+          pip install pyyaml
+          ansible-galaxy collection install community.general
+
+      - name: Checkout wazuh/wazuh-virtual-machines repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.wazuh_virtual_machines_reference }}
+
+      - name: Checkout wazuh/wazuh-installation-assistant repository
+        uses: actions/checkout@v6
+        with:
+          repository: wazuh/wazuh-installation-assistant
+          ref: ${{ inputs.wazuh_installation_assistant_reference }}
+          token: ${{ secrets.GH_CLONE_TOKEN }}
+          path: wazuh-installation-assistant
+
+      - name: Setting FILENAME var
+        run: |
+          WAZUH_VERSION=$(jq -r '.version' VERSION.json)
+          COMMIT_SHA=$(git rev-parse --short ${{ github.sha }})
+          echo "WAZUH_VERSION=$WAZUH_VERSION" >> $GITHUB_ENV
+          FILENAME="wazuh-${WAZUH_VERSION}-${{ inputs.ova_revision }}"
+
+          if [ ${{ inputs.is_stage }} == false ]; then
+            FILENAME="${FILENAME}-${COMMIT_SHA}"
+          fi
+
+          echo "FILENAME=$FILENAME" >> $GITHUB_ENV
+          FILENAME_OVA="${FILENAME}.ova"
+          echo "FILENAME_OVA=$FILENAME_OVA" >> $GITHUB_ENV
+          FILENAME_SHA="${FILENAME}.ova.sha512"
+          echo "FILENAME_SHA=$FILENAME_SHA" >> $GITHUB_ENV
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
+          role-session-name: "OVA-Builder"
+          aws-region: "${{ env.AWS_REGION }}"
+          role-duration-seconds: 18000 # Set the duration of the role session to 5 hours
+
+      - name: Checkout wazuh/wazuh-automation repository
+        uses: actions/checkout@v6
+        with:
+          repository: wazuh/wazuh-automation
+          ref: ${{ inputs.wazuh_automation_reference }}
+          token: ${{ secrets.GH_CLONE_TOKEN }}
+          path: wazuh-automation
+
+      - name: Install and set allocator requirements
+        run: |
+          pip3 install -r wazuh-automation/deployability/deps/requirements.txt
+
+      - name: Execute allocator module that will create the base instance
+        id: alloc_vm
+        run: |
+          python3 wazuh-automation/deployability/modules/allocation/main.py --action create --provider aws --size ${{ env.INSTANCE_TYPE }} --composite-name ${{ env.COMPOSITE_NAME }} --working-dir ${{ env.ALLOCATOR_PATH }} \
+            --track-output ${{ env.ALLOCATOR_PATH }}/track.yml --inventory-output ${{ env.ALLOCATOR_PATH }}/inventory.yml --instance-name gha_${{ github.run_id }}_ova_build \
+            --label-team devops --label-termination-date 1d
+          sed -n '/hosts:/,/^[^ ]/p' ${{ env.ALLOCATOR_PATH }}/inventory.yml | grep "ansible_" | sed 's/^[ ]*//g' > ${{ env.ALLOCATOR_PATH }}/inventory_mod.yml
+
+          sed 's/: */=/g' ${{ env.ALLOCATOR_PATH }}/inventory_mod.yml > ${{ env.ALLOCATOR_PATH }}/inventory_vars.yml
+          sed -n 's/^identifier: \(.*\)$/identifier=\1/p' ${{ env.ALLOCATOR_PATH }}/track.yml >> ${{ env.ALLOCATOR_PATH }}/inventory_vars.yml
+          source ${{ env.ALLOCATOR_PATH }}/inventory_vars.yml
+
+          # Enmascarar las variables sensibles
+          echo "::add-mask::$ansible_host"
+          echo "::add-mask::$ansible_port"
+          echo "::add-mask::$ansible_user"
+          echo "::add-mask::$ansible_ssh_private_key_file"
+          echo "::add-mask::$ansible_ssh_common_args"
+          echo "::add-mask::$identifier"
+          cat "${{ env.ALLOCATOR_PATH }}/inventory_vars.yml" >> $GITHUB_ENV
+
+      - name: Generate inventory
+        run: |
+          echo "[gha_instance]" > ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini
+          echo "${{ env.ansible_host }} ansible_port=${{ env.ansible_port }} ansible_user=${{ env.ansible_user }} ansible_ssh_private_key_file=${{ env.ansible_ssh_private_key_file }} ansible_ssh_common_args='${{ env.ansible_ssh_common_args }}'" >> ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini
+
+      - name: Install Python3 in the AWS instance
+        run: |
+          ssh -p ${{ env.ansible_port }} -i ${{ env.ansible_ssh_private_key_file }} -o 'StrictHostKeyChecking no' ${{ env.ansible_user }}@${{ env.ansible_host }} "sudo yum install -y python3"
+
+      - name: Run Ansible playbook to generate the OVA
+        run: |
+          builder_args="-i"
+          ANSIBLE_STDOUT_CALLBACK=default ANSIBLE_CALLBACK_RESULT_FORMAT=yaml ansible-playbook -i ${{ env.ALLOCATOR_PATH }}/inventory_ansible.ini .github/workflows/ansible_playbooks/ova_generator.yaml \
+          --extra-vars " \
+          wia_branch=${{ inputs.wazuh_installation_assistant_reference }} \
+          repository=${{ inputs.wazuh_package_repository }}  \
+          wvm_repository=${{ env.WVM_REPOSITORY }} \
+          wvm_branch=${{ inputs.wazuh_virtual_machines_reference }} \
+          ova_path=${{ env.OVA_PATH }} \
+          wia_scripts=${{ env.WIA_DIR }} \
+          wia_repository=${{ env.WIA_REPOSITORY }} \
+          filename_ova=${{ env.FILENAME_OVA }} \
+          builder_args='$builder_args' \
+          debug=yes" ${{ inputs.debug }}
+
+      - name: Getting OVA from AWS instance
+        run: |
+          scp -P ${{ env.ansible_port }} -i ${{ env.ansible_ssh_private_key_file }} ${{ env.ansible_user }}@${{ env.ansible_host }}:/home/ec2-user/${{ env.FILENAME_OVA }} /tmp/${{ env.FILENAME_OVA }}
+
+      - name: Standarizing OVA
+        run: |
+          sed -i "s|ovf:capacity=\"40\"|ovf:capacity=\"50\"|g" ova/wazuh_ovf_template
+          bash ova/setOVADefault.sh "ova/" "/tmp/${{ env.FILENAME_OVA }}" "/tmp/${{ env.FILENAME_OVA }}" "ova/wazuh_ovf_template" "${{ env.WAZUH_VERSION }}"
+
+      - name: Exporting OVA to final repository
+        run: |
+          aws s3 cp --quiet /tmp/${{ env.FILENAME_OVA }} s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_OVA }}
+          s3uri="s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_OVA }}"
+          echo "S3 OVA URI: ${s3uri}"
+
+      - name: Generating sha512 file
+        if: ${{ inputs.checksum == true }}
+        run: |
+          sha512sum /tmp/${{ env.FILENAME_OVA }} > /tmp/${{ env.FILENAME_SHA }}
+          aws s3 cp --quiet /tmp/${{ env.FILENAME_SHA }} s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_SHA }}
+          s3uri="s3://${{ env.S3_BUCKET }}/${{ env.S3_PATH }}/${{ env.FILENAME_SHA }}"
+          echo "S3 sha512 OVA URI: ${s3uri}"
+
+      - name: Delete allocated VM
+        if: always() && steps.alloc_vm.outcome == 'success'
+        run: python3 wazuh-automation/deployability/modules/allocation/main.py --action delete --track-output ${{ env.ALLOCATOR_PATH }}/track.yml

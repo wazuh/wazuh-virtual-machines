@@ -1,5 +1,5 @@
 run-name: "Check Integration AMI - ${{ github.event_name == 'workflow_dispatch' && format('Manual - PR #{0}', inputs.pr_number) || format('#{0} {1}', github.event.issue.number, github.event.issue.title) }}"
-name: Check Integration - AMI Build & Test
+name: (5.x) Check Integration - AMI Build & Test
 
 on:
   workflow_dispatch:
@@ -20,7 +20,7 @@ on:
         description: 'Wazuh Automation branch/tag to use'
         required: false
         type: string
-        default: 'main'
+        default: '5.0.0'
   issue_comment:
     types: [created]
 
@@ -40,7 +40,7 @@ jobs:
        !github.event.issue.draft &&
        (contains(github.event.comment.body, '/test-integration') ||
         contains(github.event.comment.body, '/test-ami')))
-    runs-on: ubuntu-latest
+    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
     outputs:
       issue_url: ${{ steps.get_issue.outputs.issue_url }}
       pr_number: ${{ steps.pr_data.outputs.pr_number }}
@@ -206,7 +206,7 @@ jobs:
   cleanup_amis:
     needs: [build_ami, test_ami_amd64, test_ami_arm64]
     if: always() && needs.build_ami.result != 'skipped'
-    runs-on: ubuntu-latest
+    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -263,7 +263,7 @@ jobs:
   update_check_success:
     needs: [get_pr_info, build_ami, test_ami_amd64, test_ami_arm64, cleanup_amis]
     if: success()
-    runs-on: ubuntu-latest
+    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Update check - success
         uses: actions/github-script@v7
@@ -295,7 +295,7 @@ jobs:
   update_check_failure:
     needs: [get_pr_info, build_ami, test_ami_amd64, test_ami_arm64, cleanup_amis]
     if: failure()
-    runs-on: ubuntu-latest
+    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Update check - failure
         uses: actions/github-script@v7

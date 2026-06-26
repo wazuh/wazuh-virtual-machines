@@ -1,5 +1,5 @@
 run-name: Wazuh Integration Test - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
-name: Wazuh Integration Test
+name: (5.x) Wazuh Integration Test
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
       WAZUH_AUTOMATION_REFERENCE:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
-        default: 'main'
+        default: '5.0.0'
       WAZUH_VIRTUAL_MACHINES_REFERENCE:
         description: 'Branch or tag of the wazuh-virtual-machines repository'
         required: true
@@ -99,7 +99,7 @@ on:
       WAZUH_AUTOMATION_REFERENCE:
         type: string
         required: false
-        default: 'main'
+        default: '5.0.0'
       WAZUH_VIRTUAL_MACHINES_REFERENCE:
         type: string
         required: true
@@ -179,7 +179,7 @@ jobs:
 
   ami-setup:
     if: ${{ inputs.test_type == 'ami' && inputs.host != '' }}
-    runs-on: ubuntu-latest
+    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
     outputs:
       instance_id: ${{ steps.launch.outputs.instance_id }}
       instance_ip: ${{ steps.launch.outputs.instance_ip }}
@@ -298,7 +298,7 @@ jobs:
   test-ami:
     needs: ami-setup
     if: ${{ needs.ami-setup.result == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
       - name: Checkout wazuh-automation repository
@@ -452,7 +452,7 @@ jobs:
   ami-cleanup:
     needs: [ami-setup, test-ami]
     if: ${{ always() && needs.ami-setup.result != 'skipped' && !inputs.keep_instance_alive }}
-    runs-on: ubuntu-latest
+    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
       - name: Configure AWS credentials
@@ -513,7 +513,7 @@ jobs:
 
   ova-setup:
     if: ${{ inputs.test_type == 'ova' }}
-    runs-on: ubuntu-latest
+    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
     outputs:
       allocator_ip: ${{ steps.allocator.outputs.allocator_ip }}
       allocator_ssh_port: ${{ steps.allocator.outputs.ssh_port }}
@@ -810,7 +810,7 @@ jobs:
   test-ova:
     needs: ova-setup
     if: ${{ needs.ova-setup.result == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
       - name: Checkout wazuh-automation repository
@@ -956,7 +956,7 @@ jobs:
   ova-cleanup:
     needs: [ova-setup, test-ova]
     if: ${{ always() && needs.ova-setup.result != 'skipped' && !inputs.keep_instance_alive }}
-    runs-on: ubuntu-latest
+    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
       - name: Checkout wazuh-automation

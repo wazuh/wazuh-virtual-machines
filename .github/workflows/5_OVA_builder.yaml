@@ -1,5 +1,5 @@
-run-name: Build OVA ${{ inputs.id }} ${{ inputs.is_stage && ' - is stage' || '' }}${{ inputs.checksum && ' - checksum' || '' }} - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
-name: Build OVA
+run-name: OVA Builder ${{ inputs.id }} ${{ inputs.is_stage && ' - is stage' || '' }}${{ inputs.checksum && ' - checksum' || '' }} - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
+name: (5.x) OVA Builder
 
 on:
   workflow_dispatch:
@@ -20,7 +20,7 @@ on:
       wazuh_automation_reference:
         description: 'Branch or tag of the wazuh-automation repository'
         required: true
-        default: 'main'
+        default: '5.0.0'
       is_stage:
         description: "Is stage?"
         type: boolean
@@ -65,7 +65,7 @@ on:
       wazuh_automation_reference:
         type: string
         required: false
-        default: 'main'
+        default: '5.0.0'
       is_stage:
         type: boolean
         required: false
@@ -125,8 +125,7 @@ permissions:
 
 jobs:
   build:
-    runs-on:
-      group: wz-linux-amd64
+    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
     outputs:
       ova_matrix: ${{ steps.set_filenames.outputs.ova_matrix }}
       box_matrix: ${{ steps.set_filenames.outputs.box_matrix }}
@@ -383,8 +382,7 @@ jobs:
 
   upload_ova:
     needs: build
-    runs-on:
-      group: wz-linux-amd64
+    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
     strategy:
       matrix:
         include: ${{ fromJson(needs.build.outputs.ova_matrix) }}
@@ -419,8 +417,7 @@ jobs:
 
   upload_box:
     needs: build
-    runs-on:
-      group: wz-linux-amd64
+    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
     strategy:
       matrix:
         include: ${{ fromJson(needs.build.outputs.box_matrix) }}
@@ -456,8 +453,7 @@ jobs:
   cleanup:
     needs: [build, upload_ova, upload_box]
     if: always() && needs.build.result != 'skipped'
-    runs-on:
-      group: wz-linux-amd64
+    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
