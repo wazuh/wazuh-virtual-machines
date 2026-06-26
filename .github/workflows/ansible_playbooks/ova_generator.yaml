@@ -179,6 +179,10 @@
       retries: 30
       delay: 60
 
+    - name: Show service health check results
+      debug:
+        msg: "{{ job_result.stdout_lines }}"
+
     - name: Stop the VM
       shell: "vagrant halt"
       args:
