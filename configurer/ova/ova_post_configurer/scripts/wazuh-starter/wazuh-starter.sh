@@ -60,6 +60,34 @@ function verify_indexer() {
   done
 }
 
+<<<<<<< HEAD:configurer/ova/ova_post_configurer/scripts/wazuh-starter/wazuh-starter.sh
+=======
+function verify_manager() {
+  logger "Waiting for Wazuh Manager to be ready"
+  retries=0
+  max_retries=10
+  while ! systemctl is-active --quiet wazuh-manager; do
+      logger -w "Wazuh Manager is not active yet, waiting 5 seconds"
+      sleep 5
+      retries=$((retries + 1))
+      if [ "${retries}" -eq "${max_retries}" ]; then
+          logger -e "Wazuh Manager failed to start after ${max_retries} retries"
+          systemctl status wazuh-manager || true
+          exit 1
+      fi
+  done
+}
+
+function verify_filebeat() {
+  logger "Waiting for Filebeat to be ready"
+  if  filebeat test output | grep -q -i -w "ERROR"; then
+    logger -e "Filebeat is not ready yet, trying to configure it again"
+    eval "filebeat test output x ${debug}"
+    configure_filebeat
+  fi
+}
+
+>>>>>>> origin/4.14.7:ova/assets/custom/wazuh-starter/wazuh-starter.sh
 function verify_dashboard() {
   logger "Waiting for Wazuh dashboard to be ready"
   dashboard_check_comm="curl -XGET https://localhost:443/status -uadmin:admin -k -w \"%{http_code}\" -s -o /dev/null"
@@ -96,7 +124,10 @@ starter_service wazuh-indexer
 verify_indexer
 
 starter_service wazuh-manager
-starter_service wazuh-agent
+verify_manager
+
+starter_service filebeat
+verify_filebeat
 
 starter_service wazuh-dashboard
 verify_dashboard
