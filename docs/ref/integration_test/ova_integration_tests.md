@@ -58,7 +58,7 @@ flowchart TD
 | `pr_number` | Yes | — | PR number to test |
 | `pr_head_ref` | No | — | PR branch name; fetched from GitHub API if not provided |
 | `pr_head_sha` | No | — | PR commit SHA; fetched from GitHub API if not provided |
-| `wazuh_automation_reference` | No | `5.0.0` | Branch or tag of `wazuh-automation` to use |
+| `wazuh_automation_reference` | No | `1.2.3` | Branch or tag of `wazuh-automation` to use |
 
 ### issue_comment parameters
 
