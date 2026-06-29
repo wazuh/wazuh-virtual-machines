@@ -1,5 +1,5 @@
 run-name: "Check Integration AMI - ${{ github.event_name == 'workflow_dispatch' && format('Manual - PR #{0}', inputs.pr_number) || format('#{0} {1}', github.event.issue.number, github.event.issue.title) }}"
-name: (1.x) Check Integration - AMI Build & Test
+name: (5.x) Check Integration - AMI Build & Test
 
 on:
   workflow_dispatch:
@@ -20,7 +20,7 @@ on:
         description: 'Wazuh Automation branch/tag to use'
         required: false
         type: string
-        default: 'v1.2.3-alpha8'
+        default: '5.0.0'
   issue_comment:
     types: [created]
 
