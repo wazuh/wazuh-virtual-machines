@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Added bump-issue-link input in the 5.x bumper workflow. ([#808](https://github.com/wazuh/wazuh-virtual-machines/pull/808))
 - Add integration test module docs ([#835](https://github.com/wazuh/wazuh-virtual-machines/pull/835))
 - Add purpose input to the build ami workflow ([#773](https://github.com/wazuh/wazuh-virtual-machines/pull/773))
 - Added download urls for Wazuh OVA file. ([#758](https://github.com/wazuh/wazuh-virtual-machines/pull/758))
