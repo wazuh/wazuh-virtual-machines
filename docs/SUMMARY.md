@@ -40,3 +40,10 @@
 - [Security](ref/security/security.md)
   - [AMI Security](ref/security/ami/ami-security.md)
   - [OVA Security](ref/security/ova/ova-security.md)
+
+---
+
+# Integration Tests
+
+- [AMI Integration Tests](ref/integration_test/ami_integration_tests.md)
+- [OVA Integration Tests](ref/integration_test/ova_integration_tests.md)

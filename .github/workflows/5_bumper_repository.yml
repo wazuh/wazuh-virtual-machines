@@ -1,5 +1,5 @@
-name: Repository bumper 5.x
 run-name: Bump ${{ github.ref_name }} (${{ inputs.id }})
+name: (5.x) Repository bumper
 
 on:
   workflow_dispatch:
@@ -40,7 +40,7 @@ on:
 jobs:
   bump:
     name: Repository bumper 5.x
-    runs-on: ubuntu-22.04
+    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
     permissions:
       contents: write
       pull-requests: write
