@@ -803,7 +803,7 @@ jobs:
       - name: Upload allocator working directory for cleanup
         run: |
           echo "Uploading allocator working directory to S3..."
-          aws s3 cp "${{ steps.allocator.outputs.work_dir }}/*" "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_test-vm/${{ github.run_id }}/allocator-workdir/"
+          aws s3 cp "${{ steps.allocator.outputs.work_dir }}" "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_test-vm/${{ github.run_id }}/allocator-workdir/" --recursive
 
   test-ova:
     needs: ova-setup
