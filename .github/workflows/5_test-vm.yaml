@@ -842,7 +842,7 @@ jobs:
       - name: Run OVA tests
         run: |
           # Find the test_runner executable
-          TEST_RUNNER_PATH=$(find /opt/hostedtoolcache/Python -name "test_runner" | head -n 1)
+          TEST_RUNNER_PATH=$(command -v test_runner)
 
           # Exit if executable not found
           if [ -z "$TEST_RUNNER_PATH" ]; then
