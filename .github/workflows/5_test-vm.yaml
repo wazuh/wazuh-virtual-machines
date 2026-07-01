@@ -984,7 +984,7 @@ jobs:
         run: |
           echo "Downloading allocator working directory from S3..."
           mkdir -p /tmp/allocator-workdir
-          aws s3 cp "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_test-vm/${{ github.run_id }}/allocator-workdir/*" /tmp/allocator-workdir/
+          aws s3 cp "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_test-vm/${{ github.run_id }}/allocator-workdir/*" "/tmp/allocator-workdir/" --recursive
 
       - name: Terminate allocator instance
         if: ${{ steps.download-workdir.outcome == 'success' }}
