@@ -355,11 +355,11 @@ jobs:
 
       - name: Upload built OVA as artifact
         run: |
-          aws s3 cp "${{ github.workspace }}/${{ env.FILENAME_OVA }}" "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_OVA_builder/${{ github.run_id }}/built-ova"
+          aws s3 cp "${{ github.workspace }}/${{ env.FILENAME_OVA }}" "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_OVA_builder/${{ github.run_id }}/${{ env.FILENAME_OVA }}"
 
       - name: Upload built BOX as artifact
         run: |
-          aws s3 cp "${{ github.workspace }}/${{ env.FILENAME_BOX }}" "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_OVA_builder/${{ github.run_id }}/built-box"
+          aws s3 cp "${{ github.workspace }}/${{ env.FILENAME_BOX }}" "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_OVA_builder/${{ github.run_id }}/${{ env.FILENAME_BOX }}"
 
       - name: Compress Allocator directory
         id: compress_allocator
@@ -390,7 +390,7 @@ jobs:
 
       - name: Download built OVA
         run: |
-          aws s3 cp "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_OVA_builder/${{ github.run_id }}/built-ova" .
+          aws s3 cp "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_OVA_builder/${{ github.run_id }}/${{ needs.build.outputs.ova_source_filename }}" .
 
       - name: Upload OVA to S3
         run: |
@@ -424,7 +424,7 @@ jobs:
 
       - name: Download built BOX
         run: |
-          aws s3 cp "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_OVA_builder/${{ github.run_id }}/built-box" .
+          aws s3 cp "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_OVA_builder/${{ github.run_id }}/${{ needs.build.outputs.box_source_filename }}" .
 
       - name: Upload BOX to S3
         run: |
