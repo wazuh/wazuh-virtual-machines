@@ -27,11 +27,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- None
+- Changed runners to AWS CodeBuild for 4.14.6 branch ([#821](https://github.com/wazuh/wazuh-virtual-machines/pull/821))
 
 ### Fixed
 
-- None
+- Improve error handling in OVA build, to avoid public broken OVA ([#794](https://github.com/wazuh/wazuh-virtual-machines/pull/794))
+- Testing fix for is_stage in ova build. ([#783](https://github.com/wazuh/wazuh-virtual-machines/pull/783))
 
 ### Deleted
 
@@ -266,6 +267,78 @@ All notable changes to this project will be documented in this file.
 - Fixed Vagrant synced folder error in OVA. ([#183](https://github.com/wazuh/wazuh-virtual-machines/pull/183))
 - Fix the ova workflow for stages support and AWS instance deletion. ([#175](https://github.com/wazuh/wazuh-virtual-machines/pull/176))
 - Fixed the OVA workflow to add support in stages. ([#173](https://github.com/wazuh/wazuh-virtual-machines/pull/173))
+
+### Deleted
+
+- None
+
+## [4.10.5]
+
+### Added
+
+- None
+
+### Changed
+
+- None
+
+### Fixed
+
+- None
+
+### Deleted
+
+- None
+
+## [4.10.4]
+
+### Added
+
+- None
+
+### Changed
+
+- None
+
+### Fixed
+
+- Updated AMI and OVA builds for 4.10.4 version. ([757](https://github.com/wazuh/wazuh-virtual-machines/pull/757))
+
+### Deleted
+
+- None
+
+## [4.10.3]
+
+### Added
+
+- None
+
+### Changed
+
+- None
+
+### Fixed
+
+- None
+
+### Deleted
+
+- None
+
+## [4.10.2]
+
+### Added
+
+- None
+
+### Changed
+
+- None
+
+### Fixed
+
+- None
 
 ### Deleted
 
