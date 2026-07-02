@@ -328,7 +328,7 @@ jobs:
 
       - name: Download SSH key
         run: |
-          aws s3 cp "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_test-vm/${{ github.run_id }}/ssh-key-${{ steps.keygen.outputs.key_name }}" /tmp/ssh/${{ needs.ami-setup.outputs.ssh_key_name }}
+          aws s3 cp "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_test-vm/${{ github.run_id }}/ssh-key-${{ needs.ami-setup.outputs.ssh_key_name }}" /tmp/ssh/${{ needs.ami-setup.outputs.ssh_key_name }}
 
       - name: Set SSH key permissions
         run: chmod 600 /tmp/ssh/${{ needs.ami-setup.outputs.ssh_key_name }}
