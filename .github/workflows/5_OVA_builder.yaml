@@ -1,5 +1,5 @@
-run-name: Build OVA ${{ inputs.id }} ${{ inputs.is_stage && ' - is stage' || '' }}${{ inputs.checksum && ' - checksum' || '' }} - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
-name: Build OVA
+run-name: OVA Builder ${{ inputs.id }} ${{ inputs.is_stage && ' - is stage' || '' }}${{ inputs.checksum && ' - checksum' || '' }} - Branch ${{ github.ref_name }} - Launched by @${{ github.actor }}
+name: (5.x) OVA Builder
 
 on:
   workflow_dispatch:
