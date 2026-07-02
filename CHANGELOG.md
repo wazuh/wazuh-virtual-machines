@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Change upload and download methods 4.14.6 ([#842](https://github.com/wazuh/wazuh-virtual-machines/pull/842))
 - Changed runners to AWS CodeBuild for 4.14.6 branch ([#821](https://github.com/wazuh/wazuh-virtual-machines/pull/821))
 
 ### Fixed
