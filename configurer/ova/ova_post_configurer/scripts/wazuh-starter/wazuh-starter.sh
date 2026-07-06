@@ -9,6 +9,7 @@ debug="| tee -a ${logfile}"
 # this file. The same password must be distributed to the agent so it can enroll against the manager.
 wazuh_manager_authd_pass="/var/wazuh-manager/etc/authd.pass"
 wazuh_agent_authd_pass="/var/ossec/etc/authd.pass"
+wazuh_agent_client_keys="/var/ossec/etc/client.keys"
 authd_pass_max_retries=12
 authd_pass_wait_time=5
 
@@ -106,8 +107,12 @@ function set_authd_password() {
       exit 1
   fi
   cp "${wazuh_manager_authd_pass}" "${wazuh_agent_authd_pass}"
-  chown wazuh:wazuh "${wazuh_agent_authd_pass}"
+  chown root:wazuh "${wazuh_agent_authd_pass}"
   chmod 640 "${wazuh_agent_authd_pass}"
+
+  # Remove the agent key baked into the image so the agent re-enrolls with the rotated password
+  # instead of reusing the shared key created during the build.
+  rm -f "${wazuh_agent_client_keys}"
   logger "Wazuh agent registration password set successfully"
 }
 

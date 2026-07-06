@@ -139,7 +139,7 @@ class CoreConfigurer:
 
         command = f"""
             sudo cp {WAZUH_MANAGER_AUTHD_PASS_FILE} {WAZUH_AGENT_AUTHD_PASS_FILE}
-            sudo chown wazuh:wazuh {WAZUH_AGENT_AUTHD_PASS_FILE}
+            sudo chown root:wazuh {WAZUH_AGENT_AUTHD_PASS_FILE}
             sudo chmod 640 {WAZUH_AGENT_AUTHD_PASS_FILE}
             """
         _, error_output = exec_command(command=command, client=client)
