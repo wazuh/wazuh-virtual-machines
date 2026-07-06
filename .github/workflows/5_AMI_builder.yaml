@@ -476,10 +476,8 @@ jobs:
           echo WAZUH_VERSION_NODOTS=${WAZUH_VERSION_NODOTS} >> $GITHUB_ENV
 
       - name: Download AMI ID artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: ami_id_*
-          merge-multiple: false
+        run: |
+          aws s3 cp "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_AMI_builder/${{ github.run_id }}/ami_id_*" .
 
       - name: Update os.yml with new AMIs
         run: |
