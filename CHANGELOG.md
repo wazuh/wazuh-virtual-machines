@@ -67,6 +67,8 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Fix bumper workflow failure when bump produces no changes ([#867](https://github.com/wazuh/wazuh-virtual-machines/pull/867))
+- Fix bumper workflow failure when bump produces no changes ([#867](https://github.com/wazuh/wazuh-virtual-machines/pull/867))
 - Fixed bumper including missing tag input ([#833](https://github.com/wazuh/wazuh-virtual-machines/pull/833))
 - Fixed error in ova and ami checks. ([#792](https://github.com/wazuh/wazuh-virtual-machines/pull/792))
 - Fix AMI ARM build failing when fetching the manager package ([#745](https://github.com/wazuh/wazuh-virtual-machines/pull/745))
