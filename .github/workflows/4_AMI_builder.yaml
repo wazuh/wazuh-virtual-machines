@@ -211,7 +211,5 @@ jobs:
 
       - name: Upload Allocator directory as artifact
         if: always() && steps.generate_artifacts.outcome == 'success'
-        uses: actions/upload-artifact@v4
-        with:
-          name: instance_info
-          path: ${{ env.ALLOCATOR_PATH }}.zip
+        run: |
+          aws s3 cp "${{ env.ALLOCATOR_PATH }}.zip" "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-docker/4_AMI_builder/${{ github.run_id }}/${{ env.ALLOCATOR_PATH }}.zip"
