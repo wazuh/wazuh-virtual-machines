@@ -17,6 +17,12 @@ To address this, a custom systemd service is created that, when the instance sta
 
 For this service, a Python virtual environment is set up with the necessary dependencies to run the corresponding Python scripts. This virtual environment is created during the post-configurer process, so that when the service runs and generates the new certificates, the service files and the virtual environment used for execution are deleted. This ensures that any unnecessary files and dependencies are removed from the system.
 
+## Wazuh Agent registration password rotation
+
+The Wazuh manager generates and persists a random Authd registration password (`/var/wazuh-manager/etc/authd.pass`) the first time it starts. Because this happens during the build, every instance launched from the base AMI would otherwise share the same password, which is a security issue.
+
+To avoid this, the same first-boot custom service that regenerates the certificates also rotates the registration password: before starting the manager it removes the pre-generated `authd.pass` files so the manager generates a new, unique password on first boot. That password is then copied to the Wazuh agent Authd password file (`/var/ossec/etc/authd.pass`), with the proper ownership (`root:wazuh`) and permissions (`640`), before the agent starts so it can enroll against the manager.
+
 ## Considerations
 
 Just like the pre-configurer, this module is designed to be executed on a remote machine, meaning the `--inventory` option must be provided.

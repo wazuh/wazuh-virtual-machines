@@ -30,6 +30,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - Change upload and download methods ([#844](https://github.com/wazuh/wazuh-virtual-machines/pull/844))
+- Set Authd password in Wazuh agent installation ([#857](https://github.com/wazuh/wazuh-virtual-machines/issues/857))
 - Change file and workflow names for PR revamp. ([#813](https://github.com/wazuh/wazuh-virtual-machines/pull/813))
 - Changed runners to AWS CodeBuild for main branch ([#820](https://github.com/wazuh/wazuh-virtual-machines/pull/820))
 - Changed the delete of Wazuh indexes process for OVA and AMI. ([#781](https://github.com/wazuh/wazuh-virtual-machines/pull/781))
@@ -68,6 +69,8 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Fix bumper workflow failure when bump produces no changes ([#867](https://github.com/wazuh/wazuh-virtual-machines/pull/867))
+- Fixed bumper including missing tag input ([#833](https://github.com/wazuh/wazuh-virtual-machines/pull/833))
 - Fixed error in ova and ami checks. ([#792](https://github.com/wazuh/wazuh-virtual-machines/pull/792))
 - Fix AMI ARM build failing when fetching the manager package ([#745](https://github.com/wazuh/wazuh-virtual-machines/pull/745))
 - Added merge step in bumper workflow. ([#671](https://github.com/wazuh/wazuh-virtual-machines/pull/671))

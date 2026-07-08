@@ -14,6 +14,11 @@ on:
         default: ''
         required: false
         type: string
+      tag:
+        description: 'Change branch references to tag-like references (e.g. v5.0.0-alpha7)'
+        default: false
+        required: false
+        type: boolean
       set_as_main:
         description: "Enable main branch mode: bump version values only, keep branch references pointing to main"
         required: false
@@ -90,22 +95,28 @@ jobs:
         env:
           VERSION: ${{ inputs.version }}
           STAGE: ${{ inputs.stage }}
+          TAG: ${{ inputs.tag }}
         run: |
           script_params=""
           version=${{ env.VERSION }}
           stage=${{ env.STAGE }}
-
+          tag=${{ env.TAG }}
           set_as_main=${{ inputs.set_as_main }}
 
-          if [[ "$set_as_main" == "true" ]]; then
-            script_params="--set-as-main"
+          if [[ -n "$version" && -n "$stage" && "$tag" != "true" ]]; then
+            script_params="--version ${version} --stage ${stage}"
+          elif [[ -z "$version" && -n "$stage" && "$tag" == "true" ]]; then
+            script_params="--stage ${stage} --tag"
+          elif [[ -z "$version" && -z "$stage" && "$tag" == "true" ]]; then
+            script_params="--tag"
           fi
 
-          # Both version and stage provided
-          if [[ -n "$version" && -n "$stage" ]]; then
-            script_params+=" --version ${version} --stage ${stage}"
-          elif [[ -z "$version" && -n "$stage" ]]; then
-            script_params+=" --stage ${stage}"
+          if [[ "$set_as_main" == "true" ]]; then
+            if [[ -z "$version" || -z "$stage" ]]; then
+              echo "Error: set_as_main requires both version and stage inputs."
+              exit 1
+            fi
+            script_params="${script_params} --set-as-main"
           fi
 
           issue_number=$(echo "${{ inputs.issue-link }}" | awk -F'/' '{print $NF}')
@@ -130,10 +141,17 @@ jobs:
           bash ${{ env.BUMP_SCRIPT_PATH }} ${{ steps.vars.outputs.script_params }}
 
       - name: Commit changes (Bump)
+        id: bump_commit
         if: inputs.revert != true
         run: |
           git add .
-          git commit -m "feat: bump ${{ github.ref_name }}"
+          if git diff --staged --quiet; then
+            echo "Nothing to bump: the repository is already at the requested version/stage. Skipping commit."
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            git commit -m "feat: bump ${{ github.ref_name }}"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Fetch full history (Revert)
         if: inputs.revert == true
@@ -184,13 +202,13 @@ jobs:
           fi
 
       - name: Push changes
-        if: inputs.revert != true || (inputs.revert == true && steps.revert_step.outputs.has_changes == 'true')
+        if: (inputs.revert != true && steps.bump_commit.outputs.has_changes == 'true') || (inputs.revert == true && steps.revert_step.outputs.has_changes == 'true')
         run: |
           git push origin ${{ steps.vars.outputs.branch_name }}
 
       - name: Create pull request
         id: create_pr
-        if: inputs.revert != true || (inputs.revert == true && steps.revert_step.outputs.has_changes == 'true')
+        if: (inputs.revert != true && steps.bump_commit.outputs.has_changes == 'true') || (inputs.revert == true && steps.revert_step.outputs.has_changes == 'true')
         run: |
           gh auth setup-git
           PR_URL=$(gh pr create \
@@ -203,7 +221,7 @@ jobs:
           echo "pull_request_url=${PR_URL}" >> $GITHUB_OUTPUT
 
       - name: Merge pull request
-        if: inputs.revert != true || (inputs.revert == true && steps.revert_step.outputs.has_changes == 'true')
+        if: (inputs.revert != true && steps.bump_commit.outputs.has_changes == 'true') || (inputs.revert == true && steps.revert_step.outputs.has_changes == 'true')
         run: |
           # Any checks for the PR are bypassed since the branch is expected to be functional
           gh pr merge "${{ steps.create_pr.outputs.pull_request_url }}" --merge --admin
@@ -211,9 +229,13 @@ jobs:
       - name: Show logs
         if: inputs.revert != true
         run: |
-          echo "Bump complete."
-          echo "Branch: ${{ steps.vars.outputs.branch_name }}"
-          echo "PR: ${{ steps.create_pr.outputs.pull_request_url }}"
+          if [[ "${{ steps.bump_commit.outputs.has_changes }}" == "true" ]]; then
+            echo "Bump complete."
+            echo "Branch: ${{ steps.vars.outputs.branch_name }}"
+            echo "PR: ${{ steps.create_pr.outputs.pull_request_url }}"
+          else
+            echo "Bump skipped: the repository is already at the requested version/stage."
+          fi
           echo "Bumper scripts logs:"
           cat ${BUMP_LOG_PATH}/repository_bumper*log
 

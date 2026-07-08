@@ -29,6 +29,12 @@ Once the **Provisioner and Core Configurer** have been executed, the Wazuh compo
 15. **SSH** is configured to use modern and secure cryptographic algorithms, in accordance with **FIPS** activation.  
 16. Further cleanup of logs, command history, package cache and restart of the `sshd` service.  
 
+## Wazuh Agent registration password rotation
+
+The Wazuh manager generates and persists a random Authd registration password (`/var/wazuh-manager/etc/authd.pass`) the first time it starts. Because this happens during the build, every VM imported from the OVA would otherwise share the same password, which is a security issue.
+
+To avoid this, the `wazuh-starter` service (which runs once on the first boot to start the components in order) rotates the registration password: before starting the manager it removes the pre-generated `authd.pass` files so the manager generates a new, unique password. That password is then copied to the Wazuh agent Authd password file (`/var/ossec/etc/authd.pass`), with the proper ownership (`root:wazuh`) and permissions (`640`), before the agent starts so it can enroll against the manager.
+
 ## Considerations
 
 The **OVA Post Configurer** is designed to be executed in a **local machine only**. As mentioned above the execution of this module using **Hatch** will execute the **Provisioner** and **Core Configurer** modules previously.
