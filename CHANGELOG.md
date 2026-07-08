@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Change upload and download methods ([#843](https://github.com/wazuh/wazuh-virtual-machines/pull/843))
 - Change file and workflow names for PR revamp 4.x. ([#814](https://github.com/wazuh/wazuh-virtual-machines/pull/814))
 
 ### Fixed
