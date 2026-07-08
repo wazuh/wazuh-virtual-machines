@@ -29,6 +29,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Change upload and download methods ([#844](https://github.com/wazuh/wazuh-virtual-machines/pull/844))
 - Set Authd password in Wazuh agent installation ([#857](https://github.com/wazuh/wazuh-virtual-machines/issues/857))
 - Change file and workflow names for PR revamp. ([#813](https://github.com/wazuh/wazuh-virtual-machines/pull/813))
 - Changed runners to AWS CodeBuild for main branch ([#820](https://github.com/wazuh/wazuh-virtual-machines/pull/820))

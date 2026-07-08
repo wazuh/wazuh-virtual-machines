@@ -289,11 +289,8 @@ jobs:
           exit 1
 
       - name: Upload SSH key as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ssh-key-${{ steps.keygen.outputs.key_name }}
-          path: ${{ steps.keygen.outputs.key_path }}
-          retention-days: 1
+        run: |
+          aws s3 cp "${{ steps.keygen.outputs.key_path }}" "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_test-vm/${{ github.run_id }}/ssh-key-${{ steps.keygen.outputs.key_name }}"
 
   test-ami:
     needs: ami-setup
@@ -330,10 +327,8 @@ jobs:
           aws-region: us-east-1
 
       - name: Download SSH key
-        uses: actions/download-artifact@v4
-        with:
-          name: ssh-key-${{ needs.ami-setup.outputs.ssh_key_name }}
-          path: /tmp/ssh
+        run: |
+          aws s3 cp "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_test-vm/${{ github.run_id }}/ssh-key-${{ needs.ami-setup.outputs.ssh_key_name }}" /tmp/ssh/${{ needs.ami-setup.outputs.ssh_key_name }}
 
       - name: Set SSH key permissions
         run: chmod 600 /tmp/ssh/${{ needs.ami-setup.outputs.ssh_key_name }}
@@ -341,7 +336,7 @@ jobs:
       - name: Run AMI tests
         run: |
           # Find the test_runner executable
-          TEST_RUNNER_PATH=$(find /opt/hostedtoolcache/Python -name "test_runner" | head -n 1)
+          TEST_RUNNER_PATH=$(command -v test_runner)
 
           # Exit if executable not found
           if [ -z "$TEST_RUNNER_PATH" ]; then
@@ -556,6 +551,11 @@ jobs:
         run: |
           pip install -r wazuh-automation/deployability/deps/requirements.txt
           pip install ansible pyyaml
+      
+      - name: Install yq
+        run: |
+          sudo wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
 
       - name: Get Wazuh version
         run: |
@@ -801,11 +801,9 @@ jobs:
           exit 1
 
       - name: Upload allocator working directory for cleanup
-        uses: actions/upload-artifact@v4
-        with:
-          name: allocator-workdir-${{ github.run_id }}
-          path: ${{ steps.allocator.outputs.work_dir }}
-          retention-days: 1
+        run: |
+          echo "Uploading allocator working directory to S3..."
+          aws s3 cp "${{ steps.allocator.outputs.work_dir }}" "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_test-vm/${{ github.run_id }}/allocator-workdir/" --recursive
 
   test-ova:
     needs: ova-setup
@@ -844,7 +842,7 @@ jobs:
       - name: Run OVA tests
         run: |
           # Find the test_runner executable
-          TEST_RUNNER_PATH=$(find /opt/hostedtoolcache/Python -name "test_runner" | head -n 1)
+          TEST_RUNNER_PATH=$(command -v test_runner)
 
           # Exit if executable not found
           if [ -z "$TEST_RUNNER_PATH" ]; then
@@ -983,11 +981,10 @@ jobs:
 
       - name: Download allocator working directory
         id: download-workdir
-        uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          name: allocator-workdir-${{ github.run_id }}
-          path: /tmp/allocator-workdir
+        run: |
+          echo "Downloading allocator working directory from S3..."
+          mkdir -p /tmp/allocator-workdir
+          aws s3 cp "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_test-vm/${{ github.run_id }}/allocator-workdir/*" "/tmp/allocator-workdir/" --recursive
 
       - name: Terminate allocator instance
         if: ${{ steps.download-workdir.outcome == 'success' }}
