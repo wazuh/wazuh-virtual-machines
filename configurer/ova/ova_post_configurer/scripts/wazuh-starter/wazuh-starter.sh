@@ -5,6 +5,13 @@
 logfile="/var/log/wazuh-starter.log"
 debug="| tee -a ${logfile}"
 
+# The Wazuh manager generates a random Authd registration password on startup and persists it in
+# this file. The same password must be distributed to the agent so it can enroll against the manager.
+wazuh_manager_authd_pass="/var/wazuh-manager/etc/authd.pass"
+wazuh_agent_authd_pass="/var/ossec/etc/authd.pass"
+authd_pass_max_retries=12
+authd_pass_wait_time=5
+
 ###########################################
 # Utility Functions
 ###########################################
@@ -78,6 +85,32 @@ function verify_dashboard() {
   done
 }
 
+function rotate_authd_password() {
+  # Remove the Authd registration password baked into the image so the manager generates a new,
+  # unique one when it starts. Otherwise every deployed VM would share the same password.
+  logger "Removing pre-generated Authd registration password to force a new one on first boot"
+  rm -f "${wazuh_manager_authd_pass}" "${wazuh_agent_authd_pass}"
+}
+
+function set_authd_password() {
+  # Copy the password the manager generated on startup to the agent so it can enroll.
+  logger "Setting the Wazuh agent registration password from the manager Authd password"
+  retries=0
+  while [ ! -f "${wazuh_manager_authd_pass}" ] && [ "${retries}" -lt "${authd_pass_max_retries}" ]; do
+      logger -w "Manager Authd password file not ready yet, waiting ${authd_pass_wait_time} seconds"
+      sleep "${authd_pass_wait_time}"
+      retries=$((retries+1))
+  done
+  if [ ! -f "${wazuh_manager_authd_pass}" ]; then
+      logger -e "Wazuh manager Authd password file not found at ${wazuh_manager_authd_pass}"
+      exit 1
+  fi
+  cp "${wazuh_manager_authd_pass}" "${wazuh_agent_authd_pass}"
+  chown root:wazuh "${wazuh_agent_authd_pass}"
+  chmod 640 "${wazuh_agent_authd_pass}"
+  logger "Wazuh agent registration password set successfully"
+}
+
 function clean_configuration(){
   logger "Cleaning configuration files"
   eval "rm -rf /var/log/wazuh-starter.log"
@@ -91,11 +124,14 @@ function clean_configuration(){
 
 logger "Starting Wazuh services in order"
 
+rotate_authd_password
 
 starter_service wazuh-indexer
 verify_indexer
 
 starter_service wazuh-manager
+set_authd_password
+
 starter_service wazuh-agent
 
 starter_service wazuh-dashboard
