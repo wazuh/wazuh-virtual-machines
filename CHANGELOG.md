@@ -1,6 +1,3 @@
-# Change Log
-All notable changes to this project will be documented in this file.
-
 ## [v5.0.0]
 
 ### Added
@@ -29,6 +26,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Add new WF for changelog check ([#874](https://github.com/wazuh/wazuh-virtual-machines/pull/874))
 - Change upload and download methods ([#844](https://github.com/wazuh/wazuh-virtual-machines/pull/844))
 - Set Authd password in Wazuh agent installation ([#857](https://github.com/wazuh/wazuh-virtual-machines/issues/857))
 - Change file and workflow names for PR revamp. ([#813](https://github.com/wazuh/wazuh-virtual-machines/pull/813))
