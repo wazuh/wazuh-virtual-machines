@@ -26,6 +26,7 @@
 
 ### Changed
 
+- Set Wazuh indexer heap size to a quarter of the total RAM memory ([#859](https://github.com/wazuh/wazuh-virtual-machines/issues/859))
 - Add new WF for changelog check ([#874](https://github.com/wazuh/wazuh-virtual-machines/pull/874))
 - Change upload and download methods ([#844](https://github.com/wazuh/wazuh-virtual-machines/pull/844))
 - Set Authd password in Wazuh agent installation ([#857](https://github.com/wazuh/wazuh-virtual-machines/issues/857))
