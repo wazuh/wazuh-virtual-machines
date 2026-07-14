@@ -20,7 +20,7 @@ def ami_pre_configurer(inventory: Inventory) -> str:
        - Configures the MOTD (Message of The Day) with Wazuh branding
        - Stops journald log storage to prevent excessive logging
        - Creates and enables a service to automatically set Wazuh Indexer's JVM heap size
-         based on available system RAM
+         to a quarter of the final host's total RAM.
 
     Args:
         inventory_path (Path): Path to the inventory file.

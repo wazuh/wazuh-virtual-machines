@@ -1,8 +1,9 @@
 #!/bin/sh
 
 # Configure JVM options for Wazuh indexer
+# Set the heap size to a quarter of the host's total RAM memory.
 ram_mb=$(free -m | awk '/^Mem:/{print $2}')
-ram="$(( ram_mb / 2 ))"
+ram="$(( ram_mb / 4 ))"
 
 if [ "${ram}" -eq "0" ]; then
     ram=1024;
