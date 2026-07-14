@@ -9,7 +9,7 @@ Once the **Provisioner and Core Configurer** have been executed, the Wazuh compo
 
 1. **GRUB bootloader** is configured to display an image with the **Wazuh logo** when loading the VM.  
 2. **FIPS** (Federal Information Processing Standards) is enabled on the VM.  
-3. **JVM** heap size is updated to half of the total RAM.  
+3. **JVM** heap size is updated to a quarter of the total RAM. The `updateIndexerHeap.service` runs on the first boot of the deployed VM, so the heap is sized against the RAM of the final host.
 4. Added `wazuh-starter` service which is responsible for raising each Wazuh component correctly.  
 5. Changed the `root` password to `wazuh`.  
 6. Changed the VM hostname to `wazuh`.  
