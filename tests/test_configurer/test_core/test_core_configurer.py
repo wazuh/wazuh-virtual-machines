@@ -204,8 +204,8 @@ def test_start_services_success(mock_set_authd_password, mock_exec_command, mock
     """
     keystore_command_template = f"""
     {start_service_command_template}
-    sudo /var/wazuh-manager/bin/wazuh-manager-keystore -f indexer -k username -v admin
-    sudo /var/wazuh-manager/bin/wazuh-manager-keystore -f indexer -k password -v admin
+    sudo /var/wazuh-manager/bin/wazuh-manager-keystore -f indexer -k username -v wazuh-manager
+    sudo /var/wazuh-manager/bin/wazuh-manager-keystore -f indexer -k password -v wazuh-manager
     """
 
     for command_call in mock_exec_command.call_args_list:
