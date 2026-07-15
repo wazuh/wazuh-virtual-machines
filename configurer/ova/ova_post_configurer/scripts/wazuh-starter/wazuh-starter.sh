@@ -51,7 +51,7 @@ function starter_service() {
 
 function verify_indexer() {
   logger "Waiting for Wazuh indexer to be ready"
-  indexer_security_admin_comm="curl -XGET https://localhost:9200/ -uadmin:admin -k --max-time 120 --silent -w \"%{http_code}\" --output /dev/null"
+  indexer_security_admin_comm="curl -XGET https://localhost:9200/ -uwazuh-admin:wazuh-admin -k --max-time 120 --silent -w \"%{http_code}\" --output /dev/null"
   http_status=$(eval "${indexer_security_admin_comm}")
   retries=0
   max_retries=5
@@ -69,7 +69,7 @@ function verify_indexer() {
 
 function verify_dashboard() {
   logger "Waiting for Wazuh dashboard to be ready"
-  dashboard_check_comm="curl -XGET https://localhost:443/status -uadmin:admin -k -w \"%{http_code}\" -s -o /dev/null"
+  dashboard_check_comm="curl -XGET https://localhost:443/status -uwazuh-admin:wazuh-admin -k -w \"%{http_code}\" -s -o /dev/null"
   http_code=$(eval "${dashboard_check_comm}")
   retries=0
   max_dashboard_initialize_retries=20

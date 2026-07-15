@@ -227,7 +227,7 @@ def stop_components_services() -> None:
     logger.debug("Wazuh components services stopped")
 
 
-def verify_indexer_connection(password: str = "admin") -> None:
+def verify_indexer_connection(password: str = "wazuh-admin") -> None:
     """
     Verifies the connection to the Wazuh indexer.
     This function sends a request to the Wazuh indexer endpoint and checks the response.
@@ -237,7 +237,7 @@ def verify_indexer_connection(password: str = "admin") -> None:
         None
     """
 
-    command = f'curl -XGET https://localhost:9200/ -uadmin:{password} -k --max-time 120 --silent -w "%{{http_code}}" --output /dev/null'
+    command = f'curl -XGET https://localhost:9200/ -uwazuh-admin:{password} -k --max-time 120 --silent -w "%{{http_code}}" --output /dev/null'
     verify_component_connection(Component.WAZUH_INDEXER, command)
 
 
@@ -255,7 +255,7 @@ def verify_manager_connection(password: str = "wazuh-wui") -> None:
     verify_component_connection(Component.WAZUH_MANAGER, command)
 
 
-def verify_dashboard_connection(password: str = "admin") -> None:
+def verify_dashboard_connection(password: str = "wazuh-admin") -> None:
     """
     Verifies the connection to the Wazuh dashboard.
     This function sends a request to the Wazuh dashboard endpoint and checks the response.
@@ -265,7 +265,7 @@ def verify_dashboard_connection(password: str = "admin") -> None:
         None
     """
 
-    command = f'curl -XGET https://localhost:443/status -uadmin:{password} -k -w "%{{http_code}}" -s -o /dev/null'
+    command = f'curl -XGET https://localhost:443/status -uwazuh-admin:{password} -k -w "%{{http_code}}" -s -o /dev/null'
     verify_component_connection(Component.WAZUH_DASHBOARD, command)
 
 

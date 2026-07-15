@@ -88,8 +88,8 @@ class CoreConfigurer:
 
                 if component == Component.WAZUH_MANAGER:
                     command += """
-                    sudo /var/wazuh-manager/bin/wazuh-manager-keystore -f indexer -k username -v admin
-                    sudo /var/wazuh-manager/bin/wazuh-manager-keystore -f indexer -k password -v admin
+                    sudo /var/wazuh-manager/bin/wazuh-manager-keystore -f indexer -k username -v wazuh-manager
+                    sudo /var/wazuh-manager/bin/wazuh-manager-keystore -f indexer -k password -v wazuh-manager
                     """
 
                 output, error_output = exec_command(command=command, client=client)
