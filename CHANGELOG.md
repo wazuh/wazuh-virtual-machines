@@ -26,6 +26,7 @@
 
 ### Changed
 
+- Error on AMI and OVA Build ([#883](https://github.com/wazuh/wazuh-virtual-machines/issues/883))
 - Update deployment for Wazuh Indexer 5.0.0 RBAC (VMs) ([#872](https://github.com/wazuh/wazuh-virtual-machines/issues/872))
 - Modify the Wazuh indexer heap size ([#859](https://github.com/wazuh/wazuh-virtual-machines/issues/859))
 - Add new WF for changelog check ([#874](https://github.com/wazuh/wazuh-virtual-machines/pull/874))
