@@ -401,11 +401,8 @@ jobs:
 
       - name: Upload AMI ID artifact
         if: success() && (inputs.is_pr_check == true || inputs.is_stage == true)
-        uses: actions/upload-artifact@v4
-        with:
-          name: ami_id_${{ matrix.arch }}
-          path: ami_id.txt
-          overwrite: true
+        run: |
+          aws s3 cp "ami_id.txt" "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_AMI_builder/${{ github.run_id }}/ami_id_${{ matrix.arch }}"
 
       - name: Delete allocated VM
         if: always() && steps.alloc_vm_ami.outcome == 'success' && inputs.destroy == true
@@ -419,10 +416,8 @@ jobs:
 
       - name: Upload Allocator directory as artifact
         if: always() && steps.generate_artifacts.outcome == 'success'
-        uses: actions/upload-artifact@v7
-        with:
-          name: instance_info${{ env.ARCH_SUFFIX }}
-          path: ${{ env.ALLOCATOR_PATH }}.zip
+        run: |
+          aws s3 cp "${{ env.ALLOCATOR_PATH }}.zip" "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_AMI_builder/${{ github.run_id }}/instance_info${{ env.ARCH_SUFFIX }}"
 
   collect_ami_ids:
     needs: Build_AMI
@@ -433,10 +428,9 @@ jobs:
       ami_id_arm64: ${{ steps.get_ids.outputs.ami_id_arm64 }}
     steps:
       - name: Download AMI ID artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: ami_id_*
-          merge-multiple: false
+        run: |
+          aws s3 cp "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_AMI_builder/${{ github.run_id }}/" . \
+            --recursive --exclude "*" --include "ami_id_*"
 
       - name: Get AMI IDs
         id: get_ids
@@ -444,13 +438,13 @@ jobs:
           echo "ami_id_amd64=" >> $GITHUB_OUTPUT
           echo "ami_id_arm64=" >> $GITHUB_OUTPUT
 
-          if [ -f ami_id_amd64/ami_id.txt ]; then
-            AMI_ID_AMD64=$(cat ami_id_amd64/ami_id.txt)
+          if [ -f ami_id_amd64 ]; then
+            AMI_ID_AMD64=$(cat ami_id_amd64)
             echo "ami_id_amd64=${AMI_ID_AMD64}" >> $GITHUB_OUTPUT
             echo "AMI ID amd64: ${AMI_ID_AMD64}"
           fi
-          if [ -f ami_id_arm64/ami_id.txt ]; then
-            AMI_ID_ARM64=$(cat ami_id_arm64/ami_id.txt)
+          if [ -f ami_id_arm64 ]; then
+            AMI_ID_ARM64=$(cat ami_id_arm64)
             echo "ami_id_arm64=${AMI_ID_ARM64}" >> $GITHUB_OUTPUT
             echo "AMI ID arm64: ${AMI_ID_ARM64}"
           fi
@@ -483,10 +477,9 @@ jobs:
           echo WAZUH_VERSION_NODOTS=${WAZUH_VERSION_NODOTS} >> $GITHUB_ENV
 
       - name: Download AMI ID artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: ami_id_*
-          merge-multiple: false
+        run: |
+          aws s3 cp "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_AMI_builder/${{ github.run_id }}/" . \
+            --recursive --exclude "*" --include "ami_id_*"
 
       - name: Update os.yml with new AMIs
         run: |
@@ -498,7 +491,7 @@ jobs:
 
           # CAUTION: the following commands modify the os.yml file, blank spaces are relevant
           for ARCH in amd64 arm64; do
-            AMI_FILE="ami_id_${ARCH}/ami_id.txt"
+            AMI_FILE="ami_id_${ARCH}"
             if [ ! -f "${AMI_FILE}" ]; then
               echo "No AMI ID found for ${ARCH}, skipping."
               continue

@@ -7,9 +7,18 @@ The `core` module is responsible for configuring all Wazuh components and their 
 - Installation of Wazuh components (Wazuh Manager, Wazuh Indexer, Wazuh Dashboard, and Wazuh Agent).
 - Certificate generation for each component.
 - Configuration of each component's configuration files, including the Wazuh Agent connection settings.
+- Configuration of the Wazuh Agent registration password.
 - Starting all necessary services.
 
 > This module assumes that the `provisioner` has already been executed on the machine. That means all required packages and the `certs-tool` must be available beforehand.
+
+## Wazuh Agent registration password
+
+The Wazuh Manager automatically generates a random Authd registration password on startup and persists it in its `authd.pass` file (`/var/wazuh-manager/etc/authd.pass`).
+
+Before starting the Wazuh Agent service, the core configurer reads that password and writes it to the Wazuh Agent `authd.pass` file (`/var/ossec/etc/authd.pass`), applying the proper ownership (`root:wazuh`) and permissions (`640`). This lets the pre-installed agent shipped in the OVA and AMI enroll against the manager and reproduces the behavior of the `WAZUH_REGISTRATION_PASSWORD` installation parameter.
+
+> The password baked into the image at build time is rotated on the first boot of the deployed VM so that every OVA/AMI gets a unique password. See the [OVA](../post/ova/post-ova.md) and [AMI](../post/ami/post-ami.md) post-configurer documentation for details.
 
 ## Component configuration
 

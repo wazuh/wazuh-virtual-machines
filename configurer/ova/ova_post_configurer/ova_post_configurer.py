@@ -74,7 +74,7 @@ def enable_fips() -> None:
 def update_jvm_heap() -> None:
     """
     Updates the JVM heap configuration. This is done through the automatic_set_ram.sh script.
-    This script sets the WAzuh Indexer heap to the half of the total VM RAM memory.
+    This script sets the Wazuh Indexer heap to a quarter of the final host's total RAM memory.
 
     Steps performed:
     1. Copies the `automatic_set_ram.sh` script from the static path to `/etc/automatic_set_ram.sh`.
