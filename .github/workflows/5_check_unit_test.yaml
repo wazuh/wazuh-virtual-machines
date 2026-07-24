@@ -182,14 +182,19 @@ jobs:
             }
 
       - name: Upload test output
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-output
-          path: |
+        env:
+          ARTIFACT_NAMES: |
             test_output.txt
             failed_tests.txt
-          retention-days: 7
+        if: always()
+        run: |
+          echo "Uploading test output artifacts to S3..."
+          while IFS= read -r artifact; do
+            [ -z "$artifact" ] && continue
+            echo "  Uploading: $artifact"
+            aws s3 cp "${artifact}" "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_check_unit_test/${{ github.run_id }}/${artifact}"
+          done <<< "$ARTIFACT_NAMES"
+          echo "All artifacts uploaded successfully."
 
       - name: Check final status
         run: |

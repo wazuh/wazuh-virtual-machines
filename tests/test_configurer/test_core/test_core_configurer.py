@@ -4,7 +4,12 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
-from configurer.core.core_configurer import CoreConfigurer
+from configurer.core.core_configurer import (
+    AUTHD_PASS_MAX_RETRIES,
+    WAZUH_AGENT_AUTHD_PASS_FILE,
+    WAZUH_MANAGER_AUTHD_PASS_FILE,
+    CoreConfigurer,
+)
 from configurer.core.utils import ComponentCertsConfigParameter, ComponentConfigFile
 from utils import Component
 
@@ -107,7 +112,85 @@ def test_configure(mock_paramiko, mock_start_services, mock_open_file, mock_exec
     mock_logger.debug_title.assert_any_call("Starting services")
 
 
-def test_start_services_success(mock_exec_command, mock_logger):
+@patch("configurer.core.core_configurer.CoreConfigurer.set_authd_password")
+def test_start_services_sets_authd_password_before_agent(mock_set_authd_password, mock_exec_command, mock_logger):
+    call_order = []
+    mock_set_authd_password.side_effect = lambda client=None: call_order.append("set_authd_password")
+    original_side_effect = mock_exec_command.side_effect
+
+    def track_exec_command(*args, **kwargs):
+        if "start wazuh-agent" in kwargs.get("command", ""):
+            call_order.append("start_agent")
+        return ("", "")
+
+    mock_exec_command.side_effect = track_exec_command
+
+    core_configurer_instance = CoreConfigurer(inventory=None, files_configuration_path=Path("test_path.yml"))
+    core_configurer_instance.start_services(client=None)
+
+    mock_exec_command.side_effect = original_side_effect
+
+    # The agent registration password must be configured exactly once, before starting the agent.
+    mock_set_authd_password.assert_called_once_with(client=None)
+    assert call_order.index("set_authd_password") < call_order.index("start_agent")
+
+
+def test_set_authd_password_success(mock_exec_command, mock_logger):
+    # First call checks that the manager password file exists, second call copies it to the agent.
+    mock_exec_command.side_effect = [("found", ""), ("", "")]
+    core_configurer_instance = CoreConfigurer(inventory=None, files_configuration_path=Path("test_path.yml"))
+    core_configurer_instance.set_authd_password(client=None)
+
+    check_command = mock_exec_command.call_args_list[0].kwargs["command"]
+    assert f"sudo test -f {WAZUH_MANAGER_AUTHD_PASS_FILE}" in check_command
+
+    copy_command = mock_exec_command.call_args_list[1].kwargs["command"]
+    assert f"sudo cp {WAZUH_MANAGER_AUTHD_PASS_FILE} {WAZUH_AGENT_AUTHD_PASS_FILE}" in copy_command
+    assert f"sudo chown root:wazuh {WAZUH_AGENT_AUTHD_PASS_FILE}" in copy_command
+    assert f"sudo chmod 640 {WAZUH_AGENT_AUTHD_PASS_FILE}" in copy_command
+
+    mock_logger.error.assert_not_called()
+    mock_logger.debug.assert_any_call("Wazuh agent registration password set successfully")
+
+
+@patch("configurer.core.core_configurer.time.sleep")
+def test_set_authd_password_retries_until_file_is_ready(mock_sleep, mock_exec_command, mock_logger):
+    # The manager password file is not ready on the first two checks, then appears.
+    mock_exec_command.side_effect = [("", ""), ("", ""), ("found", ""), ("", "")]
+    core_configurer_instance = CoreConfigurer(inventory=None, files_configuration_path=Path("test_path.yml"))
+    core_configurer_instance.set_authd_password(client=None)
+
+    assert mock_sleep.call_count == 2
+    mock_logger.debug.assert_any_call("Wazuh agent registration password set successfully")
+
+
+@patch("configurer.core.core_configurer.time.sleep")
+def test_set_authd_password_file_not_found(mock_sleep, mock_exec_command, mock_logger):
+    # The manager password file never appears.
+    mock_exec_command.return_value = ("", "")
+    core_configurer_instance = CoreConfigurer(inventory=None, files_configuration_path=Path("test_path.yml"))
+
+    with pytest.raises(RuntimeError, match="Wazuh manager Authd password file not found"):
+        core_configurer_instance.set_authd_password(client=None)
+
+    assert mock_exec_command.call_count == AUTHD_PASS_MAX_RETRIES
+    assert mock_sleep.call_count == AUTHD_PASS_MAX_RETRIES
+    mock_logger.error.assert_any_call("Wazuh manager Authd password file not found")
+
+
+def test_set_authd_password_error(mock_exec_command, mock_logger):
+    # The file exists, but copying it to the agent fails.
+    mock_exec_command.side_effect = [("found", ""), ("", "some error")]
+    core_configurer_instance = CoreConfigurer(inventory=None, files_configuration_path=Path("test_path.yml"))
+
+    with pytest.raises(RuntimeError, match="Error setting the Wazuh agent registration password"):
+        core_configurer_instance.set_authd_password(client=None)
+
+    mock_logger.error.assert_any_call("Error setting the Wazuh agent registration password")
+
+
+@patch("configurer.core.core_configurer.CoreConfigurer.set_authd_password")
+def test_start_services_success(mock_set_authd_password, mock_exec_command, mock_logger):
     core_configurer_instance = CoreConfigurer(inventory=None, files_configuration_path=Path("test_path.yml"))
     core_configurer_instance.start_services(client=None)
 
@@ -121,8 +204,8 @@ def test_start_services_success(mock_exec_command, mock_logger):
     """
     keystore_command_template = f"""
     {start_service_command_template}
-    sudo /var/wazuh-manager/bin/wazuh-manager-keystore -f indexer -k username -v admin
-    sudo /var/wazuh-manager/bin/wazuh-manager-keystore -f indexer -k password -v admin
+    sudo /var/wazuh-manager/bin/wazuh-manager-keystore -f indexer -k username -v wazuh-manager
+    sudo /var/wazuh-manager/bin/wazuh-manager-keystore -f indexer -k password -v wazuh-manager
     """
 
     for command_call in mock_exec_command.call_args_list:

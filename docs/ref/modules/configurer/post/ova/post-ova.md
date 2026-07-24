@@ -9,7 +9,7 @@ Once the **Provisioner and Core Configurer** have been executed, the Wazuh compo
 
 1. **GRUB bootloader** is configured to display an image with the **Wazuh logo** when loading the VM.  
 2. **FIPS** (Federal Information Processing Standards) is enabled on the VM.  
-3. **JVM** heap size is updated to half of the total RAM.  
+3. **JVM** heap size is updated to a quarter of the total RAM. The `updateIndexerHeap.service` runs on the first boot of the deployed VM, so the heap is sized against the RAM of the final host.
 4. Added `wazuh-starter` service which is responsible for raising each Wazuh component correctly.  
 5. Changed the `root` password to `wazuh`.  
 6. Changed the VM hostname to `wazuh`.  
@@ -28,6 +28,12 @@ Once the **Provisioner and Core Configurer** have been executed, the Wazuh compo
 14. A network configuration file is created which ensures that a network interface is raised with **DHCP** on **IPv4** accessible.  
 15. **SSH** is configured to use modern and secure cryptographic algorithms, in accordance with **FIPS** activation.  
 16. Further cleanup of logs, command history, package cache and restart of the `sshd` service.  
+
+## Wazuh Agent registration password rotation
+
+The Wazuh manager generates and persists a random Authd registration password (`/var/wazuh-manager/etc/authd.pass`) the first time it starts. Because this happens during the build, every VM imported from the OVA would otherwise share the same password, which is a security issue.
+
+To avoid this, the `wazuh-starter` service (which runs once on the first boot to start the components in order) rotates the registration password: before starting the manager it removes the pre-generated `authd.pass` files so the manager generates a new, unique password. That password is then copied to the Wazuh agent Authd password file (`/var/ossec/etc/authd.pass`), with the proper ownership (`root:wazuh`) and permissions (`640`), before the agent starts so it can enroll against the manager.
 
 ## Considerations
 
