@@ -98,20 +98,8 @@ jobs:
         id: bump_commit
         run: |
           git add .
-<<<<<<< HEAD
           git commit -m "feat: bump ${{ github.ref_name }}"
           git push origin ${{ steps.vars.outputs.branch_name }}
-=======
-          if git diff --staged --quiet; then
-            echo "Nothing to bump: the repository is already at the requested version/stage. Skipping commit."
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-          else
-            git commit -m "feat: bump ${{ github.ref_name }}"
-            git push origin ${{ steps.vars.outputs.branch_name }}
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-          fi
-
->>>>>>> origin/4.14.8
       - name: Create pull request
         id: create_pr
         if: steps.bump_commit.outputs.has_changes == 'true'
