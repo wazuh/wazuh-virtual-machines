@@ -411,6 +411,8 @@ class AmiPreConfigurer:
         Creates and configures a systemd service to set the appropiate ram usage for the indexer's jvm
         on a remote host.
 
+        The uploaded script sets the Wazuh Indexer heap to a quarter of the total RAM of the final host.
+
         This method uploads the necessary service and script files to the remote host,
         moves them to their appropriate locations, sets the required permissions, and
         enables the service using systemd.
