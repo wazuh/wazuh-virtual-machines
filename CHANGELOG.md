@@ -81,7 +81,6 @@
 
 | Issue | Comment |
 | - | - |
-- Test entry with wrong format (issue 9999)
 | This is not a valid entry format | Missing issue link entirely |
 | [#896](https://github.com/wazuh/wazuh-docker/issues/896) | Fixed changelog check workflow to accept Prior versions entries |
 | [#856](https://github.com/wazuh/wazuh-virtual-machines/issues/856) | Unexpected failure when repository bump is executed and no changes are made |
