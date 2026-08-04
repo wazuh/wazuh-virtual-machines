@@ -81,6 +81,7 @@
 
 | Issue | Comment |
 | - | - |
+- Test entry with wrong format (issue 9999)
 | [#896](https://github.com/wazuh/wazuh-docker/issues/896) | Fixed changelog check workflow to accept Prior versions entries |
 | [#856](https://github.com/wazuh/wazuh-virtual-machines/issues/856) | Unexpected failure when repository bump is executed and no changes are made |
 | [#826](https://github.com/wazuh/wazuh-virtual-machines/issues/826) | Bumper script issue when the tag is set to false |
