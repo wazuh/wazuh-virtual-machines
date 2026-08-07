@@ -1,0 +1,33 @@
+wazuh_indexer:
+  - path: /etc/wazuh-indexer/opensearch.yml 
+    replace:
+      keys:
+        - .["network.host"]
+        - .["node.name"]
+        - .["cluster.initial_cluster_manager_nodes"][0]
+        - .["plugins.security.nodes_dn"][0]
+      values:
+        - \"127.0.0.1\"
+        - \"__indexer_node_name__\" # Placeholder for indexer node name that will be replaced during configuration
+        - \"__indexer_node_name__\"
+        - \"CN=__indexer_node_name__,OU=Wazuh,O=Wazuh,L=California,C=US\"
+wazuh_manager:
+  - path: /var/wazuh-manager/etc/wazuh-manager.conf
+    replace:
+      keys:
+        - .wazuh_config.indexer.hosts.host
+        - .wazuh_config.indexer.ssl.certificate_authorities.ca
+        - .wazuh_config.indexer.ssl.certificate
+        - .wazuh_config.indexer.ssl.key
+      values:
+        - https://127.0.0.1:9200
+        - /var/wazuh-manager/etc/certs/root-ca.pem
+        - /var/wazuh-manager/etc/certs/manager.pem
+        - /var/wazuh-manager/etc/certs/manager-key.pem
+wazuh_agent:
+  - path: /var/ossec/etc/ossec.conf
+    replace:
+      keys:
+        - .ossec_config[0].client.manager.address
+      values:
+        - 127.0.0.1
