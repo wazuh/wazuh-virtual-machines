@@ -279,11 +279,12 @@ class CertsManager:
                 sudo chown -R wazuh-indexer:wazuh-indexer {ComponentCertsDirectory.WAZUH_INDEXER}/
                 """
         elif component == Component.WAZUH_MANAGER:
+            # No `rm -rf` here: the manager package's postinstall already populates this directory with
+            # authd/remoted/apid daemon certs, which must survive this step untouched.
             cert_name = certs_name[ComponentCertsConfigParameter.WAZUH_MANAGER_CERT.name]
             key_name = certs_name[ComponentCertsConfigParameter.WAZUH_MANAGER_KEY.name]
             ca_name = certs_name[ComponentCertsConfigParameter.WAZUH_MANAGER_CA.name]
             command = f"""
-                sudo rm -rf {ComponentCertsDirectory.WAZUH_MANAGER}
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_MANAGER}
                 sudo tar -xf {certs_path}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_MANAGER} ./{" ./".join(self.components_certs_default_name[Component.WAZUH_MANAGER].values())}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["cert"]} {ComponentCertsDirectory.WAZUH_MANAGER}/{cert_name}
