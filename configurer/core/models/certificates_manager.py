@@ -279,16 +279,20 @@ class CertsManager:
                 sudo chown -R wazuh-indexer:wazuh-indexer {ComponentCertsDirectory.WAZUH_INDEXER}/
                 """
         elif component == Component.WAZUH_MANAGER:
+            manager_cert = f"{ComponentCertsDirectory.WAZUH_MANAGER}/{certs_name[ComponentCertsConfigParameter.WAZUH_MANAGER_CERT.name]}"
+            manager_key = f"{ComponentCertsDirectory.WAZUH_MANAGER}/{certs_name[ComponentCertsConfigParameter.WAZUH_MANAGER_KEY.name]}"
+            manager_ca = f"{ComponentCertsDirectory.WAZUH_MANAGER}/{certs_name[ComponentCertsConfigParameter.WAZUH_MANAGER_CA.name]}"
             command = f"""
                 sudo rm -rf {ComponentCertsDirectory.WAZUH_MANAGER}
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_MANAGER}
                 sudo tar -xf {certs_path}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_MANAGER} ./{" ./".join(self.components_certs_default_name[Component.WAZUH_MANAGER].values())}
-                sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["cert"]} {ComponentCertsDirectory.WAZUH_MANAGER}/{certs_name[ComponentCertsConfigParameter.WAZUH_MANAGER_CERT.name]}
-                sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["key"]} {ComponentCertsDirectory.WAZUH_MANAGER}/{certs_name[ComponentCertsConfigParameter.WAZUH_MANAGER_KEY.name]}
-                sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["ca"]} {ComponentCertsDirectory.WAZUH_MANAGER}/{certs_name[ComponentCertsConfigParameter.WAZUH_MANAGER_CA.name]}
-                sudo chmod 500 {ComponentCertsDirectory.WAZUH_MANAGER}
-                sudo find {ComponentCertsDirectory.WAZUH_MANAGER} -type f -exec chmod 400 {{}} \\;
-                sudo chown -R wazuh-manager:wazuh-manager {ComponentCertsDirectory.WAZUH_MANAGER}/
+                sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["cert"]} {manager_cert}
+                sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["key"]} {manager_key}
+                sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["ca"]} {manager_ca}
+                sudo chown root:wazuh-manager {manager_cert} {manager_key} {manager_ca}
+                sudo chmod 640 {manager_cert} {manager_key} {manager_ca}
+                sudo chown root:wazuh-manager {ComponentCertsDirectory.WAZUH_MANAGER}
+                sudo chmod 1770 {ComponentCertsDirectory.WAZUH_MANAGER}
                 """
         elif component == Component.WAZUH_DASHBOARD:
             command = f"""
