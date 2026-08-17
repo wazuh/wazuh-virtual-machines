@@ -22,8 +22,8 @@ wazuh_manager:
       values:
         - https://127.0.0.1:9200
         - /var/wazuh-manager/etc/certs/root-ca.pem
-        - /var/wazuh-manager/etc/certs/manager.pem
-        - /var/wazuh-manager/etc/certs/manager-key.pem
+        - /var/wazuh-manager/etc/certs/indexer-connector.pem
+        - /var/wazuh-manager/etc/certs/indexer-connector-key.pem
 wazuh_agent:
   - path: /var/ossec/etc/ossec.conf
     replace:
