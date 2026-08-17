@@ -17,8 +17,12 @@ logger = Logger("CoreConfigurer")
 WAZUH_MANAGER_AUTHD_PASS_FILE = "/var/wazuh-manager/etc/authd.pass"
 WAZUH_AGENT_AUTHD_PASS_FILE = "/var/ossec/etc/authd.pass"
 # The manager generates its Authd password on startup, so wait for the file to appear.
-AUTHD_PASS_MAX_RETRIES = 12
+AUTHD_PASS_MAX_RETRIES = 24
 AUTHD_PASS_WAIT_TIME = 5
+# `systemctl start` returns as soon as the manager process is launched, not once it has finished
+# initializing, so wait for its API to actually respond before relying on anything it sets up.
+MANAGER_READY_MAX_RETRIES = 12
+MANAGER_READY_WAIT_TIME = 10
 
 
 @dataclass
@@ -99,7 +103,43 @@ class CoreConfigurer:
 
                 logger.debug(f"{component.replace('_', ' ')} service started")
 
+                if component == Component.WAZUH_MANAGER:
+                    self.wait_for_manager_ready(client=client)
+
         logger.info_success("All services started")
+
+    def wait_for_manager_ready(self, client: paramiko.SSHClient | None = None):
+        """
+        Waits for the Wazuh manager API to respond, confirming the manager has finished starting up.
+
+        Args:
+            client (paramiko.SSHClient | None, optional): An SSH client to execute the commands
+                remotely. If None, the commands are executed locally. Defaults to None.
+
+        Raises:
+            RuntimeError: If the manager API does not respond within the retry budget.
+        """
+
+        logger.debug("Waiting for the Wazuh manager API to be ready")
+
+        command = (
+            'sudo curl -XPOST https://localhost:55000/security/user/authenticate '
+            '-uwazuh-wui:wazuh-wui -k --max-time 10 -w "%{http_code}" -s -o /dev/null'
+        )
+        for attempt in range(MANAGER_READY_MAX_RETRIES):
+            output, _ = exec_command(command=command, client=client)
+            if output == "200":
+                break
+            logger.debug(
+                f"Wazuh manager API not ready yet, retrying in {MANAGER_READY_WAIT_TIME} seconds "
+                f"(attempt {attempt + 1}/{MANAGER_READY_MAX_RETRIES})"
+            )
+            time.sleep(MANAGER_READY_WAIT_TIME)
+        else:
+            logger.error("Wazuh manager API did not become ready in time")
+            raise RuntimeError("Wazuh manager API did not become ready in time")
+
+        logger.debug("Wazuh manager API is ready")
 
     def set_authd_password(self, client: paramiko.SSHClient | None = None):
         """
