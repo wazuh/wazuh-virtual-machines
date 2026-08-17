@@ -420,7 +420,6 @@ def test_generate_certificates_error_during_copy(mock_get_certs_name, mock_copy_
                 ComponentCertsConfigParameter.WAZUH_MANAGER_CA.name: "manager-ca.pem",
             },
             f"""
-                sudo rm -rf {ComponentCertsDirectory.WAZUH_MANAGER}
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_MANAGER}
                 sudo tar -xf {CERTS_TOOL_PATH.parent}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_MANAGER} ./manager-cert.pem ./manager-key.pem ./manager-ca.pem
                 sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/manager-cert.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-cert.pem
