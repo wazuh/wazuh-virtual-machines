@@ -6,6 +6,7 @@ import pytest
 
 from configurer.core.core_configurer import (
     AUTHD_PASS_MAX_RETRIES,
+    MANAGER_READY_MAX_RETRIES,
     WAZUH_AGENT_AUTHD_PASS_FILE,
     WAZUH_MANAGER_AUTHD_PASS_FILE,
     CoreConfigurer,
@@ -112,8 +113,11 @@ def test_configure(mock_paramiko, mock_start_services, mock_open_file, mock_exec
     mock_logger.debug_title.assert_any_call("Starting services")
 
 
+@patch("configurer.core.core_configurer.CoreConfigurer.wait_for_manager_ready")
 @patch("configurer.core.core_configurer.CoreConfigurer.set_authd_password")
-def test_start_services_sets_authd_password_before_agent(mock_set_authd_password, mock_exec_command, mock_logger):
+def test_start_services_sets_authd_password_before_agent(
+    mock_set_authd_password, mock_wait_for_manager_ready, mock_exec_command, mock_logger
+):
     call_order = []
     mock_set_authd_password.side_effect = lambda client=None: call_order.append("set_authd_password")
     original_side_effect = mock_exec_command.side_effect
@@ -189,8 +193,46 @@ def test_set_authd_password_error(mock_exec_command, mock_logger):
     mock_logger.error.assert_any_call("Error setting the Wazuh agent registration password")
 
 
+def test_wait_for_manager_ready_success(mock_exec_command, mock_logger):
+    mock_exec_command.return_value = ("200", "")
+    core_configurer_instance = CoreConfigurer(inventory=None, files_configuration_path=Path("test_path.yml"))
+    core_configurer_instance.wait_for_manager_ready(client=None)
+
+    check_command = mock_exec_command.call_args_list[0].kwargs["command"]
+    assert "curl -XPOST https://localhost:55000/security/user/authenticate" in check_command
+
+    mock_logger.error.assert_not_called()
+    mock_logger.debug.assert_any_call("Wazuh manager API is ready")
+
+
+@patch("configurer.core.core_configurer.time.sleep")
+def test_wait_for_manager_ready_retries_until_ready(mock_sleep, mock_exec_command, mock_logger):
+    # The manager API is not ready on the first two checks, then responds.
+    mock_exec_command.side_effect = [("000", ""), ("000", ""), ("200", "")]
+    core_configurer_instance = CoreConfigurer(inventory=None, files_configuration_path=Path("test_path.yml"))
+    core_configurer_instance.wait_for_manager_ready(client=None)
+
+    assert mock_sleep.call_count == 2
+    mock_logger.debug.assert_any_call("Wazuh manager API is ready")
+
+
+@patch("configurer.core.core_configurer.time.sleep")
+def test_wait_for_manager_ready_never_ready(mock_sleep, mock_exec_command, mock_logger):
+    # The manager API never responds successfully.
+    mock_exec_command.return_value = ("000", "")
+    core_configurer_instance = CoreConfigurer(inventory=None, files_configuration_path=Path("test_path.yml"))
+
+    with pytest.raises(RuntimeError, match="Wazuh manager API did not become ready in time"):
+        core_configurer_instance.wait_for_manager_ready(client=None)
+
+    assert mock_exec_command.call_count == MANAGER_READY_MAX_RETRIES
+    assert mock_sleep.call_count == MANAGER_READY_MAX_RETRIES
+    mock_logger.error.assert_any_call("Wazuh manager API did not become ready in time")
+
+
+@patch("configurer.core.core_configurer.CoreConfigurer.wait_for_manager_ready")
 @patch("configurer.core.core_configurer.CoreConfigurer.set_authd_password")
-def test_start_services_success(mock_set_authd_password, mock_exec_command, mock_logger):
+def test_start_services_success(mock_set_authd_password, mock_wait_for_manager_ready, mock_exec_command, mock_logger):
     core_configurer_instance = CoreConfigurer(inventory=None, files_configuration_path=Path("test_path.yml"))
     core_configurer_instance.start_services(client=None)
 
