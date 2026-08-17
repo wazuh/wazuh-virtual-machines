@@ -126,7 +126,7 @@ jobs:
 
   build_ova:
     needs: get_pr_info
-    uses: ./.github/workflows/builder_OVA.yaml
+    uses: ./.github/workflows/5_OVA_builder.yaml
     with:
       id: "pr-check-${{ needs.get_pr_info.outputs.pr_number }}"
       wazuh_virtual_machines_reference: ${{ needs.get_pr_info.outputs.pr_head_ref }}
@@ -142,7 +142,7 @@ jobs:
 
   test_ova:
     needs: [get_pr_info, build_ova]
-    uses: ./.github/workflows/test-vm.yaml
+    uses: ./.github/workflows/5_test-vm.yaml
     with:
       WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ needs.get_pr_info.outputs.pr_head_ref }}
       WAZUH_AUTOMATION_REFERENCE: ${{ needs.get_pr_info.outputs.wazuh_automation_reference }}
