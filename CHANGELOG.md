@@ -82,6 +82,7 @@
 
 | Issue | Comment |
 | - | - |
+| [#919](https://github.com/wazuh/wazuh-virtual-machines/pull/919) | Report skipped bumps in the repository bumper workflow |
 | [#856](https://github.com/wazuh/wazuh-virtual-machines/issues/856) | Unexpected failure when repository bump is executed and no changes are made |
 | [#826](https://github.com/wazuh/wazuh-virtual-machines/issues/826) | Bumper script issue when the tag is set to false |
 | [#787](https://github.com/wazuh/wazuh-virtual-machines/issues/787) | Error in OVA and AMI checks |
