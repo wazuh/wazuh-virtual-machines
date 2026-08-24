@@ -179,7 +179,7 @@ jobs:
 
   ami-setup:
     if: ${{ inputs.test_type == 'ami' && inputs.host != '' }}
-    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
+    runs-on: ubuntu-24.04
     outputs:
       instance_id: ${{ steps.launch.outputs.instance_id }}
       instance_ip: ${{ steps.launch.outputs.instance_ip }}
@@ -295,7 +295,7 @@ jobs:
   test-ami:
     needs: ami-setup
     if: ${{ needs.ami-setup.result == 'success' }}
-    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout wazuh-automation repository
@@ -447,7 +447,7 @@ jobs:
   ami-cleanup:
     needs: [ami-setup, test-ami]
     if: ${{ always() && needs.ami-setup.result != 'skipped' && !inputs.keep_instance_alive }}
-    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Configure AWS credentials
@@ -508,7 +508,7 @@ jobs:
 
   ova-setup:
     if: ${{ inputs.test_type == 'ova' }}
-    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
+    runs-on: ubuntu-24.04
     outputs:
       allocator_ip: ${{ steps.allocator.outputs.allocator_ip }}
       allocator_ssh_port: ${{ steps.allocator.outputs.ssh_port }}
@@ -808,7 +808,7 @@ jobs:
   test-ova:
     needs: ova-setup
     if: ${{ needs.ova-setup.result == 'success' }}
-    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout wazuh-automation repository
@@ -954,7 +954,7 @@ jobs:
   ova-cleanup:
     needs: [ova-setup, test-ova]
     if: ${{ always() && needs.ova-setup.result != 'skipped' && !inputs.keep_instance_alive }}
-    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout wazuh-automation
