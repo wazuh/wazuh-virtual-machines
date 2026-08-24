@@ -25,7 +25,7 @@ on:
 
 jobs:
   bump:
-    name: Repository bumper 4.x
+    name: Repository bumper
     runs-on: ubuntu-24.04
     permissions:
       contents: write
