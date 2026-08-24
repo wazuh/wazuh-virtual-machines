@@ -27,7 +27,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- None
+- Change Codebuild runners to Github runners ([#911](https://github.com/wazuh/wazuh-virtual-machines/pull/911))
 
 ### Fixed
 
