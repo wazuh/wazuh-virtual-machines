@@ -122,12 +122,12 @@ jobs:
 
       - name: Install and set allocator requirements
         run: |
-          python3 -m pip install -r wazuh-automation/deployability/deps/requirements.txt
+          python3 -m pip install ./wazuh-automation/deployability/modules/allocation
 
       - name: Execute allocator module that will create the base instance
         id: alloc_vm_ami
         run: |
-          python3 wazuh-automation/deployability/modules/allocation/main.py --action create --provider aws --size large --composite-name ${{ env.COMPOSITE_NAME }} --working-dir ${{ env.ALLOCATOR_PATH }} \
+          wazuh-allocator --action create --provider aws --size large --composite-name ${{ env.COMPOSITE_NAME }} --working-dir ${{ env.ALLOCATOR_PATH }} \
             --track-output ${{ env.ALLOCATOR_PATH }}/track.yml --inventory-output ${{ env.ALLOCATOR_PATH }}/inventory.yml --instance-name gha_${{ github.run_id }}_ami_build \
             --label-team devops --label-termination-date 1d
           sed -n '/hosts:/,/^[^ ]/p' ${{ env.ALLOCATOR_PATH }}/inventory.yml | grep "ansible_" | sed 's/^[ ]*//g' > ${{ env.ALLOCATOR_PATH }}/inventory_mod.yml
@@ -239,7 +239,7 @@ jobs:
 
       - name: Delete allocated VM
         if: always() && steps.alloc_vm_ami.outcome == 'success' && inputs.destroy == true
-        run: python3 wazuh-automation/deployability/modules/allocation/main.py --action delete --track-output ${{ env.ALLOCATOR_PATH }}/track.yml
+        run: wazuh-allocator --action delete --track-output ${{ env.ALLOCATOR_PATH }}/track.yml
 
       - name: Compress Allocator directory
         id: generate_artifacts
