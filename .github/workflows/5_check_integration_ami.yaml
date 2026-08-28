@@ -151,7 +151,7 @@ jobs:
 
   build_ami:
     needs: get_pr_info
-    uses: ./.github/workflows/packages_builder_ami.yaml
+    uses: ./.github/workflows/5_AMI_builder.yaml
     with:
       id: "pr-check-${{ needs.get_pr_info.outputs.pr_number }}"
       wazuh_virtual_machines_reference: ${{ needs.get_pr_info.outputs.pr_head_ref }}
@@ -174,7 +174,7 @@ jobs:
       needs.build_ami.result == 'success' &&
       needs.build_ami.outputs.ami_id_amd64 != '' &&
       needs.build_ami.outputs.ami_id_amd64 != null
-    uses: ./.github/workflows/test-vm.yaml
+    uses: ./.github/workflows/5_test-vm.yaml
     with:
       WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ needs.get_pr_info.outputs.pr_head_ref }}
       WAZUH_AUTOMATION_REFERENCE: ${{ needs.get_pr_info.outputs.wazuh_automation_reference }}
@@ -192,7 +192,7 @@ jobs:
       needs.build_ami.result == 'success' &&
       needs.build_ami.outputs.ami_id_arm64 != '' &&
       needs.build_ami.outputs.ami_id_arm64 != null
-    uses: ./.github/workflows/test-vm.yaml
+    uses: ./.github/workflows/5_test-vm.yaml
     with:
       WAZUH_VIRTUAL_MACHINES_REFERENCE: ${{ needs.get_pr_info.outputs.pr_head_ref }}
       WAZUH_AUTOMATION_REFERENCE: ${{ needs.get_pr_info.outputs.wazuh_automation_reference }}
