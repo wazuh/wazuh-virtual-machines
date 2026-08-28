@@ -1,34 +1,11 @@
-## [v5.0.0]
+## [5.1.0]
 
 ### Added
 
-
 | Issue | Comment |
 | - | - |
-| [#807](https://github.com/wazuh/wazuh-virtual-machines/issues/807) | Add bump-issue-link support for Revert Stage Bump in wazuh-virtual-machines |
-| [#835](https://github.com/wazuh/wazuh-virtual-machines/pull/835) | Add integration test module docs |
-| [#773](https://github.com/wazuh/wazuh-virtual-machines/pull/773) | Add purpose input to the build ami workflow |
-| [#734](https://github.com/wazuh/wazuh-virtual-machines/issues/734) | Update OVA documentation to include the download URL |
-| [#759](https://github.com/wazuh/wazuh-virtual-machines/pull/759) | Add open and reopened types for pull requests trigger in check_unit_tests workflow |
-| [#716](https://github.com/wazuh/wazuh-virtual-machines/issues/716) | Update os.yml file with the latest stage AMIs |
-| [#755](https://github.com/wazuh/wazuh-virtual-machines/issues/755) | Add a new tag attribute to the AMI builder process |
-| [#691](https://github.com/wazuh/wazuh-virtual-machines/issues/691) | Change the key of the generated `.box` sha512 URI in OVA generate workflow |
-| [#673](https://github.com/wazuh/wazuh-virtual-machines/issues/673) | Support Revert bump functionality in wazuh-virtual-machines |
-| [#642](https://github.com/wazuh/wazuh-virtual-machines/issues/642) | Add `--set-as-main` flag support to repository bumper — `wazuh-virtual-machines` |
-| [#427](https://github.com/wazuh/wazuh-virtual-machines/issues/427) | Share AMI with `wazuh-dev` and `xdrsiem-dev` AWS accounts |
-| [#628](https://github.com/wazuh/wazuh-virtual-machines/issues/628) | Environment selection for local OVA builds and AL2023 box integration |
-| [#571](https://github.com/wazuh/wazuh-virtual-machines/issues/571) | Development - Separate Agent/Manager - VMs - Update documentation |
-| [#570](https://github.com/wazuh/wazuh-virtual-machines/issues/570) | Development - Separate Agent/Manager - VMs - Ensure the Wazuh agent is stopped in the AMI customization process |
-| [#568](https://github.com/wazuh/wazuh-virtual-machines/issues/568) | Development - Separate Agent/Manager - VMs - Add Wazuh agent clean up in the AMI `post configurer` module |
-| [#596](https://github.com/wazuh/wazuh-virtual-machines/issues/596) | URL presigned file -  Verify that the OVA and AMI packages comply with the development naming convention. |
-| [#567](https://github.com/wazuh/wazuh-virtual-machines/issues/567) | Development - Separate Agent/Manager - VMs - Configure the Wazuh agent in the `core configurer` module |
-| [#566](https://github.com/wazuh/wazuh-virtual-machines/issues/566) | Development - Separate Agent/Manager - VMs - Add the Wazuh agent installation in the provisioner module |
-| [#545](https://github.com/wazuh/wazuh-virtual-machines/issues/545) | Update Ova documentation with local build |
-| [#531](https://github.com/wazuh/wazuh-virtual-machines/pull/531) | Add the installation assistant tools revision in the generate presigned urls script |
-| [#504](https://github.com/wazuh/wazuh-virtual-machines/issues/504) | ARM AMI - Ensure functional parity between ARM64 and AMD64 AMIs |
 
 ### Changed
-
 
 | Issue | Comment |
 | - | - |
@@ -73,31 +50,15 @@
 
 ### Removed
 
-
 | Issue | Comment |
 | - | - |
-| [#544](https://github.com/wazuh/wazuh-virtual-machines/issues/544) | Removed obsolete OVA and AMI creation methods |
 
 ### Fixed
 
-
 | Issue | Comment |
 | - | - |
-| [#896](https://github.com/wazuh/wazuh-virtual-machines/pull/896) | Fixed changelog check workflow to accept Prior versions entries |
-| [#856](https://github.com/wazuh/wazuh-virtual-machines/issues/856) | Unexpected failure when repository bump is executed and no changes are made |
-| [#826](https://github.com/wazuh/wazuh-virtual-machines/issues/826) | Bumper script issue when the tag is set to false |
-| [#787](https://github.com/wazuh/wazuh-virtual-machines/issues/787) | Error in OVA and AMI checks |
-| [#744](https://github.com/wazuh/wazuh-virtual-machines/issues/744) | The AMI ARM build is failing when it fetches the manager package |
-| [#670](https://github.com/wazuh/wazuh-virtual-machines/issues/670) | Bump PR not merged in either step despite workflow reporting success |
-| [#634](https://github.com/wazuh/wazuh-virtual-machines/issues/634) | Unreachable AMI via SSH connection for AWS |
-| [#609](https://github.com/wazuh/wazuh-virtual-machines/pull/609) | Fix check vulnerabilities |
-| [#585](https://github.com/wazuh/wazuh-virtual-machines/issues/585) | Fix failing AMI `pre-configurer` tests |
-| [#550](https://github.com/wazuh/wazuh-virtual-machines/issues/550) | AMI build upload GitHub workflow artifact fails due to duplicated name |
-| [#539](https://github.com/wazuh/wazuh-virtual-machines/issues/539) | Failure when building AMI from the main branch |
-| [#519](https://github.com/wazuh/wazuh-virtual-machines/issues/519) | Clean OVA files related to Cloud Init and Vagrant |
-| [#437](https://github.com/wazuh/wazuh-virtual-machines/issues/437) | Addapt OVA generation fixes while generate vagrant resources |
-| [#426](https://github.com/wazuh/wazuh-virtual-machines/issues/426) | OVA generation failed while creating the Vagrant resource |
 
 ## Prior versions
 
-- []()
+- [v5.0.1](https://github.com/wazuh/wazuh-virtual-machines/blob/v5.0.1/CHANGELOG.md)
+- [v5.0.0](https://github.com/wazuh/wazuh-virtual-machines/blob/v5.0.0/CHANGELOG.md)
