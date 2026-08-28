@@ -208,15 +208,21 @@ def steps_clean() -> None:
 
     This function performs the following cleanup steps:
     1. Removes the file `/securityadmin_demo.sh`.
-    2. Cleans all cached data for the `yum` package manager.
-    3. Reloads the systemd manager configuration.
-    4. Clears the current user's bash history.
+    2. Removes the manager's self-signed remoted certificate baked in at image build time
+       (regenerated per instance by wazuh-starter on first boot).
+    3. Cleans all cached data for the `yum` package manager.
+    4. Reloads the systemd manager configuration.
+    5. Clears the current user's bash history.
 
     Returns:
         None
     """
     commands = [
         "rm -f /securityadmin_demo.sh",
+        # The manager package postinstall generated remoted.pem/remoted-key.pem at image build time.
+        # Shipping it would make every VM deployed from this OVA share the same certificate/key, so it
+        # is removed here and regenerated per instance by wazuh-starter on first boot.
+        "rm -f /var/wazuh-manager/etc/certs/remoted.pem /var/wazuh-manager/etc/certs/remoted-key.pem",
         "yum clean all",
         "systemctl daemon-reload",
         "cat /dev/null > ~/.bash_history && history -c",
