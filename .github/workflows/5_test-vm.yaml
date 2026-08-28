@@ -549,7 +549,7 @@ jobs:
 
       - name: Install allocator dependencies
         run: |
-          pip install -r wazuh-automation/deployability/deps/requirements.txt
+          pip install ./wazuh-automation/deployability/modules/allocation
           pip install ansible pyyaml
       
       - name: Install yq
@@ -626,7 +626,7 @@ jobs:
           INSTANCE_NAME="gha_${{ github.run_id }}_ova_test"
 
           # Run allocation module to create EC2 instance
-          python wazuh-automation/deployability/modules/allocation/main.py \
+          wazuh-allocator \
             --action create \
             --provider aws \
             --size metal \
@@ -974,10 +974,10 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install -r wazuh-automation/deployability/deps/requirements.txt
+        run: pip install ./wazuh-automation/deployability/modules/allocation
 
       - name: Download allocator working directory
         id: download-workdir
@@ -1033,7 +1033,7 @@ jobs:
           echo ""
           echo "Terminating allocator instance..."
 
-          python wazuh-automation/deployability/modules/allocation/main.py \
+          wazuh-allocator \
             --action delete \
             --track-output ${TRACK_FILE}
 

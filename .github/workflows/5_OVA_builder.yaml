@@ -219,12 +219,12 @@ jobs:
 
       - name: Install and set allocator requirements
         run: |
-          pip3 install -r wazuh-automation/deployability/deps/requirements.txt
+          pip3 install ./wazuh-automation/deployability/modules/allocation
 
       - name: Execute allocator module that will create the base instance
         id: alloc_vm_ova
         run: |
-          python3 wazuh-automation/deployability/modules/allocation/main.py --action create --provider aws --size ${{ env.INSTANCE_TYPE }} --composite-name ${{ env.COMPOSITE_NAME }} --working-dir ${{ env.ALLOCATOR_PATH }} \
+          wazuh-allocator --action create --provider aws --size ${{ env.INSTANCE_TYPE }} --composite-name ${{ env.COMPOSITE_NAME }} --working-dir ${{ env.ALLOCATOR_PATH }} \
             --track-output ${{ env.ALLOCATOR_PATH }}/track.yml --inventory-output ${{ env.ALLOCATOR_PATH }}/inventory.yml --instance-name gha_${{ github.run_id }}_ova_build \
             --label-team devops --label-termination-date 1d --custom-tags "purpose:build-ova,WorkflowRun:${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
