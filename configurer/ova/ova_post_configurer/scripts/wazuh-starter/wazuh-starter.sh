@@ -9,6 +9,14 @@ debug="| tee -a ${logfile}"
 # this file. The same password must be distributed to the agent so it can enroll against the manager.
 wazuh_manager_authd_pass="/var/wazuh-manager/etc/authd.pass"
 wazuh_agent_authd_pass="/var/ossec/etc/authd.pass"
+
+# The manager's single self-signed certificate (HTTPS agent listener identity, reused by Authd as
+# the /enroll mTLS credential). Only the package postinstall generates it — no daemon regenerates
+# it at startup — so after the image cleanup removed the baked-in pair, this script must recreate
+# it before the manager starts, making it unique per deployed instance.
+wazuh_manager_certs_dir="/var/wazuh-manager/etc/certs"
+wazuh_manager_remoted_cert="${wazuh_manager_certs_dir}/remoted.pem"
+wazuh_manager_remoted_key="${wazuh_manager_certs_dir}/remoted-key.pem"
 authd_pass_max_retries=12
 authd_pass_wait_time=5
 
@@ -111,6 +119,21 @@ function set_authd_password() {
   logger "Wazuh agent registration password set successfully"
 }
 
+function regenerate_remoted_certificate() {
+  # Generate a per-instance remoted certificate, same command and ownership the manager package
+  # postinstall applies. The rm guards against an image built before the cleanup removed the pair.
+  logger "Regenerating the manager remoted certificate for this instance"
+  rm -f "${wazuh_manager_remoted_cert}" "${wazuh_manager_remoted_key}"
+  /var/wazuh-manager/bin/wazuh-manager-remoted -C 365 -B 2048 -S "/C=US/ST=California/CN=Wazuh/" -K "${wazuh_manager_remoted_key}" -X "${wazuh_manager_remoted_cert}"
+  if [ ! -f "${wazuh_manager_remoted_cert}" ] || [ ! -f "${wazuh_manager_remoted_key}" ]; then
+      logger -e "Failed to regenerate the manager remoted certificate"
+      exit 1
+  fi
+  chown wazuh-manager:wazuh-manager "${wazuh_manager_remoted_cert}" "${wazuh_manager_remoted_key}"
+  chmod 640 "${wazuh_manager_remoted_cert}" "${wazuh_manager_remoted_key}"
+  logger "Manager remoted certificate regenerated successfully"
+}
+
 function clean_configuration(){
   logger "Cleaning configuration files"
   eval "rm -rf /var/log/wazuh-starter.log"
@@ -125,6 +148,7 @@ function clean_configuration(){
 logger "Starting Wazuh services in order"
 
 rotate_authd_password
+regenerate_remoted_certificate
 
 starter_service wazuh-indexer
 verify_indexer
