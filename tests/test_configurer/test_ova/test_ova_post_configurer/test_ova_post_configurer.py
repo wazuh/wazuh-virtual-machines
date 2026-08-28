@@ -257,6 +257,7 @@ def test_steps_clean(mock_run_command):
     mock_run_command.assert_called_once_with(
         [
             "rm -f /securityadmin_demo.sh",
+            "rm -f /var/wazuh-manager/etc/certs/remoted.pem /var/wazuh-manager/etc/certs/remoted-key.pem",
             "yum clean all",
             "systemctl daemon-reload",
             "cat /dev/null > ~/.bash_history && history -c",
