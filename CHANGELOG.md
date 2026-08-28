@@ -32,6 +32,7 @@
 
 | Issue | Comment |
 | - | - |
+| [#932](https://github.com/wazuh/wazuh-virtual-machines/pull/932) | Activate buildspec-override for a complete Python 3.12 on CodeBuild |
 | [#912](https://github.com/wazuh/wazuh-virtual-machines/issues/912) | Change Codebuild runners to Github runners |
 | [#883](https://github.com/wazuh/wazuh-virtual-machines/issues/883) | Error on AMI and OVA Build |
 | [#872](https://github.com/wazuh/wazuh-virtual-machines/issues/872) | Update deployment for Wazuh Indexer 5.0.0 RBAC (VMs) |
