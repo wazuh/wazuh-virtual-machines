@@ -258,6 +258,7 @@ def test_steps_clean(mock_run_command):
         [
             "rm -f /securityadmin_demo.sh",
             "rm -f /var/wazuh-manager/etc/certs/remoted.pem /var/wazuh-manager/etc/certs/remoted-key.pem",
+            "rm -f /var/ossec/etc/client.keys",
             "yum clean all",
             "systemctl daemon-reload",
             "cat /dev/null > ~/.bash_history && history -c",
