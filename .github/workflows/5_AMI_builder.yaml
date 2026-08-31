@@ -285,6 +285,22 @@ jobs:
             --agent-revision     $AGENT_REVISION \
             --assistant-revision $ASSISTANT_REVISION
 
+      # TEMPORARY - remove once the artifact_urls.yaml template in xdrsiem-devops-wazuh-artifacts
+      # matches the real per-commit package naming (wazuh-agent_<version>-0_<arch>_<hash>.rpm).
+      # Only for validating wazuh-virtual-machines#929 against a pinned post-#38703 agent build.
+      - name: TEMP - patch agent package URL to the real per-commit naming
+        if: inputs.wazuh_package_type == 'dev'
+        run: |
+          AGENT_REVISION=$(echo "$COMMIT_LIST" | jq -r '.[3]')
+          if [ "$AGENT_REVISION" != "latest" ]; then
+            for ARCH in x86_64 aarch64; do
+              REAL_URL="s3://${{ env.LOCAL_AWS_S3_BUCKET_DEV }}/development/wazuh/${{ env.WAZUH_MAJOR }}.x/main/packages/wazuh-agent_${{ env.WAZUH_VERSION }}-0_${ARCH}_${AGENT_REVISION}.rpm"
+              PRESIGNED=$(aws s3 presign "$REAL_URL" --region us-east-1 --expires-in 2700)
+              yq -i ".wazuh_agent_${ARCH}_rpm = \"$PRESIGNED\"" ${{ env.LOCAL_ARTIFACT_URLS_FILEPATH }}
+              echo "Patched wazuh_agent_${ARCH}_rpm -> $REAL_URL"
+            done
+          fi
+
       - name: Set customizer debug mode environment variable
         if: inputs.customizer_debug == true
         run: |
