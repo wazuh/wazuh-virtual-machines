@@ -241,6 +241,17 @@ jobs:
           echo WAZUH_MINOR=$WAZUH_MINOR >> $GITHUB_ENV
           echo WAZUH_REVISION=$WAZUH_REVISION >> $GITHUB_ENV
           echo ARCH_SUFFIX=$ARCH_SUFFIX >> $GITHUB_ENV
+      - name: Check if AMI name is already in use
+        run: |
+          EXISTING_AMI_ID=$(aws ec2 describe-images \
+            --owners self \
+            --filters "Name=name,Values=${{ env.AMI_NAME }}" \
+            --query 'Images[0].ImageId' --output text)
+          if [ "$EXISTING_AMI_ID" != "None" ] && [ -n "$EXISTING_AMI_ID" ]; then
+            echo "::error::AMI name ${{ env.AMI_NAME }} is already in use by $EXISTING_AMI_ID. Aborting before provisioning the base instance."
+            exit 1
+          fi
+          echo "AMI name ${{ env.AMI_NAME }} is available."
 
       - name: Install and set allocator requirements
         run: |
