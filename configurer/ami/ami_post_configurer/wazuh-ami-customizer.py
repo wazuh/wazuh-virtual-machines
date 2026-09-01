@@ -23,6 +23,7 @@ WAZUH_WARNING_SCRIPT = Path("/etc/profile.d/wazuh-debug-warning.sh")
 # this file. The same password must be distributed to the agent so it can enroll against the manager.
 WAZUH_MANAGER_AUTHD_PASS_FILE = "/var/wazuh-manager/etc/authd.pass"
 WAZUH_AGENT_AUTHD_PASS_FILE = "/var/ossec/etc/authd.pass"
+WAZUH_AGENT_CLIENT_KEYS_FILE = "/var/ossec/etc/client.keys"
 AUTHD_PASS_MAX_RETRIES = 12
 AUTHD_PASS_WAIT_TIME = 5
 
@@ -178,6 +179,29 @@ def remove_certificates() -> None:
         raise RuntimeError("Error removing existing certificates")
 
     logger.debug("Existing certificates removed")
+
+
+def remove_client_keys() -> None:
+    """
+    Removes the local agent's baked-in client.keys.
+
+    The local agent enrolls against the manager on the same instance during image build,
+    producing a client.keys file that would be identical across every instance launched from
+    this image. It is removed here so the agent re-enrolls and gets a unique one on first boot,
+    the same way the authd password is rotated per instance.
+
+    Returns:
+        None
+    """
+
+    logger.debug("Removing existing client.keys...")
+    command = f"rm -f {WAZUH_AGENT_CLIENT_KEYS_FILE}"
+    _, error_output = exec_command(command=command)
+    if error_output:
+        logger.error(f"Error removing client.keys: {error_output}")
+        raise RuntimeError("Error removing client.keys")
+
+    logger.debug("Existing client.keys removed")
 
 
 def create_certificates() -> None:
@@ -561,6 +585,7 @@ if __name__ == "__main__":
         stop_components_services()
         remove_certificates()
         create_certificates()
+        remove_client_keys()
         start_components_services()
         stop_service("wazuh-dashboard")
         change_passwords()

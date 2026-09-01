@@ -17,6 +17,7 @@ wazuh_agent_authd_pass="/var/ossec/etc/authd.pass"
 wazuh_manager_certs_dir="/var/wazuh-manager/etc/certs"
 wazuh_manager_remoted_cert="${wazuh_manager_certs_dir}/remoted.pem"
 wazuh_manager_remoted_key="${wazuh_manager_certs_dir}/remoted-key.pem"
+wazuh_agent_client_keys="/var/ossec/etc/client.keys"
 authd_pass_max_retries=12
 authd_pass_wait_time=5
 
@@ -134,6 +135,13 @@ function regenerate_remoted_certificate() {
   logger "Manager remoted certificate regenerated successfully"
 }
 
+function remove_client_keys() {
+  # Remove the local agent's baked-in client.keys so it re-enrolls and gets a unique one on
+  # this instance. The rm guards against an image built before the cleanup removed it.
+  logger "Removing pre-generated client.keys to force agent re-enrollment on first boot"
+  rm -f "${wazuh_agent_client_keys}"
+}
+
 function clean_configuration(){
   logger "Cleaning configuration files"
   eval "rm -rf /var/log/wazuh-starter.log"
@@ -149,6 +157,7 @@ logger "Starting Wazuh services in order"
 
 rotate_authd_password
 regenerate_remoted_certificate
+remove_client_keys
 
 starter_service wazuh-indexer
 verify_indexer

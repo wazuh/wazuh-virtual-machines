@@ -210,9 +210,11 @@ def steps_clean() -> None:
     1. Removes the file `/securityadmin_demo.sh`.
     2. Removes the manager's self-signed remoted certificate baked in at image build time
        (regenerated per instance by wazuh-starter on first boot).
-    3. Cleans all cached data for the `yum` package manager.
-    4. Reloads the systemd manager configuration.
-    5. Clears the current user's bash history.
+    3. Removes the local agent's baked-in client.keys (regenerated per instance by
+       wazuh-starter on first boot, via re-enrollment).
+    4. Cleans all cached data for the `yum` package manager.
+    5. Reloads the systemd manager configuration.
+    6. Clears the current user's bash history.
 
     Returns:
         None
@@ -223,6 +225,10 @@ def steps_clean() -> None:
         # Shipping it would make every VM deployed from this OVA share the same certificate/key, so it
         # is removed here and regenerated per instance by wazuh-starter on first boot.
         "rm -f /var/wazuh-manager/etc/certs/remoted.pem /var/wazuh-manager/etc/certs/remoted-key.pem",
+        # The local agent enrolled against the manager on this same instance at image build time,
+        # producing a client.keys that would be identical across every VM deployed from this OVA.
+        # Removed here so the agent re-enrolls and gets a unique one per instance on first boot.
+        "rm -f /var/ossec/etc/client.keys",
         "yum clean all",
         "systemctl daemon-reload",
         "cat /dev/null > ~/.bash_history && history -c",
