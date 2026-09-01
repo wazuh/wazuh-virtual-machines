@@ -5,6 +5,7 @@
 
 | Issue | Comment |
 | - | - |
+| [#929](https://github.com/wazuh/wazuh-virtual-machines/issues/929) | Fix unified agent connection URL |
 | [#807](https://github.com/wazuh/wazuh-virtual-machines/issues/807) | Add bump-issue-link support for Revert Stage Bump in wazuh-virtual-machines |
 | [#835](https://github.com/wazuh/wazuh-virtual-machines/pull/835) | Add integration test module docs |
 | [#773](https://github.com/wazuh/wazuh-virtual-machines/pull/773) | Add purpose input to the build ami workflow |
