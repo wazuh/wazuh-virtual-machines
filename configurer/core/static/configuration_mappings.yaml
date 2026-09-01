@@ -19,11 +19,20 @@ wazuh_manager:
         - .wazuh_config.indexer.ssl.certificate_authorities.ca
         - .wazuh_config.indexer.ssl.certificate
         - .wazuh_config.indexer.ssl.key
+        # The packaged wazuh-manager.conf binds remoted's agent ports (1517 HTTPS, 1514 legacy) to
+        # loopback; on a standalone VM the manager must listen on all interfaces or no external
+        # agent can enroll/connect. The packaged global_prefix (/wazuh-manager/) is left as-is:
+        # agent packages request under that same prefix by default, so the defaults already
+        # match end to end.
+        - .wazuh_config.remote.https.bind_addr
+        - .wazuh_config.remote.legacy.local_ip
       values:
         - https://127.0.0.1:9200
         - /var/wazuh-manager/etc/certs/root-ca.pem
-        - /var/wazuh-manager/etc/certs/manager.pem
-        - /var/wazuh-manager/etc/certs/manager-key.pem
+        - /var/wazuh-manager/etc/certs/indexer-connector.pem
+        - /var/wazuh-manager/etc/certs/indexer-connector-key.pem
+        - 0.0.0.0
+        - 0.0.0.0
 wazuh_agent:
   - path: /var/ossec/etc/ossec.conf
     replace:
