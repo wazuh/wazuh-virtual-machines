@@ -84,6 +84,7 @@
 | Issue | Comment |
 | - | - |
 | [#931](https://github.com/wazuh/wazuh-virtual-machines/issues/931) | Regenerate the local agent's client.keys per instance at first boot |
+| [#901](https://github.com/wazuh/wazuh-virtual-machines/issues/901) | Remove unnecessary debhelper install-time dependency for wazuh_dashboard |
 | [#919](https://github.com/wazuh/wazuh-virtual-machines/pull/919) | Report skipped bumps in the repository bumper workflow |
 | [#896](https://github.com/wazuh/wazuh-virtual-machines/pull/896) | Fixed changelog check workflow to accept Prior versions entries |
 | [#856](https://github.com/wazuh/wazuh-virtual-machines/issues/856) | Unexpected failure when repository bump is executed and no changes are made |
