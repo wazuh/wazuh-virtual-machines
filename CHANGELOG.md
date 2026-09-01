@@ -32,6 +32,7 @@
 
 | Issue | Comment |
 | - | - |
+| [#916](https://github.com/wazuh/wazuh-virtual-machines/issues/916) | Adapt the manager certificate deployment to the unified certificate layout |
 | [#912](https://github.com/wazuh/wazuh-virtual-machines/issues/912) | Change Codebuild runners to Github runners |
 | [#883](https://github.com/wazuh/wazuh-virtual-machines/issues/883) | Error on AMI and OVA Build |
 | [#872](https://github.com/wazuh/wazuh-virtual-machines/issues/872) | Update deployment for Wazuh Indexer 5.0.0 RBAC (VMs) |
@@ -82,6 +83,7 @@
 
 | Issue | Comment |
 | - | - |
+| [#901](https://github.com/wazuh/wazuh-virtual-machines/issues/901) | Remove unnecessary debhelper install-time dependency for wazuh_dashboard |
 | [#919](https://github.com/wazuh/wazuh-virtual-machines/pull/919) | Report skipped bumps in the repository bumper workflow |
 | [#896](https://github.com/wazuh/wazuh-virtual-machines/pull/896) | Fixed changelog check workflow to accept Prior versions entries |
 | [#856](https://github.com/wazuh/wazuh-virtual-machines/issues/856) | Unexpected failure when repository bump is executed and no changes are made |
