@@ -26,6 +26,11 @@ WAZUH_AGENT_AUTHD_PASS_FILE = "/var/ossec/etc/authd.pass"
 AUTHD_PASS_MAX_RETRIES = 12
 AUTHD_PASS_WAIT_TIME = 5
 
+# A stopped unit that left processes behind keeps them in its cgroup until the last one exits.
+SERVICE_CGROUP_PROCS = "/sys/fs/cgroup/system.slice/{unit}/cgroup.procs"
+SERVICE_LEFTOVERS_MAX_RETRIES = 10
+SERVICE_LEFTOVERS_WAIT_TIME = 2
+
 logger = Logger("CustomCertificates")
 file_handler = logging.FileHandler(LOGFILE)
 file_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
@@ -53,6 +58,58 @@ def start_service(name: str) -> None:
     logger.debug(f"{name} service started")
 
 
+def get_service_leftover_pids(name: str) -> list[str]:
+    """
+    Returns the PIDs a stopped service left running, read from the unit cgroup.
+
+    Args:
+        name (str): The name of the service to inspect.
+
+    Returns:
+        list[str]: The PIDs still in the unit cgroup. Empty once the unit is really gone.
+    """
+
+    unit = name if name.endswith(".service") else f"{name}.service"
+    output, _ = exec_command(command=f"cat {SERVICE_CGROUP_PROCS.format(unit=unit)} 2>/dev/null")
+
+    return output.split()
+
+
+def kill_service_leftovers(name: str) -> None:
+    """
+    Terminates the processes a stopped service left running.
+
+    systemd only runs ExecStop once a unit reached the active state: a stop issued while the unit is
+    still activating skips it, and with the KillMode=process the Wazuh units use, every daemon
+    already spawned survives the stop. Those orphans keep their sockets bound -- the manager API
+    port among them -- and break the daemons started later in the customization, which is why
+    anything the unit left behind is terminated here instead of being left to collide.
+
+    Args:
+        name (str): The name of the service whose leftovers must be terminated.
+
+    Returns:
+        None
+    """
+
+    if not get_service_leftover_pids(name):
+        return
+
+    logger.debug(f"{name} left processes running after the stop, terminating them...")
+
+    for kill_signal in ("SIGTERM", "SIGKILL"):
+        exec_command(command=f"systemctl kill --kill-whom=all --signal={kill_signal} {name}")
+
+        for _ in range(SERVICE_LEFTOVERS_MAX_RETRIES):
+            if not get_service_leftover_pids(name):
+                logger.debug(f"{name} leftover processes terminated")
+                return
+            time.sleep(SERVICE_LEFTOVERS_WAIT_TIME)
+
+    logger.error(f"Could not terminate the processes left running by the {name} service")
+    raise RuntimeError(f"Could not terminate the processes left running by the {name} service")
+
+
 def stop_service(name: str) -> None:
     """
     Stops the specified service.
@@ -70,6 +127,8 @@ def stop_service(name: str) -> None:
     if error_output:
         logger.error(f"Error stopping {name} service: {error_output}")
         raise RuntimeError(f"Error stopping {name} service")
+
+    kill_service_leftovers(name)
 
     logger.debug(f"{name} service stopped")
 
