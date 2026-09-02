@@ -288,7 +288,6 @@ def stop_components_services() -> None:
     stop_service("wazuh-agent")
     stop_service("wazuh-indexer")
     stop_service("wazuh-manager")
-    ensure_manager_api_port_free()
     stop_service("wazuh-dashboard")
 
     logger.debug("Wazuh components services stopped")
@@ -438,6 +437,7 @@ def start_components_services() -> None:
     create_remoted_certificate()
 
     enable_service("wazuh-manager")
+    ensure_manager_api_port_free()
     start_service("wazuh-manager")
     verify_manager_connection()
 

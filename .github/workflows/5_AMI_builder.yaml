@@ -290,9 +290,13 @@ jobs:
         if: inputs.customizer_debug == true
         run: |
           sed -i 's|ExecStart=.* -m wazuh-ami-customizer$|& --debug|' ${{ env.CUSTOMIZER_SERVICE_FILE }}
-          # TEMPORARY: prevent the timer from auto-firing on boot, so the customizer can be
-          # triggered manually (as many times as needed) for testing #6086. Remove once resolved.
+          # TEMPORARY: prevent both auto-start paths, so the customizer can be triggered
+          # manually (as many times as needed) for testing #6086. Remove once resolved.
+          # 1) the timer's own schedule
           sed -i 's|^OnBootSec=.*|OnBootSec=999999s|' ${{ env.CUSTOMIZER_TIMER_FILE }}
+          # 2) the service's own [Install] binding to multi-user.target, which starts it on
+          #    every boot independently of the timer
+          sed -i 's|^WantedBy=multi-user.target|WantedBy=wazuh-ami-customizer-manual.target|' ${{ env.CUSTOMIZER_SERVICE_FILE }}
 
       - name: Execute configuration AMI process
         run: |
