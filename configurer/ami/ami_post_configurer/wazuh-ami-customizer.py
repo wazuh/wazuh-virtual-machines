@@ -114,6 +114,41 @@ def verify_component_connection(component: Component, command: str, retries: int
             raise RuntimeError(f"{component.replace('_', ' ')} connection failed")
 
 
+def ensure_manager_api_port_free(port: int = 55000, retries: int = 6, wait_time: int = 5) -> None:
+    """
+    Ensures no leftover process is still bound to the manager API port after stopping wazuh-manager.
+
+    wazuh-manager.service uses KillMode=process, so systemctl stop only waits on the tracked main
+    process, not the rest of the unit's cgroup. Under the CPU contention of a first boot,
+    wazuh-manager-apid can survive past the stop ("Unit process N remains running after unit
+    stopped") for longer than certificate regeneration and the indexer startup take, so when the
+    manager starts again the new apid fails to bind the port and dies silently.
+
+    Returns:
+        None
+    """
+
+    logger.debug(f"Ensuring port {port} is free before starting wazuh-manager...")
+
+    for attempt in range(retries):
+        output, _ = exec_command(command=f"ss -Htln 'sport = :{port}'")
+        if not output.strip():
+            logger.debug(f"Port {port} is free")
+            return
+
+        logger.debug(f"Port {port} still in use, retrying in {wait_time} seconds (attempt {attempt + 1}/{retries})...")
+        time.sleep(wait_time)
+
+    logger.debug(f"Port {port} still in use after waiting, killing leftover process(es)...")
+    exec_command(command=f"fuser -k {port}/tcp")
+    time.sleep(2)
+
+    output, _ = exec_command(command=f"ss -Htln 'sport = :{port}'")
+    if output.strip():
+        logger.error(f"Port {port} still in use after killing leftover process(es)")
+        raise RuntimeError(f"Could not free port {port} before starting wazuh-manager")
+
+
 def enable_service(name: str) -> None:
     """
     Enables a service using systemctl.
@@ -253,6 +288,7 @@ def stop_components_services() -> None:
     stop_service("wazuh-agent")
     stop_service("wazuh-indexer")
     stop_service("wazuh-manager")
+    ensure_manager_api_port_free()
     stop_service("wazuh-dashboard")
 
     logger.debug("Wazuh components services stopped")
