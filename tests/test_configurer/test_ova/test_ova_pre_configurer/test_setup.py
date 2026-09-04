@@ -309,6 +309,10 @@ def test_install_guest_additions_rc_local_exists_with_content(
 
     mock_run_command.assert_any_call("chmod +x /etc/rc.d/rc.local")
 
+    mock_open_file().write.assert_any_call(
+        "#!/bin/sh\n# VirtualBox Guest Additions - ensure modules are loaded\n"
+    )
+
 
 @patch("os.path.isfile")
 @patch("os.listdir")
@@ -343,8 +347,16 @@ def test_install_guest_additions_with_rc_local_service(
 
     install_guest_additions()
 
+    mock_run_command.assert_any_call("touch /etc/rc.d/rc.local")
     mock_run_command.assert_any_call(
         "ln -sf /usr/lib/systemd/system/rc-local.service /etc/systemd/system/multi-user.target.wants/rc-local.service"
+    )
+
+    mock_open_file().write.assert_any_call(
+        "#!/bin/sh\n# VirtualBox Guest Additions - ensure modules are loaded\n"
+        "if [ -f /etc/init.d/vboxadd ]; then\n"
+        "    /etc/init.d/vboxadd start || true\n"
+        "fi\n"
     )
 
 
@@ -397,7 +409,7 @@ def test_install_guest_additions_complete_systemd_scenario(
         "ln -sf /usr/lib/systemd/system/rc-local.service /etc/systemd/system/multi-user.target.wants/rc-local.service"
     )
 
-    mock_open_file.assert_any_call("/etc/rc.d/rc.local", "a+", encoding="utf-8")
+    mock_open_file.assert_any_call("/etc/rc.d/rc.local", "r+", encoding="utf-8")
 
 
 @patch("os.path.isdir")
