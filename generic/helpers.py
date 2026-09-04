@@ -5,6 +5,36 @@ from pathlib import Path
 import paramiko
 
 
+def exec_command_with_status(command: str, client: paramiko.SSHClient | None = None) -> tuple[str, str, int]:
+    """
+    Executes a shell command either locally or on a remote server via SSH, reporting its exit status.
+
+    Callers that need to tell a real failure from a command that merely wrote a warning to stderr
+    must use this function: a successful tool can still write to stderr, so only the exit status
+    says whether it did its job.
+
+    Args:
+        command (str): The shell command to execute.
+        client (paramiko.SSHClient | None, optional): An SSH client instance for remote execution.
+            If None, the command is executed locally. Defaults to None.
+
+    Returns:
+        tuple[str, str, int]: The standard output, the standard error and the exit status.
+    """
+    if not client:
+        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+
+        return result.stdout, result.stderr, result.returncode
+
+    _, stdout, stderr = client.exec_command(command=command)
+    output = stdout.read().decode()
+    error_output = stderr.read().decode()
+
+    # Read both streams before asking for the status: recv_exit_status blocks until the command
+    # finishes, and a command filling a stream buffer never finishes if nothing is draining it.
+    return output, error_output, stdout.channel.recv_exit_status()
+
+
 def exec_command(command: str, client: paramiko.SSHClient | None = None) -> tuple[str, str]:
     """
     Executes a shell command either locally or on a remote server via SSH.
@@ -19,14 +49,7 @@ def exec_command(command: str, client: paramiko.SSHClient | None = None) -> tupl
             - The first element is the standard output (stdout).
             - The second element is the standard error (stderr).
     """
-    if not client:
-        result = subprocess.run(command, shell=True, capture_output=True, text=True)
-        output = result.stdout
-        error_output = result.stderr
-    else:
-        _, stdout, stderr = client.exec_command(command=command)
-        output = stdout.read().decode()
-        error_output = stderr.read().decode()
+    output, error_output, _ = exec_command_with_status(command=command, client=client)
 
     return output, error_output
 
