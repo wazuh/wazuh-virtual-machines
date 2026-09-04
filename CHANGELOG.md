@@ -77,6 +77,7 @@
 
 | Issue | Comment |
 | - | - |
+| [#943](https://github.com/wazuh/wazuh-virtual-machines/issues/943) | Fix rc-local.service ova |
 | [#544](https://github.com/wazuh/wazuh-virtual-machines/issues/544) | Removed obsolete OVA and AMI creation methods |
 
 ### Fixed
