@@ -1,2 +1,2 @@
-from .helpers import add_content_to_file, change_inventory_user, exec_command, modify_file
+from .helpers import add_content_to_file, change_inventory_user, exec_command, exec_command_with_status, modify_file
 from .remote_connection import remote_connection
