@@ -3,7 +3,13 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
-from generic.helpers import add_content_to_file, change_inventory_user, exec_command, modify_file
+from generic.helpers import (
+    add_content_to_file,
+    change_inventory_user,
+    exec_command,
+    exec_command_with_status,
+    modify_file,
+)
 
 
 @pytest.fixture
@@ -53,6 +59,63 @@ def test_exec_command_remote(command, expected_output, expected_error):
     mock_client.exec_command.assert_called_once_with(command=command)
     assert output == expected_output
     assert error_output == expected_error
+
+
+@pytest.mark.parametrize(
+    "command, expected_output, expected_error, expected_returncode",
+    [
+        ("echo 'Hello, World!'", "Hello, World!\n", "", 0),
+        ("invalid_command", "", "sh: 1: invalid_command: not found\n", 127),
+        # A command that did its job while writing a warning to stderr: the status, not the stderr
+        # output, is what tells the caller it succeeded.
+        ("noisy_but_ok", "done\n", "Error: write EPIPE\n", 0),
+    ],
+)
+def test_exec_command_with_status_local(command, expected_output, expected_error, expected_returncode):
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value.stdout = expected_output
+        mock_run.return_value.stderr = expected_error
+        mock_run.return_value.returncode = expected_returncode
+
+        output, error_output, returncode = exec_command_with_status(command, client=None)
+
+        mock_run.assert_called_once_with(command, shell=True, capture_output=True, text=True)
+        assert output == expected_output
+        assert error_output == expected_error
+        assert returncode == expected_returncode
+
+
+@pytest.mark.parametrize(
+    "command, expected_output, expected_error, expected_returncode",
+    [
+        ("echo 'Hello, World!'", "Hello, World!\n", "", 0),
+        ("invalid_command", "", "sh: 1: invalid_command: not found\n", 127),
+    ],
+)
+def test_exec_command_with_status_remote(command, expected_output, expected_error, expected_returncode):
+    mock_client = MagicMock()
+    mock_stdout = MagicMock()
+    mock_stdout.read.return_value = expected_output.encode()
+    mock_stdout.channel.recv_exit_status.return_value = expected_returncode
+    mock_stderr = MagicMock()
+    mock_stderr.read.return_value = expected_error.encode()
+    mock_client.exec_command.return_value = (None, mock_stdout, mock_stderr)
+
+    output, error_output, returncode = exec_command_with_status(command, client=mock_client)
+
+    mock_client.exec_command.assert_called_once_with(command=command)
+    assert output == expected_output
+    assert error_output == expected_error
+    assert returncode == expected_returncode
+
+
+def test_exec_command_discards_the_status():
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value.stdout = "done\n"
+        mock_run.return_value.stderr = "Error: write EPIPE\n"
+        mock_run.return_value.returncode = 0
+
+        assert exec_command("noisy_but_ok", client=None) == ("done\n", "Error: write EPIPE\n")
 
 
 def test_modify_file_applies_replacements(mock_exec_command):
