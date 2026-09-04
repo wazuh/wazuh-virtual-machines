@@ -6,7 +6,7 @@ from pathlib import Path
 
 from configurer.core.models import CertsManager
 from configurer.core.utils import ComponentCertsDirectory
-from generic import exec_command
+from generic import exec_command, exec_command_with_status
 from utils import Component, Logger
 
 LOGFILE = Path("/var/log/wazuh-ami-customizer.log")
@@ -26,10 +26,48 @@ WAZUH_AGENT_AUTHD_PASS_FILE = "/var/ossec/etc/authd.pass"
 AUTHD_PASS_MAX_RETRIES = 12
 AUTHD_PASS_WAIT_TIME = 5
 
+# A stopped unit that left processes behind keeps them in its cgroup until the last one exits.
+SERVICE_CGROUP_PROCS = "/sys/fs/cgroup/system.slice/{unit}/cgroup.procs"
+SERVICE_LEFTOVERS_MAX_RETRIES = 10
+SERVICE_LEFTOVERS_WAIT_TIME = 2
+
 logger = Logger("CustomCertificates")
 file_handler = logging.FileHandler(LOGFILE)
 file_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
 logger.addHandler(file_handler)
+
+
+def run_command(command: str, error_message: str) -> str:
+    """
+    Runs a command and treats only a non-zero exit status as a failure.
+
+    Tools invoked during the customization write to stderr while still doing their job: the
+    dashboard keystore CLI, for one, reports an uncaught EPIPE when the password tool pipes its
+    listing into `grep -q`. Aborting on any stderr output stopped the customization on that noise
+    and left the instance half configured -- part of the passwords rotated, the rest still the
+    defaults -- so the exit status is what decides here and stderr is only kept for the log.
+
+    `set -e` makes a multi-command block report the first command that fails instead of the exit
+    status of its last line, which is what the stderr check used to cover.
+
+    Args:
+        command (str): The command to run.
+        error_message (str): Message logged and raised when the command fails.
+
+    Returns:
+        str: The command standard output.
+    """
+
+    output, error_output, returncode = exec_command_with_status(command=f"set -e\n{command}")
+
+    if returncode != 0:
+        logger.error(f"{error_message} (exit {returncode}): {error_output.strip() or output.strip()}")
+        raise RuntimeError(error_message)
+
+    if error_output.strip():
+        logger.debug(f"Command succeeded but wrote to stderr: {error_output.strip()}")
+
+    return output
 
 
 def start_service(name: str) -> None:
@@ -44,13 +82,61 @@ def start_service(name: str) -> None:
 
     logger.debug(f"Starting {name} service...")
 
-    command = f"systemctl start {name}"
-    _, error_output = exec_command(command=command)
-    if error_output:
-        logger.error(f"Error starting {name} service: {error_output}")
-        raise RuntimeError(f"Error starting {name} service")
+    run_command(command=f"systemctl start {name}", error_message=f"Error starting {name} service")
 
     logger.debug(f"{name} service started")
+
+
+def get_service_leftover_pids(name: str) -> list[str]:
+    """
+    Returns the PIDs a stopped service left running, read from the unit cgroup.
+
+    Args:
+        name (str): The name of the service to inspect.
+
+    Returns:
+        list[str]: The PIDs still in the unit cgroup. Empty once the unit is really gone.
+    """
+
+    unit = name if name.endswith(".service") else f"{name}.service"
+    output, _ = exec_command(command=f"cat {SERVICE_CGROUP_PROCS.format(unit=unit)} 2>/dev/null")
+
+    return output.split()
+
+
+def kill_service_leftovers(name: str) -> None:
+    """
+    Terminates the processes a stopped service left running.
+
+    systemd only runs ExecStop once a unit reached the active state: a stop issued while the unit is
+    still activating skips it, and with the KillMode=process the Wazuh units use, every daemon
+    already spawned survives the stop. Those orphans keep their sockets bound -- the manager API
+    port among them -- and break the daemons started later in the customization, which is why
+    anything the unit left behind is terminated here instead of being left to collide.
+
+    Args:
+        name (str): The name of the service whose leftovers must be terminated.
+
+    Returns:
+        None
+    """
+
+    if not get_service_leftover_pids(name):
+        return
+
+    logger.debug(f"{name} left processes running after the stop, terminating them...")
+
+    for kill_signal in ("SIGTERM", "SIGKILL"):
+        exec_command(command=f"systemctl kill --kill-whom=all --signal={kill_signal} {name}")
+
+        for _ in range(SERVICE_LEFTOVERS_MAX_RETRIES):
+            if not get_service_leftover_pids(name):
+                logger.debug(f"{name} leftover processes terminated")
+                return
+            time.sleep(SERVICE_LEFTOVERS_WAIT_TIME)
+
+    logger.error(f"Could not terminate the processes left running by the {name} service")
+    raise RuntimeError(f"Could not terminate the processes left running by the {name} service")
 
 
 def stop_service(name: str) -> None:
@@ -65,11 +151,9 @@ def stop_service(name: str) -> None:
 
     logger.debug(f"Stopping {name} service...")
 
-    command = f"systemctl stop {name}"
-    _, error_output = exec_command(command=command)
-    if error_output:
-        logger.error(f"Error stopping {name} service: {error_output}")
-        raise RuntimeError(f"Error stopping {name} service")
+    run_command(command=f"systemctl stop {name}", error_message=f"Error stopping {name} service")
+
+    kill_service_leftovers(name)
 
     logger.debug(f"{name} service stopped")
 
@@ -126,11 +210,7 @@ def enable_service(name: str) -> None:
 
     logger.debug(f"Enabling {name} service...")
 
-    command = f"systemctl --quiet enable {name}"
-    _, error_output = exec_command(command=command)
-    if error_output:
-        logger.error(f"Error enabling {name} service: {error_output}")
-        raise RuntimeError(f"Error enabling {name} service")
+    run_command(command=f"systemctl --quiet enable {name}", error_message=f"Error enabling {name} service")
 
     logger.debug(f"{name} service enabled")
 
@@ -147,11 +227,10 @@ def run_indexer_security_init() -> None:
 
     logger.debug("Running indexer security initialization...")
 
-    command = "eval /usr/share/wazuh-indexer/bin/indexer-security-init.sh"
-    _, error_output = exec_command(command=command)
-    if error_output:
-        logger.error(f"Error running indexer security initialization: {error_output}")
-        raise RuntimeError("Error running indexer security initialization")
+    run_command(
+        command="eval /usr/share/wazuh-indexer/bin/indexer-security-init.sh",
+        error_message="Error running indexer security initialization",
+    )
 
     logger.debug("Indexer security initialization completed")
 
@@ -172,10 +251,7 @@ def remove_certificates() -> None:
     rm -rf {ComponentCertsDirectory.WAZUH_INDEXER}/*
     rm -rf {ComponentCertsDirectory.WAZUH_DASHBOARD}/*
     """
-    _, error_output = exec_command(command=command)
-    if error_output:
-        logger.error(f"Error removing existing certificates: {error_output}")
-        raise RuntimeError("Error removing existing certificates")
+    run_command(command=command, error_message="Error removing existing certificates")
 
     logger.debug("Existing certificates removed")
 
@@ -217,10 +293,7 @@ def create_remoted_certificate() -> None:
     chown wazuh-manager:wazuh-manager {remoted_cert} {remoted_key}
     chmod 640 {remoted_cert} {remoted_key}
     """
-    _, error_output = exec_command(command=command)
-    if error_output:
-        logger.error(f"Error generating the remoted certificate: {error_output}")
-        raise RuntimeError("Error generating the remoted certificate")
+    run_command(command=command, error_message="Error generating the remoted certificate")
 
     logger.debug("Per-instance remoted certificate generated")
 
@@ -329,11 +402,10 @@ def rotate_authd_password() -> None:
 
     logger.debug("Removing pre-generated Authd registration password to force a new one on first boot")
 
-    command = f"rm -f {WAZUH_MANAGER_AUTHD_PASS_FILE} {WAZUH_AGENT_AUTHD_PASS_FILE}"
-    _, error_output = exec_command(command=command)
-    if error_output:
-        logger.error(f"Error removing Authd registration password: {error_output}")
-        raise RuntimeError("Error removing Authd registration password")
+    run_command(
+        command=f"rm -f {WAZUH_MANAGER_AUTHD_PASS_FILE} {WAZUH_AGENT_AUTHD_PASS_FILE}",
+        error_message="Error removing Authd registration password",
+    )
 
 
 def set_authd_password() -> None:
@@ -368,10 +440,7 @@ def set_authd_password() -> None:
     chown root:wazuh {WAZUH_AGENT_AUTHD_PASS_FILE}
     chmod 640 {WAZUH_AGENT_AUTHD_PASS_FILE}
     """
-    _, error_output = exec_command(command=command)
-    if error_output:
-        logger.error("Error setting the Wazuh agent registration password")
-        raise RuntimeError("Error setting the Wazuh agent registration password")
+    run_command(command=command, error_message="Error setting the Wazuh agent registration password")
 
     logger.debug("Wazuh agent registration password set successfully")
 
@@ -429,11 +498,11 @@ def get_instance_id() -> str:
 
     logger.debug("Retrieving instance ID")
 
-    command = "ec2-metadata | grep 'instance-id' | cut -d':' -f2"
-    output, error_output = exec_command(command=command)
-    if error_output:
-        logger.error(f"Error retrieving instance ID: {error_output}")
-        raise RuntimeError("Error retrieving instance ID")
+    output = run_command(
+        command="ec2-metadata | grep 'instance-id' | cut -d':' -f2",
+        error_message="Error retrieving instance ID",
+    )
+
     return output.strip().capitalize()
 
 
@@ -449,10 +518,7 @@ def retrieve_users(component: str) -> list:
 
     if component == "indexer":
         command = "curl -XGET 'https://127.0.0.1:9200/_plugins/_security/api/internalusers/' -ks -u admin:admin"
-        output, error_output = exec_command(command=command)
-        if error_output:
-            logger.error(f"Error retrieving indexer users: {error_output}")
-            raise RuntimeError("Error retrieving indexer users")
+        output = run_command(command=command, error_message="Error retrieving indexer users")
 
         users_data = json.loads(output)
         users = list(users_data.keys())
@@ -460,16 +526,10 @@ def retrieve_users(component: str) -> list:
 
     elif component == "manager":
         token_command = "curl -s -u wazuh:wazuh -k -X POST 'https://127.0.0.1:55000/security/user/authenticate?raw=true' --max-time 300 --retry 5 --retry-delay 5"
-        token, token_error = exec_command(command=token_command)
-        if token_error:
-            logger.error(f"Error retrieving manager token: {token_error}")
-            raise RuntimeError("Error retrieving manager token")
+        token = run_command(command=token_command, error_message="Error retrieving manager token")
 
         command = f'curl -XGET -H "Authorization: Bearer {token}" -H "Content-Type: application/json" "https://127.0.0.1:55000/security/users" -ks -u wazuh:wazuh'
-        output, error_output = exec_command(command=command)
-        if error_output:
-            logger.error(f"Error retrieving manager users: {error_output}")
-            raise RuntimeError("Error retrieving manager users")
+        output = run_command(command=command, error_message="Error retrieving manager users")
 
         users_data = json.loads(output)
         users = [user["username"] for user in users_data["data"]["affected_items"]]
@@ -497,20 +557,14 @@ def change_passwords() -> None:
         command = f"""
         bash {PASSWORDS_TOOL_PATH} -u {user} -p {instance_id}
         """
-        _, error_output = exec_command(command=command)
-        if error_output:
-            logger.error(f"Error changing password for indexer user {user}: {error_output}")
-            raise RuntimeError(f"Error changing password for indexer user {user}")
+        run_command(command=command, error_message=f"Error changing password for indexer user {user}")
 
     for user in manager_users:
         logger.debug(f"Changing password for manager user: {user}")
         command = f"""
         bash {PASSWORDS_TOOL_PATH} -A -au {user} -ap {user} -u {user} -p {instance_id}
         """
-        _, error_output = exec_command(command=command)
-        if error_output:
-            logger.error(f"Error changing password for manager user {user}: {error_output}")
-            raise RuntimeError(f"Error changing password for manager user {user}")
+        run_command(command=command, error_message=f"Error changing password for manager user {user}")
 
     logger.debug("Passwords changed. Verifying indexer connection with new password")
     verify_indexer_connection(password=instance_id)
@@ -536,10 +590,7 @@ def clean_up() -> None:
     rm -rf {SERVICE_TIMER_NAME}
     rm -rf {WAZUH_WARNING_SCRIPT}
     """
-    _, error_output = exec_command(command=command)
-    if error_output:
-        logger.error(f"Error cleaning up: {error_output}")
-        raise RuntimeError("Error cleaning up")
+    run_command(command=command, error_message="Error cleaning up")
     logger.debug("Clean up completed")
 
 

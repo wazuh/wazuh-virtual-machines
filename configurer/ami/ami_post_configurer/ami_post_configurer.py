@@ -176,9 +176,39 @@ class AmiPostConfigurer:
 
         logger.info_success(f"{service_name} service stopped successfully")
 
+    def disable_service(self, service_name: str, client: paramiko.SSHClient) -> None:
+        """
+        Disable a systemd service so it does not start on the first boot of the deployed instance.
+
+        Every Wazuh service must be left disabled in the image. The AMI customizer runs from a timer
+        set to OnBootSec=10s and starts by stopping the Wazuh services, so a service still enabled
+        races the customizer: systemd only runs ExecStop once a unit reached the active state, and a
+        stop issued while it is still activating skips it. With the KillMode=process the Wazuh units
+        use, every daemon already spawned then survives the stop and keeps its sockets bound, which
+        breaks the daemons the customizer starts afterwards. The customizer enables each service
+        again once it has finished configuring it.
+
+        Args:
+            service_name (str): The name of the service to disable.
+            client (paramiko.SSHClient): An active SSH client used to execute commands on the remote machine.
+
+        Returns:
+            None
+        """
+
+        logger.debug(f"Disabling {service_name} service")
+
+        command = f"sudo systemctl --quiet disable {service_name}"
+        _, error_output = exec_command(command=command, client=client)
+        if error_output:
+            logger.error(f"Error disabling the {service_name} service")
+            raise RuntimeError(f"Error disabling the {service_name} service: {error_output}")
+
+        logger.info_success(f"{service_name} service disabled successfully")
+
     def stop_wazuh_manager(self, client: paramiko.SSHClient) -> None:
         """
-        Stop the Wazuh manager service.
+        Stop and disable the Wazuh manager service.
 
         Args:
             client (paramiko.SSHClient): An active SSH client used to execute commands on the remote machine.
@@ -188,6 +218,7 @@ class AmiPostConfigurer:
         """
 
         self.stop_service("wazuh-manager", client=client)
+        self.disable_service("wazuh-manager", client=client)
 
     def remove_wazuh_indexes(self, client: paramiko.SSHClient) -> None:
         """
@@ -239,7 +270,7 @@ class AmiPostConfigurer:
 
     def stop_wazuh_indexer(self, client: paramiko.SSHClient) -> None:
         """
-        Stop the Wazuh indexer service. Before stopping, it removes the indexer index list and runs the security init script.
+        Stop and disable the Wazuh indexer service. Before stopping, it removes the indexer index list and runs the security init script.
 
         Args:
             client (paramiko.SSHClient): An active SSH client used to execute commands on the remote machine.
@@ -251,10 +282,11 @@ class AmiPostConfigurer:
         self.remove_wazuh_indexes(client=client)
         self.run_security_init_script(client=client)
         self.stop_service("wazuh-indexer", client=client)
+        self.disable_service("wazuh-indexer", client=client)
 
     def stop_wazuh_agent(self, client: paramiko.SSHClient) -> None:
         """
-        Stop the Wazuh agent service.
+        Stop and disable the Wazuh agent service.
 
         Args:
             client (paramiko.SSHClient): An active SSH client used to execute commands on the remote machine.
@@ -264,6 +296,7 @@ class AmiPostConfigurer:
         """
 
         self.stop_service("wazuh-agent", client=client)
+        self.disable_service("wazuh-agent", client=client)
 
     def stop_wazuh_dashboard(self, client: paramiko.SSHClient) -> None:
         """
@@ -277,16 +310,7 @@ class AmiPostConfigurer:
         """
 
         self.stop_service("wazuh-dashboard", client=client)
-
-        logger.debug("Disabling wazuh-dashboard service")
-
-        command = "sudo systemctl --quiet disable wazuh-dashboard"
-        _, error_output = exec_command(command=command, client=client)
-        if error_output:
-            logger.error("Error disabling the wazuh-dashboard service")
-            raise RuntimeError(f"Error disabling the wazuh-dashboard service: {error_output}")
-
-        logger.info_success("wazuh-dashboard service disabled successfully")
+        self.disable_service("wazuh-dashboard", client=client)
 
     def change_ssh_port_to_default(self, client: paramiko.SSHClient) -> None:
         """
