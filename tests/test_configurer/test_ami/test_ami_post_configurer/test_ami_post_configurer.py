@@ -146,22 +146,52 @@ def test_stop_service_fails(mock_ami_post_configurer, mock_exec_command, mock_pa
     mock_logger.error.assert_called_once_with("Error stopping the testing-service service")
 
 
-def test_stop_wazuh_agent(mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger):
-    mock_ami_post_configurer.stop_wazuh_agent(mock_paramiko.return_value)
-    command = "sudo systemctl stop wazuh-agent"
+def test_disable_service_success(mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger):
+    mock_ami_post_configurer.disable_service("testing-service", mock_paramiko.return_value)
+
+    command = "sudo systemctl --quiet disable testing-service"
+
     mock_exec_command.assert_called_once_with(command=command, client=mock_paramiko.return_value)
 
-    mock_logger.debug.assert_called_once_with("Stopping wazuh-agent service")
-    mock_logger.info_success.assert_called_once_with("wazuh-agent service stopped successfully")
+    mock_logger.debug.assert_called_once_with("Disabling testing-service service")
+    mock_logger.info_success.assert_called_once_with("testing-service service disabled successfully")
+
+
+def test_disable_service_fails(mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger):
+    mock_exec_command.return_value = ("", "Command failed")
+
+    with pytest.raises(Exception, match="Error disabling the testing-service service: Command failed"):
+        mock_ami_post_configurer.disable_service("testing-service", mock_paramiko.return_value)
+
+    mock_logger.error.assert_called_once_with("Error disabling the testing-service service")
+
+
+def test_stop_wazuh_agent(mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger):
+    mock_ami_post_configurer.stop_wazuh_agent(mock_paramiko.return_value)
+
+    commands = ["sudo systemctl stop wazuh-agent", "sudo systemctl --quiet disable wazuh-agent"]
+
+    for command in commands:
+        mock_exec_command.assert_any_call(command=command, client=mock_paramiko.return_value)
+
+    mock_logger.debug.assert_any_call("Stopping wazuh-agent service")
+    mock_logger.info_success.assert_any_call("wazuh-agent service stopped successfully")
+    mock_logger.debug.assert_any_call("Disabling wazuh-agent service")
+    mock_logger.info_success.assert_any_call("wazuh-agent service disabled successfully")
 
 
 def test_stop_wazuh_manager(mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger):
     mock_ami_post_configurer.stop_wazuh_manager(mock_paramiko.return_value)
-    command = "sudo systemctl stop wazuh-manager"
-    mock_exec_command.assert_called_once_with(command=command, client=mock_paramiko.return_value)
 
-    mock_logger.debug.assert_called_once_with("Stopping wazuh-manager service")
-    mock_logger.info_success.assert_called_once_with("wazuh-manager service stopped successfully")
+    commands = ["sudo systemctl stop wazuh-manager", "sudo systemctl --quiet disable wazuh-manager"]
+
+    for command in commands:
+        mock_exec_command.assert_any_call(command=command, client=mock_paramiko.return_value)
+
+    mock_logger.debug.assert_any_call("Stopping wazuh-manager service")
+    mock_logger.info_success.assert_any_call("wazuh-manager service stopped successfully")
+    mock_logger.debug.assert_any_call("Disabling wazuh-manager service")
+    mock_logger.info_success.assert_any_call("wazuh-manager service disabled successfully")
 
 
 def test_stop_wazuh_indexer(mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger):
@@ -176,6 +206,7 @@ def test_stop_wazuh_indexer(mock_ami_post_configurer, mock_exec_command, mock_pa
         'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/.wazuh-content-manager-jobs"',
         "sudo /usr/share/wazuh-indexer/bin/indexer-security-init.sh",
         "sudo systemctl stop wazuh-indexer",
+        "sudo systemctl --quiet disable wazuh-indexer",
     ]
 
     called_commands = [c.kwargs["command"] for c in mock_exec_command.call_args_list]
@@ -188,6 +219,8 @@ def test_stop_wazuh_indexer(mock_ami_post_configurer, mock_exec_command, mock_pa
     mock_logger.debug.assert_any_call("Indexer security init script executed successfully")
     mock_logger.debug.assert_any_call("Stopping wazuh-indexer service")
     mock_logger.info_success.assert_any_call("wazuh-indexer service stopped successfully")
+    mock_logger.debug.assert_any_call("Disabling wazuh-indexer service")
+    mock_logger.info_success.assert_any_call("wazuh-indexer service disabled successfully")
 
 
 def test_remove_wazuh_indexes(mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger):

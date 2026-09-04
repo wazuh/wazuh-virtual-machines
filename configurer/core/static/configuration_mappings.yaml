@@ -37,6 +37,6 @@ wazuh_agent:
   - path: /var/ossec/etc/ossec.conf
     replace:
       keys:
-        - .ossec_config[0].agent.manager.address
+        - .ossec_config[0].agent.manager.endpoint
       values:
         - 127.0.0.1
