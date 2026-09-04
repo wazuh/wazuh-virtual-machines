@@ -309,7 +309,6 @@ def test_install_guest_additions_rc_local_exists_with_content(
 
     mock_run_command.assert_any_call("chmod +x /etc/rc.d/rc.local")
 
-    # Pre-existing content lacked a shebang (the bug reported in #943): the fix must prepend one.
     mock_open_file().write.assert_any_call(
         "#!/bin/sh\n# VirtualBox Guest Additions - ensure modules are loaded\n"
     )
@@ -353,8 +352,6 @@ def test_install_guest_additions_with_rc_local_service(
         "ln -sf /usr/lib/systemd/system/rc-local.service /etc/systemd/system/multi-user.target.wants/rc-local.service"
     )
 
-    # Freshly created (empty) file must end up with a shebang, otherwise systemd fails
-    # to exec rc.local with 203/EXEC (issue #943).
     mock_open_file().write.assert_any_call(
         "#!/bin/sh\n# VirtualBox Guest Additions - ensure modules are loaded\n"
         "if [ -f /etc/init.d/vboxadd ]; then\n"
