@@ -129,6 +129,11 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y openvpn openvpn-systemd-resolved
+          # See wazuh/wazuh-virtual-machines#946: a spurious ICMP Redirect from
+          # the local gateway can divert traffic to the VPN server away from
+          # the tunnel. Redirects are ignored to prevent that from happening.
+          sudo sysctl -w net.ipv4.conf.all.accept_redirects=0
+          sudo sysctl -w net.ipv4.conf.default.accept_redirects=0
           echo "${{ secrets.CI_VPN_GITHUB }}" > vpn.ovpn
           sudo openvpn --config "vpn.ovpn" --daemon
 
@@ -137,6 +142,10 @@ jobs:
         timeout-minutes: 10
         run: |
           while ! ping -c2 10.10.0.252; do
+            echo "::group::Network diagnostics (VPN ping failed)"
+            ip route show
+            sudo systemctl status openvpn* --no-pager || true
+            echo "::endgroup::"
             sudo kill -9 `pidof openvpn`;
             sudo openvpn --config "vpn.ovpn" --daemon;
             sleep 30;
