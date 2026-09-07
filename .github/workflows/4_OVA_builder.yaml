@@ -141,7 +141,9 @@ jobs:
         id: vpn_connected
         timeout-minutes: 10
         run: |
-          while ! ping -c2 10.10.0.252; do
+          # 10.10.0.1 is the VPN server itself, not an unrelated MacStadium
+          # host (see wazuh/wazuh-virtual-machines#946).
+          while ! ping -c2 10.10.0.1; do
             echo "::group::Network diagnostics (VPN ping failed)"
             ip route show
             sudo systemctl status openvpn* --no-pager || true
