@@ -38,5 +38,12 @@ wazuh_agent:
     replace:
       keys:
         - .ossec_config[0].agent.manager.endpoint
+        # Points at the path set_agent_ssl_ca() provisions with the manager's own remoted
+        # certificate (core_configurer.py, wazuh-starter.sh, wazuh-ami-customizer.py). Written
+        # once here since the path itself never changes across boots, only that file's content.
+        # verification_mode is left unset: the agent infers "certificate" on its own once
+        # certificate_authorities is configured, mirroring the manager's own inference.
+        - .ossec_config[0].agent.ssl.certificate_authorities
       values:
         - 127.0.0.1
+        - /var/ossec/etc/certs/root-ca.pem

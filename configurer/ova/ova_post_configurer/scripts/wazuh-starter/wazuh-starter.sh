@@ -20,6 +20,11 @@ wazuh_manager_remoted_key="${wazuh_manager_certs_dir}/remoted-key.pem"
 authd_pass_max_retries=12
 authd_pass_wait_time=5
 
+# Path the agent's <certificate_authorities> config points at, so it trusts this instance's own
+# manager now that verification_mode is enforced by default.
+wazuh_agent_ca_dir="/var/ossec/etc/certs"
+wazuh_agent_ca="${wazuh_agent_ca_dir}/root-ca.pem"
+
 ###########################################
 # Utility Functions
 ###########################################
@@ -134,6 +139,19 @@ function regenerate_remoted_certificate() {
   logger "Manager remoted certificate regenerated successfully"
 }
 
+function set_agent_ssl_ca() {
+  # Copy the manager's remoted certificate to the path the agent's <certificate_authorities>
+  # config points at, so it can verify this instance's own manager. Must run after
+  # regenerate_remoted_certificate: it copies the certificate (re)generated there for this
+  # instance, not the one baked into the image.
+  logger "Setting the Wazuh agent trusted CA from the manager remoted certificate"
+  mkdir -p "${wazuh_agent_ca_dir}"
+  cp "${wazuh_manager_remoted_cert}" "${wazuh_agent_ca}"
+  chown root:wazuh "${wazuh_agent_ca}"
+  chmod 640 "${wazuh_agent_ca}"
+  logger "Wazuh agent trusted CA set successfully"
+}
+
 function clean_configuration(){
   logger "Cleaning configuration files"
   eval "rm -rf /var/log/wazuh-starter.log"
@@ -155,6 +173,7 @@ verify_indexer
 
 starter_service wazuh-manager
 set_authd_password
+set_agent_ssl_ca
 
 starter_service wazuh-agent
 
