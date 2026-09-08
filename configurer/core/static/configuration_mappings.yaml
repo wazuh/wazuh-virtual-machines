@@ -1,5 +1,5 @@
 wazuh_indexer:
-  - path: /etc/wazuh-indexer/opensearch.yml 
+  - path: /etc/wazuh-indexer/opensearch.yml
     replace:
       keys:
         - .["network.host"]
@@ -39,10 +39,7 @@ wazuh_agent:
       keys:
         - .ossec_config[0].agent.manager.endpoint
         # Points at the path set_agent_ssl_ca() provisions with the manager's own remoted
-        # certificate (core_configurer.py, wazuh-starter.sh, wazuh-ami-customizer.py). Written
-        # once here since the path itself never changes across boots, only that file's content.
-        # verification_mode is left unset: the agent infers "certificate" on its own once
-        # certificate_authorities is configured, mirroring the manager's own inference.
+        # certificate (core_configurer.py, wazuh-starter.sh, wazuh-ami-customizer.py).
         - .ossec_config[0].agent.ssl.certificate_authorities
       values:
         - 127.0.0.1
