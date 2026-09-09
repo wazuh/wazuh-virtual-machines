@@ -26,6 +26,10 @@ WAZUH_AGENT_AUTHD_PASS_FILE = "/var/ossec/etc/authd.pass"
 AUTHD_PASS_MAX_RETRIES = 12
 AUTHD_PASS_WAIT_TIME = 5
 
+# Path the agent's <certificate_authorities> config points at, so it trusts this instance's own
+# manager now that verification_mode is enforced by default.
+WAZUH_AGENT_CA_FILE = "/var/ossec/etc/certs/root-ca.pem"
+
 # A stopped unit that left processes behind keeps them in its cgroup until the last one exits.
 SERVICE_CGROUP_PROCS = "/sys/fs/cgroup/system.slice/{unit}/cgroup.procs"
 SERVICE_LEFTOVERS_MAX_RETRIES = 10
@@ -298,6 +302,33 @@ def create_remoted_certificate() -> None:
     logger.debug("Per-instance remoted certificate generated")
 
 
+def set_agent_ssl_ca() -> None:
+    """
+    Provisions the local agent's trusted CA for the manager's HTTPS transport.
+
+    Copies the manager's remoted certificate to the path the agent's
+    <certificate_authorities> configuration points at, so the pre-installed agent can verify
+    the manager's TLS certificate on enrollment/connection. Must run after
+    create_remoted_certificate: it copies the certificate (re)generated there for this
+    instance, not the one baked into the image.
+
+    Returns:
+        None
+    """
+
+    logger.debug("Setting the Wazuh agent trusted CA from the manager remoted certificate")
+    remoted_cert = f"{ComponentCertsDirectory.WAZUH_MANAGER}/remoted.pem"
+    command = f"""
+    mkdir -p {Path(WAZUH_AGENT_CA_FILE).parent}
+    cp {remoted_cert} {WAZUH_AGENT_CA_FILE}
+    chown root:wazuh {WAZUH_AGENT_CA_FILE}
+    chmod 640 {WAZUH_AGENT_CA_FILE}
+    """
+    run_command(command=command, error_message="Error setting the Wazuh agent trusted CA")
+
+    logger.debug("Wazuh agent trusted CA set successfully")
+
+
 def stop_ssh_service() -> None:
     """
     Stops the SSH service on the system.
@@ -481,6 +512,8 @@ def start_components_services() -> None:
 
     # Distribute the newly generated password to the agent before it starts so it can enroll.
     set_authd_password()
+    # Provision the agent's trusted CA before it starts so it can verify the manager's TLS cert.
+    set_agent_ssl_ca()
 
     enable_service("wazuh-agent")
     start_service("wazuh-agent")
