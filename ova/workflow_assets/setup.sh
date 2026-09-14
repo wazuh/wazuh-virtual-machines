@@ -42,7 +42,7 @@ install_guest_additions() {
     dnf remove $(dnf repoquery --installonly --latest-limit=-1)
 
     KERNEL_VERSION=$(ls /lib/modules)
-    VIRTUALBOX_VERSION=$(wget -q http://download.virtualbox.org/virtualbox/LATEST.TXT -O -)
+    VIRTUALBOX_VERSION=7.2.16
 
     wget -nv https://download.virtualbox.org/virtualbox/${VIRTUALBOX_VERSION}/VBoxGuestAdditions_${VIRTUALBOX_VERSION}.iso -O /root/VBoxGuestAdditions.iso
     mount -o ro,loop /root/VBoxGuestAdditions.iso /mnt

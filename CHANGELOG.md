@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Update Virtualbox version ([#970](https://github.com/wazuh/wazuh-virtual-machines/pull/970))
 - Change Codebuild runners to Github runners ([#911](https://github.com/wazuh/wazuh-virtual-machines/pull/911))
 
 ### Fixed
