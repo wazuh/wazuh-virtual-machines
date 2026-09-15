@@ -1,5 +1,19 @@
 #!/bin/bash
 # This script is used to configure the Wazuh environment after the installation
+#
+# Why this re-implements CertsManager's logic in bash instead of reusing it (configurer/core/models/
+# certificates_manager.py, Python, already used by AMI at first boot via wazuh-ami-customizer.py):
+# AMI's first boot runs inside a venv built during the AMI image build (ami_post_configurer.py:
+# create_custom_dir()/create_certs_env() -- provisions python3.11 + pip install pydantic/pyyaml/
+# paramiko over SSH before packaging). OVA has no equivalent build-time venv infrastructure today,
+# and building one has a real cost beyond "reuse the Python": those pinned dependency versions would
+# be frozen into every OVA someone downloads and runs on-prem, indefinitely, with no way to patch a
+# future CVE in them short of re-publishing the whole image -- unlike AMI, which can be rebuilt and
+# redeployed far more readily. The tradeoff accepted here is keeping this bash version in sync with
+# CertsManager by hand; that cost is real (three bugs in this exact mirroring were only caught by
+# testing a real OVA boot, not by unit tests) but preferred over baking unpatchable dependencies into
+# a long-lived on-prem appliance. Revisiting this (e.g. building OVA's own venv provisioning to unify
+# both onto CertsManager) is a separate initiative, not something to fold into a single issue.
 
 # Variables
 logfile="/var/log/wazuh-starter.log"
