@@ -20,7 +20,13 @@ class CertsManager:
         certs_tool_path (Path): Path to the certificate generation tool.
     """
 
-    def __init__(self, raw_config_path: Path, certs_tool_path: Path, client: paramiko.SSHClient | None = None) -> None:
+    def __init__(
+        self,
+        raw_config_path: Path,
+        certs_tool_path: Path,
+        client: paramiko.SSHClient | None = None,
+        manager_san_ips: list[str] | None = None,
+    ) -> None:
         # Default name for each certificate of each component when generated with the cert-tool.
         self.components_certs_default_name = {
             Component.WAZUH_INDEXER: {
@@ -36,6 +42,11 @@ class CertsManager:
                 "admin-cert": "admin.pem",
                 "admin-key": "admin-key.pem",
                 "ca": "root-ca.pem",
+                # Agent-facing listener identity (remoted on 1517, reused by authd on 1515).
+                # wazuh-certs-tool issues it as a chain, leaf followed by root-ca.pem, matching
+                # what wazuh-installation-assistant#1009 deploys.
+                "remoted-cert": f"{CertificatesComponent.MANAGER}-remoted.pem",
+                "remoted-key": f"{CertificatesComponent.MANAGER}-remoted-key.pem",
             },
             Component.WAZUH_DASHBOARD: {
                 "cert": f"{CertificatesComponent.DASHBOARD}.pem",
@@ -66,30 +77,49 @@ class CertsManager:
         }
         self.certs_tool_path = certs_tool_path
 
-        self._set_config_file_values(raw_config_path=raw_config_path, client=client)
+        self._set_config_file_values(raw_config_path=raw_config_path, client=client, manager_san_ips=manager_san_ips)
 
-    def _set_config_file_values(self, raw_config_path: Path, client: paramiko.SSHClient | None = None):
+    def _set_config_file_values(
+        self, raw_config_path: Path, client: paramiko.SSHClient | None = None, manager_san_ips: list[str] | None = None
+    ):
         """
         Sets configuration file values using the `yq` command.
 
         This method updates the configuration file at the specified path with predefined values for
-        Wazuh components (indexer, manager, and dashboard) using the `yq` command-line tool. The IP
-        addresses for these components are set to "127.0.0.1".
+        Wazuh components (indexer, manager, and dashboard) using the `yq` command-line tool. Indexer
+        and dashboard stay internal-only ("127.0.0.1"): that traffic never leaves the instance.
+
+        The manager node is different: since wazuh-installation-assistant#1009, wazuh-certs-tool also
+        issues remoted.pem (the agent-facing listener cert) from this same node's ip/dns, and agents
+        dial it from outside the instance. `manager_san_ips`, when given, is added alongside
+        "127.0.0.1" so that certificate's SAN actually matches an address agents can reach -- callers
+        running at first boot (where the instance's real address is knowable) should pass it;
+        build-time callers, where any address baked in would be thrown away, can leave it as None and
+        keep today's loopback-only behavior.
 
         Args:
             raw_config_path (Path): The path to the raw configuration file to be updated.
             client (paramiko.SSHClient, optional): An SSH client for remote execution. Defaults to None.
+            manager_san_ips (list[str] | None, optional): Extra IPs for the manager node's SAN, on top
+                of "127.0.0.1". Defaults to None (loopback only).
 
         Raises:
             Exception: If there is an error while setting the configuration file values.
         """
 
         logger.debug("Setting config file values")
+        if manager_san_ips:
+            manager_ips = ["127.0.0.1", *manager_san_ips]
+            manager_ip_yq_value = "[" + ", ".join(f'"{ip}"' for ip in manager_ips) + "]"
+            manager_ip_yq_style = ".nodes.manager[0].ip[]"  # style each element of the list
+        else:
+            manager_ip_yq_value = '"127.0.0.1"'
+            manager_ip_yq_style = ".nodes.manager[0].ip"  # style the single scalar, as before
         yq_query = f"""
             sudo yq -i '.nodes.indexer[0].name = \"{CertificatesComponent.INDEXER}\" |
             .nodes.indexer[0].ip = "127.0.0.1" | .nodes.indexer[0].ip style="double" |
             .nodes.manager[0].name = \"{CertificatesComponent.MANAGER}\" |
-            .nodes.manager[0].ip = "127.0.0.1" | .nodes.manager[0].ip style="double" |
+            .nodes.manager[0].ip = {manager_ip_yq_value} | {manager_ip_yq_style} style="double" |
             .nodes.dashboard[0].name = \"{CertificatesComponent.DASHBOARD}\" |
             .nodes.dashboard[0].ip = "127.0.0.1" | .nodes.dashboard[0].ip style="double"
             ' {raw_config_path}
@@ -279,19 +309,29 @@ class CertsManager:
                 sudo chown -R wazuh-indexer:wazuh-indexer {ComponentCertsDirectory.WAZUH_INDEXER}/
                 """
         elif component == Component.WAZUH_MANAGER:
-            # No `rm -rf` here: the manager package's postinstall already populates this directory with
-            # authd/remoted/apid daemon certs, which must survive this step untouched.
+            # No `rm -rf` here: the manager package's postinstall still populates this directory with
+            # authd/apid daemon certs, which must survive this step untouched. remoted.pem/-key.pem are
+            # the exception -- a manager package that still self-signs its own listener certificate at
+            # install time leaves a pair here too, and it must be force-replaced (`mv -f`, not `-n`) by
+            # the one issued from root-ca.pem, or the agent-facing listener keeps presenting a cert no
+            # agent can verify.
             cert_name = certs_name[ComponentCertsConfigParameter.WAZUH_MANAGER_CERT.name]
             key_name = certs_name[ComponentCertsConfigParameter.WAZUH_MANAGER_KEY.name]
             ca_name = certs_name[ComponentCertsConfigParameter.WAZUH_MANAGER_CA.name]
+            remoted_cert_name = self.components_certs_default_name[Component.WAZUH_MANAGER]["remoted-cert"]
+            remoted_key_name = self.components_certs_default_name[Component.WAZUH_MANAGER]["remoted-key"]
             command = f"""
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_MANAGER}
                 sudo tar -xf {certs_path}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_MANAGER} ./{" ./".join(self.components_certs_default_name[Component.WAZUH_MANAGER].values())}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["cert"]} {ComponentCertsDirectory.WAZUH_MANAGER}/{cert_name}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["key"]} {ComponentCertsDirectory.WAZUH_MANAGER}/{key_name}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["ca"]} {ComponentCertsDirectory.WAZUH_MANAGER}/{ca_name}
+                sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/{remoted_cert_name} {ComponentCertsDirectory.WAZUH_MANAGER}/remoted.pem
+                sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/{remoted_key_name} {ComponentCertsDirectory.WAZUH_MANAGER}/remoted-key.pem
                 sudo chown root:wazuh-manager {ComponentCertsDirectory.WAZUH_MANAGER}/{cert_name} {ComponentCertsDirectory.WAZUH_MANAGER}/{key_name} {ComponentCertsDirectory.WAZUH_MANAGER}/{ca_name}
                 sudo chmod 640 {ComponentCertsDirectory.WAZUH_MANAGER}/{cert_name} {ComponentCertsDirectory.WAZUH_MANAGER}/{key_name} {ComponentCertsDirectory.WAZUH_MANAGER}/{ca_name}
+                sudo chown wazuh-manager:wazuh-manager {ComponentCertsDirectory.WAZUH_MANAGER}/remoted.pem {ComponentCertsDirectory.WAZUH_MANAGER}/remoted-key.pem
+                sudo chmod 640 {ComponentCertsDirectory.WAZUH_MANAGER}/remoted.pem {ComponentCertsDirectory.WAZUH_MANAGER}/remoted-key.pem
                 sudo chown root:wazuh-manager {ComponentCertsDirectory.WAZUH_MANAGER}
                 sudo chmod 1770 {ComponentCertsDirectory.WAZUH_MANAGER}
                 """

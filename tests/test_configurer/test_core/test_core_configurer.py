@@ -10,7 +10,7 @@ from configurer.core.core_configurer import (
     WAZUH_AGENT_AUTHD_PASS_FILE,
     WAZUH_AGENT_CA_FILE,
     WAZUH_MANAGER_AUTHD_PASS_FILE,
-    WAZUH_MANAGER_REMOTED_CERT_FILE,
+    WAZUH_MANAGER_ROOT_CA_FILE,
     CoreConfigurer,
 )
 from configurer.core.utils import ComponentCertsConfigParameter, ComponentConfigFile
@@ -209,7 +209,7 @@ def test_set_agent_ssl_ca_success(mock_exec_command, mock_logger):
 
     command = mock_exec_command.call_args_list[0].kwargs["command"]
     assert f"sudo mkdir -p {Path(WAZUH_AGENT_CA_FILE).parent}" in command
-    assert f"sudo cp {WAZUH_MANAGER_REMOTED_CERT_FILE} {WAZUH_AGENT_CA_FILE}" in command
+    assert f"sudo cp {WAZUH_MANAGER_ROOT_CA_FILE} {WAZUH_AGENT_CA_FILE}" in command
     assert f"sudo chown root:wazuh {WAZUH_AGENT_CA_FILE}" in command
     assert f"sudo chmod 640 {WAZUH_AGENT_CA_FILE}" in command
 
