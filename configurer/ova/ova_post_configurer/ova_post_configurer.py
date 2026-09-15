@@ -5,7 +5,7 @@ from pathlib import Path
 
 from configurer.utils import run_command
 from generic.helpers import add_content_to_file, modify_file
-from utils import Logger
+from utils import Logger, RemoteDirectories, CertificatesComponent
 
 logger = Logger("OVA PostConfigurer - Main module")
 
@@ -13,6 +13,13 @@ STATIC_PATH = "configurer/ova/ova_post_configurer/static"
 SCRIPTS_PATH = "configurer/ova/ova_post_configurer/scripts"
 WAZUH_STARTER_PATH = f"{SCRIPTS_PATH}/wazuh-starter"
 UTILS_PATH = "utils"
+
+# wazuh-starter regenerates the CA and every component certificate on first boot (see steps_clean),
+# so it needs its own persistent copy of the certs-tool and its config -- the ones core_configurer
+# downloads under RemoteDirectories.CERTS only exist for the build, wazuh-starter runs long after
+# that directory is gone.
+WAZUH_STARTER_CERTS_TOOL_PATH = "/etc/.wazuh-starter-certs-tool.sh"
+WAZUH_STARTER_CERTS_CONFIG_PATH = "/etc/.wazuh-starter-config.yml"
 
 
 def set_hostname() -> None:
@@ -140,6 +147,40 @@ def add_wazuh_starter_service() -> None:
     run_command(commands)
 
 
+def add_wazuh_starter_certs_tool() -> None:
+    """
+    Persists the certs-tool and its config for wazuh-starter's first-boot use.
+
+    core_configurer's build-time run already downloaded these under RemoteDirectories.CERTS to
+    generate the certificates baked into the image (later discarded per instance, see steps_clean).
+    wazuh-starter needs the same tool at first boot, long after that build-time directory is gone,
+    so this copies both files to a location that survives packaging.
+
+    Returns:
+        None
+
+    Raises:
+        FileNotFoundError: If the certs-tool or its config are not present under RemoteDirectories.CERTS
+            at the point this runs -- steps_system_config must call this after core_configurer's certs
+            generation step, not before.
+    """
+
+    logger.debug("Persisting the certs-tool for wazuh-starter.")
+    certs_dir = os.path.expanduser(str(RemoteDirectories.CERTS))
+    src_certs_tool = f"{certs_dir}/{CertificatesComponent.CERTS_TOOL}"
+    src_config = f"{certs_dir}/{CertificatesComponent.CONFIG}"
+
+    for src, dst in {
+        src_certs_tool: WAZUH_STARTER_CERTS_TOOL_PATH,
+        src_config: WAZUH_STARTER_CERTS_CONFIG_PATH,
+    }.items():
+        if not os.path.exists(src):
+            raise FileNotFoundError(f"{src} not found -- expected core_configurer's certs generation to have run first")
+        shutil.copy(src, dst)
+
+    logger.info_success("Certs-tool persisted for wazuh-starter.")
+
+
 def configure_sshd(ssh_config_file: Path | str = Path("/etc/ssh/sshd_config")) -> None:
     """
     Configures the SSH daemon to disable root login, enable password authentication,
@@ -186,6 +227,7 @@ def steps_system_config() -> None:
     update_jvm_heap()
 
     add_wazuh_starter_service()
+    add_wazuh_starter_certs_tool()
 
     run_command("echo 'root:wazuh' | chpasswd")
 
@@ -208,8 +250,9 @@ def steps_clean() -> None:
 
     This function performs the following cleanup steps:
     1. Removes the file `/securityadmin_demo.sh`.
-    2. Removes the manager's self-signed remoted certificate baked in at image build time
-       (regenerated per instance by wazuh-starter on first boot).
+    2. Removes the CA and every component certificate baked in at image build time (indexer,
+       manager/indexer-connector, dashboard, admin, and the manager's remoted pair), regenerated
+       per instance by wazuh-starter on first boot.
     3. Cleans all cached data for the `yum` package manager.
     4. Reloads the systemd manager configuration.
     5. Clears the current user's bash history.
@@ -219,10 +262,13 @@ def steps_clean() -> None:
     """
     commands = [
         "rm -f /securityadmin_demo.sh",
-        # The manager package postinstall generated remoted.pem/remoted-key.pem at image build time.
-        # Shipping it would make every VM deployed from this OVA share the same certificate/key, so it
-        # is removed here and regenerated per instance by wazuh-starter on first boot.
-        "rm -f /var/wazuh-manager/etc/certs/remoted.pem /var/wazuh-manager/etc/certs/remoted-key.pem",
+        # Every certificate here, root-ca.pem included, was generated once at image build time.
+        # Shipping any of them -- root-ca.pem's private key above all -- would make every VM
+        # deployed from this OVA share the same CA, letting anyone who downloaded a copy forge a
+        # valid certificate for any other instance's manager. Removed here, regenerated per
+        # instance by wazuh-starter on first boot.
+        "rm -f /var/wazuh-manager/etc/certs/*.pem",
+        "rm -rf /etc/wazuh-indexer/certs/* /etc/wazuh-dashboard/certs/*",
         "yum clean all",
         "systemctl daemon-reload",
         "cat /dev/null > ~/.bash_history && history -c",
