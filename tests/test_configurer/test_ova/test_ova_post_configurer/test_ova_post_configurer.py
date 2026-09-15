@@ -9,6 +9,7 @@ from configurer.ova.ova_post_configurer.ova_post_configurer import (
     STATIC_PATH,
     UTILS_PATH,
     WAZUH_STARTER_CERTS_CONFIG_PATH,
+    WAZUH_STARTER_CERTS_DIR,
     WAZUH_STARTER_CERTS_TOOL_PATH,
     WAZUH_STARTER_PATH,
     add_wazuh_starter_certs_tool,
@@ -56,6 +57,12 @@ def mock_os_remove():
 def mock_shutil_copy():
     with patch("shutil.copy") as mock_copy:
         yield mock_copy
+
+
+@pytest.fixture
+def mock_os_makedirs():
+    with patch("os.makedirs") as mock_makedirs:
+        yield mock_makedirs
 
 
 def test_set_hostname(mock_run_command):
@@ -180,11 +187,12 @@ def test_add_wazuh_starter_service(mock_chmod, mock_run_command, mock_os_path_ex
     )
 
 
-def test_add_wazuh_starter_certs_tool_success(mock_os_path_exists, mock_shutil_copy):
+def test_add_wazuh_starter_certs_tool_success(mock_os_path_exists, mock_shutil_copy, mock_os_makedirs):
     mock_os_path_exists.return_value = True
 
     add_wazuh_starter_certs_tool()
 
+    mock_os_makedirs.assert_called_once_with(WAZUH_STARTER_CERTS_DIR, exist_ok=True)
     assert mock_shutil_copy.call_count == 2
     mock_shutil_copy.assert_any_call(
         os.path.expanduser("~/wazuh-configure/tools/certs/certs-tool.sh"), WAZUH_STARTER_CERTS_TOOL_PATH
@@ -194,7 +202,7 @@ def test_add_wazuh_starter_certs_tool_success(mock_os_path_exists, mock_shutil_c
     )
 
 
-def test_add_wazuh_starter_certs_tool_missing_source(mock_os_path_exists, mock_shutil_copy):
+def test_add_wazuh_starter_certs_tool_missing_source(mock_os_path_exists, mock_shutil_copy, mock_os_makedirs):
     mock_os_path_exists.return_value = False
 
     with pytest.raises(FileNotFoundError):

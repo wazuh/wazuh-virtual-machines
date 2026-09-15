@@ -20,12 +20,15 @@ authd_pass_max_retries=12
 authd_pass_wait_time=5
 
 # Persisted at build time by add_wazuh_starter_certs_tool() (ova_post_configurer.py), since the
-# build-time copy under RemoteDirectories.CERTS is gone by the time this script runs.
-wazuh_certs_tool="/etc/.wazuh-starter-certs-tool.sh"
-wazuh_certs_config="/etc/.wazuh-starter-config.yml"
-# Same layout CertsManager.generate_certificates() uses on the Python side: the tool writes its
-# output next to itself, in a directory named after the tool itself.
-wazuh_certs_output_dir="/etc/wazuh-certificates"
+# build-time copy under RemoteDirectories.CERTS is gone by the time this script runs. Both files
+# must stay side by side under this exact directory: wazuh-certs-tool.sh resolves its own config as
+# "$(dirname "$0")/config.yml", with no flag to point it elsewhere (confirmed against the real tool
+# on a booted OVA -- it failed with "No configuration file found" when the config lived under a
+# different name/directory), and writes its output to "$(dirname "$0")/wazuh-certificates".
+wazuh_certs_dir="/etc/.wazuh-starter-certs"
+wazuh_certs_tool="${wazuh_certs_dir}/certs-tool.sh"
+wazuh_certs_config="${wazuh_certs_dir}/config.yml"
+wazuh_certs_output_dir="${wazuh_certs_dir}/wazuh-certificates"
 wazuh_certs_tar="/etc/wazuh-certificates.tar"
 
 wazuh_indexer_certs_dir="/etc/wazuh-indexer/certs"
@@ -138,40 +141,36 @@ function set_authd_password() {
   logger "Wazuh agent registration password set successfully"
 }
 
-function get_manager_san_ips() {
-  # Addresses agents may dial to reach this instance's manager, for the manager cert's (and
-  # remoted's) SAN. Unlike AMI's get_manager_san_ips() (wazuh-ami-customizer.py), OVA is a
-  # downloaded image run on-prem under an arbitrary hypervisor (VMware/VirtualBox/Hyper-V/KVM), not
-  # EC2 -- there is no cloud metadata service to fall back on for a NAT'd public IP, so `hostname -I`
-  # (already includes every non-loopback, non-link-local address, IPv4 and IPv6 alike) is the only
-  # source available here.
-  hostname -I
+function get_manager_san_ip() {
+  # The address agents may dial to reach this instance's manager, for the manager cert's (and
+  # remoted's) SAN. wazuh-certs-tool.sh's manager node takes a single scalar `ip:` value, not a
+  # list -- confirmed empirically on a real OVA boot: unlike `dns` (whose regex allows an indexed
+  # suffix, "nodes_manager_N_dns([_]+[0-9]+)?="), the `ip` lookup regex
+  # ("nodes_manager_N_ip=") has no such suffix, so a YAML list under manager.ip parses to
+  # "..._ip_1"/"..._ip_2" keys that never match it and the tool aborts with "requires at least one
+  # field: ip or dns". So, unlike AMI's get_manager_san_ips() (wazuh-ami-customizer.py, which
+  # builds a list from hostname -I + ec2-metadata for a list-style manager_san_ips -- itself
+  # affected by the same tool limitation, reported separately, out of scope for #957), this returns
+  # just the first address hostname -I reports, or nothing if it hasn't configured one yet.
+  hostname -I | awk '{print $1}'
 }
 
 function set_certs_config_manager_san_ips() {
-  # Mirrors CertsManager._set_config_file_values(): sets node names/IPs in the persisted
-  # certs-tool config, widening the manager node's SAN to every address this instance's agents
-  # might dial. Loopback stays first so a purely local test setup keeps working.
-  logger "Setting manager SAN IPs in the certs-tool config"
-  local manager_ips=("127.0.0.1")
-  local ip
-  for ip in $(get_manager_san_ips); do
-    manager_ips+=("${ip}")
-  done
-  # ponytail: no de-dupe -- AMI dedupes because it merges two independent sources (hostname -I +
-  # ec2-metadata) that can overlap; here hostname -I is the only source and it already excludes
-  # loopback, so "127.0.0.1" above can't collide with it.
-
-  local manager_ip_yq_value
-  manager_ip_yq_value=$(printf '"%s", ' "${manager_ips[@]}")
-  manager_ip_yq_value="[${manager_ip_yq_value%, }]"
+  # Mirrors CertsManager._set_config_file_values()'s no-manager_san_ips branch: sets node
+  # names/IPs in the persisted certs-tool config as scalars, pointing the manager node at this
+  # instance's own address so remoted's SAN matches something agents can actually reach. Falls back
+  # to loopback-only if hostname -I hasn't configured an address yet.
+  logger "Setting manager IP in the certs-tool config"
+  local manager_ip
+  manager_ip=$(get_manager_san_ip)
+  manager_ip="${manager_ip:-127.0.0.1}"
 
   local yq_program
   yq_program=$(cat <<EOF
 .nodes.indexer[0].name = "indexer" |
 .nodes.indexer[0].ip = "127.0.0.1" | .nodes.indexer[0].ip style="double" |
 .nodes.manager[0].name = "manager" |
-.nodes.manager[0].ip = ${manager_ip_yq_value} | .nodes.manager[0].ip[] style="double" |
+.nodes.manager[0].ip = "${manager_ip}" | .nodes.manager[0].ip style="double" |
 .nodes.dashboard[0].name = "dashboard" |
 .nodes.dashboard[0].ip = "127.0.0.1" | .nodes.dashboard[0].ip style="double"
 EOF
@@ -206,10 +205,20 @@ function read_cert_name() {
     logger -e "yq query '${query}' on ${file} returned no certificate path"
     exit 1
   fi
+  if [[ "${value}" == *"["*"]"* ]]; then
+    # Some config keys (confirmed on a real boot: opensearch.ssl.certificateAuthorities) hold a
+    # list of CA paths, e.g. yq prints "['/path/root-ca.pem']". Mirrors
+    # CertsManager._get_cert_name_from_key()'s ast.literal_eval(output)[-1]: take the last element.
+    # Without this, basename kept the raw bracket/quote text, producing a garbage filename.
+    value="${value#*[}"
+    value="${value%]*}"
+    value="${value##*,}"
+    value="${value#\'}"
+    value="${value%\'}"
+    value="${value#\"}"
+    value="${value%\"}"
+  fi
   basename "${value}"
-  # ponytail: assumes a scalar path, not a list -- none of these three keys are ever configured as
-  # a list in practice. CertsManager (Python) also handles a list result; add that here if a config
-  # ever needs it.
 }
 
 function generate_certificates() {
@@ -317,14 +326,15 @@ function clean_configuration(){
   logger "Cleaning configuration files"
   eval "rm -rf /var/log/wazuh-starter.log"
   eval "rm -f /etc/.wazuh-starter.sh /etc/systemd/system/wazuh-starter.service /etc/systemd/system/wazuh-starter.timer"
-  # wazuh_certs_tar and wazuh_certs_config both carry the CA private key (the tar packs the
-  # cert-tool's whole output unfiltered; config.yml is the cert-tool's own input, which it also
-  # writes the generated keys next to) -- neither is extracted into a component directory by
-  # copy_*_certs, so unlike those, nothing else applies the 500/400 restrictive permissions to them.
-  # Left behind, they're the exact kind of persisted, loosely-permissioned key material issue #957
-  # set out to remove. AMI's equivalent (wazuh-ami-customizer.py) wipes the same artifacts via its
-  # temp dir cleanup.
-  eval "rm -f ${wazuh_certs_tar} ${wazuh_certs_tool} ${wazuh_certs_config}"
+  # wazuh_certs_tar and wazuh_certs_dir (which by now also holds the tool's own output dir, see
+  # generate_certificates) both carry the CA private key (the tar packs the cert-tool's whole output
+  # unfiltered; the tool writes its generated keys next to its own config.yml) -- neither is
+  # extracted into a component directory by copy_*_certs, so unlike those, nothing else applies the
+  # 500/400 restrictive permissions to them. Left behind, they're the exact kind of persisted,
+  # loosely-permissioned key material issue #957 set out to remove. AMI's equivalent
+  # (wazuh-ami-customizer.py) wipes the same artifacts via its temp dir cleanup.
+  eval "rm -f ${wazuh_certs_tar}"
+  eval "rm -rf ${wazuh_certs_dir}"
 }
 
 

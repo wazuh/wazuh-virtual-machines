@@ -18,8 +18,15 @@ UTILS_PATH = "utils"
 # so it needs its own persistent copy of the certs-tool and its config -- the ones core_configurer
 # downloads under RemoteDirectories.CERTS only exist for the build, wazuh-starter runs long after
 # that directory is gone.
-WAZUH_STARTER_CERTS_TOOL_PATH = "/etc/.wazuh-starter-certs-tool.sh"
-WAZUH_STARTER_CERTS_CONFIG_PATH = "/etc/.wazuh-starter-config.yml"
+#
+# Both files must keep their default names and live side by side: wazuh-certs-tool.sh resolves its
+# own config as "$(dirname "$0")/config.yml" with no flag to override it (verified against the real
+# tool on a booted OVA -- it failed with "No configuration file found" when the config was persisted
+# under a different name), so CertificatesComponent.CONFIG ("config.yml") is not just a default, it's
+# a hard requirement.
+WAZUH_STARTER_CERTS_DIR = "/etc/.wazuh-starter-certs"
+WAZUH_STARTER_CERTS_TOOL_PATH = f"{WAZUH_STARTER_CERTS_DIR}/{CertificatesComponent.CERTS_TOOL}"
+WAZUH_STARTER_CERTS_CONFIG_PATH = f"{WAZUH_STARTER_CERTS_DIR}/{CertificatesComponent.CONFIG}"
 
 
 def set_hostname() -> None:
@@ -170,6 +177,7 @@ def add_wazuh_starter_certs_tool() -> None:
     src_certs_tool = f"{certs_dir}/{CertificatesComponent.CERTS_TOOL}"
     src_config = f"{certs_dir}/{CertificatesComponent.CONFIG}"
 
+    os.makedirs(WAZUH_STARTER_CERTS_DIR, exist_ok=True)
     for src, dst in {
         src_certs_tool: WAZUH_STARTER_CERTS_TOOL_PATH,
         src_config: WAZUH_STARTER_CERTS_CONFIG_PATH,

@@ -5,6 +5,7 @@
 
 | Issue | Comment |
 | - | - |
+| [#957](https://github.com/wazuh/wazuh-virtual-machines/issues/957) | Provision the agent listener certificate in the OVA and AMI, and reissue it at first boot |
 | [#944](https://github.com/wazuh/wazuh-virtual-machines/issues/944) | Provision the pre-installed agent's manager CA in AMI/OVA post-configuration |
 | [#929](https://github.com/wazuh/wazuh-virtual-machines/issues/929) | Fix unified agent connection URL |
 | [#807](https://github.com/wazuh/wazuh-virtual-machines/issues/807) | Add bump-issue-link support for Revert Stage Bump in wazuh-virtual-machines |
