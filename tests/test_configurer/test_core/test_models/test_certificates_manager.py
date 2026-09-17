@@ -63,9 +63,7 @@ def test_init_with_valid_arguments(mock_set_config_file_values, client):
     assert Component.WAZUH_MANAGER in certs_manager.components_certs_config_keys
     assert Component.WAZUH_INDEXER in certs_manager.components_certs_config_keys
     assert Component.WAZUH_DASHBOARD in certs_manager.components_certs_config_keys
-    mock_set_config_file_values.assert_called_once_with(
-        raw_config_path=raw_config_path, client=client, manager_san_ips=None
-    )
+    mock_set_config_file_values.assert_called_once_with(raw_config_path=raw_config_path, client=client)
 
 
 @patch("configurer.core.models.certificates_manager.CertsManager._set_config_file_values")
@@ -83,7 +81,7 @@ def test_init_sets_default_cert_names(mock_set_config_file_values):
         == f"{CertificatesComponent.MANAGER}-key.pem"
     )
     assert certs_manager.components_certs_default_name[Component.WAZUH_DASHBOARD]["ca"] == "root-ca.pem"
-    mock_set_config_file_values.assert_called_once_with(raw_config_path=raw_config_path, client=None, manager_san_ips=None)
+    mock_set_config_file_values.assert_called_once_with(raw_config_path=raw_config_path, client=None)
 
 
 def test_set_config_file_values_success(mock_exec_command, mock_logger, expected_config_query):
@@ -335,6 +333,20 @@ def test_generate_certificates_success(
     )
 
     mock_logger.info_success.assert_any_call("Certificates generated successfully")
+
+
+@patch("configurer.core.models.certificates_manager.CertsManager._get_certs_name")
+@patch("configurer.core.models.certificates_manager.CertsManager.copy_certs_to_component_directory")
+def test_generate_certificates_with_agent_san(mock_copy_certs, mock_get_certs_name, mock_exec_command, mock_logger):
+    mock_get_certs_name.return_value = {}
+    mock_copy_certs.return_value = ("", "")
+
+    certs_manager = CertsManager(raw_config_path=RAW_CONFIG_PATH, certs_tool_path=CERTS_TOOL_PATH)
+    certs_manager.generate_certificates(agent_san=["10.0.2.15", "203.0.113.9"])
+
+    mock_exec_command.assert_any_call(
+        command=f"sudo bash {CERTS_TOOL_PATH} -A --agent-san 10.0.2.15 --agent-san 203.0.113.9", client=None
+    )
 
 
 def test_generate_certificates_error_during_generation(mock_exec_command):

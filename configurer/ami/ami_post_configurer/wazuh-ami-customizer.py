@@ -274,8 +274,19 @@ def get_manager_san_ips() -> list[str]:
     reports "not available" when the instance has none, which is filtered out rather than baked
     into the SAN as a literal string.
 
+    Fed to CertsManager.generate_certificates()'s agent_san, which passes each value straight
+    through as a repeated `--agent-san <value>` flag to wazuh-certs-tool.sh -- additive on top of
+    the manager node's own config.yml entry (127.0.0.1, untouched), not a replacement for it.
+
+    DEPENDS ON wazuh-installation-assistant#1027 (Victor Ereñú, opened 2026-09-16, NOT MERGED as of
+    this writing): --agent-san doesn't exist yet, and neither does that issue's other change this
+    relies on -- dropping the public-IP refusal in cert_validateComponentSanValues() -- so the
+    public/IPv6-metadata addresses collected here would still be rejected by the tool as it stands
+    today. Written ahead of the merge so there's less to wire up once it lands; verify against the
+    real tool before trusting this.
+
     Returns:
-        list[str]: The IPs to add to the manager node's SAN, in addition to "127.0.0.1".
+        list[str]: Extra addresses for remoted.pem's SAN, on top of "127.0.0.1".
     """
 
     logger.debug("Collecting the instance's addresses for the manager certificate SAN")
@@ -312,10 +323,8 @@ def create_certificates() -> None:
     """
 
     logger.debug("Creating new certificates...")
-    certs_manager = CertsManager(
-        raw_config_path=CERTS_TOOL_CONFIG_PATH, certs_tool_path=CERTS_TOOL_PATH, manager_san_ips=get_manager_san_ips()
-    )
-    certs_manager.generate_certificates()
+    certs_manager = CertsManager(raw_config_path=CERTS_TOOL_CONFIG_PATH, certs_tool_path=CERTS_TOOL_PATH)
+    certs_manager.generate_certificates(agent_san=get_manager_san_ips())
     logger.debug("New certificates created")
 
 

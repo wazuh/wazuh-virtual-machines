@@ -41,7 +41,6 @@ authd_pass_wait_time=5
 # different name/directory), and writes its output to "$(dirname "$0")/wazuh-certificates".
 wazuh_certs_dir="/etc/.wazuh-starter-certs"
 wazuh_certs_tool="${wazuh_certs_dir}/certs-tool.sh"
-wazuh_certs_config="${wazuh_certs_dir}/config.yml"
 wazuh_certs_output_dir="${wazuh_certs_dir}/wazuh-certificates"
 wazuh_certs_tar="/etc/wazuh-certificates.tar"
 
@@ -155,41 +154,27 @@ function set_authd_password() {
   logger "Wazuh agent registration password set successfully"
 }
 
-function get_manager_san_ip() {
-  # The address agents may dial to reach this instance's manager, for the manager cert's (and
-  # remoted's) SAN. wazuh-certs-tool.sh's manager node takes a single scalar `ip:` value, not a
-  # list -- confirmed empirically on a real OVA boot: unlike `dns` (whose regex allows an indexed
-  # suffix, "nodes_manager_N_dns([_]+[0-9]+)?="), the `ip` lookup regex
-  # ("nodes_manager_N_ip=") has no such suffix, so a YAML list under manager.ip parses to
-  # "..._ip_1"/"..._ip_2" keys that never match it and the tool aborts with "requires at least one
-  # field: ip or dns". So, unlike AMI's get_manager_san_ips() (wazuh-ami-customizer.py, which
-  # builds a list from hostname -I + ec2-metadata for a list-style manager_san_ips -- itself
-  # affected by the same tool limitation, reported separately, out of scope for #957), this returns
-  # just the first address hostname -I reports, or nothing if it hasn't configured one yet.
-  hostname -I | awk '{print $1}'
-}
-
-function set_certs_config_manager_san_ips() {
-  # Mirrors CertsManager._set_config_file_values()'s no-manager_san_ips branch: sets node
-  # names/IPs in the persisted certs-tool config as scalars, pointing the manager node at this
-  # instance's own address so remoted's SAN matches something agents can actually reach. Falls back
-  # to loopback-only if hostname -I hasn't configured an address yet.
-  logger "Setting manager IP in the certs-tool config"
-  local manager_ip
-  manager_ip=$(get_manager_san_ip)
-  manager_ip="${manager_ip:-127.0.0.1}"
-
-  local yq_program
-  yq_program=$(cat <<EOF
-.nodes.indexer[0].name = "indexer" |
-.nodes.indexer[0].ip = "127.0.0.1" | .nodes.indexer[0].ip style="double" |
-.nodes.manager[0].name = "manager" |
-.nodes.manager[0].ip = "${manager_ip}" | .nodes.manager[0].ip style="double" |
-.nodes.dashboard[0].name = "dashboard" |
-.nodes.dashboard[0].ip = "127.0.0.1" | .nodes.dashboard[0].ip style="double"
-EOF
-)
-  sudo yq -i "${yq_program}" "${wazuh_certs_config}"
+function get_manager_san_ips() {
+  # Every address agents might dial to reach this instance's manager, for remoted.pem's SAN.
+  #
+  # DEPENDS ON wazuh-installation-assistant#1027 (Victor Ereñú, opened 2026-09-16, NOT MERGED as of
+  # this writing) -- speculative against that issue's description, written ahead of the merge so
+  # there's less to wire up once it lands. Verify against the real tool before trusting this: same
+  # convention as everywhere else in this file (read the generator, don't assume).
+  #
+  # Deliberately does NOT edit config.yml's manager node (unlike the previous approach here, which
+  # overwrote its scalar `ip: "127.0.0.1"` with the single detected address -- a real regression,
+  # caught but never confirmed live: the pre-installed agent dials 127.0.0.1 literally, hardcoded in
+  # configurer/core/static/configuration_mappings.yaml's agent.manager.endpoint, so dropping that
+  # value from the SAN could break its own TLS verification). #1027 adds `-as/--agent-san <ip|dns>`
+  # to wazuh-certs-tool.sh, repeatable, additive on top of each node's existing ip/dns -- so
+  # config.yml keeps whatever build time already baked in (127.0.0.1, matching indexer/dashboard and
+  # the pre-installed agent) untouched, and every address here just gets appended via that flag in
+  # generate_certificates() instead of replacing anything.
+  #
+  # OVA is not EC2 (see the file header for why this differs from AMI's equivalent, which also
+  # queries ec2-metadata for a public IP): hostname -I is the only source available here.
+  hostname -I
 }
 
 function run_or_die() {
@@ -240,8 +225,15 @@ function generate_certificates() {
   # then compress its output the same way, so the copy_*_certs() functions below can extract from a
   # fixed tar path regardless of the tool's own working directory.
   logger "Generating the CA and all component certificates for this instance"
-  set_certs_config_manager_san_ips
-  run_or_die "wazuh-certs-tool.sh failed to generate certificates" sudo bash "${wazuh_certs_tool}" -A
+
+  local -a agent_san_flags=()
+  local ip
+  for ip in $(get_manager_san_ips); do
+    agent_san_flags+=(--agent-san "${ip}")
+  done
+
+  run_or_die "wazuh-certs-tool.sh failed to generate certificates" \
+      sudo bash "${wazuh_certs_tool}" -A "${agent_san_flags[@]}"
   run_or_die "Failed to compress generated certificates into ${wazuh_certs_tar}" \
       sudo tar -cf "${wazuh_certs_tar}" -C "${wazuh_certs_output_dir}/" .
   sudo rm -rf "${wazuh_certs_output_dir}"

@@ -25,7 +25,6 @@ class CertsManager:
         raw_config_path: Path,
         certs_tool_path: Path,
         client: paramiko.SSHClient | None = None,
-        manager_san_ips: list[str] | None = None,
     ) -> None:
         # Default name for each certificate of each component when generated with the cert-tool.
         self.components_certs_default_name = {
@@ -77,49 +76,32 @@ class CertsManager:
         }
         self.certs_tool_path = certs_tool_path
 
-        self._set_config_file_values(raw_config_path=raw_config_path, client=client, manager_san_ips=manager_san_ips)
+        self._set_config_file_values(raw_config_path=raw_config_path, client=client)
 
-    def _set_config_file_values(
-        self, raw_config_path: Path, client: paramiko.SSHClient | None = None, manager_san_ips: list[str] | None = None
-    ):
+    def _set_config_file_values(self, raw_config_path: Path, client: paramiko.SSHClient | None = None):
         """
         Sets configuration file values using the `yq` command.
 
         This method updates the configuration file at the specified path with predefined values for
-        Wazuh components (indexer, manager, and dashboard) using the `yq` command-line tool. Indexer
-        and dashboard stay internal-only ("127.0.0.1"): that traffic never leaves the instance.
-
-        The manager node is different: since wazuh-installation-assistant#1009, wazuh-certs-tool also
-        issues remoted.pem (the agent-facing listener cert) from this same node's ip/dns, and agents
-        dial it from outside the instance. `manager_san_ips`, when given, is added alongside
-        "127.0.0.1" so that certificate's SAN actually matches an address agents can reach -- callers
-        running at first boot (where the instance's real address is knowable) should pass it;
-        build-time callers, where any address baked in would be thrown away, can leave it as None and
-        keep today's loopback-only behavior.
+        Wazuh components (indexer, manager, and dashboard) using the `yq` command-line tool. All
+        three stay on "127.0.0.1": none of their own SAN needs to reach past this instance, since
+        indexer/dashboard traffic is internal-only and the manager node's own identity here is
+        unrelated to remoted's (see generate_certificates' agent_san instead).
 
         Args:
             raw_config_path (Path): The path to the raw configuration file to be updated.
             client (paramiko.SSHClient, optional): An SSH client for remote execution. Defaults to None.
-            manager_san_ips (list[str] | None, optional): Extra IPs for the manager node's SAN, on top
-                of "127.0.0.1". Defaults to None (loopback only).
 
         Raises:
             Exception: If there is an error while setting the configuration file values.
         """
 
         logger.debug("Setting config file values")
-        if manager_san_ips:
-            manager_ips = ["127.0.0.1", *manager_san_ips]
-            manager_ip_yq_value = "[" + ", ".join(f'"{ip}"' for ip in manager_ips) + "]"
-            manager_ip_yq_style = ".nodes.manager[0].ip[]"  # style each element of the list
-        else:
-            manager_ip_yq_value = '"127.0.0.1"'
-            manager_ip_yq_style = ".nodes.manager[0].ip"  # style the single scalar, as before
         yq_query = f"""
             sudo yq -i '.nodes.indexer[0].name = \"{CertificatesComponent.INDEXER}\" |
             .nodes.indexer[0].ip = "127.0.0.1" | .nodes.indexer[0].ip style="double" |
             .nodes.manager[0].name = \"{CertificatesComponent.MANAGER}\" |
-            .nodes.manager[0].ip = {manager_ip_yq_value} | {manager_ip_yq_style} style="double" |
+            .nodes.manager[0].ip = "127.0.0.1" | .nodes.manager[0].ip style="double" |
             .nodes.dashboard[0].name = \"{CertificatesComponent.DASHBOARD}\" |
             .nodes.dashboard[0].ip = "127.0.0.1" | .nodes.dashboard[0].ip style="double"
             ' {raw_config_path}
@@ -211,7 +193,10 @@ class CertsManager:
         return certs_name
 
     def generate_certificates(
-        self, certs_tool_path: Path | None = None, client: paramiko.SSHClient | None = None
+        self,
+        certs_tool_path: Path | None = None,
+        client: paramiko.SSHClient | None = None,
+        agent_san: list[str] | None = None,
     ) -> None:
         """
         Main moethod of the class. It generates certificates for Wazuh components.
@@ -225,6 +210,14 @@ class CertsManager:
                                            will be used.
             client (paramiko.SSHClient | None): An SSH client for executing commands on a remote server. If not provided,
                                                 commands will be executed locally.
+            agent_san (list[str] | None): Extra addresses (IPs and/or DNS names) agents might dial to reach this
+                instance's manager, added to remoted.pem's SAN on top of whatever the manager node's own config
+                already provides -- e.g. the address(es) this instance is actually reachable at, unknowable at build
+                time. Passed straight through as repeated `--agent-san <value>` flags.
+
+                DEPENDS ON wazuh-installation-assistant#1027 (Victor Ereñú, opened 2026-09-16, NOT MERGED as of this
+                writing) -- speculative against that issue's description, written ahead of the merge so there's less
+                to wire up once it lands. Verify against the real tool before trusting this.
 
         Raises:
             Exception: If there is an error during certificate generation, compression, or copying to component directories.
@@ -238,7 +231,8 @@ class CertsManager:
         if not certs_tool_path:
             certs_tool_path = self.certs_tool_path
 
-        command = f"sudo bash {certs_tool_path} -A"
+        agent_san_flags = "".join(f" --agent-san {san}" for san in agent_san or [])
+        command = f"sudo bash {certs_tool_path} -A{agent_san_flags}"
         output, error_output = exec_command(command=command, client=client)
         if error_output:
             raise Exception(f"Error while generating certificates: {error_output}")
