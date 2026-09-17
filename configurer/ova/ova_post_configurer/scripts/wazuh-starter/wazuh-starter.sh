@@ -174,7 +174,31 @@ function get_manager_san_ips() {
   #
   # OVA is not EC2 (see the file header for why this differs from AMI's equivalent, which also
   # queries ec2-metadata for a public IP): hostname -I is the only source available here.
-  hostname -I
+  #
+  # Confirmed on a real OVA boot (2026-09-17): wazuh-starter.timer's OnBootSec=10s has no ordering
+  # against networking coming up, and at 10s post-boot hostname -I can still be empty -- the
+  # resulting cert generation silently got zero --agent-san flags (no error, no warning), passing
+  # everyone's review because it worked fine on the same instance minutes later. Retry instead of
+  # trusting the first read; same bounded wait_time/retries pattern used elsewhere in this file
+  # (set_authd_password).
+  #
+  # logger's own output must stay off stdout here (redirected to &2 below): the caller reads this
+  # function's stdout as its return value (`for ip in $(get_manager_san_ips)`), and logger's
+  # printf|tee also writes to stdout -- unredirected, a retry warning would get fed to
+  # wazuh-certs-tool.sh as a bogus --agent-san value instead of just being logged. Caught locally
+  # (isolated stub test) before this ever reached a real boot.
+  local ips retries=0 max_retries=5 wait_time=2
+  ips=$(hostname -I)
+  while [[ -z "${ips// /}" ]] && [[ "${retries}" -lt "${max_retries}" ]]; do
+    logger -w "No network address available yet for the manager cert SAN, waiting ${wait_time} seconds" >&2
+    sleep "${wait_time}"
+    retries=$((retries + 1))
+    ips=$(hostname -I)
+  done
+  if [[ -z "${ips// /}" ]]; then
+    logger -w "No network address found after ${max_retries} retries; remoted.pem's SAN will only cover 127.0.0.1" >&2
+  fi
+  echo "${ips}"
 }
 
 function run_or_die() {
