@@ -44,6 +44,13 @@ wazuh_certs_tool="${wazuh_certs_dir}/certs-tool.sh"
 wazuh_certs_output_dir="${wazuh_certs_dir}/wazuh-certificates"
 wazuh_certs_tar="/etc/wazuh-certificates.tar"
 
+# Where this instance's own root CA (key included) lives on, past first boot, so a leaf can be
+# reissued later (e.g. the instance's address changes, or a load balancer joins) without having to
+# start over with a brand new CA every enrolled agent would have to re-trust. See
+# clean_configuration() for why this is kept, not deleted -- issue #957 only requires that
+# root-ca.key never ships baked into the image, not that a booted instance destroy its own copy.
+wazuh_ca_dir="/etc/wazuh-certificate-authority"
+
 wazuh_indexer_certs_dir="/etc/wazuh-indexer/certs"
 wazuh_dashboard_certs_dir="/etc/wazuh-dashboard/certs"
 wazuh_manager_conf="/var/wazuh-manager/etc/wazuh-manager.conf"
@@ -356,13 +363,31 @@ function clean_configuration(){
   logger "Cleaning configuration files"
   eval "rm -rf /var/log/wazuh-starter.log"
   eval "rm -f /etc/.wazuh-starter.sh /etc/systemd/system/wazuh-starter.service /etc/systemd/system/wazuh-starter.timer"
-  # wazuh_certs_tar and wazuh_certs_dir (which by now also holds the tool's own output dir, see
-  # generate_certificates) both carry the CA private key (the tar packs the cert-tool's whole output
-  # unfiltered; the tool writes its generated keys next to its own config.yml) -- neither is
-  # extracted into a component directory by copy_*_certs, so unlike those, nothing else applies the
-  # 500/400 restrictive permissions to them. Left behind, they're the exact kind of persisted,
-  # loosely-permissioned key material issue #957 set out to remove. AMI's equivalent
-  # (wazuh-ami-customizer.py) wipes the same artifacts via its temp dir cleanup.
+  # wazuh_certs_tar carries the CA private key (the tar packs the cert-tool's whole output
+  # unfiltered) with none of the 500/400 restrictive permissions copy_*_certs applies to what it
+  # extracts into each component's own directory -- left as the tool wrote it, that's exactly the
+  # persisted, loosely-permissioned key material issue #957 set out to remove.
+  #
+  # The fix is to secure root-ca.pem/root-ca.key in a fixed, restrictive location, NOT to destroy
+  # them: the issue only requires that root-ca.key never ship baked into the image (a single CA
+  # shared by every copy of it), not that a booted instance erase its own copy. Its own acceptance
+  # criteria assume the opposite -- "reissuing the leaf is enough and does not break enrolled
+  # agents, since they pin the CA rather than the leaf" only holds if that CA still exists to sign a
+  # new leaf with, e.g. after the instance's address changes or a load balancer joins later. An
+  # earlier revision of this function deleted them outright instead, which satisfied the letter of
+  # "not baked into the image" but broke that reissuing guarantee for every OVA -- caught only by
+  # tracing the issue's exact wording, not by anything that runs. wazuh-installation-assistant, which
+  # this whole first-boot design otherwise mirrors, never destroys its equivalent either: it
+  # chmod 400s the generated root-ca.pem/key and bundles them into wazuh-install-files.tar for the
+  # operator to keep (install_functions/installCommon.sh).
+  run_or_die "Failed to extract the CA into ${wazuh_ca_dir}" \
+      sudo mkdir -p "${wazuh_ca_dir}"
+  run_or_die "Failed to extract the CA into ${wazuh_ca_dir}" \
+      sudo tar -xf "${wazuh_certs_tar}" -C "${wazuh_ca_dir}" ./root-ca.pem ./root-ca.key
+  sudo chown -R root:root "${wazuh_ca_dir}"
+  sudo chmod 700 "${wazuh_ca_dir}"
+  sudo chmod 400 "${wazuh_ca_dir}/root-ca.pem" "${wazuh_ca_dir}/root-ca.key"
+
   eval "rm -f ${wazuh_certs_tar}"
   eval "rm -rf ${wazuh_certs_dir}"
 }

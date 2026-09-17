@@ -30,6 +30,14 @@ AUTHD_PASS_WAIT_TIME = 5
 # manager now that verification_mode is enforced by default.
 WAZUH_AGENT_CA_FILE = "/var/ossec/etc/certs/root-ca.pem"
 
+# Where this instance's own root CA (key included) lives on, past first boot, so a leaf can be
+# reissued later (e.g. the instance's address changes, or a load balancer joins) without having to
+# start over with a brand new CA every enrolled agent would have to re-trust. See clean_up() for why
+# this is kept, not deleted -- issue #957 only requires that root-ca.key never ship baked into the
+# image, not that a launched instance destroy its own copy.
+WAZUH_CA_DIR = Path("/etc/wazuh-certificate-authority")
+WAZUH_CERTS_TAR = TEMP_DIR / "wazuh-certificates.tar"
+
 # A stopped unit that left processes behind keeps them in its cgroup until the last one exits.
 SERVICE_CGROUP_PROCS = "/sys/fs/cgroup/system.slice/{unit}/cgroup.procs"
 SERVICE_LEFTOVERS_MAX_RETRIES = 10
@@ -632,11 +640,41 @@ def clean_up() -> None:
     """
     Cleans up temporary files and directories created during the process.
 
+    TEMP_DIR holds the cert-tool's own working directory, including WAZUH_CERTS_TAR -- a tar of its
+    whole output, unfiltered, so it also carries the root CA's private key with none of the 500/400
+    restrictive permissions applied to what gets extracted into each component's own directory. Left
+    as the tool wrote it, that's exactly the persisted, loosely-permissioned key material issue #957
+    set out to remove.
+
+    The fix is to secure root-ca.pem/root-ca.key in WAZUH_CA_DIR, NOT to destroy them: the issue only
+    requires that root-ca.key never ship baked into the image (a single CA shared by every instance
+    launched from it), not that a launched instance erase its own copy. Its own acceptance criteria
+    assume the opposite -- "reissuing the leaf is enough and does not break enrolled agents, since
+    they pin the CA rather than the leaf" only holds if that CA still exists to sign a new leaf with,
+    e.g. after the instance's address changes or a load balancer joins later. An earlier revision of
+    this function deleted them outright instead, which satisfied the letter of "not baked into the
+    image" but broke that reissuing guarantee for every launched instance -- caught only by tracing
+    the issue's exact wording, not by anything that runs. wazuh-installation-assistant, which this
+    whole first-boot design otherwise mirrors, never destroys its equivalent either: it chmod 400s
+    the generated root-ca.pem/key and bundles them into wazuh-install-files.tar for the operator to
+    keep (install_functions/installCommon.sh).
+
     Returns:
         None
     """
 
     logger.debug("Cleaning up temporary files and directories...")
+
+    WAZUH_CA_DIR.mkdir(parents=True, exist_ok=True)
+    run_command(
+        command=f"tar -xf {WAZUH_CERTS_TAR} -C {WAZUH_CA_DIR} ./root-ca.pem ./root-ca.key",
+        error_message=f"Error extracting the CA into {WAZUH_CA_DIR}",
+    )
+    run_command(
+        command=f"chown -R root:root {WAZUH_CA_DIR} && chmod 700 {WAZUH_CA_DIR} "
+        f"&& chmod 400 {WAZUH_CA_DIR}/root-ca.pem {WAZUH_CA_DIR}/root-ca.key",
+        error_message=f"Error securing {WAZUH_CA_DIR}",
+    )
 
     command = f"""
     rm -rf {TEMP_DIR}
