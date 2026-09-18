@@ -35,6 +35,16 @@ The Wazuh manager generates and persists a random Authd registration password (`
 
 To avoid this, the `wazuh-starter` service (which runs once on the first boot to start the components in order) rotates the registration password: before starting the manager it removes the pre-generated `authd.pass` files so the manager generates a new, unique password. That password is then copied to the Wazuh agent Authd password file (`/var/ossec/etc/authd.pass`), with the proper ownership (`root:wazuh`) and permissions (`640`), before the agent starts so it can enroll against the manager.
 
+## Certificate lifecycle after first boot
+
+First boot generates a fresh root CA and issues every component's certificate from it, including the manager's agent-listener certificate (`remoted.pem`), whose SAN is built from the addresses detected at that moment (`hostname -I`). If the instance's address changes afterward — a new DHCP lease, a different network, a reassigned static IP — `remoted.pem`'s SAN goes stale and agents connecting from the new address fail hostname verification.
+
+[wazuh-virtual-machines#957](https://github.com/wazuh/wazuh-virtual-machines/issues/957), which introduced this first-boot regeneration, asked to decide and document this case: "reissuing the leaf is enough and does not break enrolled agents, since they pin the CA rather than the leaf." Its only requirement about the CA's private key is that it never ships baked into the image (a single `root-ca.key` shared by every VM imported from it would make hostname/chain verification worthless) — nothing in the issue asks a booted instance to destroy its own copy once generated.
+
+So this instance's root CA (`root-ca.pem` and `root-ca.key`) is kept, not deleted, in a fixed, restrictive location: `/etc/wazuh-certificate-authority/` (`700`, files `400`, owner `root:root`). `wazuh-installation-assistant`, which this whole first-boot design otherwise mirrors, does the same with its own equivalent — it `chmod 400`s the generated `root-ca.pem`/`.key` and bundles them into `wazuh-install-files.tar` for the operator to keep (`install_functions/installCommon.sh`) — rather than ever destroying them. An earlier revision of `clean_configuration()` in `wazuh-starter.sh` deleted `root-ca.key` outright instead of securing it; that satisfied the letter of "not baked into the image" but broke the issue's own reissuing guarantee, and was only caught by tracing the issue's exact wording rather than by anything that runs.
+
+**To reissue `remoted.pem`'s SAN after the instance's address changes** (or to add a load balancer's own certificate later, `wazuh-certs-tool.sh -lb`), run `wazuh-certs-tool.sh` again passing `/etc/wazuh-certificate-authority/root-ca.pem` and `.../root-ca.key` as the existing CA, instead of leaving it to generate a new one — this keeps every already-enrolled agent's trust intact, since they pinned the CA and it has not changed. There is no automation for this today; it is a manual operator step.
+
 ## Considerations
 
 The **OVA Post Configurer** is designed to be executed in a **local machine only**. As mentioned above the execution of this module using **Hatch** will execute the **Provisioner** and **Core Configurer** modules previously.

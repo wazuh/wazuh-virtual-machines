@@ -1,5 +1,19 @@
 #!/bin/bash
 # This script is used to configure the Wazuh environment after the installation
+#
+# Why this re-implements CertsManager's logic in bash instead of reusing it (configurer/core/models/
+# certificates_manager.py, Python, already used by AMI at first boot via wazuh-ami-customizer.py):
+# AMI's first boot runs inside a venv built during the AMI image build (ami_post_configurer.py:
+# create_custom_dir()/create_certs_env() -- provisions python3.11 + pip install pydantic/pyyaml/
+# paramiko over SSH before packaging). OVA has no equivalent build-time venv infrastructure today,
+# and building one has a real cost beyond "reuse the Python": those pinned dependency versions would
+# be frozen into every OVA someone downloads and runs on-prem, indefinitely, with no way to patch a
+# future CVE in them short of re-publishing the whole image -- unlike AMI, which can be rebuilt and
+# redeployed far more readily. The tradeoff accepted here is keeping this bash version in sync with
+# CertsManager by hand; that cost is real (three bugs in this exact mirroring were only caught by
+# testing a real OVA boot, not by unit tests) but preferred over baking unpatchable dependencies into
+# a long-lived on-prem appliance. Revisiting this (e.g. building OVA's own venv provisioning to unify
+# both onto CertsManager) is a separate initiative, not something to fold into a single issue.
 
 # Variables
 logfile="/var/log/wazuh-starter.log"
@@ -10,15 +24,38 @@ debug="| tee -a ${logfile}"
 wazuh_manager_authd_pass="/var/wazuh-manager/etc/authd.pass"
 wazuh_agent_authd_pass="/var/ossec/etc/authd.pass"
 
-# The manager's single self-signed certificate (HTTPS agent listener identity, reused by Authd as
-# the /enroll mTLS credential). Only the package postinstall generates it — no daemon regenerates
-# it at startup — so after the image cleanup removed the baked-in pair, this script must recreate
-# it before the manager starts, making it unique per deployed instance.
+# The manager's agent-listener certificate (HTTPS identity, reused by Authd as the /enroll mTLS
+# credential). Issued by copy_manager_certs from this instance's own CA (see generate_certificates),
+# making it unique per deployed instance instead of the baked-in self-signed pair the image ships.
 wazuh_manager_certs_dir="/var/wazuh-manager/etc/certs"
 wazuh_manager_remoted_cert="${wazuh_manager_certs_dir}/remoted.pem"
 wazuh_manager_remoted_key="${wazuh_manager_certs_dir}/remoted-key.pem"
 authd_pass_max_retries=12
 authd_pass_wait_time=5
+
+# Persisted at build time by add_wazuh_starter_certs_tool() (ova_post_configurer.py), since the
+# build-time copy under RemoteDirectories.CERTS is gone by the time this script runs. Both files
+# must stay side by side under this exact directory: wazuh-certs-tool.sh resolves its own config as
+# "$(dirname "$0")/config.yml", with no flag to point it elsewhere (confirmed against the real tool
+# on a booted OVA -- it failed with "No configuration file found" when the config lived under a
+# different name/directory), and writes its output to "$(dirname "$0")/wazuh-certificates".
+wazuh_certs_dir="/etc/.wazuh-starter-certs"
+wazuh_certs_tool="${wazuh_certs_dir}/certs-tool.sh"
+wazuh_certs_output_dir="${wazuh_certs_dir}/wazuh-certificates"
+wazuh_certs_tar="/etc/wazuh-certificates.tar"
+
+# Where this instance's own root CA (key included) lives on, past first boot, so a leaf can be
+# reissued later (e.g. the instance's address changes, or a load balancer joins) without having to
+# start over with a brand new CA every enrolled agent would have to re-trust. See
+# clean_configuration() for why this is kept, not deleted -- issue #957 only requires that
+# root-ca.key never ships baked into the image, not that a booted instance destroy its own copy.
+wazuh_ca_dir="/etc/wazuh-certificate-authority"
+
+wazuh_indexer_certs_dir="/etc/wazuh-indexer/certs"
+wazuh_dashboard_certs_dir="/etc/wazuh-dashboard/certs"
+wazuh_manager_conf="/var/wazuh-manager/etc/wazuh-manager.conf"
+wazuh_indexer_conf="/etc/wazuh-indexer/opensearch.yml"
+wazuh_dashboard_conf="/etc/wazuh-dashboard/opensearch_dashboards.yml"
 
 # Path the agent's <certificate_authorities> config points at, so it trusts this instance's own
 # manager now that verification_mode is enforced by default.
@@ -124,29 +161,199 @@ function set_authd_password() {
   logger "Wazuh agent registration password set successfully"
 }
 
-function regenerate_remoted_certificate() {
-  # Generate a per-instance remoted certificate, same command and ownership the manager package
-  # postinstall applies. The rm guards against an image built before the cleanup removed the pair.
-  logger "Regenerating the manager remoted certificate for this instance"
-  rm -f "${wazuh_manager_remoted_cert}" "${wazuh_manager_remoted_key}"
-  /var/wazuh-manager/bin/wazuh-manager-remoted -C 365 -B 2048 -S "/C=US/ST=California/CN=Wazuh/" -K "${wazuh_manager_remoted_key}" -X "${wazuh_manager_remoted_cert}"
-  if [ ! -f "${wazuh_manager_remoted_cert}" ] || [ ! -f "${wazuh_manager_remoted_key}" ]; then
-      logger -e "Failed to regenerate the manager remoted certificate"
-      exit 1
+function get_manager_san_ips() {
+  # Every address agents might dial to reach this instance's manager, for remoted.pem's SAN.
+  #
+  # DEPENDS ON wazuh-installation-assistant#1027 (Victor Ereñú, opened 2026-09-16, NOT MERGED as of
+  # this writing) -- speculative against that issue's description, written ahead of the merge so
+  # there's less to wire up once it lands. Verify against the real tool before trusting this: same
+  # convention as everywhere else in this file (read the generator, don't assume).
+  #
+  # Deliberately does NOT edit config.yml's manager node (unlike the previous approach here, which
+  # overwrote its scalar `ip: "127.0.0.1"` with the single detected address -- a real regression,
+  # caught but never confirmed live: the pre-installed agent dials 127.0.0.1 literally, hardcoded in
+  # configurer/core/static/configuration_mappings.yaml's agent.manager.endpoint, so dropping that
+  # value from the SAN could break its own TLS verification). #1027 adds `-as/--agent-san <ip|dns>`
+  # to wazuh-certs-tool.sh, repeatable, additive on top of each node's existing ip/dns -- so
+  # config.yml keeps whatever build time already baked in (127.0.0.1, matching indexer/dashboard and
+  # the pre-installed agent) untouched, and every address here just gets appended via that flag in
+  # generate_certificates() instead of replacing anything.
+  #
+  # OVA is not EC2 (see the file header for why this differs from AMI's equivalent, which also
+  # queries ec2-metadata for a public IP): hostname -I is the only source available here.
+  #
+  # Confirmed on a real OVA boot (2026-09-17): wazuh-starter.timer's OnBootSec=10s has no ordering
+  # against networking coming up, and at 10s post-boot hostname -I can still be empty -- the
+  # resulting cert generation silently got zero --agent-san flags (no error, no warning), passing
+  # everyone's review because it worked fine on the same instance minutes later. Retry instead of
+  # trusting the first read; same bounded wait_time/retries pattern used elsewhere in this file
+  # (set_authd_password).
+  #
+  # logger's own output must stay off stdout here (redirected to &2 below): the caller reads this
+  # function's stdout as its return value (`for ip in $(get_manager_san_ips)`), and logger's
+  # printf|tee also writes to stdout -- unredirected, a retry warning would get fed to
+  # wazuh-certs-tool.sh as a bogus --agent-san value instead of just being logged. Caught locally
+  # (isolated stub test) before this ever reached a real boot.
+  local ips retries=0 max_retries=5 wait_time=2
+  ips=$(hostname -I)
+  while [[ -z "${ips// /}" ]] && [[ "${retries}" -lt "${max_retries}" ]]; do
+    logger -w "No network address available yet for the manager cert SAN, waiting ${wait_time} seconds" >&2
+    sleep "${wait_time}"
+    retries=$((retries + 1))
+    ips=$(hostname -I)
+  done
+  if [[ -z "${ips// /}" ]]; then
+    logger -w "No network address found after ${max_retries} retries; remoted.pem's SAN will only cover 127.0.0.1" >&2
   fi
-  chown wazuh-manager:wazuh-manager "${wazuh_manager_remoted_cert}" "${wazuh_manager_remoted_key}"
-  chmod 640 "${wazuh_manager_remoted_cert}" "${wazuh_manager_remoted_key}"
-  logger "Manager remoted certificate regenerated successfully"
+  echo "${ips}"
+}
+
+function run_or_die() {
+  # $1: error message, rest: the command to run. "Fail loud, don't limp on" so tar/mv/cert-tool
+  # failures during first boot can't leave certs half-installed without anyone noticing (a tar
+  # that's missing a requested member, or a cert-tool that errors out, exits non-zero -- verified
+  # locally).
+  local error_message="$1"
+  shift
+  if ! "$@"; then
+    logger -e "${error_message}"
+    exit 1
+  fi
+}
+
+function read_cert_name() {
+  # $1: yq query, $2: config file to read it from. Mirrors
+  # CertsManager._get_cert_name_from_key(): reads the certificate filename each component's config
+  # actually expects instead of assuming the cert-tool's default names survive unchanged.
+  local query="$1" file="$2" yq_flags="" value
+  if [[ "${file}" == *.conf ]]; then
+    yq_flags="-p xml -o xml"  # wazuh-manager.conf is XML, not YAML
+  fi
+  # shellcheck disable=SC2086 # yq_flags is a deliberate word-split: quoting it would pass "-p xml -o xml" as one flag
+  value=$(sudo yq ${yq_flags} "${query}" "${file}")
+  if [[ -z "${value}" ]]; then
+    logger -e "yq query '${query}' on ${file} returned no certificate path"
+    exit 1
+  fi
+  if [[ "${value}" == *"["*"]"* ]]; then
+    # Some config keys (confirmed on a real boot: opensearch.ssl.certificateAuthorities) hold a
+    # list of CA paths, e.g. yq prints "['/path/root-ca.pem']". Mirrors
+    # CertsManager._get_cert_name_from_key()'s ast.literal_eval(output)[-1]: take the last element.
+    # Without this, basename kept the raw bracket/quote text, producing a garbage filename.
+    value="${value#*[}"
+    value="${value%]*}"
+    value="${value##*,}"
+    value="${value#\'}"
+    value="${value%\'}"
+    value="${value#\"}"
+    value="${value%\"}"
+  fi
+  basename "${value}"
+}
+
+function generate_certificates() {
+  # Mirrors CertsManager.generate_certificates() (Python, used by AMI): run wazuh-certs-tool.sh,
+  # then compress its output the same way, so the copy_*_certs() functions below can extract from a
+  # fixed tar path regardless of the tool's own working directory.
+  logger "Generating the CA and all component certificates for this instance"
+
+  local -a agent_san_flags=()
+  local ip
+  for ip in $(get_manager_san_ips); do
+    agent_san_flags+=(--agent-san "${ip}")
+  done
+
+  run_or_die "wazuh-certs-tool.sh failed to generate certificates" \
+      sudo bash "${wazuh_certs_tool}" -A "${agent_san_flags[@]}"
+  run_or_die "Failed to compress generated certificates into ${wazuh_certs_tar}" \
+      sudo tar -cf "${wazuh_certs_tar}" -C "${wazuh_certs_output_dir}/" .
+  sudo rm -rf "${wazuh_certs_output_dir}"
+}
+
+function copy_indexer_certs() {
+  # Mirrors copy_certs_to_component_directory(Component.WAZUH_INDEXER) in certificates_manager.py.
+  logger "Installing indexer certificates"
+  local cert_name key_name ca_name
+  cert_name=$(read_cert_name '.["plugins.security.ssl.http.pemcert_filepath"]' "${wazuh_indexer_conf}")
+  key_name=$(read_cert_name '.["plugins.security.ssl.http.pemkey_filepath"]' "${wazuh_indexer_conf}")
+  ca_name=$(read_cert_name '.["plugins.security.ssl.http.pemtrustedcas_filepath"]' "${wazuh_indexer_conf}")
+
+  sudo rm -rf "${wazuh_indexer_certs_dir}"
+  sudo mkdir -p "${wazuh_indexer_certs_dir}"
+  run_or_die "Failed to extract indexer certificates from ${wazuh_certs_tar}" \
+      sudo tar -xf "${wazuh_certs_tar}" -C "${wazuh_indexer_certs_dir}" \
+      ./indexer.pem ./indexer-key.pem ./admin.pem ./admin-key.pem ./root-ca.pem
+  sudo mv -n "${wazuh_indexer_certs_dir}/indexer.pem" "${wazuh_indexer_certs_dir}/${cert_name}"
+  sudo mv -n "${wazuh_indexer_certs_dir}/indexer-key.pem" "${wazuh_indexer_certs_dir}/${key_name}"
+  sudo mv -n "${wazuh_indexer_certs_dir}/root-ca.pem" "${wazuh_indexer_certs_dir}/${ca_name}"
+  sudo chmod 500 "${wazuh_indexer_certs_dir}"
+  sudo find "${wazuh_indexer_certs_dir}" -type f -exec chmod 400 {} \;
+  sudo chown -R wazuh-indexer:wazuh-indexer "${wazuh_indexer_certs_dir}/"
+}
+
+function copy_manager_certs() {
+  # Mirrors copy_certs_to_component_directory(Component.WAZUH_MANAGER) in certificates_manager.py.
+  # No rm -rf: the manager package's postinstall still populates this directory with authd/apid
+  # daemon certs, which must survive untouched. remoted.pem/-key.pem are the exception -- force
+  # replaced (mv -f, not -n) since a manager package that still self-signs its own listener
+  # certificate at install time leaves a pair here too.
+  logger "Installing manager certificates"
+  local cert_name key_name ca_name
+  cert_name=$(read_cert_name '.wazuh_config.indexer.ssl.certificate' "${wazuh_manager_conf}")
+  key_name=$(read_cert_name '.wazuh_config.indexer.ssl.key' "${wazuh_manager_conf}")
+  ca_name=$(read_cert_name '.wazuh_config.indexer.ssl.certificate_authorities.ca' "${wazuh_manager_conf}")
+
+  sudo mkdir -p "${wazuh_manager_certs_dir}"
+  run_or_die "Failed to extract manager certificates from ${wazuh_certs_tar}" \
+      sudo tar -xf "${wazuh_certs_tar}" -C "${wazuh_manager_certs_dir}" \
+      ./manager.pem ./manager-key.pem ./admin.pem ./admin-key.pem ./root-ca.pem \
+      ./manager-remoted.pem ./manager-remoted-key.pem
+  sudo mv -n "${wazuh_manager_certs_dir}/manager.pem" "${wazuh_manager_certs_dir}/${cert_name}"
+  sudo mv -n "${wazuh_manager_certs_dir}/manager-key.pem" "${wazuh_manager_certs_dir}/${key_name}"
+  sudo mv -n "${wazuh_manager_certs_dir}/root-ca.pem" "${wazuh_manager_certs_dir}/${ca_name}"
+  sudo mv -f "${wazuh_manager_certs_dir}/manager-remoted.pem" "${wazuh_manager_remoted_cert}"
+  sudo mv -f "${wazuh_manager_certs_dir}/manager-remoted-key.pem" "${wazuh_manager_remoted_key}"
+  sudo chown root:wazuh-manager "${wazuh_manager_certs_dir}/${cert_name}" "${wazuh_manager_certs_dir}/${key_name}" "${wazuh_manager_certs_dir}/${ca_name}"
+  sudo chmod 640 "${wazuh_manager_certs_dir}/${cert_name}" "${wazuh_manager_certs_dir}/${key_name}" "${wazuh_manager_certs_dir}/${ca_name}"
+  sudo chown wazuh-manager:wazuh-manager "${wazuh_manager_remoted_cert}" "${wazuh_manager_remoted_key}"
+  sudo chmod 640 "${wazuh_manager_remoted_cert}" "${wazuh_manager_remoted_key}"
+  sudo chown root:wazuh-manager "${wazuh_manager_certs_dir}"
+  sudo chmod 1770 "${wazuh_manager_certs_dir}"
+}
+
+function copy_dashboard_certs() {
+  # Mirrors copy_certs_to_component_directory(Component.WAZUH_DASHBOARD) in certificates_manager.py.
+  logger "Installing dashboard certificates"
+  local cert_name key_name ca_name
+  cert_name=$(read_cert_name '.["server.ssl.certificate"]' "${wazuh_dashboard_conf}")
+  key_name=$(read_cert_name '.["server.ssl.key"]' "${wazuh_dashboard_conf}")
+  ca_name=$(read_cert_name '.["opensearch.ssl.certificateAuthorities"]' "${wazuh_dashboard_conf}")
+
+  sudo rm -rf "${wazuh_dashboard_certs_dir}"
+  sudo mkdir -p "${wazuh_dashboard_certs_dir}"
+  run_or_die "Failed to extract dashboard certificates from ${wazuh_certs_tar}" \
+      sudo tar -xf "${wazuh_certs_tar}" -C "${wazuh_dashboard_certs_dir}" \
+      ./dashboard.pem ./dashboard-key.pem ./root-ca.pem
+  sudo mv -n "${wazuh_dashboard_certs_dir}/dashboard.pem" "${wazuh_dashboard_certs_dir}/${cert_name}"
+  sudo mv -n "${wazuh_dashboard_certs_dir}/dashboard-key.pem" "${wazuh_dashboard_certs_dir}/${key_name}"
+  sudo mv -n "${wazuh_dashboard_certs_dir}/root-ca.pem" "${wazuh_dashboard_certs_dir}/${ca_name}"
+  sudo chmod 500 "${wazuh_dashboard_certs_dir}"
+  sudo find "${wazuh_dashboard_certs_dir}" -type f -exec chmod 400 {} \;
+  sudo chown -R wazuh-dashboard:wazuh-dashboard "${wazuh_dashboard_certs_dir}/"
 }
 
 function set_agent_ssl_ca() {
-  # Copy the manager's remoted certificate to the path the agent's <certificate_authorities>
-  # config points at, so it can verify this instance's own manager. Must run after
-  # regenerate_remoted_certificate: it copies the certificate (re)generated there for this
-  # instance, not the one baked into the image.
-  logger "Setting the Wazuh agent trusted CA from the manager remoted certificate"
+  # Copy the manager's root CA to the path the agent's <certificate_authorities> config points at,
+  # so it can verify this instance's own manager now that remoted/manager certs are issued from
+  # that CA by copy_manager_certs, instead of a self-signed remoted pair -- pinning the CA is
+  # enough, no separate per-instance remoted trust anchor needed. Must run after copy_manager_certs.
+  # Re-reads the CA's on-disk name from the manager config rather than assuming it is still called
+  # root-ca.pem, since copy_manager_certs may have renamed it (mv -n root-ca.pem -> ${ca_name}).
+  logger "Setting the Wazuh agent trusted CA from the manager root CA"
+  local ca_name
+  ca_name=$(read_cert_name '.wazuh_config.indexer.ssl.certificate_authorities.ca' "${wazuh_manager_conf}")
   mkdir -p "${wazuh_agent_ca_dir}"
-  cp "${wazuh_manager_remoted_cert}" "${wazuh_agent_ca}"
+  cp "${wazuh_manager_certs_dir}/${ca_name}" "${wazuh_agent_ca}"
   chown root:wazuh "${wazuh_agent_ca}"
   chmod 640 "${wazuh_agent_ca}"
   logger "Wazuh agent trusted CA set successfully"
@@ -156,6 +363,33 @@ function clean_configuration(){
   logger "Cleaning configuration files"
   eval "rm -rf /var/log/wazuh-starter.log"
   eval "rm -f /etc/.wazuh-starter.sh /etc/systemd/system/wazuh-starter.service /etc/systemd/system/wazuh-starter.timer"
+  # wazuh_certs_tar carries the CA private key (the tar packs the cert-tool's whole output
+  # unfiltered) with none of the 500/400 restrictive permissions copy_*_certs applies to what it
+  # extracts into each component's own directory -- left as the tool wrote it, that's exactly the
+  # persisted, loosely-permissioned key material issue #957 set out to remove.
+  #
+  # The fix is to secure root-ca.pem/root-ca.key in a fixed, restrictive location, NOT to destroy
+  # them: the issue only requires that root-ca.key never ship baked into the image (a single CA
+  # shared by every copy of it), not that a booted instance erase its own copy. Its own acceptance
+  # criteria assume the opposite -- "reissuing the leaf is enough and does not break enrolled
+  # agents, since they pin the CA rather than the leaf" only holds if that CA still exists to sign a
+  # new leaf with, e.g. after the instance's address changes or a load balancer joins later. An
+  # earlier revision of this function deleted them outright instead, which satisfied the letter of
+  # "not baked into the image" but broke that reissuing guarantee for every OVA -- caught only by
+  # tracing the issue's exact wording, not by anything that runs. wazuh-installation-assistant, which
+  # this whole first-boot design otherwise mirrors, never destroys its equivalent either: it
+  # chmod 400s the generated root-ca.pem/key and bundles them into wazuh-install-files.tar for the
+  # operator to keep (install_functions/installCommon.sh).
+  run_or_die "Failed to extract the CA into ${wazuh_ca_dir}" \
+      sudo mkdir -p "${wazuh_ca_dir}"
+  run_or_die "Failed to extract the CA into ${wazuh_ca_dir}" \
+      sudo tar -xf "${wazuh_certs_tar}" -C "${wazuh_ca_dir}" ./root-ca.pem ./root-ca.key
+  sudo chown -R root:root "${wazuh_ca_dir}"
+  sudo chmod 700 "${wazuh_ca_dir}"
+  sudo chmod 400 "${wazuh_ca_dir}/root-ca.pem" "${wazuh_ca_dir}/root-ca.key"
+
+  eval "rm -f ${wazuh_certs_tar}"
+  eval "rm -rf ${wazuh_certs_dir}"
 }
 
 
@@ -166,7 +400,10 @@ function clean_configuration(){
 logger "Starting Wazuh services in order"
 
 rotate_authd_password
-regenerate_remoted_certificate
+generate_certificates
+copy_indexer_certs
+copy_manager_certs
+copy_dashboard_certs
 
 starter_service wazuh-indexer
 verify_indexer
