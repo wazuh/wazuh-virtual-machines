@@ -125,12 +125,9 @@ def install_guest_additions() -> None:
         ]
         run_command(commands)
 
-    if not os.path.isfile("/etc/rc.d/rc.local"):
-        commands = [
-            "touch /etc/rc.d/rc.local",
-            "chmod +x /etc/rc.d/rc.local",
-        ]
-        run_command(commands)
+    rc_local_path = "/etc/rc.d/rc.local"
+    if not os.path.isfile(rc_local_path):
+        run_command(f"touch {rc_local_path}")
 
     rc_local_block = (
         "# VirtualBox Guest Additions - ensure modules are loaded\n"
@@ -138,12 +135,16 @@ def install_guest_additions() -> None:
         "    /etc/init.d/vboxadd start || true\n"
         "fi\n"
     )
-    with open("/etc/rc.d/rc.local", "a+", encoding="utf-8") as rc_file:
-        rc_file.seek(0)
+    with open(rc_local_path, "r+", encoding="utf-8") as rc_file:
         content = rc_file.read()
+        if not content.startswith("#!"):
+            content = "#!/bin/sh\n" + content
         if "# VirtualBox Guest Additions - ensure modules are loaded" not in content:
-            rc_file.write(rc_local_block)
-    run_command("chmod +x /etc/rc.d/rc.local")
+            content += rc_local_block
+        rc_file.seek(0)
+        rc_file.truncate()
+        rc_file.write(content)
+    run_command(f"chmod +x {rc_local_path}")
 
     if os.path.isfile("/usr/lib/systemd/system/rc-local.service"):
         run_command(
