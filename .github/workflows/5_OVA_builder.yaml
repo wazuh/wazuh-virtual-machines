@@ -125,7 +125,9 @@ permissions:
 
 jobs:
   build:
-    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
+    runs-on:
+      - codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
+      - buildspec-override:true
     outputs:
       ova_matrix: ${{ steps.set_filenames.outputs.ova_matrix }}
       box_matrix: ${{ steps.set_filenames.outputs.box_matrix }}
@@ -376,7 +378,9 @@ jobs:
 
   upload_ova:
     needs: build
-    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
+    runs-on:
+      - codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
+      - buildspec-override:true
     strategy:
       matrix:
         include: ${{ fromJson(needs.build.outputs.ova_matrix) }}
@@ -410,7 +414,9 @@ jobs:
 
   upload_box:
     needs: build
-    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
+    runs-on:
+      - codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
+      - buildspec-override:true
     strategy:
       matrix:
         include: ${{ fromJson(needs.build.outputs.box_matrix) }}
@@ -445,7 +451,9 @@ jobs:
   cleanup:
     needs: [build, upload_ova, upload_box]
     if: always() && needs.build.result != 'skipped'
-    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
+    runs-on:
+      - codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
+      - buildspec-override:true
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
