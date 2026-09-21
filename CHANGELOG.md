@@ -35,6 +35,7 @@
 
 | Issue | Comment |
 | - | - |
+| [#975](https://github.com/wazuh/wazuh-virtual-machines/issues/975) | Enroll the pre-installed agent with an enrollment token minted at first boot, instead of copying the manager's `authd.pass` |
 | [#916](https://github.com/wazuh/wazuh-virtual-machines/issues/916) | Adapt the manager certificate deployment to the unified certificate layout |
 | [#912](https://github.com/wazuh/wazuh-virtual-machines/issues/912) | Change Codebuild runners to Github runners |
 | [#883](https://github.com/wazuh/wazuh-virtual-machines/issues/883) | Error on AMI and OVA Build |

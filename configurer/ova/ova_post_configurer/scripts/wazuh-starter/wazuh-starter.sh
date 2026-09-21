@@ -19,10 +19,38 @@
 logfile="/var/log/wazuh-starter.log"
 debug="| tee -a ${logfile}"
 
-# The Wazuh manager generates a random Authd registration password on startup and persists it in
-# this file. The same password must be distributed to the agent so it can enroll against the manager.
+# The manager CLI that mints enrollment tokens. It is a client of the local authd socket, not a
+# standalone generator, so wazuh-manager-authd has to be running before it is called.
+wazuh_manager_authd_bin="/var/wazuh-manager/bin/wazuh-manager-authd"
+
+# Where the pre-installed agent picks its enrollment token up. w_agent_token_bootstrap() reads it
+# once at the agent's first start, while still root, installs the trust anchor the token carries,
+# enrolls, and unlinks the file.
+wazuh_agent_enrollment_token="/var/ossec/etc/enrollment_token"
+
+# Everything the build leaves behind that would make a freshly minted token useless or unsafe. The
+# bootstrap refuses to run at all when the agent already holds a trust anchor or a non-empty
+# client.keys -- it deletes the token unused in both cases -- so anything baked into the image has
+# to go first. See reset_enrollment_state().
 wazuh_manager_authd_pass="/var/wazuh-manager/etc/authd.pass"
+wazuh_manager_enrollment_tokens="/var/wazuh-manager/etc/enrollment_tokens.json"
 wazuh_agent_authd_pass="/var/ossec/etc/authd.pass"
+wazuh_agent_client_keys="/var/ossec/etc/client.keys"
+wazuh_agent_reenroll_secret="/var/ossec/etc/reenroll.secret"
+
+# The address the token names, and the address the pre-installed agent's <manager><endpoint> already
+# holds (configurer/core/static/configuration_mappings.yaml). Manager and agent live on the same VM,
+# so loopback is the one address that is always reachable and never changes. It is a SAN entry of
+# remoted.pem through the manager node of the cert-tool config, and a mint only refuses an address
+# the listener certificate does not name -- or a certificate whose SAN is loopback AND NOTHING ELSE,
+# which is why generate_certificates() has to add this VM's own addresses first.
+wazuh_agent_enrollment_address="127.0.0.1"
+
+# The token CLI talks to queue/sockets/auth.sock, which a manager reporting "active" may still be
+# opening: systemctl returns as soon as the unit is active, not once every daemon inside it has
+# finished initializing. Retry instead of failing the whole first boot on that race.
+enrollment_token_max_retries=12
+enrollment_token_wait_time=5
 
 # The manager's agent-listener certificate (HTTPS identity, reused by Authd as the /enroll mTLS
 # credential). Issued by copy_manager_certs from this instance's own CA (see generate_certificates),
@@ -30,8 +58,6 @@ wazuh_agent_authd_pass="/var/ossec/etc/authd.pass"
 wazuh_manager_certs_dir="/var/wazuh-manager/etc/certs"
 wazuh_manager_remoted_cert="${wazuh_manager_certs_dir}/remoted.pem"
 wazuh_manager_remoted_key="${wazuh_manager_certs_dir}/remoted-key.pem"
-authd_pass_max_retries=12
-authd_pass_wait_time=5
 
 # Persisted at build time by add_wazuh_starter_certs_tool() (ova_post_configurer.py), since the
 # build-time copy under RemoteDirectories.CERTS is gone by the time this script runs. Both files
@@ -57,10 +83,10 @@ wazuh_manager_conf="/var/wazuh-manager/etc/wazuh-manager.conf"
 wazuh_indexer_conf="/etc/wazuh-indexer/opensearch.yml"
 wazuh_dashboard_conf="/etc/wazuh-dashboard/opensearch_dashboards.yml"
 
-# Path the agent's <certificate_authorities> config points at, so it trusts this instance's own
-# manager now that verification_mode is enforced by default.
-wazuh_agent_ca_dir="/var/ossec/etc/certs"
-wazuh_agent_ca="${wazuh_agent_ca_dir}/root-ca.pem"
+# Where the enrollment-token bootstrap installs the agent's trust anchor on its first start. This
+# script no longer writes it -- it only makes sure the image did not ship one, which would make the
+# bootstrap skip the token entirely.
+wazuh_agent_ca="/var/ossec/etc/certs/root-ca.pem"
 
 ###########################################
 # Utility Functions
@@ -135,30 +161,81 @@ function verify_dashboard() {
   done
 }
 
-function rotate_authd_password() {
-  # Remove the Authd registration password baked into the image so the manager generates a new,
-  # unique one when it starts. Otherwise every deployed VM would share the same password.
-  logger "Removing pre-generated Authd registration password to force a new one on first boot"
-  rm -f "${wazuh_manager_authd_pass}" "${wazuh_agent_authd_pass}"
+function reset_enrollment_state() {
+  # Remove every enrollment credential and agent identity this image was built with. Two kinds of
+  # leftovers, both of which have to go before a token minted on this VM can be used:
+  #
+  #   * Credentials the manager generated during the build -- its Authd password and, if anything
+  #     ever minted one there, its enrollment token store. Shipped as they are, every VM imported
+  #     from this OVA would share them. This is what the old rotate_authd_password() did, widened to
+  #     the artifact that replaced the password.
+  #   * Anything on the agent side that makes the token bootstrap decline to run. It refuses
+  #     whenever the agent already holds a trust anchor or a non-empty client.keys -- on both counts
+  #     it deletes the token unused and returns -- so a baked anchor or a baked key would silently
+  #     turn the fresh token into a no-op and leave every imported VM enrolled under one identity.
+  #
+  # client.keys is truncated rather than deleted so the file keeps the ownership and mode the agent
+  # package gave it; the bootstrap only looks at its size.
+  logger "Removing the enrollment credentials and agent identity baked into the image"
+  rm -f "${wazuh_manager_authd_pass}" "${wazuh_manager_enrollment_tokens}"
+  rm -f "${wazuh_agent_authd_pass}" "${wazuh_agent_enrollment_token}"
+  rm -f "${wazuh_agent_ca}" "${wazuh_agent_reenroll_secret}"
+  if [ -f "${wazuh_agent_client_keys}" ]; then
+      : > "${wazuh_agent_client_keys}"
+  fi
 }
 
-function set_authd_password() {
-  # Copy the password the manager generated on startup to the agent so it can enroll.
-  logger "Setting the Wazuh agent registration password from the manager Authd password"
-  retries=0
-  while [ ! -f "${wazuh_manager_authd_pass}" ] && [ "${retries}" -lt "${authd_pass_max_retries}" ]; do
-      logger -w "Manager Authd password file not ready yet, waiting ${authd_pass_wait_time} seconds"
-      sleep "${authd_pass_wait_time}"
-      retries=$((retries+1))
+function set_agent_enrollment_token() {
+  # Mint a fresh enrollment token on this VM and leave it where the pre-installed agent reads it.
+  #
+  # Replaces the old authd.pass copy: the manager no longer hands the agent a shared registration
+  # password, it mints a credential for that one agent (wazuh/wazuh#39063). The agent reads this
+  # file on its first start, while it is still root, installs the CA the token carries as its trust
+  # anchor, enrolls, and unlinks the file -- which is also why set_agent_ssl_ca() is gone: copying
+  # the CA by hand beforehand would make the bootstrap skip the token and never enroll.
+  #
+  # The token is minted, never baked: it is created here, against the CA and the listener
+  # certificate this VM generated for itself moments earlier in generate_certificates(). Its 30-day
+  # TTL (the CLI default, wazuh/wazuh#39068) is therefore irrelevant and is left alone on purpose --
+  # a token is minted on every first boot and consumed within seconds, so it never gets anywhere
+  # near expiring. Do NOT "fix" this later by minting a long-lived token at build time and shipping
+  # it in the image: that hands every VM imported from this OVA the same credential, which is the
+  # whole reason this runs here.
+  #
+  # --embed-ca carries the CA inside the token instead of a pin of it, so the agent has its trust
+  # anchor without first fetching /cacerts over a connection it cannot verify yet. --max-uses 1
+  # because exactly one agent, the one on this VM, will ever use it.
+  #
+  # The CLI prints the token alone on stdout and everything else (id, endpoint, expiry) on stderr,
+  # so stderr is left going to the log while stdout is captured. The token is written with a
+  # redirection and never appears as a command argument, where any local user could read it off the
+  # process list. The file is created and locked down to 0600 root:root BEFORE the token goes into
+  # it, the same way the agent installer writes it, so the credential is never briefly readable.
+  logger "Minting the enrollment token for the pre-installed agent"
+  local token retries=0
+  token=""
+  while [ -z "${token}" ] && [ "${retries}" -lt "${enrollment_token_max_retries}" ]; do
+      token=$("${wazuh_manager_authd_bin}" --create-enrollment-token \
+          --address "${wazuh_agent_enrollment_address}" \
+          --embed-ca \
+          --max-uses 1 \
+          --description "Pre-installed agent, minted on first boot")
+      if [ -z "${token}" ]; then
+          logger -w "Could not mint the enrollment token yet, waiting ${enrollment_token_wait_time} seconds"
+          sleep "${enrollment_token_wait_time}"
+          retries=$((retries+1))
+      fi
   done
-  if [ ! -f "${wazuh_manager_authd_pass}" ]; then
-      logger -e "Wazuh manager Authd password file not found at ${wazuh_manager_authd_pass}"
+  if [ -z "${token}" ]; then
+      logger -e "Could not mint the enrollment token for the pre-installed agent"
       exit 1
   fi
-  cp "${wazuh_manager_authd_pass}" "${wazuh_agent_authd_pass}"
-  chown root:wazuh "${wazuh_agent_authd_pass}"
-  chmod 640 "${wazuh_agent_authd_pass}"
-  logger "Wazuh agent registration password set successfully"
+
+  : > "${wazuh_agent_enrollment_token}"
+  chmod 600 "${wazuh_agent_enrollment_token}"
+  chown root:root "${wazuh_agent_enrollment_token}"
+  printf '%s' "${token}" > "${wazuh_agent_enrollment_token}"
+  logger "Enrollment token stored successfully"
 }
 
 function get_manager_san_ips() {
@@ -187,7 +264,7 @@ function get_manager_san_ips() {
   # resulting cert generation silently got zero --agent-san flags (no error, no warning), passing
   # everyone's review because it worked fine on the same instance minutes later. Retry instead of
   # trusting the first read; same bounded wait_time/retries pattern used elsewhere in this file
-  # (set_authd_password).
+  # (set_agent_enrollment_token).
   #
   # logger's own output must stay off stdout here (redirected to &2 below): the caller reads this
   # function's stdout as its return value (`for ip in $(get_manager_san_ips)`), and logger's
@@ -342,23 +419,6 @@ function copy_dashboard_certs() {
   sudo chown -R wazuh-dashboard:wazuh-dashboard "${wazuh_dashboard_certs_dir}/"
 }
 
-function set_agent_ssl_ca() {
-  # Copy the manager's root CA to the path the agent's <certificate_authorities> config points at,
-  # so it can verify this instance's own manager now that remoted/manager certs are issued from
-  # that CA by copy_manager_certs, instead of a self-signed remoted pair -- pinning the CA is
-  # enough, no separate per-instance remoted trust anchor needed. Must run after copy_manager_certs.
-  # Re-reads the CA's on-disk name from the manager config rather than assuming it is still called
-  # root-ca.pem, since copy_manager_certs may have renamed it (mv -n root-ca.pem -> ${ca_name}).
-  logger "Setting the Wazuh agent trusted CA from the manager root CA"
-  local ca_name
-  ca_name=$(read_cert_name '.wazuh_config.indexer.ssl.certificate_authorities.ca' "${wazuh_manager_conf}")
-  mkdir -p "${wazuh_agent_ca_dir}"
-  cp "${wazuh_manager_certs_dir}/${ca_name}" "${wazuh_agent_ca}"
-  chown root:wazuh "${wazuh_agent_ca}"
-  chmod 640 "${wazuh_agent_ca}"
-  logger "Wazuh agent trusted CA set successfully"
-}
-
 function clean_configuration(){
   logger "Cleaning configuration files"
   eval "rm -rf /var/log/wazuh-starter.log"
@@ -399,7 +459,7 @@ function clean_configuration(){
 
 logger "Starting Wazuh services in order"
 
-rotate_authd_password
+reset_enrollment_state
 generate_certificates
 copy_indexer_certs
 copy_manager_certs
@@ -409,8 +469,10 @@ starter_service wazuh-indexer
 verify_indexer
 
 starter_service wazuh-manager
-set_authd_password
-set_agent_ssl_ca
+# Minting goes through the manager's local authd socket, so it has to happen after the manager is
+# up; the bootstrap only looks for the token file at the agent's first start, so it has to happen
+# before the agent starts.
+set_agent_enrollment_token
 
 starter_service wazuh-agent
 

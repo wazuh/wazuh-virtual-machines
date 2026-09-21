@@ -1,6 +1,7 @@
 import argparse
 import json
 import logging
+import os
 import time
 from pathlib import Path
 
@@ -19,16 +20,38 @@ SERVICE_NAME = f"{SERVICE_PATH}/wazuh-ami-customizer.service"
 SERVICE_TIMER_NAME = f"{SERVICE_PATH}/wazuh-ami-customizer.timer"
 WAZUH_WARNING_SCRIPT = Path("/etc/profile.d/wazuh-debug-warning.sh")
 
-# The Wazuh manager generates a random Authd registration password on startup and persists it in
-# this file. The same password must be distributed to the agent so it can enroll against the manager.
-WAZUH_MANAGER_AUTHD_PASS_FILE = "/var/wazuh-manager/etc/authd.pass"
-WAZUH_AGENT_AUTHD_PASS_FILE = "/var/ossec/etc/authd.pass"
-AUTHD_PASS_MAX_RETRIES = 12
-AUTHD_PASS_WAIT_TIME = 5
+# The manager CLI that mints enrollment tokens. It is a client of the local authd socket, not a
+# standalone generator, so wazuh-manager-authd has to be running before this is called.
+WAZUH_MANAGER_AUTHD_BIN = "/var/wazuh-manager/bin/wazuh-manager-authd"
 
-# Path the agent's <certificate_authorities> config points at, so it trusts this instance's own
-# manager now that verification_mode is enforced by default.
+# Where the pre-installed agent picks the token up. w_agent_token_bootstrap() reads it once at the
+# agent's first start, while still root, installs the trust anchor the token carries, enrolls, and
+# unlinks the file.
+WAZUH_AGENT_ENROLLMENT_TOKEN_FILE = "/var/ossec/etc/enrollment_token"
+
+# Everything a build leaves behind that would make the freshly minted token useless or unsafe.
+# The bootstrap refuses to run at all when the agent already holds a trust anchor or a key -- it
+# deletes the token unused in both cases -- so anything baked into the image has to go first.
+WAZUH_MANAGER_AUTHD_PASS_FILE = "/var/wazuh-manager/etc/authd.pass"
+WAZUH_MANAGER_ENROLLMENT_TOKENS_FILE = "/var/wazuh-manager/etc/enrollment_tokens.json"
+WAZUH_AGENT_AUTHD_PASS_FILE = "/var/ossec/etc/authd.pass"
 WAZUH_AGENT_CA_FILE = "/var/ossec/etc/certs/root-ca.pem"
+WAZUH_AGENT_CLIENT_KEYS_FILE = "/var/ossec/etc/client.keys"
+WAZUH_AGENT_REENROLL_SECRET_FILE = "/var/ossec/etc/reenroll.secret"
+
+# The address the token names, and the address the pre-installed agent's <manager><endpoint> already
+# holds (configurer/core/static/configuration_mappings.yaml). Manager and agent are on the same
+# instance, so loopback is the one address that is always reachable and never changes. It is a SAN
+# entry of remoted.pem through the manager node of the cert-tool config, and a mint only refuses an
+# address the listener certificate does not name -- or a certificate whose SAN is loopback AND
+# NOTHING ELSE, which is why create_certificates() has to add the instance's own addresses first.
+WAZUH_AGENT_ENROLLMENT_ADDRESS = "127.0.0.1"
+
+# The token CLI talks to queue/sockets/auth.sock, which a manager reporting "active" may still be
+# opening: systemctl returns as soon as the unit is active, not once every daemon inside it has
+# finished initializing. Retry instead of failing the whole first boot on that race.
+ENROLLMENT_TOKEN_MAX_RETRIES = 12
+ENROLLMENT_TOKEN_WAIT_TIME = 5
 
 # Where this instance's own root CA (key included) lives on, past first boot, so a leaf can be
 # reissued later (e.g. the instance's address changes, or a load balancer joins) without having to
@@ -336,33 +359,6 @@ def create_certificates() -> None:
     logger.debug("New certificates created")
 
 
-def set_agent_ssl_ca() -> None:
-    """
-    Provisions the local agent's trusted CA for the manager's HTTPS transport.
-
-    Copies the manager's root CA to the path the agent's <certificate_authorities>
-    configuration points at, so the pre-installed agent can verify the manager's TLS
-    certificate on enrollment/connection. remoted.pem is now issued from this same CA by
-    create_certificates, so pinning it is enough — no separate per-instance remoted
-    generation step is needed.
-
-    Returns:
-        None
-    """
-
-    logger.debug("Setting the Wazuh agent trusted CA from the manager root CA")
-    root_ca = f"{ComponentCertsDirectory.WAZUH_MANAGER}/root-ca.pem"
-    command = f"""
-    mkdir -p {Path(WAZUH_AGENT_CA_FILE).parent}
-    cp {root_ca} {WAZUH_AGENT_CA_FILE}
-    chown root:wazuh {WAZUH_AGENT_CA_FILE}
-    chmod 640 {WAZUH_AGENT_CA_FILE}
-    """
-    run_command(command=command, error_message="Error setting the Wazuh agent trusted CA")
-
-    logger.debug("Wazuh agent trusted CA set successfully")
-
-
 def stop_ssh_service() -> None:
     """
     Stops the SSH service on the system.
@@ -452,62 +448,128 @@ def start_ssh_service() -> None:
     start_service("sshd.service")
 
 
-def rotate_authd_password() -> None:
+def reset_agent_enrollment_state() -> None:
     """
-    Removes the Authd registration password baked into the image.
+    Removes every enrollment credential and agent identity the image was built with.
 
-    The Wazuh manager generates and persists a random Authd password when it first starts, so the
-    built image ships with a fixed password. Removing it forces the manager to generate a new, unique
-    password on the first boot of the deployed instance, preventing every deployed AMI from sharing
-    the same registration password.
+    The build leaves two kinds of leftovers behind, and both have to go before a token minted on
+    this instance can be used:
+
+    * Credentials the manager generated during the build -- its Authd password and, if anything ever
+      minted one there, its enrollment token store. Shipped as they are, every instance launched
+      from this AMI would share them. This is what the old rotate_authd_password() did, widened
+      to the artifact that replaced the password.
+    * Anything on the agent side that makes the token bootstrap decline to run. It refuses whenever
+      the agent already holds a trust anchor or a non-empty client.keys -- on both counts it deletes
+      the token unused and returns -- so a baked anchor or a baked key would silently turn the fresh
+      token into a no-op and leave every deployed instance enrolled under one identity.
+
+    client.keys is truncated rather than deleted so the file keeps the ownership and mode the agent
+    package gave it; the bootstrap only looks at its size.
 
     Returns:
         None
     """
 
-    logger.debug("Removing pre-generated Authd registration password to force a new one on first boot")
-
-    run_command(
-        command=f"rm -f {WAZUH_MANAGER_AUTHD_PASS_FILE} {WAZUH_AGENT_AUTHD_PASS_FILE}",
-        error_message="Error removing Authd registration password",
-    )
-
-
-def set_authd_password() -> None:
-    """
-    Configures the Wazuh agent registration password.
-
-    Reads the Authd password generated by the Wazuh manager on startup and writes it, with the proper
-    ownership and permissions, to the Wazuh agent Authd password file so the agent can enroll against
-    the manager.
-
-    Returns:
-        None
-    """
-
-    logger.debug("Setting the Wazuh agent registration password from the manager Authd password")
-
-    for attempt in range(AUTHD_PASS_MAX_RETRIES):
-        output, _ = exec_command(command=f"test -f {WAZUH_MANAGER_AUTHD_PASS_FILE} && echo found")
-        if "found" in output:
-            break
-        logger.debug(
-            f"Manager Authd password file not ready yet, retrying in {AUTHD_PASS_WAIT_TIME} seconds "
-            f"(attempt {attempt + 1}/{AUTHD_PASS_MAX_RETRIES})"
-        )
-        time.sleep(AUTHD_PASS_WAIT_TIME)
-    else:
-        logger.error("Wazuh manager Authd password file not found")
-        raise RuntimeError(f"Wazuh manager Authd password file not found at {WAZUH_MANAGER_AUTHD_PASS_FILE}")
+    logger.debug("Removing the enrollment credentials and agent identity baked into the image")
 
     command = f"""
-    cp {WAZUH_MANAGER_AUTHD_PASS_FILE} {WAZUH_AGENT_AUTHD_PASS_FILE}
-    chown root:wazuh {WAZUH_AGENT_AUTHD_PASS_FILE}
-    chmod 640 {WAZUH_AGENT_AUTHD_PASS_FILE}
+    rm -f {WAZUH_MANAGER_AUTHD_PASS_FILE} {WAZUH_MANAGER_ENROLLMENT_TOKENS_FILE}
+    rm -f {WAZUH_AGENT_AUTHD_PASS_FILE} {WAZUH_AGENT_ENROLLMENT_TOKEN_FILE}
+    rm -f {WAZUH_AGENT_CA_FILE} {WAZUH_AGENT_REENROLL_SECRET_FILE}
+    if [ -f {WAZUH_AGENT_CLIENT_KEYS_FILE} ]; then : > {WAZUH_AGENT_CLIENT_KEYS_FILE}; fi
     """
-    run_command(command=command, error_message="Error setting the Wazuh agent registration password")
+    run_command(command=command, error_message="Error removing the baked enrollment state")
 
-    logger.debug("Wazuh agent registration password set successfully")
+    logger.debug("Baked enrollment credentials and agent identity removed")
+
+
+def mint_agent_enrollment_token() -> str:
+    """
+    Mints a fresh enrollment token on this instance and returns it.
+
+    The token is minted, never baked: it is created here, on the running manager, with the CA and
+    the listener certificate this instance generated for itself moments earlier in
+    create_certificates(). Its 30-day TTL (the CLI default, wazuh#39068) is therefore irrelevant and
+    is left alone on purpose -- a token is minted on every first boot and consumed within seconds,
+    so it never gets anywhere near expiring, and shortening it would buy nothing. Do NOT "fix" this
+    later by minting a long-lived token at build time and shipping it in the image: that hands every
+    instance launched from this AMI the same credential, which is the whole reason this runs here.
+
+    --embed-ca carries the CA inside the token instead of a pin of it, so the agent has its trust
+    anchor without first fetching /cacerts over a connection it cannot verify yet. --max-uses 1
+    because exactly one agent, the one on this instance, will ever use it.
+
+    Returns:
+        str: The token text, as the CLI prints it on stdout.
+
+    Raises:
+        RuntimeError: If no token could be minted after all retries.
+    """
+
+    logger.debug("Minting the enrollment token for the pre-installed agent")
+
+    command = (
+        f"{WAZUH_MANAGER_AUTHD_BIN} --create-enrollment-token"
+        f" --address {WAZUH_AGENT_ENROLLMENT_ADDRESS}"
+        " --embed-ca"
+        " --max-uses 1"
+        " --description 'Pre-installed agent, minted on first boot'"
+    )
+
+    for attempt in range(ENROLLMENT_TOKEN_MAX_RETRIES):
+        output, error_output, returncode = exec_command_with_status(command=command)
+        if returncode == 0 and output.strip():
+            logger.debug("Enrollment token minted")
+            return output.strip()
+        logger.debug(
+            f"Could not mint the enrollment token yet, retrying in {ENROLLMENT_TOKEN_WAIT_TIME} seconds "
+            f"(attempt {attempt + 1}/{ENROLLMENT_TOKEN_MAX_RETRIES}): {error_output.strip()}"
+        )
+        time.sleep(ENROLLMENT_TOKEN_WAIT_TIME)
+
+    logger.error("Error minting the enrollment token for the pre-installed agent")
+    raise RuntimeError("Error minting the enrollment token for the pre-installed agent")
+
+
+def set_agent_enrollment_token() -> None:
+    """
+    Leaves a freshly minted enrollment token where the pre-installed agent picks it up.
+
+    Replaces the old authd.pass copy: the manager no longer hands the agent a shared registration
+    password, it mints a credential for that one agent (wazuh#39063). The agent reads this file on
+    its first start, while it is still root, installs the CA the token carries as its trust anchor,
+    enrolls, and unlinks the file.
+
+    Written the same way the agent installer writes it: created and locked down to 0600 root:root
+    BEFORE the token goes into it, so the credential is never briefly readable by anyone else. The
+    file never reaches a command line either, which is why it is written from here instead of being
+    echoed through a shell.
+
+    Returns:
+        None
+
+    Raises:
+        RuntimeError: If the token cannot be minted or stored.
+    """
+
+    token = mint_agent_enrollment_token()
+
+    logger.debug(f"Storing the enrollment token at {WAZUH_AGENT_ENROLLMENT_TOKEN_FILE}")
+
+    try:
+        descriptor = os.open(WAZUH_AGENT_ENROLLMENT_TOKEN_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        try:
+            os.fchmod(descriptor, 0o600)
+            os.fchown(descriptor, 0, 0)
+            os.write(descriptor, token.encode())
+        finally:
+            os.close(descriptor)
+    except OSError as error:
+        logger.error(f"Error storing the enrollment token: {error}")
+        raise RuntimeError("Error storing the enrollment token") from error
+
+    logger.debug("Enrollment token stored successfully")
 
 
 def start_components_services() -> None:
@@ -527,9 +589,10 @@ def start_components_services() -> None:
     run_indexer_security_init()
     verify_indexer_connection()
 
-    # Rotate the Authd registration password before the manager starts so it generates a new, unique
-    # one instead of reusing the password baked into the image.
-    rotate_authd_password()
+    # Clear the enrollment credentials and the agent identity the image was built with, before the
+    # manager starts, so nothing baked into the AMI is reused and the token minted below is the only
+    # way this instance's agent can register.
+    reset_agent_enrollment_state()
 
     enable_service("wazuh-manager")
     start_service("wazuh-manager")
@@ -540,10 +603,11 @@ def start_components_services() -> None:
     time.sleep(20)  # Wait for dashboard to initialize
     verify_dashboard_connection()
 
-    # Distribute the newly generated password to the agent before it starts so it can enroll.
-    set_authd_password()
-    # Provision the agent's trusted CA before it starts so it can verify the manager's TLS cert.
-    set_agent_ssl_ca()
+    # Mint the agent's enrollment token and leave it where the agent reads it on its first start.
+    # It has to be done after the manager is up, since minting goes through the local authd socket,
+    # and before the agent starts, which is the only moment the bootstrap looks for the file. The
+    # agent installs the CA the token carries as its trust anchor, so nothing is copied by hand.
+    set_agent_enrollment_token()
 
     enable_service("wazuh-agent")
     start_service("wazuh-agent")
