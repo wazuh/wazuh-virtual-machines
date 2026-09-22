@@ -11,21 +11,24 @@ from utils import CertificatesComponent, Component, Logger, RemoteDirectories
 
 logger = Logger("CoreConfigurer")
 
-# The Wazuh manager automatically generates a random Authd registration password on startup
-# and persists it in this file. The Wazuh agent needs that same password to enroll against
-# the manager, so it is copied to the agent Authd password file.
-WAZUH_MANAGER_AUTHD_PASS_FILE = "/var/wazuh-manager/etc/authd.pass"
-WAZUH_AGENT_AUTHD_PASS_FILE = "/var/ossec/etc/authd.pass"
-# The manager generates its Authd password on startup, so wait for the file to appear.
-AUTHD_PASS_MAX_RETRIES = 12
-AUTHD_PASS_WAIT_TIME = 5
-
-# remoted.pem is now issued from root-ca.pem by CertsManager (see copy_certs_to_component_directory),
-# not self-signed by the manager package, so the agent's trust anchor is the CA itself rather than a
-# copy of the leaf. Both files land in the same certs-generation step, so unlike authd.pass it needs
-# no startup wait.
-WAZUH_MANAGER_ROOT_CA_FILE = "/var/wazuh-manager/etc/certs/root-ca.pem"
-WAZUH_AGENT_CA_FILE = "/var/ossec/etc/certs/root-ca.pem"
+# The pre-installed agent is NOT enrolled here, and that is deliberate. wazuh/wazuh#39063 replaced
+# the shared Authd password with a per-agent WAZUH_ENROLLMENT_TOKEN, which the manager mints locally
+# with `wazuh-manager-authd --create-enrollment-token`. Two things make the image the wrong place to
+# do that:
+#
+#   * A mint is refused when the agent listener certificate names loopback only
+#     (enrollment_token_mint.c: "certificate only names loopback"), and at build time it does --
+#     the instance's real addresses only reach remoted.pem's SAN on the first boot of the deployed
+#     instance, through CertsManager.generate_certificates()'s agent_san (issue #957).
+#   * Anything minted here would be baked into the published image, so every instance launched from
+#     it would share one enrollment credential and one agent key. That is the exact problem the
+#     Authd password rotation existed to avoid, and a token is no better baked than a password was.
+#
+# So the image ships an agent that is installed, configured and disabled, with no key, no trust
+# anchor and no token. The first-boot hooks mint the token and let the agent enroll for real, each
+# deployed instance with its own credential and its own identity:
+# configurer/ova/ova_post_configurer/scripts/wazuh-starter/wazuh-starter.sh (OVA) and
+# configurer/ami/ami_post_configurer/wazuh-ami-customizer.py (AMI).
 
 # `wazuh-manager-keystore` stores its values in a RocksDB-backed file (queue/keystore) that a
 # just-started manager daemon may still be opening -- `systemctl start` returns as soon as the
@@ -83,15 +86,14 @@ class CoreConfigurer:
             logger.error("Error reloading daemon")
             raise RuntimeError(f"Error reloading daemon {error_output}")
 
+        # The agent is started with nothing to enroll with: no token is minted at build time (see
+        # the note at the top of this file). It stays unenrolled until the first boot of the
+        # deployed instance, where the token is minted and the agent enrolls for real. The manager
+        # ships with <auth><use_password>yes</use_password>, so an agent carrying no credential
+        # cannot register by accident in the meantime.
         for component in Component:
             if component != Component.ALL:
                 logger.debug(f"Starting {component.replace('_', ' ')} service...")
-
-                # The manager (started in a previous iteration) has already generated its Authd
-                # password, so copy it to the agent before enrolling it against the manager.
-                if component == Component.WAZUH_AGENT:
-                    self.set_authd_password(client=client)
-                    self.set_agent_ssl_ca(client=client)
 
                 command = f"""
                     sudo systemctl --quiet enable {component.replace("_", "-").lower()}
@@ -112,54 +114,6 @@ class CoreConfigurer:
                 logger.debug(f"{component.replace('_', ' ')} service started")
 
         logger.info_success("All services started")
-
-    def set_authd_password(self, client: paramiko.SSHClient | None = None):
-        """
-        Configures the Wazuh agent registration password.
-
-        Reads the Authd password automatically generated and stored by the Wazuh manager in its
-        ``authd.pass`` file and writes it, with the proper ownership and permissions, to the Wazuh
-        agent ``authd.pass`` file. This lets the agent enroll against the manager and reproduces the
-        behavior of the ``WAZUH_REGISTRATION_PASSWORD`` installation parameter for the pre-installed
-        agent shipped in the OVA and AMI.
-
-        Args:
-            client (paramiko.SSHClient | None, optional): An SSH client to execute the commands
-                remotely. If None, the commands are executed locally. Defaults to None.
-
-        Raises:
-            RuntimeError: If the manager Authd password file is not found or the agent registration
-                password cannot be set.
-        """
-
-        logger.debug("Setting the Wazuh agent registration password from the manager Authd password")
-
-        for attempt in range(AUTHD_PASS_MAX_RETRIES):
-            output, _ = exec_command(
-                command=f"sudo test -f {WAZUH_MANAGER_AUTHD_PASS_FILE} && echo found", client=client
-            )
-            if "found" in output:
-                break
-            logger.debug(
-                f"Manager Authd password file not ready yet, retrying in {AUTHD_PASS_WAIT_TIME} seconds "
-                f"(attempt {attempt + 1}/{AUTHD_PASS_MAX_RETRIES})"
-            )
-            time.sleep(AUTHD_PASS_WAIT_TIME)
-        else:
-            logger.error("Wazuh manager Authd password file not found")
-            raise RuntimeError(f"Wazuh manager Authd password file not found at {WAZUH_MANAGER_AUTHD_PASS_FILE}")
-
-        command = f"""
-            sudo cp {WAZUH_MANAGER_AUTHD_PASS_FILE} {WAZUH_AGENT_AUTHD_PASS_FILE}
-            sudo chown root:wazuh {WAZUH_AGENT_AUTHD_PASS_FILE}
-            sudo chmod 640 {WAZUH_AGENT_AUTHD_PASS_FILE}
-            """
-        _, error_output = exec_command(command=command, client=client)
-        if error_output:
-            logger.error("Error setting the Wazuh agent registration password")
-            raise RuntimeError(f"Error setting the Wazuh agent registration password: {error_output}")
-
-        logger.debug("Wazuh agent registration password set successfully")
 
     def set_manager_keystore(self, client: paramiko.SSHClient | None = None):
         """
@@ -194,37 +148,3 @@ class CoreConfigurer:
             else:
                 logger.error(f"Error setting manager keystore {key}")
                 raise RuntimeError(f"Error setting manager keystore {key}: {error_output}")
-
-    def set_agent_ssl_ca(self, client: paramiko.SSHClient | None = None):
-        """
-        Provisions the Wazuh agent's trusted CA for the manager's HTTPS transport.
-
-        Copies the manager's root CA, with the proper ownership and permissions, to the path the
-        agent's ``<certificate_authorities>`` configuration points to. remoted.pem is now issued
-        from this same CA, so pinning it is enough to verify the manager's TLS certificate on
-        enrollment/connection now that ``verification_mode`` is enforced by default. Reproduces
-        the behavior of the ``WAZUH_REGISTRATION_CA`` installation parameter for the pre-installed
-        agent shipped in the OVA and AMI.
-
-        Args:
-            client (paramiko.SSHClient | None, optional): An SSH client to execute the commands
-                remotely. If None, the commands are executed locally. Defaults to None.
-
-        Raises:
-            RuntimeError: If the agent trusted CA cannot be set.
-        """
-
-        logger.debug("Setting the Wazuh agent trusted CA from the manager root CA")
-
-        command = f"""
-            sudo mkdir -p {Path(WAZUH_AGENT_CA_FILE).parent}
-            sudo cp {WAZUH_MANAGER_ROOT_CA_FILE} {WAZUH_AGENT_CA_FILE}
-            sudo chown root:wazuh {WAZUH_AGENT_CA_FILE}
-            sudo chmod 640 {WAZUH_AGENT_CA_FILE}
-            """
-        _, error_output = exec_command(command=command, client=client)
-        if error_output:
-            logger.error("Error setting the Wazuh agent trusted CA")
-            raise RuntimeError(f"Error setting the Wazuh agent trusted CA: {error_output}")
-
-        logger.debug("Wazuh agent trusted CA set successfully")
