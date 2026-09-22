@@ -47,6 +47,13 @@ WAZUH_AGENT_REENROLL_SECRET_FILE = "/var/ossec/etc/reenroll.secret"
 # NOTHING ELSE, which is why create_certificates() has to add the instance's own addresses first.
 WAZUH_AGENT_ENROLLMENT_ADDRESS = "127.0.0.1"
 
+# The indexer's own admin account, used to poll both the indexer and the dashboard (which
+# authenticates against the indexer's security plugin). The indexer package ships admin,
+# kibanaserver, wazuh-manager and wazuh-readonly.
+WAZUH_INDEXER_ADMIN_USER = "admin"
+# Its password until change_passwords() rotates every indexer user to the instance id.
+WAZUH_INDEXER_ADMIN_PASSWORD = "admin"
+
 # The token CLI talks to queue/sockets/auth.sock, which a manager reporting "active" may still be
 # opening: systemctl returns as soon as the unit is active, not once every daemon inside it has
 # finished initializing. Retry instead of failing the whole first boot on that race.
@@ -392,7 +399,7 @@ def stop_components_services() -> None:
     logger.debug("Wazuh components services stopped")
 
 
-def verify_indexer_connection(password: str = "wazuh-admin") -> None:
+def verify_indexer_connection(password: str = WAZUH_INDEXER_ADMIN_PASSWORD) -> None:
     """
     Verifies the connection to the Wazuh indexer.
     This function sends a request to the Wazuh indexer endpoint and checks the response.
@@ -402,7 +409,7 @@ def verify_indexer_connection(password: str = "wazuh-admin") -> None:
         None
     """
 
-    command = f'curl -XGET https://localhost:9200/ -uwazuh-admin:{password} -k --max-time 120 --silent -w "%{{http_code}}" --output /dev/null'
+    command = f'curl -XGET https://localhost:9200/ -u{WAZUH_INDEXER_ADMIN_USER}:{password} -k --max-time 120 --silent -w "%{{http_code}}" --output /dev/null'
     verify_component_connection(Component.WAZUH_INDEXER, command)
 
 
@@ -420,7 +427,7 @@ def verify_manager_connection(password: str = "wazuh-wui") -> None:
     verify_component_connection(Component.WAZUH_MANAGER, command)
 
 
-def verify_dashboard_connection(password: str = "wazuh-admin") -> None:
+def verify_dashboard_connection(password: str = WAZUH_INDEXER_ADMIN_PASSWORD) -> None:
     """
     Verifies the connection to the Wazuh dashboard.
     This function sends a request to the Wazuh dashboard endpoint and checks the response.
@@ -430,7 +437,7 @@ def verify_dashboard_connection(password: str = "wazuh-admin") -> None:
         None
     """
 
-    command = f'curl -XGET https://localhost:443/status -uwazuh-admin:{password} -k -w "%{{http_code}}" -s -o /dev/null'
+    command = f'curl -XGET https://localhost:443/status -u{WAZUH_INDEXER_ADMIN_USER}:{password} -k -w "%{{http_code}}" -s -o /dev/null'
     verify_component_connection(Component.WAZUH_DASHBOARD, command)
 
 

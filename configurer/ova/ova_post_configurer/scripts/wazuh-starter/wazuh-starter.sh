@@ -52,6 +52,25 @@ wazuh_agent_enrollment_address="127.0.0.1"
 enrollment_token_max_retries=12
 enrollment_token_wait_time=5
 
+# The indexer's own admin account, used to poll both the indexer and the dashboard (which
+# authenticates against the indexer's security plugin). The indexer package ships admin,
+# kibanaserver, wazuh-manager and wazuh-readonly. See verify_indexer().
+wazuh_indexer_admin_user="admin"
+wazuh_indexer_admin_password="admin"
+
+# Both readiness waits are bounded and fatal: an indexer or dashboard that never answers is a
+# broken first boot, and saying so beats looping in the background for ever.
+indexer_max_retries=30
+indexer_wait_time=5
+dashboard_max_retries=20
+dashboard_wait_time=15
+
+# The manager's API account, for the readiness check below.
+wazuh_manager_api_user="wazuh-wui"
+wazuh_manager_api_password="wazuh-wui"
+manager_max_retries=30
+manager_wait_time=5
+
 # The manager's agent-listener certificate (HTTPS identity, reused by Authd as the /enroll mTLS
 # credential). Issued by copy_manager_certs from this instance's own CA (see generate_certificates),
 # making it unique per deployed instance instead of the baked-in self-signed pair the image ships.
@@ -126,37 +145,56 @@ function starter_service() {
 }
 
 function verify_indexer() {
+  # The indexer's admin user is `admin`. The users the indexer package ships and
+  # security-init loads are admin, kibanaserver, wazuh-manager and wazuh-readonly.
   logger "Waiting for Wazuh indexer to be ready"
-  indexer_security_admin_comm="curl -XGET https://localhost:9200/ -uwazuh-admin:wazuh-admin -k --max-time 120 --silent -w \"%{http_code}\" --output /dev/null"
-  http_status=$(eval "${indexer_security_admin_comm}")
-  retries=0
-  max_retries=5
-  while [ "${http_status}" -ne 200 ]; do
-      logger -w "Wazuh indexer is not ready yet, waiting 5 seconds"
-      sleep 5
-      retries=$((retries+1))
-      if [ "${retries}" -eq "${max_retries}" ]; then
-          logger -e "Wazuh indexer is not ready yet, trying to configure it again"
-          configure_indexer
+  local http_status retries=0 indexer_check_comm
+  indexer_check_comm="curl -XGET https://localhost:9200/ -u${wazuh_indexer_admin_user}:${wazuh_indexer_admin_password} -k --max-time 120 --silent -w \"%{http_code}\" --output /dev/null"
+  http_status=$(eval "${indexer_check_comm}")
+  while [ "${http_status}" != "200" ]; do
+      if [ "${retries}" -ge "${indexer_max_retries}" ]; then
+          logger -e "Wazuh indexer is still not ready after ${retries} attempts (last HTTP status: ${http_status})"
+          exit 1
       fi
-      http_status=$(eval "${indexer_security_admin_comm}")
+      logger -w "Wazuh indexer is not ready yet, waiting ${indexer_wait_time} seconds"
+      sleep "${indexer_wait_time}"
+      retries=$((retries+1))
+      http_status=$(eval "${indexer_check_comm}")
+  done
+}
+
+function verify_manager() {
+  # The manager's API (apid, port 55000) is what the dashboard talks to for everything outside the
+  # indexer. Wait for the API here so that failure stops the boot where it happens.
+  logger "Waiting for Wazuh manager API to be ready"
+  local http_code retries=0 manager_check_comm
+  manager_check_comm="curl -XPOST https://localhost:55000/security/user/authenticate -u${wazuh_manager_api_user}:${wazuh_manager_api_password} -k --max-time 120 -s -o /dev/null -w \"%{http_code}\""
+  http_code=$(eval "${manager_check_comm}")
+  while [ "${http_code}" != "200" ]; do
+      if [ "${retries}" -ge "${manager_max_retries}" ]; then
+          logger -e "Wazuh manager API is still not ready after ${retries} attempts (last HTTP status: ${http_code})"
+          exit 1
+      fi
+      logger -w "Wazuh manager API is not ready yet, waiting ${manager_wait_time} seconds"
+      sleep "${manager_wait_time}"
+      retries=$((retries+1))
+      http_code=$(eval "${manager_check_comm}")
   done
 }
 
 function verify_dashboard() {
   logger "Waiting for Wazuh dashboard to be ready"
-  dashboard_check_comm="curl -XGET https://localhost:443/status -uwazuh-admin:wazuh-admin -k -w \"%{http_code}\" -s -o /dev/null"
+  local http_code retries=0 dashboard_check_comm
+  dashboard_check_comm="curl -XGET https://localhost:443/status -u${wazuh_indexer_admin_user}:${wazuh_indexer_admin_password} -k -w \"%{http_code}\" -s -o /dev/null"
   http_code=$(eval "${dashboard_check_comm}")
-  retries=0
-  max_dashboard_initialize_retries=20
-  while [ "${http_code}" -ne "200" ];do
-      logger -w "Wazuh dashboard is not ready yet, waiting 15 seconds"
-      retries=$((retries+1))
-      sleep 15
-      if [ "${retries}" -eq "${max_dashboard_initialize_retries}" ]; then
-          logger -e "Wazuh dashboard is not ready yet, trying to configure it again"
-          configure_dashboard
+  while [ "${http_code}" != "200" ]; do
+      if [ "${retries}" -ge "${dashboard_max_retries}" ]; then
+          logger -e "Wazuh dashboard is still not ready after ${retries} attempts (last HTTP status: ${http_code})"
+          exit 1
       fi
+      logger -w "Wazuh dashboard is not ready yet, waiting ${dashboard_wait_time} seconds"
+      sleep "${dashboard_wait_time}"
+      retries=$((retries+1))
       http_code=$(eval "${dashboard_check_comm}")
   done
 }
@@ -469,6 +507,7 @@ starter_service wazuh-indexer
 verify_indexer
 
 starter_service wazuh-manager
+verify_manager
 # Minting goes through the manager's local authd socket, so it has to happen after the manager is
 # up; the bootstrap only looks for the token file at the agent's first start, so it has to happen
 # before the agent starts.
