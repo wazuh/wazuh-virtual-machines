@@ -45,6 +45,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Update Virtualbox version ([#970](https://github.com/wazuh/wazuh-virtual-machines/pull/970))
 - Change Codebuild runners to Github runners ([#911](https://github.com/wazuh/wazuh-virtual-machines/pull/911))
 
 ### Fixed
@@ -335,7 +336,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- None
+- Change upload artifact steps ([#861](https://github.com/wazuh/wazuh-virtual-machines/pull/861))
+- Change file and workflow names for PR revamp LTS. ([815](https://github.com/wazuh/wazuh-virtual-machines/pull/815))
+- Changed runners to AWS CodeBuild for 4.10.5 branch ([#827](https://github.com/wazuh/wazuh-virtual-machines/pull/827))
 
 ### Fixed
 
