@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from unittest.mock import MagicMock, call, mock_open, patch
 
@@ -7,7 +8,11 @@ from configurer.ova.ova_post_configurer.ova_post_configurer import (
     SCRIPTS_PATH,
     STATIC_PATH,
     UTILS_PATH,
+    WAZUH_STARTER_CERTS_CONFIG_PATH,
+    WAZUH_STARTER_CERTS_DIR,
+    WAZUH_STARTER_CERTS_TOOL_PATH,
     WAZUH_STARTER_PATH,
+    add_wazuh_starter_certs_tool,
     add_wazuh_starter_service,
     clean_generated_logs,
     config_grub,
@@ -52,6 +57,12 @@ def mock_os_remove():
 def mock_shutil_copy():
     with patch("shutil.copy") as mock_copy:
         yield mock_copy
+
+
+@pytest.fixture
+def mock_os_makedirs():
+    with patch("os.makedirs") as mock_makedirs:
+        yield mock_makedirs
 
 
 def test_set_hostname(mock_run_command):
@@ -176,6 +187,30 @@ def test_add_wazuh_starter_service(mock_chmod, mock_run_command, mock_os_path_ex
     )
 
 
+def test_add_wazuh_starter_certs_tool_success(mock_os_path_exists, mock_shutil_copy, mock_os_makedirs):
+    mock_os_path_exists.return_value = True
+
+    add_wazuh_starter_certs_tool()
+
+    mock_os_makedirs.assert_called_once_with(WAZUH_STARTER_CERTS_DIR, exist_ok=True)
+    assert mock_shutil_copy.call_count == 2
+    mock_shutil_copy.assert_any_call(
+        os.path.expanduser("~/wazuh-configure/tools/certs/certs-tool.sh"), WAZUH_STARTER_CERTS_TOOL_PATH
+    )
+    mock_shutil_copy.assert_any_call(
+        os.path.expanduser("~/wazuh-configure/tools/certs/config.yml"), WAZUH_STARTER_CERTS_CONFIG_PATH
+    )
+
+
+def test_add_wazuh_starter_certs_tool_missing_source(mock_os_path_exists, mock_shutil_copy, mock_os_makedirs):
+    mock_os_path_exists.return_value = False
+
+    with pytest.raises(FileNotFoundError):
+        add_wazuh_starter_certs_tool()
+
+    mock_shutil_copy.assert_not_called()
+
+
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.modify_file")
 def test_configure_sshd(mock_modify_file):
     expected_replacements = [
@@ -215,6 +250,7 @@ def test_configure_sshd_str_is_converted_to_path(mock_modify_file):
 
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.set_hostname")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.add_wazuh_starter_service")
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.add_wazuh_starter_certs_tool")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.update_jvm_heap")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.enable_fips")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.config_grub")
@@ -226,6 +262,7 @@ def test_steps_system_config(
     mock_config_grub,
     mock_enable_fips,
     mock_update_jvm_heap,
+    mock_add_wazuh_starter_certs_tool,
     mock_add_wazuh_starter_service,
     mock_set_hostname,
     mock_run_command,
@@ -244,6 +281,8 @@ def test_steps_system_config(
 
     mock_add_wazuh_starter_service.assert_called_once()
 
+    mock_add_wazuh_starter_certs_tool.assert_called_once()
+
     mock_run_command.assert_any_call("echo 'root:wazuh' | chpasswd")
 
     mock_set_hostname.assert_called_once()
@@ -257,7 +296,8 @@ def test_steps_clean(mock_run_command):
     mock_run_command.assert_called_once_with(
         [
             "rm -f /securityadmin_demo.sh",
-            "rm -f /var/wazuh-manager/etc/certs/remoted.pem /var/wazuh-manager/etc/certs/remoted-key.pem",
+            "rm -f /var/wazuh-manager/etc/certs/*.pem",
+            "rm -rf /etc/wazuh-indexer/certs/* /etc/wazuh-dashboard/certs/*",
             "yum clean all",
             "systemctl daemon-reload",
             "cat /dev/null > ~/.bash_history && history -c",

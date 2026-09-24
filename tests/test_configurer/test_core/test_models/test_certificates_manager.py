@@ -335,6 +335,20 @@ def test_generate_certificates_success(
     mock_logger.info_success.assert_any_call("Certificates generated successfully")
 
 
+@patch("configurer.core.models.certificates_manager.CertsManager._get_certs_name")
+@patch("configurer.core.models.certificates_manager.CertsManager.copy_certs_to_component_directory")
+def test_generate_certificates_with_agent_san(mock_copy_certs, mock_get_certs_name, mock_exec_command, mock_logger):
+    mock_get_certs_name.return_value = {}
+    mock_copy_certs.return_value = ("", "")
+
+    certs_manager = CertsManager(raw_config_path=RAW_CONFIG_PATH, certs_tool_path=CERTS_TOOL_PATH)
+    certs_manager.generate_certificates(agent_san=["10.0.2.15", "203.0.113.9"])
+
+    mock_exec_command.assert_any_call(
+        command=f"sudo bash {CERTS_TOOL_PATH} -A --agent-san 10.0.2.15 --agent-san 203.0.113.9", client=None
+    )
+
+
 def test_generate_certificates_error_during_generation(mock_exec_command):
     certs_manager = CertsManager(raw_config_path=RAW_CONFIG_PATH, certs_tool_path=CERTS_TOOL_PATH)
 
@@ -421,12 +435,16 @@ def test_generate_certificates_error_during_copy(mock_get_certs_name, mock_copy_
             },
             f"""
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_MANAGER}
-                sudo tar -xf {CERTS_TOOL_PATH.parent}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_MANAGER} ./manager-cert.pem ./manager-key.pem ./manager-ca.pem
+                sudo tar -xf {CERTS_TOOL_PATH.parent}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_MANAGER} ./manager-cert.pem ./manager-key.pem ./manager-ca.pem ./manager-remoted.pem ./manager-remoted-key.pem
                 sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/manager-cert.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-cert.pem
                 sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/manager-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-key.pem
                 sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/manager-ca.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-ca.pem
+                sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/manager-remoted.pem {ComponentCertsDirectory.WAZUH_MANAGER}/remoted.pem
+                sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/manager-remoted-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/remoted-key.pem
                 sudo chown root:wazuh-manager {ComponentCertsDirectory.WAZUH_MANAGER}/manager-cert.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-ca.pem
                 sudo chmod 640 {ComponentCertsDirectory.WAZUH_MANAGER}/manager-cert.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-ca.pem
+                sudo chown wazuh-manager:wazuh-manager {ComponentCertsDirectory.WAZUH_MANAGER}/remoted.pem {ComponentCertsDirectory.WAZUH_MANAGER}/remoted-key.pem
+                sudo chmod 640 {ComponentCertsDirectory.WAZUH_MANAGER}/remoted.pem {ComponentCertsDirectory.WAZUH_MANAGER}/remoted-key.pem
                 sudo chown root:wazuh-manager {ComponentCertsDirectory.WAZUH_MANAGER}
                 sudo chmod 1770 {ComponentCertsDirectory.WAZUH_MANAGER}
             """,
@@ -467,6 +485,8 @@ def test_copy_certs_to_component_directory_success(
             "cert": "manager-cert.pem",
             "key": "manager-key.pem",
             "ca": "manager-ca.pem",
+            "remoted-cert": "manager-remoted.pem",
+            "remoted-key": "manager-remoted-key.pem",
         },
         Component.WAZUH_DASHBOARD: {
             "cert": "dashboard-cert.pem",
