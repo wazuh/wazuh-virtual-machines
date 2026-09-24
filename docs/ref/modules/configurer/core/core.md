@@ -7,18 +7,22 @@ The `core` module is responsible for configuring all Wazuh components and their 
 - Installation of Wazuh components (Wazuh Manager, Wazuh Indexer, Wazuh Dashboard, and Wazuh Agent).
 - Certificate generation for each component.
 - Configuration of each component's configuration files, including the Wazuh Agent connection settings.
-- Configuration of the Wazuh Agent registration password.
 - Starting all necessary services.
 
 > This module assumes that the `provisioner` has already been executed on the machine. That means all required packages and the `certs-tool` must be available beforehand.
 
-## Wazuh Agent registration password
+## Wazuh Agent enrollment
 
-The Wazuh Manager automatically generates a random Authd registration password on startup and persists it in its `authd.pass` file (`/var/wazuh-manager/etc/authd.pass`).
+The core configurer does **not** enroll the pre-installed agent. It installs it, points its `<manager><endpoint>` at `127.0.0.1` and starts the service, but the agent ships with no key, no trust anchor and no enrollment credential. The enrollment happens on the first boot of the deployed VM instead.
 
-Before starting the Wazuh Agent service, the core configurer reads that password and writes it to the Wazuh Agent `authd.pass` file (`/var/ossec/etc/authd.pass`), applying the proper ownership (`root:wazuh`) and permissions (`640`). This lets the pre-installed agent shipped in the OVA and AMI enroll against the manager and reproduces the behavior of the `WAZUH_REGISTRATION_PASSWORD` installation parameter.
+Wazuh 5.0 ([wazuh/wazuh#39063](https://github.com/wazuh/wazuh/issues/39063)) replaced the shared Authd registration password with a per-agent `WAZUH_ENROLLMENT_TOKEN`, which the manager mints locally with `wazuh-manager-authd --create-enrollment-token`. Two reasons make the image the wrong place to do that:
 
-> The password baked into the image at build time is rotated on the first boot of the deployed VM so that every OVA/AMI gets a unique password. See the [OVA](../post/ova/post-ova.md) and [AMI](../post/ami/post-ami.md) post-configurer documentation for details.
+- A mint is refused when the agent listener certificate (`remoted.pem`) names loopback only, and at build time it does. The instance's real addresses only reach that certificate's SAN on the first boot of the deployed instance, when the certificates are regenerated (see [#957](https://github.com/wazuh/wazuh-virtual-machines/issues/957)).
+- Anything minted here would be baked into the published image, so every instance launched from it would share one enrollment credential and one agent identity. That is exactly the problem the old registration-password rotation existed to avoid, and a token is no better baked than a password was.
+
+The manager ships with `<auth><use_password>yes</use_password>`, so an agent that carries no credential cannot register by accident in the meantime.
+
+> The token is minted, stored and consumed on the first boot of the deployed VM. See the [OVA](../post/ova/post-ova.md) and [AMI](../post/ami/post-ami.md) post-configurer documentation for details.
 
 ## Component configuration
 
