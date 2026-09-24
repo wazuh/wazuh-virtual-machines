@@ -37,10 +37,16 @@ wazuh_agent:
   - path: /var/ossec/etc/ossec.conf
     replace:
       keys:
+        # Where the agent connects once it is enrolled. It matches the --address the first-boot
+        # token is minted for, so the endpoint the token names and the one ossec.conf names are the
+        # same: 127.0.0.1, with the default port 1517 and the default /wazuh-manager/ prefix.
+        #
+        # No <ssl><certificate_authorities> is written on purpose. The enrollment-token bootstrap
+        # installs the trust anchor itself at /var/ossec/etc/certs/root-ca.pem on the agent's first
+        # start, and the agent then resolves verification_mode to `full` from the presence of that
+        # file. Naming the path here instead would point the agent at a file that does not exist
+        # yet: the agent validates the configured CA before the bootstrap runs, and fails closed on
+        # a CA it cannot read.
         - .ossec_config[0].agent.manager.endpoint
-        # Points at the path set_agent_ssl_ca() provisions with the manager's own remoted
-        # certificate (core_configurer.py, wazuh-starter.sh, wazuh-ami-customizer.py).
-        - .ossec_config[0].agent.ssl.certificate_authorities
       values:
         - 127.0.0.1
-        - /var/ossec/etc/certs/root-ca.pem

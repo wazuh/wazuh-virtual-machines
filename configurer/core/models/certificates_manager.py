@@ -20,7 +20,12 @@ class CertsManager:
         certs_tool_path (Path): Path to the certificate generation tool.
     """
 
-    def __init__(self, raw_config_path: Path, certs_tool_path: Path, client: paramiko.SSHClient | None = None) -> None:
+    def __init__(
+        self,
+        raw_config_path: Path,
+        certs_tool_path: Path,
+        client: paramiko.SSHClient | None = None,
+    ) -> None:
         # Default name for each certificate of each component when generated with the cert-tool.
         self.components_certs_default_name = {
             Component.WAZUH_INDEXER: {
@@ -36,6 +41,11 @@ class CertsManager:
                 "admin-cert": "admin.pem",
                 "admin-key": "admin-key.pem",
                 "ca": "root-ca.pem",
+                # Agent-facing listener identity (remoted on 1517, reused by authd on 1515).
+                # wazuh-certs-tool issues it as a chain, leaf followed by root-ca.pem, matching
+                # what wazuh-installation-assistant#1009 deploys.
+                "remoted-cert": f"{CertificatesComponent.MANAGER}-remoted.pem",
+                "remoted-key": f"{CertificatesComponent.MANAGER}-remoted-key.pem",
             },
             Component.WAZUH_DASHBOARD: {
                 "cert": f"{CertificatesComponent.DASHBOARD}.pem",
@@ -73,8 +83,10 @@ class CertsManager:
         Sets configuration file values using the `yq` command.
 
         This method updates the configuration file at the specified path with predefined values for
-        Wazuh components (indexer, manager, and dashboard) using the `yq` command-line tool. The IP
-        addresses for these components are set to "127.0.0.1".
+        Wazuh components (indexer, manager, and dashboard) using the `yq` command-line tool. All
+        three stay on "127.0.0.1": none of their own SAN needs to reach past this instance, since
+        indexer/dashboard traffic is internal-only and the manager node's own identity here is
+        unrelated to remoted's (see generate_certificates' agent_san instead).
 
         Args:
             raw_config_path (Path): The path to the raw configuration file to be updated.
@@ -181,7 +193,10 @@ class CertsManager:
         return certs_name
 
     def generate_certificates(
-        self, certs_tool_path: Path | None = None, client: paramiko.SSHClient | None = None
+        self,
+        certs_tool_path: Path | None = None,
+        client: paramiko.SSHClient | None = None,
+        agent_san: list[str] | None = None,
     ) -> None:
         """
         Main moethod of the class. It generates certificates for Wazuh components.
@@ -195,6 +210,14 @@ class CertsManager:
                                            will be used.
             client (paramiko.SSHClient | None): An SSH client for executing commands on a remote server. If not provided,
                                                 commands will be executed locally.
+            agent_san (list[str] | None): Extra addresses (IPs and/or DNS names) agents might dial to reach this
+                instance's manager, added to remoted.pem's SAN on top of whatever the manager node's own config
+                already provides -- e.g. the address(es) this instance is actually reachable at, unknowable at build
+                time. Passed straight through as repeated `--agent-san <value>` flags.
+
+                DEPENDS ON wazuh-installation-assistant#1027 (Victor Ereñú, opened 2026-09-16, NOT MERGED as of this
+                writing) -- speculative against that issue's description, written ahead of the merge so there's less
+                to wire up once it lands. Verify against the real tool before trusting this.
 
         Raises:
             Exception: If there is an error during certificate generation, compression, or copying to component directories.
@@ -208,7 +231,8 @@ class CertsManager:
         if not certs_tool_path:
             certs_tool_path = self.certs_tool_path
 
-        command = f"sudo bash {certs_tool_path} -A"
+        agent_san_flags = "".join(f" --agent-san {san}" for san in agent_san or [])
+        command = f"sudo bash {certs_tool_path} -A{agent_san_flags}"
         output, error_output = exec_command(command=command, client=client)
         if error_output:
             raise Exception(f"Error while generating certificates: {error_output}")
@@ -279,19 +303,29 @@ class CertsManager:
                 sudo chown -R wazuh-indexer:wazuh-indexer {ComponentCertsDirectory.WAZUH_INDEXER}/
                 """
         elif component == Component.WAZUH_MANAGER:
-            # No `rm -rf` here: the manager package's postinstall already populates this directory with
-            # authd/remoted/apid daemon certs, which must survive this step untouched.
+            # No `rm -rf` here: the manager package's postinstall still populates this directory with
+            # authd/apid daemon certs, which must survive this step untouched. remoted.pem/-key.pem are
+            # the exception -- a manager package that still self-signs its own listener certificate at
+            # install time leaves a pair here too, and it must be force-replaced (`mv -f`, not `-n`) by
+            # the one issued from root-ca.pem, or the agent-facing listener keeps presenting a cert no
+            # agent can verify.
             cert_name = certs_name[ComponentCertsConfigParameter.WAZUH_MANAGER_CERT.name]
             key_name = certs_name[ComponentCertsConfigParameter.WAZUH_MANAGER_KEY.name]
             ca_name = certs_name[ComponentCertsConfigParameter.WAZUH_MANAGER_CA.name]
+            remoted_cert_name = self.components_certs_default_name[Component.WAZUH_MANAGER]["remoted-cert"]
+            remoted_key_name = self.components_certs_default_name[Component.WAZUH_MANAGER]["remoted-key"]
             command = f"""
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_MANAGER}
                 sudo tar -xf {certs_path}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_MANAGER} ./{" ./".join(self.components_certs_default_name[Component.WAZUH_MANAGER].values())}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["cert"]} {ComponentCertsDirectory.WAZUH_MANAGER}/{cert_name}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["key"]} {ComponentCertsDirectory.WAZUH_MANAGER}/{key_name}
                 sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["ca"]} {ComponentCertsDirectory.WAZUH_MANAGER}/{ca_name}
+                sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/{remoted_cert_name} {ComponentCertsDirectory.WAZUH_MANAGER}/remoted.pem
+                sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/{remoted_key_name} {ComponentCertsDirectory.WAZUH_MANAGER}/remoted-key.pem
                 sudo chown root:wazuh-manager {ComponentCertsDirectory.WAZUH_MANAGER}/{cert_name} {ComponentCertsDirectory.WAZUH_MANAGER}/{key_name} {ComponentCertsDirectory.WAZUH_MANAGER}/{ca_name}
                 sudo chmod 640 {ComponentCertsDirectory.WAZUH_MANAGER}/{cert_name} {ComponentCertsDirectory.WAZUH_MANAGER}/{key_name} {ComponentCertsDirectory.WAZUH_MANAGER}/{ca_name}
+                sudo chown wazuh-manager:wazuh-manager {ComponentCertsDirectory.WAZUH_MANAGER}/remoted.pem {ComponentCertsDirectory.WAZUH_MANAGER}/remoted-key.pem
+                sudo chmod 640 {ComponentCertsDirectory.WAZUH_MANAGER}/remoted.pem {ComponentCertsDirectory.WAZUH_MANAGER}/remoted-key.pem
                 sudo chown root:wazuh-manager {ComponentCertsDirectory.WAZUH_MANAGER}
                 sudo chmod 1770 {ComponentCertsDirectory.WAZUH_MANAGER}
                 """
