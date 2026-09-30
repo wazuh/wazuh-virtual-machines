@@ -135,16 +135,28 @@ def indexer_request_command(
 
 def purge_build_credentials_command(script: Path = PURGE_BUILD_CREDENTIALS_SCRIPT) -> str:
     """
-    Builds the command that runs purge-build-credentials.sh as root, fed through a here-document.
+    Builds the command that runs purge-build-credentials.sh as root on the host being built.
 
-    Feeding the script on stdin runs it the same way on the local OVA build and over the AMI
-    build's SSH session, with nothing to copy to the host first.
+    The script is written to a temporary file on that host (through a here-document) and run from
+    there, with its stdin from /dev/null. Running it with `bash -s` instead would make every command
+    in it inherit the rest of the script as stdin: one that read it would swallow the remaining
+    lines, and bash would exit 0 having silently skipped the workarounds and the final check. This
+    runs the same way on the local OVA build and over the AMI build's SSH session.
 
     Args:
         script (Path): The script to run. Defaults to configurer/core/static/purge-build-credentials.sh.
 
     Returns:
-        str: The command.
+        str: The command. Its exit status is the script's.
     """
 
-    return f"sudo bash -s <<'WAZUH_PURGE_BUILD_CREDENTIALS'\n{script.read_text()}\nWAZUH_PURGE_BUILD_CREDENTIALS\n"
+    return (
+        'WAZUH_PURGE_SCRIPT="$(mktemp)" || exit 1\n'
+        "cat > \"${WAZUH_PURGE_SCRIPT}\" <<'WAZUH_PURGE_BUILD_CREDENTIALS'\n"
+        f"{script.read_text()}\n"
+        "WAZUH_PURGE_BUILD_CREDENTIALS\n"
+        'sudo bash "${WAZUH_PURGE_SCRIPT}" < /dev/null\n'
+        "WAZUH_PURGE_RC=$?\n"
+        'rm -f "${WAZUH_PURGE_SCRIPT}"\n'
+        'exit "${WAZUH_PURGE_RC}"\n'
+    )

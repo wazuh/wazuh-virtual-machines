@@ -69,12 +69,17 @@ def test_indexer_request_command_sends_the_password_through_stdin():
     assert "admin:admin" not in command
 
 
-def test_purge_build_credentials_command_feeds_the_script_on_stdin():
+def test_purge_build_credentials_command_runs_the_script_from_a_file_not_stdin():
     command = purge_build_credentials_command()
 
-    assert command.startswith("sudo bash -s <<'WAZUH_PURGE_BUILD_CREDENTIALS'\n")
-    assert command.rstrip().endswith("WAZUH_PURGE_BUILD_CREDENTIALS")
+    # Written to a temporary file and run from there, with stdin from /dev/null: fed through
+    # `bash -s`, a command reading stdin would swallow the rest of the script.
+    assert command.startswith('WAZUH_PURGE_SCRIPT="$(mktemp)" || exit 1\n')
+    assert "cat > \"${WAZUH_PURGE_SCRIPT}\" <<'WAZUH_PURGE_BUILD_CREDENTIALS'\n" in command
     assert PURGE_BUILD_CREDENTIALS_SCRIPT.read_text() in command
+    assert 'sudo bash "${WAZUH_PURGE_SCRIPT}" < /dev/null\n' in command
+    assert "bash -s" not in command
+    assert command.rstrip().endswith('exit "${WAZUH_PURGE_RC}"')
 
 
 def test_purge_build_credentials_script_clears_every_component_and_restores_the_placeholders():
@@ -91,12 +96,25 @@ def test_purge_build_credentials_script_clears_every_component_and_restores_the_
 def test_purge_build_credentials_script_removes_the_api_pair_and_the_jdk_truststore_ca():
     script = PURGE_BUILD_CREDENTIALS_SCRIPT.read_text()
 
-    # Workaround 2: the Server API TLS pair created at build time.
-    assert 'rm -f "${MANAGER_API_CERT}" "${MANAGER_API_KEY}"' in script
+    # Workaround 2: the Server API TLS pair and JWT signing keypair created at build time.
+    assert (
+        'rm -f "${MANAGER_API_CERT}" "${MANAGER_API_KEY}" "${MANAGER_API_JWT_PRIVATE}" "${MANAGER_API_JWT_PUBLIC}"'
+        in script
+    )
     assert 'MANAGER_API_CERT="${MANAGER_HOME}/etc/certs/apid.pem"' in script
+    assert 'MANAGER_API_JWT_PRIVATE="${MANAGER_HOME}/api/configuration/security/private_key.pem"' in script
+    assert 'MANAGER_API_JWT_PUBLIC="${MANAGER_HOME}/api/configuration/security/public_key.pem"' in script
     # Workaround 3: the build CA imported by the indexer postinst into the JDK truststore.
     assert 'INDEXER_JDK_CA_ALIAS="wazuh-root-ca"' in script
-    assert '-delete -keystore "${INDEXER_JDK_CACERTS}"' in script
+    assert '-delete -cacerts -storepass "${INDEXER_JDK_CACERTS_PASS}"' in script
     # Both are part of the leftovers verification.
-    assert '"${MANAGER_API_CERT}" "${MANAGER_API_KEY}"; do' in script
-    assert 'jdk_ca_present && leftovers+=' in script
+    assert '"${MANAGER_API_JWT_PRIVATE}" "${MANAGER_API_JWT_PUBLIC}"; do' in script
+    assert "jdk_ca_present && leftovers+=" in script
+
+
+def test_purge_build_credentials_script_gives_no_stdin_to_the_resolvers():
+    script = PURGE_BUILD_CREDENTIALS_SCRIPT.read_text()
+
+    assert '"${INDEXER_RESOLVER}" --clear < /dev/null' in script
+    assert '"${MANAGER_RESOLVER}" --clear -H "${MANAGER_HOME}" < /dev/null' in script
+    assert '"${DASHBOARD_RESOLVER}" --clear < /dev/null' in script

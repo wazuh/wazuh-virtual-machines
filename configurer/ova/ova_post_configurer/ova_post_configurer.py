@@ -509,7 +509,12 @@ def delete_wazuh_indexes() -> None:
     # time and published it to /etc/wazuh/credentials.env. It reaches curl through its standard input,
     # never argv, and is never logged.
     for index in indexes_to_delete:
-        run_command(indexer_request_command(method="DELETE", path=index))
+        result = run_command(indexer_request_command(method="DELETE", path=index), output=True)
+        http_code = result[0][0] if result else ""
+        if http_code == "401":
+            raise RuntimeError(f"Error removing index {index} (HTTP 401): the admin password was not accepted")
+        if http_code not in ("200", "404"):
+            logger.warning(f"Removing index {index} returned HTTP {http_code}")
 
 
 def purge_build_credentials() -> None:

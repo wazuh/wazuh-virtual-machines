@@ -574,6 +574,7 @@ def test_configure_ssh_skips_conf_files_when_no_sshd_config_d(
 
 
 def test_delete_wazuh_indexes(mock_run_command):
+    mock_run_command.return_value = (["200"], [""], [0])
     delete_wazuh_indexes()
 
     indexes = [
@@ -584,12 +585,20 @@ def test_delete_wazuh_indexes(mock_run_command):
         ".wazuh-settings",
         ".wazuh-content-manager-jobs",
     ]
-    expected_calls = [call(indexer_request_command(method="DELETE", path=index)) for index in indexes]
+    expected_calls = [call(indexer_request_command(method="DELETE", path=index), output=True) for index in indexes]
 
     mock_run_command.assert_has_calls(expected_calls, any_order=False)
     assert mock_run_command.call_count == 6
     # The admin password comes from /etc/wazuh/credentials.env, through curl's stdin.
     assert not any("admin:admin" in c.args[0] for c in mock_run_command.call_args_list)
+
+
+def test_delete_wazuh_indexes_fails_on_unauthorized(mock_run_command):
+    # A missing or wrong credentials.env must not ship the build indexes silently.
+    mock_run_command.return_value = (["401"], [""], [0])
+
+    with pytest.raises(RuntimeError, match=r"Error removing index wazuh-\* \(HTTP 401\)"):
+        delete_wazuh_indexes()
 
 
 def test_purge_build_credentials(mock_run_command):

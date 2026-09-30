@@ -108,7 +108,6 @@ wazuh_ca_dir="${wazuh_base_dir}/ca"
 # (purge-build-credentials.sh), so first boot imports this VM's CA instead, as a fresh package
 # install would. See install_ca().
 indexer_keytool="/usr/share/wazuh-indexer/jdk/bin/keytool"
-indexer_jdk_cacerts="/usr/share/wazuh-indexer/jdk/lib/security/cacerts"
 indexer_jdk_ca_alias="wazuh-root-ca"
 indexer_jdk_cacerts_pass="changeit"
 
@@ -429,6 +428,11 @@ function generate_certificates() {
   # fixed tar path regardless of the tool's own working directory.
   logger "Generating the CA and all component certificates for this instance"
 
+  # Start from an empty CA directory: if an earlier attempt failed after installing its CA, a retry
+  # would otherwise keep that CA (key and JDK truststore entry included) while issuing the
+  # certificates from a new one.
+  sudo rm -rf "${wazuh_ca_dir}"
+
   local -a agent_san_flags=()
   local ip
   for ip in $(get_manager_san_ips); do
@@ -503,7 +507,8 @@ function install_ca() {
   fi
 
   # WORKAROUND: this VM's CA into the indexer JDK truststore, before the indexer starts.
-  local keytool=(sudo "${indexer_keytool}" -keystore "${indexer_jdk_cacerts}" -storepass "${indexer_jdk_cacerts_pass}")
+  # -cacerts: the truststore of the keytool's own JDK, the indexer's.
+  local keytool=(sudo "${indexer_keytool}" -cacerts -storepass "${indexer_jdk_cacerts_pass}")
   if "${keytool[@]}" -list -alias "${indexer_jdk_ca_alias}" > /dev/null 2>&1; then
     run_or_die "Failed to remove the old CA from the indexer JDK truststore" \
         "${keytool[@]}" -delete -alias "${indexer_jdk_ca_alias}"

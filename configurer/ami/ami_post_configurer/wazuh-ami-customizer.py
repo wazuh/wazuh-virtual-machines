@@ -73,7 +73,6 @@ WAZUH_CERTS_TAR = TEMP_DIR / "wazuh-certificates.tar"
 # (purge-build-credentials.sh), so first boot imports this instance's CA instead, as a fresh
 # package install would.
 INDEXER_KEYTOOL = "/usr/share/wazuh-indexer/jdk/bin/keytool"
-INDEXER_JDK_CACERTS = "/usr/share/wazuh-indexer/jdk/lib/security/cacerts"
 INDEXER_JDK_CA_ALIAS = "wazuh-root-ca"
 INDEXER_JDK_CACERTS_PASS = "changeit"
 
@@ -347,10 +346,14 @@ def remove_certificates() -> None:
     """
 
     logger.debug("Removing existing certificates...")
+    # The CA directory goes too: if an earlier first-boot attempt failed after installing its CA, a
+    # retry would otherwise keep that CA (key and JDK truststore entry included) while issuing the
+    # certificates from a new one.
     command = f"""
     rm -rf {ComponentCertsDirectory.WAZUH_MANAGER}/*
     rm -rf {ComponentCertsDirectory.WAZUH_INDEXER}/*
     rm -rf {ComponentCertsDirectory.WAZUH_DASHBOARD}/*
+    rm -rf {WAZUH_CA_DIR}
     """
     run_command(command=command, error_message="Error removing existing certificates")
 
@@ -456,12 +459,13 @@ def install_certificate_authority() -> None:
     run_command(command=command, error_message=f"Error installing the CA in {WAZUH_CA_DIR}")
 
     # WORKAROUND: this instance's CA into the indexer JDK truststore, before the indexer starts.
-    keytool = f"{INDEXER_KEYTOOL} -keystore {INDEXER_JDK_CACERTS} -storepass {INDEXER_JDK_CACERTS_PASS}"
+    # -cacerts: the truststore of the keytool's own JDK, the indexer's.
+    keytool_opts = f"-cacerts -storepass {INDEXER_JDK_CACERTS_PASS}"
     command = f"""
-    if {keytool} -list -alias {INDEXER_JDK_CA_ALIAS} > /dev/null 2>&1; then
-        {keytool} -delete -alias {INDEXER_JDK_CA_ALIAS}
+    if {INDEXER_KEYTOOL} -list {keytool_opts} -alias {INDEXER_JDK_CA_ALIAS} > /dev/null 2>&1; then
+        {INDEXER_KEYTOOL} -delete {keytool_opts} -alias {INDEXER_JDK_CA_ALIAS}
     fi
-    {keytool} -importcert -noprompt -alias {INDEXER_JDK_CA_ALIAS} -file {WAZUH_CA_DIR}/root-ca.pem
+    {INDEXER_KEYTOOL} -importcert {keytool_opts} -noprompt -alias {INDEXER_JDK_CA_ALIAS} -file {WAZUH_CA_DIR}/root-ca.pem
     """
     run_command(command=command, error_message="Error importing the CA into the indexer JDK truststore")
 
