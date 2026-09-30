@@ -15,6 +15,11 @@ Login credentials:
   User: ${SYSTEM_USER}
   Password: wazuh
 
+Wazuh dashboard: https://<this VM's IP address>   User: admin
+The passwords generated for this VM are stored in /etc/wazuh/credentials.env:
+  sudo grep WAZUH_INDEXER_ADMIN_PASSWORD /etc/wazuh/credentials.env
+For security, save them and delete that file (if you have not deleted it yet).
+
 EOF
 
 # User Welcome message

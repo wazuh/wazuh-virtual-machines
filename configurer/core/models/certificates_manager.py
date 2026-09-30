@@ -271,7 +271,54 @@ class CertsManager:
                         f"Error while copying certificates to {component.replace('_', ' ')} directory: {error_output}"
                     )
 
+                if component == Component.WAZUH_INDEXER:
+                    self.set_indexer_distinguished_names(
+                        node_cert_name=certs_name.get(
+                            ComponentCertsConfigParameter.WAZUH_INDEXER_CERT.name,
+                            self.components_certs_default_name[Component.WAZUH_INDEXER]["cert"],
+                        ),
+                        client=client,
+                    )
+
         logger.info_success("Certificates generated successfully")
+
+    def set_indexer_distinguished_names(self, node_cert_name: str, client: paramiko.SSHClient | None = None) -> None:
+        """
+        Writes the DNs of the indexer certificates just installed into opensearch.yml.
+
+        The indexer only accepts a node listed in `plugins.security.nodes_dn` and an admin listed in
+        `plugins.security.authcz.admin_dn`, and OpenSearch compares DNs in order. The Wazuh 5.0 indexer
+        package writes those keys from the certificates it issues at install time, in its own subject
+        order (`C=US,...,CN=<name>`), while wazuh-certs-tool.sh has used the reverse order
+        (`CN=<name>,...,C=US`) in some versions. Reading both DNs back from the certificates actually
+        installed, in RFC 2253 form, keeps them right whichever certs-tool version issued them; a fixed
+        value would break `indexer-security-init.sh` with the other one ("is not an admin user").
+
+        Args:
+            node_cert_name (str): The name of the indexer node certificate in its certificates directory.
+            client (paramiko.SSHClient | None, optional): An SSH client for remote execution. Defaults to None.
+
+        Raises:
+            Exception: If a DN cannot be read or written.
+        """
+
+        logger.debug("Writing the indexer node and admin DNs into its configuration")
+
+        certs_dir = ComponentCertsDirectory.WAZUH_INDEXER
+        admin_cert_name = self.components_certs_default_name[Component.WAZUH_INDEXER]["admin-cert"]
+        command = f"""
+            NODE_DN=$(sudo openssl x509 -in {certs_dir}/{node_cert_name} -noout -subject -nameopt RFC2253 | sed 's/^subject= *//')
+            ADMIN_DN=$(sudo openssl x509 -in {certs_dir}/{admin_cert_name} -noout -subject -nameopt RFC2253 | sed 's/^subject= *//')
+            if [ -z "$NODE_DN" ] || [ -z "$ADMIN_DN" ]; then
+                echo "Could not read the subject of the indexer certificates" >&2
+                exit 1
+            fi
+            sudo yq -i ".[\\"plugins.security.nodes_dn\\"] = [\\"$NODE_DN\\"] | .[\\"plugins.security.authcz.admin_dn\\"] = [\\"$ADMIN_DN\\"]" {ComponentConfigFile.WAZUH_INDEXER}
+            """
+        _, error_output = exec_command(command=command, client=client)
+        if error_output:
+            logger.error("Error while writing the indexer DNs")
+            raise Exception(f"Error while writing the indexer DNs: {error_output}")
 
     def copy_certs_to_component_directory(
         self, component: Component, certs_path: Path, certs_name: dict, client: paramiko.SSHClient | None = None

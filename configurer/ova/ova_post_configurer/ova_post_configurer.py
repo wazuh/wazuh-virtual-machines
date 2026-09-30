@@ -3,6 +3,7 @@ import os
 import shutil
 from pathlib import Path
 
+from configurer.core.utils import indexer_request_command, purge_build_credentials_command
 from configurer.utils import run_command
 from generic.helpers import add_content_to_file, modify_file
 from utils import Logger, RemoteDirectories, CertificatesComponent
@@ -504,8 +505,35 @@ def delete_wazuh_indexes() -> None:
         ".wazuh-content-manager-jobs",
     ]
 
+    # There is no admin:admin any more: the indexer package generated the admin password at install
+    # time and published it to /etc/wazuh/credentials.env. It reaches curl through its standard input,
+    # never argv, and is never logged.
     for index in indexes_to_delete:
-        run_command(f"curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/{index}' -k")
+        result = run_command(indexer_request_command(method="DELETE", path=index), output=True)
+        http_code = result[0][0] if result else ""
+        if http_code == "401":
+            raise RuntimeError(f"Error removing index {index} (HTTP 401): the admin password was not accepted")
+        if http_code not in ("200", "404"):
+            logger.warning(f"Removing index {index} returned HTTP {http_code}")
+
+
+def purge_build_credentials() -> None:
+    """
+    Removes every credential, certificate and CA the build resolved, with every service stopped.
+
+    Runs each package's `resolve-credentials --clear`, restores the indexer's password placeholders
+    (workaround, see purge-build-credentials.sh) and removes /etc/wazuh. wazuh-starter then has each
+    VM resolve its own passwords (`--prestart`) and issue its own certificates on first boot.
+
+    Raises:
+        RuntimeError: If any step fails or anything resolved at build time is left in the image.
+    """
+    logger.debug("Removing the credentials, certificates and CA resolved at build time.")
+    result = run_command(purge_build_credentials_command(), output=True)
+    stdout, stderr, returncode = result[0][0], result[1][0], result[2][0]
+    if returncode != 0:
+        raise RuntimeError(f"Error removing the build-time credentials: {stderr or stdout}")
+    logger.info_success("Build-time credentials, certificates and CA removed.")
 
 
 def main() -> None:
@@ -517,7 +545,8 @@ def main() -> None:
     3. Deletes specific Wazuh indexes.
     4. Re-runs the security-init.
     5. Stops and disable Wazuh services.
-    6. Cleans up the system by calling `steps_clean`.
+    6. Removes the credentials, certificates and CA resolved at build time (`purge_build_credentials`).
+    7. Cleans up the system by calling `steps_clean`.
     7. Applies post-configuration changes, including:
         - Creating network configuration.
         - Changing SSH cryptographic policies.
@@ -540,13 +569,20 @@ def main() -> None:
 
     run_command("bash /usr/share/wazuh-indexer/bin/indexer-security-init.sh -ho 127.0.0.1")
 
+    # Every Wazuh service is left disabled, the indexer included: wazuh-starter starts them one by one
+    # on first boot, once this VM's certificates are in place, and enables them afterwards. An indexer
+    # started by systemd at boot would run its `--prestart` before any certificate exists and race
+    # wazuh-starter, and its unit gives up after three failed starts in a minute.
     commands = [
         "systemctl stop wazuh-indexer wazuh-dashboard",
+        "systemctl disable wazuh-indexer",
         "systemctl disable wazuh-manager",
         "systemctl disable wazuh-agent",
         "systemctl disable wazuh-dashboard",
     ]
     run_command(commands)
+
+    purge_build_credentials()
 
     steps_clean()
 

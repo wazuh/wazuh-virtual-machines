@@ -24,6 +24,15 @@ The manager ships with `<auth><use_password>yes</use_password>`, so an agent tha
 
 > The token is minted, stored and consumed on the first boot of the deployed VM. See the [OVA](../post/ova/post-ova.md) and [AMI](../post/ami/post-ami.md) post-configurer documentation for details.
 
+## Credentials and certificates at build time
+
+The Wazuh 5.0 packages resolve their own credentials ([wazuh/wazuh-indexer#1928](https://github.com/wazuh/wazuh-indexer/issues/1928)). Their postinst (`resolve-credentials --install`) generates the passwords, publishes them to `/etc/wazuh/credentials.env` and stores each consumed one where its component reads it. The core configurer relies on that and does not set any password itself:
+
+- It no longer writes the indexer credential into the manager keystore: the manager package already stored `WAZUH_INDEXER_MANAGER_PASSWORD` there, and the old `wazuh-manager`/`wazuh-manager` pair would overwrite it.
+- After installing the certificates, `CertsManager.set_indexer_distinguished_names()` writes `plugins.security.nodes_dn` and `plugins.security.authcz.admin_dn` from the certificates actually installed, because their subject order depends on the certs-tool version. `configuration_mappings.yaml` no longer sets `nodes_dn`.
+
+Everything resolved at build time (passwords, CA, certificates) is removed again by the AMI and OVA post-configurers (`purge-build-credentials.sh`), and each deployed instance resolves its own on first boot. See the [AMI](../post/ami/post-ami.md) and [OVA](../post/ova/post-ova.md) post-configurer documentation.
+
 ## Component configuration
 
 Component configuration is handled using the `yq` tool. This command-line utility allows reading and updating YAML files, which is the format used for all component configuration files.

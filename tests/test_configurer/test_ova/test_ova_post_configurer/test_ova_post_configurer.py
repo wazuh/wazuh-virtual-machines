@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, call, mock_open, patch
 
 import pytest
 
+from configurer.core.utils import indexer_request_command, purge_build_credentials_command
 from configurer.ova.ova_post_configurer.ova_post_configurer import (
     SCRIPTS_PATH,
     STATIC_PATH,
@@ -19,6 +20,7 @@ from configurer.ova.ova_post_configurer.ova_post_configurer import (
     configure_ssh,
     configure_sshd,
     delete_wazuh_indexes,
+    purge_build_credentials,
     enable_fips,
     main,
     post_conf_change_ssh_crypto_policies,
@@ -572,19 +574,46 @@ def test_configure_ssh_skips_conf_files_when_no_sshd_config_d(
 
 
 def test_delete_wazuh_indexes(mock_run_command):
+    mock_run_command.return_value = (["200"], [""], [0])
     delete_wazuh_indexes()
 
-    expected_calls = [
-        call("curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/wazuh-*' -k"),
-        call("curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/_data_stream/*' -k"),
-        call("curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/.wazuh-cti-consumers' -k"),
-        call("curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/.wazuh-threatintel-vulnerabilities-*' -k"),
-        call("curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/.wazuh-settings' -k"),
-        call("curl -u admin:admin -XDELETE 'https://127.0.0.1:9200/.wazuh-content-manager-jobs' -k"),
+    indexes = [
+        "wazuh-*",
+        "_data_stream/*",
+        ".wazuh-cti-consumers",
+        ".wazuh-threatintel-vulnerabilities-*",
+        ".wazuh-settings",
+        ".wazuh-content-manager-jobs",
     ]
+    expected_calls = [call(indexer_request_command(method="DELETE", path=index), output=True) for index in indexes]
 
     mock_run_command.assert_has_calls(expected_calls, any_order=False)
     assert mock_run_command.call_count == 6
+    # The admin password comes from /etc/wazuh/credentials.env, through curl's stdin.
+    assert not any("admin:admin" in c.args[0] for c in mock_run_command.call_args_list)
+
+
+def test_delete_wazuh_indexes_fails_on_unauthorized(mock_run_command):
+    # A missing or wrong credentials.env must not ship the build indexes silently.
+    mock_run_command.return_value = (["401"], [""], [0])
+
+    with pytest.raises(RuntimeError, match=r"Error removing index wazuh-\* \(HTTP 401\)"):
+        delete_wazuh_indexes()
+
+
+def test_purge_build_credentials(mock_run_command):
+    mock_run_command.return_value = (["Build-time credentials, certificates and CA removed"], [""], [0])
+
+    purge_build_credentials()
+
+    mock_run_command.assert_called_once_with(purge_build_credentials_command(), output=True)
+
+
+def test_purge_build_credentials_fail(mock_run_command):
+    mock_run_command.return_value = ([""], ["ERROR: the image still holds material resolved at build time"], [1])
+
+    with pytest.raises(RuntimeError, match="the image still holds material resolved at build time"):
+        purge_build_credentials()
 
 
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.steps_system_config")
@@ -593,7 +622,9 @@ def test_delete_wazuh_indexes(mock_run_command):
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.configure_ssh")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.post_conf_clean")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.delete_wazuh_indexes")
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.purge_build_credentials")
 def test_main(
+    mock_purge_build_credentials,
     mock_delete_wazuh_indexes,
     mock_post_conf_clean,
     mock_configure_ssh,
@@ -616,12 +647,14 @@ def test_main(
     mock_run_command.assert_any_call(
         [
             "systemctl stop wazuh-indexer wazuh-dashboard",
+            "systemctl disable wazuh-indexer",
             "systemctl disable wazuh-manager",
             "systemctl disable wazuh-agent",
             "systemctl disable wazuh-dashboard",
         ]
     )
 
+    mock_purge_build_credentials.assert_called_once()
     mock_steps_clean.assert_called_once()
 
     mock_post_conf_create_network_config.assert_called_once()
