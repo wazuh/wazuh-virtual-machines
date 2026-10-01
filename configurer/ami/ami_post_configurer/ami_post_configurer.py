@@ -5,9 +5,10 @@ from typing import ClassVar
 import paramiko
 
 from configurer.ami.ami_post_configurer.create_service_directory import create_directory_structure, generate_yaml
-from generic import exec_command, modify_file, remote_connection
+from configurer.core.utils import indexer_request_command, purge_build_credentials_command
+from generic import exec_command, exec_command_with_status, modify_file, remote_connection
 from models import Inventory
-from utils import CertificatesComponent, Logger, PasswordToolComponent, RemoteDirectories
+from utils import CertificatesComponent, Logger, RemoteDirectories
 
 logger = Logger("AmiPostConfigurer")
 
@@ -48,6 +49,8 @@ class AmiPostConfigurer:
             - Set up python environment located in the custom directory that will be used for the
               certificates creation service.
             - Stop Wazuh manager, indexer, and dashboard services.
+            - Remove every credential, certificate and CA resolved at build time, so that no two
+              instances launched from the AMI share any of them.
             - Change SSH port to the default value.
             - Clean up cloud instance files, journal logs, yum cache, and logout files.
             - Enable journal log storage.
@@ -73,6 +76,7 @@ class AmiPostConfigurer:
         self.stop_wazuh_manager(client=client)
         self.stop_wazuh_indexer(client=client)
         self.stop_wazuh_dashboard(client=client)
+        self.purge_build_credentials(client=client)
         self.change_ssh_port_to_default(client=client)
         self.clean_cloud_instance_files(client=client)
         self.clean_journal_logs(client=client)
@@ -107,8 +111,6 @@ class AmiPostConfigurer:
             "remote_certs_path": RemoteDirectories.CERTS,
             "certs_tool": CertificatesComponent.CERTS_TOOL,
             "certs_config": CertificatesComponent.CONFIG,
-            "passwords_tool_path": RemoteDirectories.PASSWORDS_TOOL,
-            "passwords_tool": PasswordToolComponent.PASSWORDS_TOOL,
         }
         directory_template = generate_yaml(
             context=context,
@@ -238,12 +240,18 @@ class AmiPostConfigurer:
             ".wazuh-content-manager-jobs",
         ]
 
+        # There is no admin:admin any more: the indexer package generated the admin password at install
+        # time and published it to /etc/wazuh/credentials.env. It is read and used on the instance, and
+        # reaches curl through its standard input, so it never travels back over SSH nor shows in argv.
         for index in indexes_to_delete:
-            command = f'sudo curl -s -o /dev/null -w "%{{http_code}}" -X DELETE -u "admin:admin" -k "{base_url}/{index}"'
-            _, error_output = exec_command(command=command, client=client)
-            if error_output:
+            command = indexer_request_command(method="DELETE", path=index, url=base_url)
+            output, error_output = exec_command(command=command, client=client)
+            http_code = output.strip()
+            if error_output or http_code == "401":
                 logger.error(f"Error removing index: {index}")
-                raise RuntimeError(f"Error removing index {index}: {error_output}")
+                raise RuntimeError(f"Error removing index {index} (HTTP {http_code}): {error_output}")
+            if http_code not in ("200", "404"):
+                logger.warning(f"Removing index {index} returned HTTP {http_code}")
 
         logger.debug("Wazuh indexer indexes removed successfully")
 
@@ -283,6 +291,32 @@ class AmiPostConfigurer:
         self.run_security_init_script(client=client)
         self.stop_service("wazuh-indexer", client=client)
         self.disable_service("wazuh-indexer", client=client)
+
+    def purge_build_credentials(self, client: paramiko.SSHClient) -> None:
+        """
+        Remove every credential, certificate and CA the build resolved, with every service stopped.
+
+        Runs each package's `resolve-credentials --clear`, restores the indexer's password placeholders
+        (workaround, see purge-build-credentials.sh) and removes /etc/wazuh. The first boot of each
+        instance then resolves its own passwords (`--prestart`) and issues its own certificates.
+
+        Args:
+            client (paramiko.SSHClient): An active SSH client used to execute commands on the remote machine.
+
+        Raises:
+            RuntimeError: If any step fails or anything resolved at build time is left in the image.
+        """
+
+        logger.debug("Removing the credentials, certificates and CA resolved at build time")
+
+        output, error_output, returncode = exec_command_with_status(
+            command=purge_build_credentials_command(), client=client
+        )
+        if returncode != 0:
+            logger.error("Error removing the build-time credentials")
+            raise RuntimeError(f"Error removing the build-time credentials: {error_output.strip() or output.strip()}")
+
+        logger.info_success("Build-time credentials, certificates and CA removed")
 
     def stop_wazuh_agent(self, client: paramiko.SSHClient) -> None:
         """

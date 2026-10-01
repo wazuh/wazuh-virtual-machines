@@ -1,11 +1,10 @@
-import time
 from dataclasses import dataclass
 from pathlib import Path
 
 import paramiko
 
 from configurer.core.models import CertsManager, WazuhComponentConfigManager
-from generic import exec_command, exec_command_with_status, remote_connection
+from generic import exec_command, remote_connection
 from models import Inventory
 from utils import CertificatesComponent, Component, Logger, RemoteDirectories
 
@@ -30,12 +29,11 @@ logger = Logger("CoreConfigurer")
 # configurer/ova/ova_post_configurer/scripts/wazuh-starter/wazuh-starter.sh (OVA) and
 # configurer/ami/ami_post_configurer/wazuh-ami-customizer.py (AMI).
 
-# `wazuh-manager-keystore` stores its values in a RocksDB-backed file (queue/keystore) that a
-# just-started manager daemon may still be opening -- `systemctl start` returns as soon as the
-# unit is "active", not once every daemon inside it has finished initializing -- so the keystore
-# CLI can lose the exclusive-lock race immediately after start. Retry instead of failing outright.
-MANAGER_KEYSTORE_MAX_RETRIES = 6
-MANAGER_KEYSTORE_WAIT_TIME = 5
+# The manager's indexer credential is NOT set here any more. The manager package resolves it itself
+# (wazuh/wazuh-indexer#1928): its postinst reads WAZUH_INDEXER_MANAGER_PASSWORD from
+# /etc/wazuh/credentials.env, which the indexer package published with a generated value, and
+# stores it in the manager keystore. Writing the old wazuh-manager/wazuh-manager pair over it would
+# leave the manager unable to authenticate to the indexer.
 
 
 @dataclass
@@ -108,43 +106,6 @@ class CoreConfigurer:
                     logger.error(f"Error starting {component} service")
                     raise RuntimeError(f"Error starting {component} service: {error_output}")
 
-                if component == Component.WAZUH_MANAGER:
-                    self.set_manager_keystore(client=client)
-
                 logger.debug(f"{component.replace('_', ' ')} service started")
 
         logger.info_success("All services started")
-
-    def set_manager_keystore(self, client: paramiko.SSHClient | None = None):
-        """
-        Sets the manager's indexer credentials in its keystore, retrying on lock contention.
-
-        `wazuh-manager-keystore` needs exclusive access to a RocksDB-backed file that a manager
-        daemon started moments earlier may still be opening, since a systemd unit reporting
-        "active" doesn't mean every daemon inside it has finished initializing. That race makes
-        the CLI fail intermittently right after the manager starts, so each key is retried by exit
-        status instead of failing on the first attempt.
-
-        Args:
-            client (paramiko.SSHClient | None, optional): An SSH client to execute the commands
-                remotely. If None, the commands are executed locally. Defaults to None.
-
-        Raises:
-            RuntimeError: If a keystore value could not be set after all retries.
-        """
-
-        for key in ("username", "password"):
-            command = f"sudo /var/wazuh-manager/bin/wazuh-manager-keystore -f indexer -k {key} -v wazuh-manager"
-
-            for attempt in range(MANAGER_KEYSTORE_MAX_RETRIES):
-                _, error_output, returncode = exec_command_with_status(command=command, client=client)
-                if returncode == 0:
-                    break
-                logger.debug(
-                    f"Manager keystore {key} not set yet, retrying in {MANAGER_KEYSTORE_WAIT_TIME} seconds "
-                    f"(attempt {attempt + 1}/{MANAGER_KEYSTORE_MAX_RETRIES})"
-                )
-                time.sleep(MANAGER_KEYSTORE_WAIT_TIME)
-            else:
-                logger.error(f"Error setting manager keystore {key}")
-                raise RuntimeError(f"Error setting manager keystore {key}: {error_output}")

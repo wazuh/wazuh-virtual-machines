@@ -298,10 +298,11 @@ def test_get_certs_name_empty_component_keys(mock_logger, mock_exec_command):
         ),
     ],
 )
+@patch("configurer.core.models.certificates_manager.CertsManager.set_indexer_distinguished_names")
 @patch("configurer.core.models.certificates_manager.CertsManager._get_certs_name")
 @patch("configurer.core.models.certificates_manager.CertsManager.copy_certs_to_component_directory")
 def test_generate_certificates_success(
-    mock_copy_certs, mock_get_certs_name, mock_exec_command, component, component_certs, mock_logger
+    mock_copy_certs, mock_get_certs_name, mock_set_dns, mock_exec_command, component, component_certs, mock_logger
 ):
     mock_get_certs_name.return_value = component_certs
     mock_copy_certs.return_value = ("", "")
@@ -331,13 +332,18 @@ def test_generate_certificates_success(
     mock_copy_certs.assert_any_call(
         component=component, certs_path=CERTS_TOOL_PATH.parent, certs_name=mock_get_certs_name.return_value, client=None
     )
+    # The DNs are written once, right after the indexer certificates are in place.
+    mock_set_dns.assert_called_once()
 
     mock_logger.info_success.assert_any_call("Certificates generated successfully")
 
 
+@patch("configurer.core.models.certificates_manager.CertsManager.set_indexer_distinguished_names")
 @patch("configurer.core.models.certificates_manager.CertsManager._get_certs_name")
 @patch("configurer.core.models.certificates_manager.CertsManager.copy_certs_to_component_directory")
-def test_generate_certificates_with_agent_san(mock_copy_certs, mock_get_certs_name, mock_exec_command, mock_logger):
+def test_generate_certificates_with_agent_san(
+    mock_copy_certs, mock_get_certs_name, mock_set_dns, mock_exec_command, mock_logger
+):
     mock_get_certs_name.return_value = {}
     mock_copy_certs.return_value = ("", "")
 
@@ -503,3 +509,44 @@ def test_copy_certs_to_component_directory_success(
     assert mock_exec_command.call_args.kwargs["command"].replace("\n", "").replace(" ", "") == expected_command.replace(
         "\n", ""
     ).replace(" ", "")
+
+
+@patch("configurer.core.models.certificates_manager.CertsManager._get_certs_name")
+@patch("configurer.core.models.certificates_manager.CertsManager.copy_certs_to_component_directory")
+def test_generate_certificates_writes_indexer_dns_from_the_node_certificate(
+    mock_copy_certs, mock_get_certs_name, mock_exec_command, mock_logger
+):
+    mock_get_certs_name.return_value = {
+        "WAZUH_INDEXER_KEY": "indexer-key.pem",
+        "WAZUH_INDEXER_CERT": "indexer.pem",
+        "WAZUH_INDEXER_CA": "root-ca.pem",
+    }
+    mock_copy_certs.return_value = ("", "")
+
+    certs_manager = CertsManager(raw_config_path=RAW_CONFIG_PATH, certs_tool_path=CERTS_TOOL_PATH)
+    with patch.object(certs_manager, "set_indexer_distinguished_names") as mock_set_dns:
+        certs_manager.generate_certificates()
+
+    mock_set_dns.assert_called_once_with(node_cert_name="indexer.pem", client=None)
+
+
+def test_set_indexer_distinguished_names_reads_both_dns_from_the_installed_certificates(mock_exec_command, mock_logger):
+    certs_manager = CertsManager(raw_config_path=RAW_CONFIG_PATH, certs_tool_path=CERTS_TOOL_PATH)
+    mock_exec_command.reset_mock()
+
+    certs_manager.set_indexer_distinguished_names(node_cert_name="indexer.pem")
+
+    command = mock_exec_command.call_args.kwargs["command"]
+    assert f"-in {ComponentCertsDirectory.WAZUH_INDEXER}/indexer.pem -noout -subject -nameopt RFC2253" in command
+    assert f"-in {ComponentCertsDirectory.WAZUH_INDEXER}/admin.pem -noout -subject -nameopt RFC2253" in command
+    assert 'plugins.security.nodes_dn\\"] = [\\"$NODE_DN\\"]' in command
+    assert 'plugins.security.authcz.admin_dn\\"] = [\\"$ADMIN_DN\\"]' in command
+    assert str(ComponentConfigFile.WAZUH_INDEXER) in command
+
+
+def test_set_indexer_distinguished_names_error(mock_exec_command, mock_logger):
+    certs_manager = CertsManager(raw_config_path=RAW_CONFIG_PATH, certs_tool_path=CERTS_TOOL_PATH)
+    mock_exec_command.return_value = ("", "Could not read the subject of the indexer certificates")
+
+    with pytest.raises(Exception, match="Error while writing the indexer DNs"):
+        certs_manager.set_indexer_distinguished_names(node_cert_name="indexer.pem")
