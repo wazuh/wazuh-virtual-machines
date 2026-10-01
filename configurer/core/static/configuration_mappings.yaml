@@ -5,12 +5,13 @@ wazuh_indexer:
         - .["network.host"]
         - .["node.name"]
         - .["cluster.initial_cluster_manager_nodes"][0]
-        - .["plugins.security.nodes_dn"][0]
+        # plugins.security.nodes_dn and plugins.security.authcz.admin_dn are not set here: the
+        # certificates step writes both from the certificates it installs (CertsManager.
+        # set_indexer_distinguished_names), since their subject order depends on the certs-tool version.
       values:
         - \"127.0.0.1\"
         - \"__indexer_node_name__\" # Placeholder for indexer node name that will be replaced during configuration
         - \"__indexer_node_name__\"
-        - \"CN=__indexer_node_name__,OU=Wazuh,O=Wazuh,L=California,C=US\"
 wazuh_manager:
   - path: /var/wazuh-manager/etc/wazuh-manager.conf
     replace:

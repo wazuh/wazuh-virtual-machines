@@ -52,11 +52,16 @@ wazuh_agent_enrollment_address="127.0.0.1"
 enrollment_token_max_retries=12
 enrollment_token_wait_time=5
 
+# The passwords are not known in advance: each package generates its own when its service first
+# starts (`resolve-credentials --prestart`) and publishes it to this file, which stays on the VM as
+# the record the user reads them from (the documentation tells them to delete it afterwards). It is
+# parsed, never sourced, and a value read from it only ever reaches curl through its standard input.
+wazuh_credentials_file="/etc/wazuh/credentials.env"
+
 # The indexer's own admin account, used to poll both the indexer and the dashboard (which
-# authenticates against the indexer's security plugin). The indexer package ships admin,
-# kibanaserver, wazuh-manager and wazuh-readonly. See verify_indexer().
+# authenticates against the indexer's security plugin). See verify_indexer().
 wazuh_indexer_admin_user="admin"
-wazuh_indexer_admin_password="admin"
+wazuh_indexer_admin_key="WAZUH_INDEXER_ADMIN_PASSWORD"
 
 # Both readiness waits are bounded and fatal: an indexer or dashboard that never answers is a
 # broken first boot, and saying so beats looping in the background for ever.
@@ -65,9 +70,9 @@ indexer_wait_time=5
 dashboard_max_retries=20
 dashboard_wait_time=15
 
-# The manager's API account, for the readiness check below.
+# The manager's API account the dashboard uses, for the readiness check below.
 wazuh_manager_api_user="wazuh-wui"
-wazuh_manager_api_password="wazuh-wui"
+wazuh_manager_api_key="WAZUH_MANAGER_WUI_PASSWORD"
 manager_max_retries=30
 manager_wait_time=5
 
@@ -89,12 +94,22 @@ wazuh_certs_tool="${wazuh_certs_dir}/certs-tool.sh"
 wazuh_certs_output_dir="${wazuh_certs_dir}/wazuh-certificates"
 wazuh_certs_tar="/etc/wazuh-certificates.tar"
 
-# Where this instance's own root CA (key included) lives on, past first boot, so a leaf can be
-# reissued later (e.g. the instance's address changes, or a load balancer joins) without having to
-# start over with a brand new CA every enrolled agent would have to re-trust. See
-# clean_configuration() for why this is kept, not deleted -- issue #957 only requires that
-# root-ca.key never ships baked into the image, not that a booted instance destroy its own copy.
-wazuh_ca_dir="/etc/wazuh-certificate-authority"
+# Where this instance's own root CA (key included) lives on, past first boot: /etc/wazuh/ca, where the
+# packages' shared credentials library expects the trust anchor (root:root 0700, root-ca.pem 0644,
+# root-ca.key 0400). Keeping the key lets a leaf be reissued later (e.g. the instance's address
+# changes, or a load balancer joins) without a brand new CA every enrolled agent would have to
+# re-trust -- issue #957 only requires that root-ca.key never ships baked into the image, not that a
+# booted instance destroy its own copy. See install_ca().
+wazuh_base_dir="/etc/wazuh"
+wazuh_ca_dir="${wazuh_base_dir}/ca"
+
+# WORKAROUND (until the indexer's --clear handles it): the indexer postinst imports its CA into the
+# bundled JDK truststore as "wazuh-root-ca". The build removes the build CA from there
+# (purge-build-credentials.sh), so first boot imports this VM's CA instead, as a fresh package
+# install would. See install_ca().
+indexer_keytool="/usr/share/wazuh-indexer/jdk/bin/keytool"
+indexer_jdk_ca_alias="wazuh-root-ca"
+indexer_jdk_cacerts_pass="changeit"
 
 wazuh_indexer_certs_dir="/etc/wazuh-indexer/certs"
 wazuh_dashboard_certs_dir="/etc/wazuh-dashboard/certs"
@@ -144,13 +159,54 @@ function starter_service() {
   systemctl start $1
 }
 
+function get_credential() {
+  # $1: key. Prints its value from the credentials file, parsed the way the packages' shared library
+  # reads it (last assignment wins, surrounding quotes removed). Never sourced: sourcing would run
+  # the file as shell.
+  sed -n "s/^${1}=//p" "${wazuh_credentials_file}" 2>/dev/null | tail -n 1 \
+    | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/"
+}
+
+function http_status() {
+  # $1: URL, $2: user, $3: credentials key holding that user's password, $4: method (default GET).
+  # Prints the HTTP status code. The password goes to curl through its standard input (`-K -`),
+  # never argv, where any local user could read it off the process list, and is never logged.
+  local url="$1" user="$2" key="$3" method="${4:-GET}" password
+  password=$(get_credential "${key}")
+  printf 'user = "%s:%s"\n' "${user}" "${password}" \
+    | curl -s -k -K - -X "${method}" --max-time 120 -o /dev/null -w "%{http_code}" "${url}"
+}
+
+function wait_for_indexer() {
+  # The indexer answers 503 until its security configuration is loaded, so this only waits for it to
+  # listen; verify_indexer() checks authentication once indexer-security-init.sh has run.
+  logger "Waiting for Wazuh indexer to listen on 9200"
+  local code retries=0
+  code=$(curl -s -k --max-time 10 -o /dev/null -w "%{http_code}" https://localhost:9200/)
+  while [ "${code}" = "000" ]; do
+      if [ "${retries}" -ge "${indexer_max_retries}" ]; then
+          logger -e "Wazuh indexer is still not listening after ${retries} attempts"
+          exit 1
+      fi
+      sleep "${indexer_wait_time}"
+      retries=$((retries+1))
+      code=$(curl -s -k --max-time 10 -o /dev/null -w "%{http_code}" https://localhost:9200/)
+  done
+}
+
+function run_indexer_security_init() {
+  # Loading the security configuration stays a manual step of the indexer package: it uploads the
+  # digests the indexer's --prestart just wrote into internal_users.yml.
+  logger "Loading the Wazuh indexer security configuration"
+  run_or_die "indexer-security-init.sh failed" \
+      bash /usr/share/wazuh-indexer/bin/indexer-security-init.sh -ho 127.0.0.1
+}
+
 function verify_indexer() {
-  # The indexer's admin user is `admin`. The users the indexer package ships and
-  # security-init loads are admin, kibanaserver, wazuh-manager and wazuh-readonly.
+  # As admin, with the password the indexer package generated on this boot.
   logger "Waiting for Wazuh indexer to be ready"
-  local http_status retries=0 indexer_check_comm
-  indexer_check_comm="curl -XGET https://localhost:9200/ -u${wazuh_indexer_admin_user}:${wazuh_indexer_admin_password} -k --max-time 120 --silent -w \"%{http_code}\" --output /dev/null"
-  http_status=$(eval "${indexer_check_comm}")
+  local http_status retries=0
+  http_status=$(http_status https://localhost:9200/ "${wazuh_indexer_admin_user}" "${wazuh_indexer_admin_key}")
   while [ "${http_status}" != "200" ]; do
       if [ "${retries}" -ge "${indexer_max_retries}" ]; then
           logger -e "Wazuh indexer is still not ready after ${retries} attempts (last HTTP status: ${http_status})"
@@ -159,7 +215,7 @@ function verify_indexer() {
       logger -w "Wazuh indexer is not ready yet, waiting ${indexer_wait_time} seconds"
       sleep "${indexer_wait_time}"
       retries=$((retries+1))
-      http_status=$(eval "${indexer_check_comm}")
+      http_status=$(http_status https://localhost:9200/ "${wazuh_indexer_admin_user}" "${wazuh_indexer_admin_key}")
   done
 }
 
@@ -167,9 +223,8 @@ function verify_manager() {
   # The manager's API (apid, port 55000) is what the dashboard talks to for everything outside the
   # indexer. Wait for the API here so that failure stops the boot where it happens.
   logger "Waiting for Wazuh manager API to be ready"
-  local http_code retries=0 manager_check_comm
-  manager_check_comm="curl -XPOST https://localhost:55000/security/user/authenticate -u${wazuh_manager_api_user}:${wazuh_manager_api_password} -k --max-time 120 -s -o /dev/null -w \"%{http_code}\""
-  http_code=$(eval "${manager_check_comm}")
+  local http_code retries=0
+  http_code=$(http_status https://localhost:55000/security/user/authenticate "${wazuh_manager_api_user}" "${wazuh_manager_api_key}" POST)
   while [ "${http_code}" != "200" ]; do
       if [ "${retries}" -ge "${manager_max_retries}" ]; then
           logger -e "Wazuh manager API is still not ready after ${retries} attempts (last HTTP status: ${http_code})"
@@ -178,15 +233,16 @@ function verify_manager() {
       logger -w "Wazuh manager API is not ready yet, waiting ${manager_wait_time} seconds"
       sleep "${manager_wait_time}"
       retries=$((retries+1))
-      http_code=$(eval "${manager_check_comm}")
+      http_code=$(http_status https://localhost:55000/security/user/authenticate "${wazuh_manager_api_user}" "${wazuh_manager_api_key}" POST)
   done
 }
 
 function verify_dashboard() {
+  # As admin, the account the user logs in with. The dashboard only answers once it has authenticated
+  # to the indexer as kibanaserver, so this also covers that pair.
   logger "Waiting for Wazuh dashboard to be ready"
-  local http_code retries=0 dashboard_check_comm
-  dashboard_check_comm="curl -XGET https://localhost:443/status -u${wazuh_indexer_admin_user}:${wazuh_indexer_admin_password} -k -w \"%{http_code}\" -s -o /dev/null"
-  http_code=$(eval "${dashboard_check_comm}")
+  local http_code retries=0
+  http_code=$(http_status https://localhost:443/status "${wazuh_indexer_admin_user}" "${wazuh_indexer_admin_key}")
   while [ "${http_code}" != "200" ]; do
       if [ "${retries}" -ge "${dashboard_max_retries}" ]; then
           logger -e "Wazuh dashboard is still not ready after ${retries} attempts (last HTTP status: ${http_code})"
@@ -195,7 +251,7 @@ function verify_dashboard() {
       logger -w "Wazuh dashboard is not ready yet, waiting ${dashboard_wait_time} seconds"
       sleep "${dashboard_wait_time}"
       retries=$((retries+1))
-      http_code=$(eval "${dashboard_check_comm}")
+      http_code=$(http_status https://localhost:443/status "${wazuh_indexer_admin_user}" "${wazuh_indexer_admin_key}")
   done
 }
 
@@ -372,6 +428,11 @@ function generate_certificates() {
   # fixed tar path regardless of the tool's own working directory.
   logger "Generating the CA and all component certificates for this instance"
 
+  # Start from an empty CA directory: if an earlier attempt failed after installing its CA, a retry
+  # would otherwise keep that CA (key and JDK truststore entry included) while issuing the
+  # certificates from a new one.
+  sudo rm -rf "${wazuh_ca_dir}"
+
   local -a agent_san_flags=()
   local ip
   for ip in $(get_manager_san_ips); do
@@ -404,6 +465,56 @@ function copy_indexer_certs() {
   sudo chmod 500 "${wazuh_indexer_certs_dir}"
   sudo find "${wazuh_indexer_certs_dir}" -type f -exec chmod 400 {} \;
   sudo chown -R wazuh-indexer:wazuh-indexer "${wazuh_indexer_certs_dir}/"
+}
+
+function write_indexer_dns() {
+  # Mirrors CertsManager.set_indexer_distinguished_names(): the indexer only accepts the node in
+  # plugins.security.nodes_dn and the admin in plugins.security.authcz.admin_dn, comparing DNs in
+  # order, and the subject order differs between certs-tool versions and the indexer package. Both
+  # DNs are read back from the certificates just installed, in RFC 2253 form.
+  logger "Writing the indexer node and admin DNs into ${wazuh_indexer_conf}"
+  local cert_name node_dn admin_dn
+  cert_name=$(read_cert_name '.["plugins.security.ssl.http.pemcert_filepath"]' "${wazuh_indexer_conf}")
+  node_dn=$(sudo openssl x509 -in "${wazuh_indexer_certs_dir}/${cert_name}" -noout -subject -nameopt RFC2253 | sed 's/^subject= *//')
+  admin_dn=$(sudo openssl x509 -in "${wazuh_indexer_certs_dir}/admin.pem" -noout -subject -nameopt RFC2253 | sed 's/^subject= *//')
+  if [[ -z "${node_dn}" || -z "${admin_dn}" ]]; then
+    logger -e "Could not read the subject of the indexer certificates"
+    exit 1
+  fi
+  run_or_die "Failed to write the indexer DNs into ${wazuh_indexer_conf}" \
+      sudo yq -i ".[\"plugins.security.nodes_dn\"] = [\"${node_dn}\"] | .[\"plugins.security.authcz.admin_dn\"] = [\"${admin_dn}\"]" "${wazuh_indexer_conf}"
+}
+
+function install_ca() {
+  # This VM's root CA goes to /etc/wazuh/ca before any service starts. A certs-tool built on the
+  # packages' shared library already created it there and kept its key out of the bundle; an older
+  # one left both in its output, so they are taken from the tar then.
+  logger "Installing this VM's CA in ${wazuh_ca_dir}"
+  run_or_die "Failed to create ${wazuh_ca_dir}" \
+      sudo install -d -m 0700 -o root -g root "${wazuh_base_dir}" "${wazuh_ca_dir}"
+  if [ ! -f "${wazuh_ca_dir}/root-ca.pem" ]; then
+    run_or_die "Failed to extract the CA into ${wazuh_ca_dir}" \
+        sudo tar -xf "${wazuh_certs_tar}" -C "${wazuh_ca_dir}" ./root-ca.pem
+    if sudo tar -tf "${wazuh_certs_tar}" ./root-ca.key > /dev/null 2>&1; then
+      run_or_die "Failed to extract the CA key into ${wazuh_ca_dir}" \
+          sudo tar -xf "${wazuh_certs_tar}" -C "${wazuh_ca_dir}" ./root-ca.key
+    fi
+  fi
+  sudo chown root:root "${wazuh_ca_dir}"/root-ca.*
+  sudo chmod 0644 "${wazuh_ca_dir}/root-ca.pem"
+  if [ -f "${wazuh_ca_dir}/root-ca.key" ]; then
+    sudo chmod 0400 "${wazuh_ca_dir}/root-ca.key"
+  fi
+
+  # WORKAROUND: this VM's CA into the indexer JDK truststore, before the indexer starts.
+  # -cacerts: the truststore of the keytool's own JDK, the indexer's.
+  local keytool=(sudo "${indexer_keytool}" -cacerts -storepass "${indexer_jdk_cacerts_pass}")
+  if "${keytool[@]}" -list -alias "${indexer_jdk_ca_alias}" > /dev/null 2>&1; then
+    run_or_die "Failed to remove the old CA from the indexer JDK truststore" \
+        "${keytool[@]}" -delete -alias "${indexer_jdk_ca_alias}"
+  fi
+  run_or_die "Failed to import this VM's CA into the indexer JDK truststore" \
+      "${keytool[@]}" -importcert -noprompt -alias "${indexer_jdk_ca_alias}" -file "${wazuh_ca_dir}/root-ca.pem"
 }
 
 function copy_manager_certs() {
@@ -461,31 +572,10 @@ function clean_configuration(){
   logger "Cleaning configuration files"
   eval "rm -rf /var/log/wazuh-starter.log"
   eval "rm -f /etc/.wazuh-starter.sh /etc/systemd/system/wazuh-starter.service /etc/systemd/system/wazuh-starter.timer"
-  # wazuh_certs_tar carries the CA private key (the tar packs the cert-tool's whole output
-  # unfiltered) with none of the 500/400 restrictive permissions copy_*_certs applies to what it
-  # extracts into each component's own directory -- left as the tool wrote it, that's exactly the
-  # persisted, loosely-permissioned key material issue #957 set out to remove.
-  #
-  # The fix is to secure root-ca.pem/root-ca.key in a fixed, restrictive location, NOT to destroy
-  # them: the issue only requires that root-ca.key never ship baked into the image (a single CA
-  # shared by every copy of it), not that a booted instance erase its own copy. Its own acceptance
-  # criteria assume the opposite -- "reissuing the leaf is enough and does not break enrolled
-  # agents, since they pin the CA rather than the leaf" only holds if that CA still exists to sign a
-  # new leaf with, e.g. after the instance's address changes or a load balancer joins later. An
-  # earlier revision of this function deleted them outright instead, which satisfied the letter of
-  # "not baked into the image" but broke that reissuing guarantee for every OVA -- caught only by
-  # tracing the issue's exact wording, not by anything that runs. wazuh-installation-assistant, which
-  # this whole first-boot design otherwise mirrors, never destroys its equivalent either: it
-  # chmod 400s the generated root-ca.pem/key and bundles them into wazuh-install-files.tar for the
-  # operator to keep (install_functions/installCommon.sh).
-  run_or_die "Failed to extract the CA into ${wazuh_ca_dir}" \
-      sudo mkdir -p "${wazuh_ca_dir}"
-  run_or_die "Failed to extract the CA into ${wazuh_ca_dir}" \
-      sudo tar -xf "${wazuh_certs_tar}" -C "${wazuh_ca_dir}" ./root-ca.pem ./root-ca.key
-  sudo chown -R root:root "${wazuh_ca_dir}"
-  sudo chmod 700 "${wazuh_ca_dir}"
-  sudo chmod 400 "${wazuh_ca_dir}/root-ca.pem" "${wazuh_ca_dir}/root-ca.key"
-
+  # wazuh_certs_tar can carry the CA private key (older certs-tool versions pack their whole output)
+  # with none of the restrictive permissions applied to what gets extracted into each component's own
+  # directory; the CA itself is already secured in wazuh_ca_dir (install_ca). The credentials file is
+  # deliberately kept: it is where the user reads the generated passwords from.
   eval "rm -f ${wazuh_certs_tar}"
   eval "rm -rf ${wazuh_certs_dir}"
 }
@@ -497,13 +587,23 @@ function clean_configuration(){
 
 logger "Starting Wazuh services in order"
 
+# Certificates first: the packages never issue them outside `--install`, and the indexer records
+# its resolution as complete on its first start.
 reset_enrollment_state
 generate_certificates
 copy_indexer_certs
+write_indexer_dns
 copy_manager_certs
 copy_dashboard_certs
+install_ca
 
+# Then strictly in order, never in parallel: each package resolves its credentials when its service
+# starts. The indexer generates admin, kibanaserver and wazuh-manager and publishes them to the
+# credentials file; the manager and the dashboard read theirs from there and refuse to start
+# (MISSING) if the indexer has not published them yet.
 starter_service wazuh-indexer
+wait_for_indexer
+run_indexer_security_init
 verify_indexer
 
 starter_service wazuh-manager
@@ -517,6 +617,7 @@ starter_service wazuh-agent
 
 starter_service wazuh-dashboard
 verify_dashboard
+systemctl enable wazuh-indexer
 systemctl enable wazuh-manager
 systemctl enable wazuh-agent
 systemctl enable wazuh-dashboard

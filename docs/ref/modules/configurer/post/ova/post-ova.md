@@ -23,11 +23,36 @@ Once the **Provisioner and Core Configurer** have been executed, the Wazuh compo
     - `wazuh-statistics-*`  
     - `wazuh-monitoring-*`  
 11. The `security-init.sh` is executed.  
-12. Stop `wazuh-indexer` and `wazuh-dashboard` services and disable `wazuh-manager` and `wazuh-dashboard`.  
-13. Cleanup tasks are executed.  
-14. A network configuration file is created which ensures that a network interface is raised with **DHCP** on **IPv4** accessible.  
-15. **SSH** is configured to use modern and secure cryptographic algorithms, in accordance with **FIPS** activation.  
-16. Further cleanup of logs, command history, package cache and restart of the `sshd` service.  
+12. Stop `wazuh-indexer` and `wazuh-dashboard` services and disable every Wazuh service (`wazuh-starter` starts them in order on first boot).  
+13. The credentials, certificates and CA resolved at build time are removed (see below).  
+14. Cleanup tasks are executed.  
+15. A network configuration file is created which ensures that a network interface is raised with **DHCP** on **IPv4** accessible.  
+16. **SSH** is configured to use modern and secure cryptographic algorithms, in accordance with **FIPS** activation.  
+17. Further cleanup of logs, command history, package cache and restart of the `sshd` service.  
+
+## Credentials: generated per VM on first boot
+
+The Wazuh 5.0 packages generate their own passwords ([wazuh/wazuh-indexer#1928](https://github.com/wazuh/wazuh-indexer/issues/1928)): there is no `admin:admin`, `wazuh:wazuh` or `wazuh-wui:wazuh-wui` any more. Each package runs `resolve-credentials` when it is installed (`--install`) and again when its service starts (`--prestart`), and publishes the passwords it owns to `/etc/wazuh/credentials.env` (`root:root 0600`).
+
+**Build.** The packages are installed, so the build resolves credentials of its own. Once every service is stopped, `purge-build-credentials.sh` (`configurer/core/static/`) runs each package's `resolve-credentials --clear` and removes `/etc/wazuh`. Until the packages' `--clear` covers them, it also applies three workarounds, to be removed in the next release:
+
+1. It restores the indexer's password placeholders in `internal_users.yml`. The indexer's `--clear` keeps the build-time digests, and the first boot would then publish passwords the indexer does not accept.
+2. It removes the Server API TLS pair (`apid.pem`/`apid-key.pem`) and JWT signing keypair (`api/configuration/security/private_key.pem`/`public_key.pem`) created during the build. The manager creates new ones on first boot.
+3. It removes the build CA the indexer postinst imported into the indexer JDK truststore (`cacerts`, alias `wazuh-root-ca`). First boot imports the instance's own CA there instead.
+
+The script fails the build if anything resolved at build time is left: `/etc/wazuh`, the indexer marker, `rbac.db`, the manager keystore, a digest instead of a placeholder, a component certificate, the API pair or keypair, or the truststore alias.
+
+**First boot**, strictly in this order and never in parallel:
+
+1. `wazuh-certs-tool.sh` creates this VM's CA and certificates. The CA goes to `/etc/wazuh/ca/` and each pair to its component. The CA is also imported into the indexer JDK truststore as `wazuh-root-ca` (workaround 3). `nodes_dn` and `authcz.admin_dn` are written from the certificates just installed, since their subject order depends on the certs-tool version. Certificates must be in place before the first start: the packages never issue them outside `--install`.
+2. The indexer starts: its `--prestart` generates `admin`, `kibanaserver` and `wazuh-manager` and publishes them.
+3. `indexer-security-init.sh` loads the security configuration (a manual step of the indexer package).
+4. The manager starts: it generates the Server API passwords (`wazuh`, `wazuh-wui`) and reads `WAZUH_INDEXER_MANAGER_PASSWORD`.
+5. The dashboard starts: it reads `kibanaserver` and `wazuh-wui`.
+
+Every readiness check reads its password from `credentials.env` and hands it to curl through its standard input, never on a command line. No passwords tool is involved on first boot: the packages generate a unique password per VM.
+
+**Where the user finds the password.** `credentials.env` is left in place: the dashboard user is `admin`, with the password in `WAZUH_INDEXER_ADMIN_PASSWORD` (`sudo grep WAZUH_INDEXER_ADMIN_PASSWORD /etc/wazuh/credentials.env`). The login banner says so, and recommends deleting the file once the passwords are saved.
 
 ## Wazuh Agent enrollment on first boot
 
@@ -54,9 +79,9 @@ First boot generates a fresh root CA and issues every component's certificate fr
 
 [wazuh-virtual-machines#957](https://github.com/wazuh/wazuh-virtual-machines/issues/957), which introduced this first-boot regeneration, asked to decide and document this case: "reissuing the leaf is enough and does not break enrolled agents, since they pin the CA rather than the leaf." Its only requirement about the CA's private key is that it never ships baked into the image (a single `root-ca.key` shared by every VM imported from it would make hostname/chain verification worthless) — nothing in the issue asks a booted instance to destroy its own copy once generated.
 
-So this instance's root CA (`root-ca.pem` and `root-ca.key`) is kept, not deleted, in a fixed, restrictive location: `/etc/wazuh-certificate-authority/` (`700`, files `400`, owner `root:root`). `wazuh-installation-assistant`, which this whole first-boot design otherwise mirrors, does the same with its own equivalent — it `chmod 400`s the generated `root-ca.pem`/`.key` and bundles them into `wazuh-install-files.tar` for the operator to keep (`install_functions/installCommon.sh`) — rather than ever destroying them. An earlier revision of `clean_configuration()` in `wazuh-starter.sh` deleted `root-ca.key` outright instead of securing it; that satisfied the letter of "not baked into the image" but broke the issue's own reissuing guarantee, and was only caught by tracing the issue's exact wording rather than by anything that runs.
+So this instance's root CA (`root-ca.pem` and `root-ca.key`) is kept, not deleted, in `/etc/wazuh/ca/`, where the packages' shared credentials library expects it (directory `700`, `root-ca.pem` `644`, `root-ca.key` `400`, owner `root:root`). `wazuh-installation-assistant`, which this whole first-boot design otherwise mirrors, does the same with its own equivalent — it `chmod 400`s the generated `root-ca.pem`/`.key` and bundles them into `wazuh-install-files.tar` for the operator to keep (`install_functions/installCommon.sh`) — rather than ever destroying them. An earlier revision of `clean_configuration()` in `wazuh-starter.sh` deleted `root-ca.key` outright instead of securing it; that satisfied the letter of "not baked into the image" but broke the issue's own reissuing guarantee, and was only caught by tracing the issue's exact wording rather than by anything that runs.
 
-**To reissue `remoted.pem`'s SAN after the instance's address changes** (or to add a load balancer's own certificate later, `wazuh-certs-tool.sh -lb`), run `wazuh-certs-tool.sh` again passing `/etc/wazuh-certificate-authority/root-ca.pem` and `.../root-ca.key` as the existing CA, instead of leaving it to generate a new one — this keeps every already-enrolled agent's trust intact, since they pinned the CA and it has not changed. There is no automation for this today; it is a manual operator step.
+**To reissue `remoted.pem`'s SAN after the instance's address changes** (or to add a load balancer's own certificate later, `wazuh-certs-tool.sh -lb`), run `wazuh-certs-tool.sh` again with this CA instead of a new one — versions built on the shared credentials library reuse `/etc/wazuh/ca` by default; older ones take `/etc/wazuh/ca/root-ca.pem` and `root-ca.key` as the existing CA — this keeps every already-enrolled agent's trust intact, since they pinned the CA and it has not changed. There is no automation for this today; it is a manual operator step.
 
 ## Considerations
 

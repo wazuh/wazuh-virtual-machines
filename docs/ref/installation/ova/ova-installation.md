@@ -36,13 +36,20 @@ curl -sO https://packages-staging.xdrsiem.wazuh.info/pre-release/5.x/vm/wazuh-5.
 
 ## Access the Wazuh dashboard
 
-Shortly after starting the VM, the Wazuh dashboard can be accessed from the web interface by using the following credentials:
+Shortly after starting the VM, the Wazuh dashboard can be accessed from the web interface:
 
 ```bash
 URL: https://<wazuh_manager_ip>
 user: admin
-password: admin
 ```
+
+There is no default password. On its first boot the VM generates unique passwords for every Wazuh account and stores them in `/etc/wazuh/credentials.env` (readable by root only). Log in as `wazuh-user` and read the `admin` password with:
+
+```bash
+sudo grep WAZUH_INDEXER_ADMIN_PASSWORD /etc/wazuh/credentials.env
+```
+
+For security, save the passwords somewhere safe and then delete the file (`sudo rm /etc/wazuh/credentials.env`). The console login banner reminds you of this. See [OVA security](../../security/ova/ova-security.md#wazuh-credentials) for the rest of the accounts.
 
 You can find `<wazuh_manager_ip>` by typing the following command in the VM:
 

@@ -4,7 +4,17 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from configurer.ami.ami_post_configurer.ami_post_configurer import AmiPostConfigurer
-from utils.enums import CertificatesComponent, PasswordToolComponent, RemoteDirectories
+from configurer.core.utils import indexer_request_command, purge_build_credentials_command
+from utils.enums import CertificatesComponent, RemoteDirectories
+
+INDEXES_TO_DELETE = [
+    "wazuh-*",
+    "_data_stream/*",
+    ".wazuh-cti-consumers",
+    ".wazuh-threatintel-vulnerabilities-*",
+    ".wazuh-settings",
+    ".wazuh-content-manager-jobs",
+]
 
 
 @pytest.fixture()
@@ -17,6 +27,7 @@ def main_methods() -> list[str]:
         "stop_wazuh_manager",
         "stop_wazuh_indexer",
         "stop_wazuh_dashboard",
+        "purge_build_credentials",
         "change_ssh_port_to_default",
         "clean_cloud_instance_files",
         "clean_journal_logs",
@@ -79,8 +90,6 @@ def test_create_custom_dir_success(mock_create_structure, mock_generate_yaml, mo
         "remote_certs_path": RemoteDirectories.CERTS,
         "certs_tool": CertificatesComponent.CERTS_TOOL,
         "certs_config": CertificatesComponent.CONFIG,
-        "passwords_tool_path": RemoteDirectories.PASSWORDS_TOOL,
-        "passwords_tool": PasswordToolComponent.PASSWORDS_TOOL,
     }
 
     mock_generate_yaml.return_value = {"template": "test_value"}
@@ -195,15 +204,14 @@ def test_stop_wazuh_manager(mock_ami_post_configurer, mock_exec_command, mock_pa
 
 
 def test_stop_wazuh_indexer(mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger):
+    mock_exec_command.return_value = "200", ""
     mock_ami_post_configurer.stop_wazuh_indexer(mock_paramiko.return_value)
 
     expected_commands = [
-        'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/wazuh-*"',
-        'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/_data_stream/*"',
-        'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/.wazuh-cti-consumers"',
-        'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/.wazuh-threatintel-vulnerabilities-*"',
-        'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/.wazuh-settings"',
-        'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/.wazuh-content-manager-jobs"',
+        *[
+            indexer_request_command(method="DELETE", path=index, url="https://127.0.0.1:9200")
+            for index in INDEXES_TO_DELETE
+        ],
         "sudo /usr/share/wazuh-indexer/bin/indexer-security-init.sh",
         "sudo systemctl stop wazuh-indexer",
         "sudo systemctl --quiet disable wazuh-indexer",
@@ -224,15 +232,12 @@ def test_stop_wazuh_indexer(mock_ami_post_configurer, mock_exec_command, mock_pa
 
 
 def test_remove_wazuh_indexes(mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger):
+    mock_exec_command.return_value = "200", ""
     mock_ami_post_configurer.remove_wazuh_indexes(mock_paramiko.return_value)
 
     expected_commands = [
-        'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/wazuh-*"',
-        'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/_data_stream/*"',
-        'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/.wazuh-cti-consumers"',
-        'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/.wazuh-threatintel-vulnerabilities-*"',
-        'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/.wazuh-settings"',
-        'sudo curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "admin:admin" -k "https://127.0.0.1:9200/.wazuh-content-manager-jobs"',
+        indexer_request_command(method="DELETE", path=index, url="https://127.0.0.1:9200")
+        for index in INDEXES_TO_DELETE
     ]
 
     assert mock_exec_command.call_count == 6
@@ -241,6 +246,10 @@ def test_remove_wazuh_indexes(mock_ami_post_configurer, mock_exec_command, mock_
     for cmd in expected_commands:
         assert cmd in called_commands
 
+    # The admin password comes from /etc/wazuh/credentials.env on the instance, through curl's stdin.
+    assert not any("admin:admin" in cmd for cmd in called_commands)
+    assert all("-K -" in cmd and "WAZUH_INDEXER_ADMIN_PASSWORD" in cmd for cmd in called_commands)
+
     mock_logger.debug.assert_any_call("Removing Wazuh indexer indexes")
     mock_logger.debug.assert_any_call("Wazuh indexer indexes removed successfully")
 
@@ -248,10 +257,51 @@ def test_remove_wazuh_indexes(mock_ami_post_configurer, mock_exec_command, mock_
 def test_remove_wazuh_indexes_fail(mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger):
     mock_exec_command.return_value = ("", "Command failed")
 
-    with pytest.raises(RuntimeError, match=r"Error removing index wazuh-\*: Command failed"):
+    with pytest.raises(RuntimeError, match=r"Error removing index wazuh-\* \(HTTP \): Command failed"):
         mock_ami_post_configurer.remove_wazuh_indexes(mock_paramiko.return_value)
 
     mock_logger.error.assert_called_once_with("Error removing index: wazuh-*")
+
+
+def test_remove_wazuh_indexes_fails_on_unauthorized(
+    mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger
+):
+    mock_exec_command.return_value = ("401", "")
+
+    with pytest.raises(RuntimeError, match=r"Error removing index wazuh-\* \(HTTP 401\)"):
+        mock_ami_post_configurer.remove_wazuh_indexes(mock_paramiko.return_value)
+
+
+def test_remove_wazuh_indexes_warns_on_other_codes(
+    mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger
+):
+    mock_exec_command.return_value = ("403", "")
+
+    mock_ami_post_configurer.remove_wazuh_indexes(mock_paramiko.return_value)
+
+    mock_logger.warning.assert_any_call("Removing index wazuh-* returned HTTP 403")
+
+
+@patch("configurer.ami.ami_post_configurer.ami_post_configurer.exec_command_with_status")
+def test_purge_build_credentials(mock_exec_with_status, mock_ami_post_configurer, mock_paramiko, mock_logger):
+    mock_exec_with_status.return_value = ("Build-time credentials, certificates and CA removed", "", 0)
+
+    mock_ami_post_configurer.purge_build_credentials(mock_paramiko.return_value)
+
+    mock_exec_with_status.assert_called_once_with(
+        command=purge_build_credentials_command(), client=mock_paramiko.return_value
+    )
+    mock_logger.info_success.assert_any_call("Build-time credentials, certificates and CA removed")
+
+
+@patch("configurer.ami.ami_post_configurer.ami_post_configurer.exec_command_with_status")
+def test_purge_build_credentials_fail(mock_exec_with_status, mock_ami_post_configurer, mock_paramiko, mock_logger):
+    mock_exec_with_status.return_value = ("", "ERROR: the image still holds material resolved at build time", 1)
+
+    with pytest.raises(RuntimeError, match="the image still holds material resolved at build time"):
+        mock_ami_post_configurer.purge_build_credentials(mock_paramiko.return_value)
+
+    mock_logger.error.assert_called_once_with("Error removing the build-time credentials")
 
 
 def test_run_security_init_script(mock_ami_post_configurer, mock_exec_command, mock_paramiko, mock_logger):

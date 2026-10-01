@@ -12,4 +12,27 @@
 
 ## Access the Wazuh dashboard
 
-To access the Wazuh dashboard through a browser, you must use the public IP address provided by AWS, or the private IP address if you are within a VPC without internet access. To log in to the Wazuh dashboard, use the username `admin` and the password will be the instance ID, replacing the `i` with an `I`, for example: `I-09b7e3e4b5e89b0a0`
+To access the Wazuh dashboard through a browser, you must use the public IP address provided by AWS, or the private IP address if you are within a VPC without internet access. Log in with the username `admin`.
+
+The password is no longer the instance ID. On its first boot each instance generates unique passwords for every Wazuh account and stores them in `/etc/wazuh/credentials.env` (readable by root only). Connect with SSH and read the `admin` password with:
+
+```bash
+sudo grep WAZUH_INDEXER_ADMIN_PASSWORD /etc/wazuh/credentials.env
+```
+
+## Wazuh credentials
+
+`/etc/wazuh/credentials.env` holds every password generated for this instance:
+
+| Key | Account |
+|---|---|
+| `WAZUH_INDEXER_ADMIN_PASSWORD` | `admin` (indexer and dashboard login) |
+| `WAZUH_INDEXER_KIBANASERVER_PASSWORD` | `kibanaserver` (dashboard to indexer) |
+| `WAZUH_INDEXER_MANAGER_PASSWORD` | `wazuh-manager` (manager to indexer) |
+| `WAZUH_MANAGER_API_PASSWORD` | `wazuh` (Wazuh server API) |
+| `WAZUH_MANAGER_WUI_PASSWORD` | `wazuh-wui` (dashboard to the Wazuh server API) |
+
+- No two instances launched from the AMI share a password, a certificate or a CA: the image ships none of them, and each instance creates its own on first boot.
+- Save the passwords somewhere safe and then delete the file (`sudo rm /etc/wazuh/credentials.env`). The services keep working without it; the SSH login banner reminds you of this.
+- To change a password later, use `wazuh-passwords-tool.sh`.
+- This instance's root CA, including its private key, is kept in `/etc/wazuh/ca/` (root only) to reissue certificates later.
