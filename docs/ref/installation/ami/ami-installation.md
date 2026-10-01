@@ -38,4 +38,4 @@ Once your instance is successfully launched and a few minutes have elapsed, you 
 
 11. Click **Launch instances** to complete the process and deploy your instance.
 
-Once your instance is fully configured and ready after a few minutes since launch, you can access the Wazuh dashboard.
+Once your instance is fully configured and ready after a few minutes since launch, you can access the Wazuh dashboard. The `admin` password is generated on the instance's first boot: see [AMI security](../../security/ami/ami-security.md#access-the-wazuh-dashboard) to read it.
