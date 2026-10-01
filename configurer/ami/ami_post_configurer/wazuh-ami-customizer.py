@@ -1,12 +1,13 @@
 import argparse
-import json
 import logging
 import os
+import subprocess
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 from configurer.core.models import CertsManager
-from configurer.core.utils import ComponentCertsDirectory
+from configurer.core.utils import WAZUH_BASE_DIR, WAZUH_CA_DIR, ComponentCertsDirectory, CredentialKey, read_credential
 from generic import exec_command, exec_command_with_status
 from utils import Component, Logger
 
@@ -14,7 +15,6 @@ LOGFILE = Path("/var/log/wazuh-ami-customizer.log")
 TEMP_DIR = Path("/etc/wazuh-ami-customizer")
 CERTS_TOOL_PATH = Path(f"{TEMP_DIR}/certs-tool.sh")
 CERTS_TOOL_CONFIG_PATH = Path(f"{TEMP_DIR}/config.yml")
-PASSWORDS_TOOL_PATH = Path(f"{TEMP_DIR}/passwords-tool.sh")
 SERVICE_PATH = "/etc/systemd/system"
 SERVICE_NAME = f"{SERVICE_PATH}/wazuh-ami-customizer.service"
 SERVICE_TIMER_NAME = f"{SERVICE_PATH}/wazuh-ami-customizer.timer"
@@ -48,11 +48,12 @@ WAZUH_AGENT_REENROLL_SECRET_FILE = "/var/ossec/etc/reenroll.secret"
 WAZUH_AGENT_ENROLLMENT_ADDRESS = "127.0.0.1"
 
 # The indexer's own admin account, used to poll both the indexer and the dashboard (which
-# authenticates against the indexer's security plugin). The indexer package ships admin,
-# kibanaserver, wazuh-manager and wazuh-readonly.
+# authenticates against the indexer's security plugin), and the manager API account the dashboard
+# uses. Their passwords are not known in advance: the packages generate them on this first boot
+# (`resolve-credentials --prestart`) and publish them to /etc/wazuh/credentials.env, which stays on
+# the instance as the record the user reads them from.
 WAZUH_INDEXER_ADMIN_USER = "admin"
-# Its password until change_passwords() rotates every indexer user to the instance id.
-WAZUH_INDEXER_ADMIN_PASSWORD = "admin"
+WAZUH_MANAGER_API_USER = "wazuh-wui"
 
 # The token CLI talks to queue/sockets/auth.sock, which a manager reporting "active" may still be
 # opening: systemctl returns as soon as the unit is active, not once every daemon inside it has
@@ -60,13 +61,20 @@ WAZUH_INDEXER_ADMIN_PASSWORD = "admin"
 ENROLLMENT_TOKEN_MAX_RETRIES = 12
 ENROLLMENT_TOKEN_WAIT_TIME = 5
 
-# Where this instance's own root CA (key included) lives on, past first boot, so a leaf can be
-# reissued later (e.g. the instance's address changes, or a load balancer joins) without having to
-# start over with a brand new CA every enrolled agent would have to re-trust. See clean_up() for why
-# this is kept, not deleted -- issue #957 only requires that root-ca.key never ship baked into the
-# image, not that a launched instance destroy its own copy.
-WAZUH_CA_DIR = Path("/etc/wazuh-certificate-authority")
+# This instance's own root CA (key included) lives on past first boot in WAZUH_CA_DIR
+# (/etc/wazuh/ca), where the packages' shared credentials library expects it, so a leaf can be
+# reissued later (e.g. the instance's address changes, or a load balancer joins) without a brand new
+# CA every enrolled agent would have to re-trust. Issue #957 only requires that root-ca.key never
+# ship baked into the image, not that a launched instance destroy its own copy.
 WAZUH_CERTS_TAR = TEMP_DIR / "wazuh-certificates.tar"
+
+# WORKAROUND (until the indexer's --clear handles it): the indexer postinst imports its CA into the
+# bundled JDK truststore as "wazuh-root-ca". The build removes the build CA from there
+# (purge-build-credentials.sh), so first boot imports this instance's CA instead, as a fresh
+# package install would.
+INDEXER_KEYTOOL = "/usr/share/wazuh-indexer/jdk/bin/keytool"
+INDEXER_JDK_CA_ALIAS = "wazuh-root-ca"
+INDEXER_JDK_CACERTS_PASS = "changeit"
 
 # A stopped unit that left processes behind keeps them in its cgroup until the last one exits.
 SERVICE_CGROUP_PROCS = "/sys/fs/cgroup/system.slice/{unit}/cgroup.procs"
@@ -209,11 +217,61 @@ def debug_ssh_message() -> None:
     )
 
 
-def verify_component_connection(component: Component, command: str, retries: int = 5, wait_time: int = 10) -> None:
+def http_status(url: str, user: str, password_key: str, method: str = "GET") -> str:
+    """
+    Sends one request authenticated with a password from /etc/wazuh/credentials.env.
+
+    The password goes to curl through its standard input (`-K -`), never on its command line, where
+    any local user could read it off the process list, and it is never logged.
+
+    Args:
+        url (str): The URL to request.
+        user (str): The user to authenticate as.
+        password_key (str): The credentials.env key holding that user's password.
+        method (str): The HTTP method. Defaults to GET.
+
+    Returns:
+        str: The HTTP status code, or "000" if the request could not be made.
+    """
+
+    try:
+        password = read_credential(password_key)
+    except (OSError, KeyError) as error:
+        logger.warning(f"Cannot read {password_key}: {error}")
+        return "000"
+
+    result = subprocess.run(
+        [
+            "curl",
+            "-s",
+            "-k",
+            "-K",
+            "-",
+            "-X",
+            method,
+            "--max-time",
+            "120",
+            "-o",
+            "/dev/null",
+            "-w",
+            "%{http_code}",
+            url,
+        ],
+        input=f'user = "{user}:{password}"\n',
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip() or "000"
+
+
+def verify_component_connection(
+    component: Component, check: Callable[[], str], retries: int = 5, wait_time: int = 10
+) -> None:
     """
     Verifies the component connection by sending a request to the component's endpoint.
     Args:
         component (Component): The component to verify.
+        check (Callable[[], str]): Sends the request and returns its HTTP status code.
         retries (int): Number of retries if the connection fails.
         wait_time (int): Time to wait between retries.
 
@@ -224,14 +282,14 @@ def verify_component_connection(component: Component, command: str, retries: int
     logger.debug(f"Verifying {component.replace('_', ' ')} connection...")
 
     for attempt in range(retries):
-        output, _ = exec_command(command=command)
+        output = check()
         if output == "200":
             logger.debug(f"{component.replace('_', ' ')} connection verified successfully")
             return
 
         if attempt < retries - 1:
             wait = wait_time * (attempt + 1)  # Incremental wait time
-            logger.debug(f"Attempt {attempt + 1} failed, retrying in {wait} seconds...")
+            logger.debug(f"Attempt {attempt + 1} failed (HTTP {output}), retrying in {wait} seconds...")
             time.sleep(wait)
         else:
             logger.error(f"{component.replace('_', ' ')} connection failed after {retries} attempts")
@@ -288,10 +346,14 @@ def remove_certificates() -> None:
     """
 
     logger.debug("Removing existing certificates...")
+    # The CA directory goes too: if an earlier first-boot attempt failed after installing its CA, a
+    # retry would otherwise keep that CA (key and JDK truststore entry included) while issuing the
+    # certificates from a new one.
     command = f"""
     rm -rf {ComponentCertsDirectory.WAZUH_MANAGER}/*
     rm -rf {ComponentCertsDirectory.WAZUH_INDEXER}/*
     rm -rf {ComponentCertsDirectory.WAZUH_DASHBOARD}/*
+    rm -rf {WAZUH_CA_DIR}
     """
     run_command(command=command, error_message="Error removing existing certificates")
 
@@ -363,7 +425,51 @@ def create_certificates() -> None:
     logger.debug("Creating new certificates...")
     certs_manager = CertsManager(raw_config_path=CERTS_TOOL_CONFIG_PATH, certs_tool_path=CERTS_TOOL_PATH)
     certs_manager.generate_certificates(agent_san=get_manager_san_ips())
+    install_certificate_authority()
     logger.debug("New certificates created")
+
+
+def install_certificate_authority() -> None:
+    """
+    Leaves this instance's root CA in /etc/wazuh/ca, where the packages' shared credentials library
+    expects the trust anchor: the directory root:root 0700, root-ca.pem 0644 and root-ca.key 0400.
+
+    A wazuh-certs-tool.sh built on that library already creates the CA there and never copies its key
+    into the certificates bundle. An older one creates it in its own output directory, which
+    CertsManager packs into WAZUH_CERTS_TAR, so the anchor and its key are taken from the tar then.
+
+    Returns:
+        None
+    """
+
+    logger.debug(f"Installing this instance's CA in {WAZUH_CA_DIR}")
+
+    command = f"""
+    install -d -m 0700 -o root -g root {WAZUH_BASE_DIR} {WAZUH_CA_DIR}
+    if [ ! -f {WAZUH_CA_DIR}/root-ca.pem ]; then
+        tar -xf {WAZUH_CERTS_TAR} -C {WAZUH_CA_DIR} ./root-ca.pem
+        if tar -tf {WAZUH_CERTS_TAR} ./root-ca.key > /dev/null 2>&1; then
+            tar -xf {WAZUH_CERTS_TAR} -C {WAZUH_CA_DIR} ./root-ca.key
+        fi
+    fi
+    chown root:root {WAZUH_CA_DIR}/root-ca.*
+    chmod 0644 {WAZUH_CA_DIR}/root-ca.pem
+    if [ -f {WAZUH_CA_DIR}/root-ca.key ]; then chmod 0400 {WAZUH_CA_DIR}/root-ca.key; fi
+    """
+    run_command(command=command, error_message=f"Error installing the CA in {WAZUH_CA_DIR}")
+
+    # WORKAROUND: this instance's CA into the indexer JDK truststore, before the indexer starts.
+    # -cacerts: the truststore of the keytool's own JDK, the indexer's.
+    keytool_opts = f"-cacerts -storepass {INDEXER_JDK_CACERTS_PASS}"
+    command = f"""
+    if {INDEXER_KEYTOOL} -list {keytool_opts} -alias {INDEXER_JDK_CA_ALIAS} > /dev/null 2>&1; then
+        {INDEXER_KEYTOOL} -delete {keytool_opts} -alias {INDEXER_JDK_CA_ALIAS}
+    fi
+    {INDEXER_KEYTOOL} -importcert {keytool_opts} -noprompt -alias {INDEXER_JDK_CA_ALIAS} -file {WAZUH_CA_DIR}/root-ca.pem
+    """
+    run_command(command=command, error_message="Error importing the CA into the indexer JDK truststore")
+
+    logger.debug("CA installed")
 
 
 def stop_ssh_service() -> None:
@@ -399,46 +505,54 @@ def stop_components_services() -> None:
     logger.debug("Wazuh components services stopped")
 
 
-def verify_indexer_connection(password: str = WAZUH_INDEXER_ADMIN_PASSWORD) -> None:
+def verify_indexer_connection() -> None:
     """
-    Verifies the connection to the Wazuh indexer.
-    This function sends a request to the Wazuh indexer endpoint and checks the response.
-    It ensures that the Wazuh indexer is running and accessible after the custom certificates have been configured.
+    Verifies the connection to the Wazuh indexer as admin, with the password the indexer package
+    generated on this boot (WAZUH_INDEXER_ADMIN_PASSWORD in /etc/wazuh/credentials.env).
 
     Returns:
         None
     """
 
-    command = f'curl -XGET https://localhost:9200/ -u{WAZUH_INDEXER_ADMIN_USER}:{password} -k --max-time 120 --silent -w "%{{http_code}}" --output /dev/null'
-    verify_component_connection(Component.WAZUH_INDEXER, command)
+    verify_component_connection(
+        Component.WAZUH_INDEXER,
+        lambda: http_status("https://localhost:9200/", WAZUH_INDEXER_ADMIN_USER, CredentialKey.INDEXER_ADMIN),
+    )
 
 
-def verify_manager_connection(password: str = "wazuh-wui") -> None:
+def verify_manager_connection() -> None:
     """
-    Verifies the connection to the Wazuh manager API.
-    This function sends a request to the Wazuh manager API endpoint and checks the response.
-    It ensures that the Wazuh manager API is running and accessible after the custom certificates have been configured.
+    Verifies the connection to the Wazuh manager API as wazuh-wui, the account the dashboard uses,
+    with the password the manager package generated on this boot (WAZUH_MANAGER_WUI_PASSWORD).
 
     Returns:
         None
     """
 
-    command = f'curl -XPOST https://localhost:55000/security/user/authenticate -uwazuh-wui:{password} -k --max-time 120 -w "%{{http_code}}" -s -o /dev/null'
-    verify_component_connection(Component.WAZUH_MANAGER, command)
+    verify_component_connection(
+        Component.WAZUH_MANAGER,
+        lambda: http_status(
+            "https://localhost:55000/security/user/authenticate",
+            WAZUH_MANAGER_API_USER,
+            CredentialKey.MANAGER_WUI,
+            method="POST",
+        ),
+    )
 
 
-def verify_dashboard_connection(password: str = WAZUH_INDEXER_ADMIN_PASSWORD) -> None:
+def verify_dashboard_connection() -> None:
     """
-    Verifies the connection to the Wazuh dashboard.
-    This function sends a request to the Wazuh dashboard endpoint and checks the response.
-    It ensures that the Wazuh dashboard is running and accessible after the custom certificates have been configured.
+    Verifies the Wazuh dashboard as admin, the account the user logs in with. The dashboard only
+    answers once it has authenticated to the indexer as kibanaserver, so this also covers that pair.
 
     Returns:
         None
     """
 
-    command = f'curl -XGET https://localhost:443/status -u{WAZUH_INDEXER_ADMIN_USER}:{password} -k -w "%{{http_code}}" -s -o /dev/null'
-    verify_component_connection(Component.WAZUH_DASHBOARD, command)
+    verify_component_connection(
+        Component.WAZUH_DASHBOARD,
+        lambda: http_status("https://localhost:443/status", WAZUH_INDEXER_ADMIN_USER, CredentialKey.INDEXER_ADMIN),
+    )
 
 
 def start_ssh_service() -> None:
@@ -591,8 +705,16 @@ def start_components_services() -> None:
 
     logger.debug("Starting Wazuh components services...")
 
+    # Strictly in this order, never in parallel: each package resolves its credentials when its
+    # service starts (`resolve-credentials --prestart`, wazuh-virtual-machines#973). The indexer
+    # generates admin, kibanaserver and wazuh-manager and publishes them to /etc/wazuh/credentials.env;
+    # the manager and the dashboard read theirs from there and refuse to start (MISSING) if the indexer
+    # has not published them yet. Certificates are already in place (create_certificates()): the
+    # packages never issue them outside `--install`.
     enable_service("wazuh-indexer")
     start_service("wazuh-indexer")
+    # Loading the security configuration stays a manual step of the indexer package: it uploads the
+    # digests the indexer's --prestart just wrote into internal_users.yml.
     run_indexer_security_init()
     verify_indexer_connection()
 
@@ -622,130 +744,23 @@ def start_components_services() -> None:
     logger.debug("Wazuh components services started")
 
 
-def get_instance_id() -> str:
-    """
-    Retrieves the instance ID of the current machine capitalized.
-
-    Returns:
-        str: The instance ID of the current machine.
-    """
-
-    logger.debug("Retrieving instance ID")
-
-    output = run_command(
-        command="ec2-metadata | grep 'instance-id' | cut -d':' -f2",
-        error_message="Error retrieving instance ID",
-    )
-
-    return output.strip().capitalize()
-
-
-def retrieve_users(component: str) -> list:
-    """
-    Retrieves a list with all Wazuh users of the selected component.
-
-    Returns:
-        List of users.
-    """
-
-    logger.debug(f"Retrieving users from Wazuh {component}")
-
-    if component == "indexer":
-        command = "curl -XGET 'https://127.0.0.1:9200/_plugins/_security/api/internalusers/' -ks -u admin:admin"
-        output = run_command(command=command, error_message="Error retrieving indexer users")
-
-        users_data = json.loads(output)
-        users = list(users_data.keys())
-        logger.debug(f"Indexer users retrieved: {users}")
-
-    elif component == "manager":
-        token_command = "curl -s -u wazuh:wazuh -k -X POST 'https://127.0.0.1:55000/security/user/authenticate?raw=true' --max-time 300 --retry 5 --retry-delay 5"
-        token = run_command(command=token_command, error_message="Error retrieving manager token")
-
-        command = f'curl -XGET -H "Authorization: Bearer {token}" -H "Content-Type: application/json" "https://127.0.0.1:55000/security/users" -ks -u wazuh:wazuh'
-        output = run_command(command=command, error_message="Error retrieving manager users")
-
-        users_data = json.loads(output)
-        users = [user["username"] for user in users_data["data"]["affected_items"]]
-        logger.debug(f"Manager users retrieved: {users}")
-
-    else:
-        raise ValueError("Invalid component specified. Use 'indexer' or 'manager'.")
-
-    return users
-
-
-def change_passwords() -> None:
-    logger.name = "CustomPasswords"
-    logger.debug("Changing passwords started")
-    logger.debug("Getting instance ID")
-    instance_id = get_instance_id()
-
-    indexer_users = retrieve_users("indexer")
-    manager_users = retrieve_users("manager")
-
-    logger.debug("Changing passwords to instance ID")
-
-    for user in indexer_users:
-        logger.debug(f"Changing password for indexer user: {user}")
-        command = f"""
-        bash {PASSWORDS_TOOL_PATH} -u {user} -p {instance_id}
-        """
-        run_command(command=command, error_message=f"Error changing password for indexer user {user}")
-
-    for user in manager_users:
-        logger.debug(f"Changing password for manager user: {user}")
-        command = f"""
-        bash {PASSWORDS_TOOL_PATH} -A -au {user} -ap {user} -u {user} -p {instance_id}
-        """
-        run_command(command=command, error_message=f"Error changing password for manager user {user}")
-
-    logger.debug("Passwords changed. Verifying indexer connection with new password")
-    verify_indexer_connection(password=instance_id)
-    logger.debug("Verifying manager API connection with new password")
-    verify_manager_connection(password=instance_id)
-    logger.debug("Changing passwords finished successfully")
-
-
 def clean_up() -> None:
     """
     Cleans up temporary files and directories created during the process.
 
     TEMP_DIR holds the cert-tool's own working directory, including WAZUH_CERTS_TAR -- a tar of its
-    whole output, unfiltered, so it also carries the root CA's private key with none of the 500/400
-    restrictive permissions applied to what gets extracted into each component's own directory. Left
-    as the tool wrote it, that's exactly the persisted, loosely-permissioned key material issue #957
-    set out to remove.
+    whole output, unfiltered, which with older certs-tool versions also carries the root CA's private
+    key with none of the restrictive permissions applied to what gets extracted into each component's
+    own directory. The CA itself is kept, secured, in WAZUH_CA_DIR (install_certificate_authority()).
 
-    The fix is to secure root-ca.pem/root-ca.key in WAZUH_CA_DIR, NOT to destroy them: the issue only
-    requires that root-ca.key never ship baked into the image (a single CA shared by every instance
-    launched from it), not that a launched instance erase its own copy. Its own acceptance criteria
-    assume the opposite -- "reissuing the leaf is enough and does not break enrolled agents, since
-    they pin the CA rather than the leaf" only holds if that CA still exists to sign a new leaf with,
-    e.g. after the instance's address changes or a load balancer joins later. An earlier revision of
-    this function deleted them outright instead, which satisfied the letter of "not baked into the
-    image" but broke that reissuing guarantee for every launched instance -- caught only by tracing
-    the issue's exact wording, not by anything that runs. wazuh-installation-assistant, which this
-    whole first-boot design otherwise mirrors, never destroys its equivalent either: it chmod 400s
-    the generated root-ca.pem/key and bundles them into wazuh-install-files.tar for the operator to
-    keep (install_functions/installCommon.sh).
+    /etc/wazuh/credentials.env is deliberately left in place: it is where the user reads the
+    generated passwords from, and the documentation tells them to delete it once they have.
 
     Returns:
         None
     """
 
     logger.debug("Cleaning up temporary files and directories...")
-
-    WAZUH_CA_DIR.mkdir(parents=True, exist_ok=True)
-    run_command(
-        command=f"tar -xf {WAZUH_CERTS_TAR} -C {WAZUH_CA_DIR} ./root-ca.pem ./root-ca.key",
-        error_message=f"Error extracting the CA into {WAZUH_CA_DIR}",
-    )
-    run_command(
-        command=f"chown -R root:root {WAZUH_CA_DIR} && chmod 700 {WAZUH_CA_DIR} "
-        f"&& chmod 400 {WAZUH_CA_DIR}/root-ca.pem {WAZUH_CA_DIR}/root-ca.key",
-        error_message=f"Error securing {WAZUH_CA_DIR}",
-    )
 
     command = f"""
     rm -rf {TEMP_DIR}
@@ -777,11 +792,6 @@ if __name__ == "__main__":
         remove_certificates()
         create_certificates()
         start_components_services()
-        stop_service("wazuh-dashboard")
-        change_passwords()
-        start_service("wazuh-dashboard")
-        time.sleep(10)  # Wait for dashboard to initialize
-        verify_dashboard_connection(get_instance_id())
         start_ssh_service()
 
         if not args.debug:

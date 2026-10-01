@@ -11,8 +11,6 @@ files:
     local: false
   - path: "{{ remote_certs_path }}/{{ certs_config }}"
     local: false
-  - path: "{{ passwords_tool_path }}/{{ passwords_tool }}"
-    local: false
 directories:
   - name: "src"
     files:
@@ -28,7 +26,9 @@ directories:
                   - path: "configurer/core/utils/__init__.py"
                     local: true
                   - path: "configurer/core/utils/enums.py"
-                    local: true 
+                    local: true
+                  - path: "configurer/core/utils/credentials.py"
+                    local: true
               - name: "models"
                 files:
                   - path: "configurer/core/models/certificates_manager.py"

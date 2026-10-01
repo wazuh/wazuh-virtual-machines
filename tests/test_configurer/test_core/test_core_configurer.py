@@ -4,10 +4,7 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
-from configurer.core.core_configurer import (
-    MANAGER_KEYSTORE_MAX_RETRIES,
-    CoreConfigurer,
-)
+from configurer.core.core_configurer import CoreConfigurer
 from configurer.core.utils import ComponentCertsConfigParameter, ComponentConfigFile
 from utils import Component
 
@@ -31,16 +28,12 @@ def example_config_file():
 @pytest.fixture
 def mock_exec_command():
     mock_exec_command = MagicMock()
-    mock_exec_command_with_status = MagicMock()
     with (
         patch("configurer.core.models.wazuh_components_config_manager.exec_command", mock_exec_command),
         patch("configurer.core.models.certificates_manager.exec_command", mock_exec_command),
         patch("configurer.core.core_configurer.exec_command", mock_exec_command),
-        patch("configurer.core.core_configurer.exec_command_with_status", mock_exec_command_with_status),
     ):
         mock_exec_command.return_value = "", ""
-        mock_exec_command_with_status.return_value = "", "", 0
-        mock_exec_command.with_status = mock_exec_command_with_status
         yield mock_exec_command
 
 
@@ -173,17 +166,6 @@ def test_start_services_success(mock_exec_command, mock_logger):
         client=None,
     )
 
-    # The keystore commands are set through set_manager_keystore, using exec_command_with_status
-    # instead of the combined enable/start block, so they're checked separately.
-    mock_exec_command.with_status.assert_any_call(
-        command="sudo /var/wazuh-manager/bin/wazuh-manager-keystore -f indexer -k username -v wazuh-manager",
-        client=None,
-    )
-    mock_exec_command.with_status.assert_any_call(
-        command="sudo /var/wazuh-manager/bin/wazuh-manager-keystore -f indexer -k password -v wazuh-manager",
-        client=None,
-    )
-
     mock_logger.debug.assert_any_call("wazuh indexer service started")
     mock_logger.debug.assert_any_call("wazuh manager service started")
     mock_logger.debug.assert_any_call("wazuh dashboard service started")
@@ -192,47 +174,15 @@ def test_start_services_success(mock_exec_command, mock_logger):
     mock_logger.error.assert_not_called()
 
 
-def test_set_manager_keystore_success(mock_exec_command, mock_logger):
+def test_start_services_does_not_write_the_manager_keystore(mock_exec_command, mock_logger):
+    # The manager package resolves its indexer credential itself (WAZUH_INDEXER_MANAGER_PASSWORD from
+    # /etc/wazuh/credentials.env). Writing the old wazuh-manager/wazuh-manager pair over it would leave
+    # the manager unable to authenticate to the indexer.
     core_configurer_instance = CoreConfigurer(inventory=None, files_configuration_path=Path("test_path.yml"))
-    core_configurer_instance.set_manager_keystore(client=None)
+    core_configurer_instance.start_services(client=None)
 
-    mock_exec_command.with_status.assert_any_call(
-        command="sudo /var/wazuh-manager/bin/wazuh-manager-keystore -f indexer -k username -v wazuh-manager",
-        client=None,
-    )
-    mock_exec_command.with_status.assert_any_call(
-        command="sudo /var/wazuh-manager/bin/wazuh-manager-keystore -f indexer -k password -v wazuh-manager",
-        client=None,
-    )
-    mock_logger.error.assert_not_called()
-
-
-@patch("configurer.core.core_configurer.time.sleep")
-def test_set_manager_keystore_retries_on_lock_contention(mock_sleep, mock_exec_command, mock_logger):
-    # The keystore CLI loses the RocksDB lock race twice, then succeeds.
-    mock_exec_command.with_status.side_effect = [
-        ("", "lock contention", 1),
-        ("", "lock contention", 1),
-        ("", "", 0),
-        ("", "", 0),
-    ]
-    core_configurer_instance = CoreConfigurer(inventory=None, files_configuration_path=Path("test_path.yml"))
-    core_configurer_instance.set_manager_keystore(client=None)
-
-    assert mock_sleep.call_count == 2
-    mock_logger.error.assert_not_called()
-
-
-@patch("configurer.core.core_configurer.time.sleep")
-def test_set_manager_keystore_error(mock_sleep, mock_exec_command, mock_logger):
-    mock_exec_command.with_status.return_value = ("", "still locked", 1)
-    core_configurer_instance = CoreConfigurer(inventory=None, files_configuration_path=Path("test_path.yml"))
-
-    with pytest.raises(RuntimeError, match="Error setting manager keystore username"):
-        core_configurer_instance.set_manager_keystore(client=None)
-
-    assert mock_exec_command.with_status.call_count == MANAGER_KEYSTORE_MAX_RETRIES
-    mock_logger.error.assert_any_call("Error setting manager keystore username")
+    all_commands = " ".join(call.kwargs.get("command", "") for call in mock_exec_command.call_args_list)
+    assert "wazuh-manager-keystore" not in all_commands
 
 
 @pytest.mark.parametrize(
