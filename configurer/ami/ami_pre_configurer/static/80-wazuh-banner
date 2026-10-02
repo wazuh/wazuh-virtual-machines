@@ -28,8 +28,9 @@ wwwwwww.          wwwwwww.          wwwwwww.
             https://wazuh.com
 
  Wazuh dashboard: https://<this instance's address>   User: admin
- The passwords generated for this instance are stored in /etc/wazuh/credentials.env:
-   sudo grep WAZUH_INDEXER_ADMIN_PASSWORD /etc/wazuh/credentials.env
+ The passwords generated for this instance are stored in /etc/wazuh/credentials.env.
+ Print the admin password with:
+   sudo grep '^WAZUH_INDEXER_ADMIN_PASSWORD=' /etc/wazuh/credentials.env | cut -d= -f2-
  For security, save them and delete that file (if you have not deleted it yet).
 
 

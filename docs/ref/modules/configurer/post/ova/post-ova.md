@@ -52,7 +52,7 @@ The script fails the build if anything resolved at build time is left: `/etc/waz
 
 Every readiness check reads its password from `credentials.env` and hands it to curl through its standard input, never on a command line. No passwords tool is involved on first boot: the packages generate a unique password per VM.
 
-**Where the user finds the password.** `credentials.env` is left in place: the dashboard user is `admin`, with the password in `WAZUH_INDEXER_ADMIN_PASSWORD` (`sudo grep WAZUH_INDEXER_ADMIN_PASSWORD /etc/wazuh/credentials.env`). The login banner says so, and recommends deleting the file once the passwords are saved.
+**Where the user finds the password.** `credentials.env` is left in place: the dashboard user is `admin`, with the password in `WAZUH_INDEXER_ADMIN_PASSWORD` (`sudo grep '^WAZUH_INDEXER_ADMIN_PASSWORD=' /etc/wazuh/credentials.env | cut -d= -f2-`). The login banner says so, and recommends deleting the file once the passwords are saved.
 
 ## Wazuh Agent enrollment on first boot
 
