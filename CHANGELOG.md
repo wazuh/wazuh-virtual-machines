@@ -90,6 +90,7 @@
 
 | Issue | Comment |
 | - | - |
+| [#992](https://github.com/wazuh/wazuh-virtual-machines/issues/992) | Fix the GitHub Actions workflow filenames referenced in the AMI and OVA artifact generation guides |
 | [#945](https://github.com/wazuh/wazuh-virtual-machines/pull/945) | Leave the Wazuh services disabled in the AMI so they do not race the customizer on first boot |
 | [#901](https://github.com/wazuh/wazuh-virtual-machines/issues/901) | Remove unnecessary debhelper install-time dependency for wazuh_dashboard |
 | [#919](https://github.com/wazuh/wazuh-virtual-machines/pull/919) | Report skipped bumps in the repository bumper workflow |
