@@ -22,5 +22,5 @@ There is no default password for any Wazuh account. On its first boot the VM gen
 - Read one with `sudo grep '^WAZUH_INDEXER_ADMIN_PASSWORD=' /etc/wazuh/credentials.env | cut -d= -f2-`.
 - No two VMs imported from the OVA share a password, a certificate or a CA: the image ships none of them, and each VM creates its own on first boot.
 - Save the passwords somewhere safe and then delete the file (`sudo rm /etc/wazuh/credentials.env`). The services keep working without it; the console banner reminds you of this.
-- To change a password later, use `wazuh-passwords-tool.sh`.
+- To change a password later, use `wazuh-passwords-tool.sh`. The tool is not included in the image: see [Password management](https://documentation.wazuh.com/current/user-manual/user-administration/password-management.html) to download and run it.
 - This VM's root CA, including its private key, is kept in `/etc/wazuh/ca/` (root only) to reissue certificates later.
