@@ -34,5 +34,5 @@ sudo grep '^WAZUH_INDEXER_ADMIN_PASSWORD=' /etc/wazuh/credentials.env | cut -d= 
 
 - No two instances launched from the AMI share a password, a certificate or a CA: the image ships none of them, and each instance creates its own on first boot.
 - Save the passwords somewhere safe and then delete the file (`sudo rm /etc/wazuh/credentials.env`). The services keep working without it; the SSH login banner reminds you of this.
-- To change a password later, use `wazuh-passwords-tool.sh`.
+- To change a password later, use `wazuh-passwords-tool.sh`. The tool is not included in the image: see [Password management](https://documentation.wazuh.com/current/user-manual/user-administration/password-management.html) to download and run it.
 - This instance's root CA, including its private key, is kept in `/etc/wazuh/ca/` (root only) to reissue certificates later.
