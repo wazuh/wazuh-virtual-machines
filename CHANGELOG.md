@@ -35,7 +35,6 @@
 
 | Issue | Comment |
 | - | - |
-| [#1091](https://github.com/wazuh/wazuh-installation-assistant/issues/1091) | Print only the admin password in the AMI and OVA banners and docs |
 | [#973](https://github.com/wazuh/wazuh-virtual-machines/issues/973) | Adapt AMI and OVA first boot to install-time credential generation |
 | [#975](https://github.com/wazuh/wazuh-virtual-machines/issues/975) | Enroll the pre-installed agent with an enrollment token minted at first boot, instead of copying the manager's `authd.pass` |
 | [#975](https://github.com/wazuh/wazuh-virtual-machines/issues/975) | Fix the OVA/AMI first-boot readiness checks, which asked the indexer and the dashboard for a `wazuh-admin` user that does not exist, and wait for the manager API on the OVA |
