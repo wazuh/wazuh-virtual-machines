@@ -6,7 +6,7 @@ You can generate the OVA artifact automatically by using the GitHub Actions work
 
 ## Automatic execution with GitHub Actions
 
-This process is fully automatic. It can be used from the **Actions** page of the wazuh-virtual-machines repository. The name of the workflow is `builder_OVA.yaml` or **Build OVA** in the web browser.
+This process is fully automatic. It can be used from the **Actions** page of the wazuh-virtual-machines repository. The name of the workflow is `5_OVA_builder.yaml` or **(5.x) OVA Builder** in the web browser.
 
 This workflow accepts the following inputs:
 

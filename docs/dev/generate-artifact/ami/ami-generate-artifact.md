@@ -60,7 +60,7 @@ Once the execution is complete, **you must export the AMI manually from the AWS 
 
 ## Automatic Execution with GitHub Actions
 
-To automate the process, you can use the `packages_builder_ami.yaml` workflow from the **Actions** section in GitHub.
+To automate the process, you can use the `5_AMI_builder.yaml` workflow ("(5.x) AMI Builder" in the **Actions** section) in GitHub.
 
 This workflow accepts the following inputs:
 
