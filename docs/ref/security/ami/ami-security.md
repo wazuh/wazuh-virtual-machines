@@ -17,7 +17,7 @@ To access the Wazuh dashboard through a browser, you must use the public IP addr
 The password is no longer the instance ID. On its first boot each instance generates unique passwords for every Wazuh account and stores them in `/etc/wazuh/credentials.env` (readable by root only). Connect with SSH and read the `admin` password with:
 
 ```bash
-sudo grep WAZUH_INDEXER_ADMIN_PASSWORD /etc/wazuh/credentials.env
+sudo grep '^WAZUH_INDEXER_ADMIN_PASSWORD=' /etc/wazuh/credentials.env | cut -d= -f2-
 ```
 
 ## Wazuh credentials
