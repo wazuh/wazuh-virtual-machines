@@ -18,6 +18,7 @@
 #   1. Indexer: restore the ${WAZUH_INDEXER_*_PASSWORD} placeholders in internal_users.yml.
 #   2. Manager: remove the Server API TLS pair (apid.pem/apid-key.pem) and JWT signing keypair.
 #   3. Indexer: remove the build CA the postinst imported into the JDK truststore (cacerts).
+#   4. Manager: remove the Server API log written at build time (wazuh/wazuh#40053).
 
 set -euo pipefail
 
@@ -35,6 +36,7 @@ MANAGER_API_CERT="${MANAGER_HOME}/etc/certs/apid.pem"
 MANAGER_API_KEY="${MANAGER_HOME}/etc/certs/apid-key.pem"
 MANAGER_API_JWT_PRIVATE="${MANAGER_HOME}/api/configuration/security/private_key.pem"
 MANAGER_API_JWT_PUBLIC="${MANAGER_HOME}/api/configuration/security/public_key.pem"
+MANAGER_API_LOG="${MANAGER_HOME}/logs/api.log"
 INDEXER_KEYTOOL="/usr/share/wazuh-indexer/jdk/bin/keytool"
 INDEXER_JDK_CA_ALIAS="wazuh-root-ca"
 INDEXER_JDK_CACERTS_PASS="changeit"
@@ -95,6 +97,16 @@ if jdk_ca_present; then
         -alias "${INDEXER_JDK_CA_ALIAS}" < /dev/null
 fi
 
+# WORKAROUND 4 -- remove once wazuh/wazuh#40053 is fixed in the manager (planned for RC2).
+#
+# The API rotates api.log at midnight, based on the file's mtime. An image booted on a later day
+# than it was built finds a build-time api.log, so the API's first log record rotates it while the
+# API still runs as root: the new api.log is created root:root 0644, the API cannot open it once it
+# drops privileges, and it exits silently (nothing listens on 55000). Without the file, the API
+# creates it on first boot with the right owner and a fresh mtime, so no rotation is pending.
+echo "Removing the Server API log written at build time"
+rm -f "${MANAGER_API_LOG}"
+
 # --clear leaves /etc/wazuh behind: credentials.env with an empty managed block, the lock file and
 # an empty ca/ directory. A published image must carry none of them; the packages recreate the
 # directory on first boot.
@@ -115,7 +127,7 @@ done
 for cert in /etc/wazuh-indexer/certs/* /etc/wazuh-dashboard/certs/* \
             "${MANAGER_HOME}"/etc/certs/remoted*.pem "${MANAGER_HOME}"/etc/certs/indexer-connector*.pem \
             "${MANAGER_HOME}"/etc/certs/root-ca.pem "${MANAGER_API_CERT}" "${MANAGER_API_KEY}" \
-            "${MANAGER_API_JWT_PRIVATE}" "${MANAGER_API_JWT_PUBLIC}"; do
+            "${MANAGER_API_JWT_PRIVATE}" "${MANAGER_API_JWT_PUBLIC}" "${MANAGER_API_LOG}"; do
     [ -e "${cert}" ] && leftovers+=("${cert}")
 done
 jdk_ca_present && leftovers+=("indexer JDK truststore (cacerts, alias ${INDEXER_JDK_CA_ALIAS})")

@@ -91,6 +91,7 @@
 
 | Issue | Comment |
 | - | - |
+| [#1010](https://github.com/wazuh/wazuh-virtual-machines/issues/1010) | Remove the build-time Server API log from the OVA and AMI so the API starts on first boot (workaround for wazuh/wazuh#40053) |
 | [#992](https://github.com/wazuh/wazuh-virtual-machines/issues/992) | Fix the GitHub Actions workflow filenames referenced in the AMI and OVA artifact generation guides |
 | [#945](https://github.com/wazuh/wazuh-virtual-machines/pull/945) | Leave the Wazuh services disabled in the AMI so they do not race the customizer on first boot |
 | [#901](https://github.com/wazuh/wazuh-virtual-machines/issues/901) | Remove unnecessary debhelper install-time dependency for wazuh_dashboard |

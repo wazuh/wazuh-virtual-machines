@@ -108,8 +108,16 @@ def test_purge_build_credentials_script_removes_the_api_pair_and_the_jdk_trustst
     assert 'INDEXER_JDK_CA_ALIAS="wazuh-root-ca"' in script
     assert '-delete -cacerts -storepass "${INDEXER_JDK_CACERTS_PASS}"' in script
     # Both are part of the leftovers verification.
-    assert '"${MANAGER_API_JWT_PRIVATE}" "${MANAGER_API_JWT_PUBLIC}"; do' in script
+    assert '"${MANAGER_API_JWT_PRIVATE}" "${MANAGER_API_JWT_PUBLIC}" "${MANAGER_API_LOG}"; do' in script
     assert "jdk_ca_present && leftovers+=" in script
+
+
+def test_purge_build_credentials_script_removes_the_build_time_api_log():
+    script = PURGE_BUILD_CREDENTIALS_SCRIPT.read_text()
+
+    # Workaround 4 (wazuh/wazuh#40053): a build-time api.log makes the API rotate it as root on first boot.
+    assert 'MANAGER_API_LOG="${MANAGER_HOME}/logs/api.log"' in script
+    assert 'rm -f "${MANAGER_API_LOG}"' in script
 
 
 def test_purge_build_credentials_script_gives_no_stdin_to_the_resolvers():
