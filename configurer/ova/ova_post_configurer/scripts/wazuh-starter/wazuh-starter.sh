@@ -441,6 +441,11 @@ function generate_certificates() {
 
   run_or_die "wazuh-certs-tool.sh failed to generate certificates" \
       sudo bash "${wazuh_certs_tool}" -A "${agent_san_flags[@]}"
+  # The tar bundles every leaf private key (the indexer admin one included). Created root:root 0600
+  # *before* tar writes into it: left to the service's default umask it would be 0644, readable by any
+  # local user, and it would stay that way if a later step failed.
+  run_or_die "Failed to create ${wazuh_certs_tar}" \
+      sudo install -m 0600 -o root -g root /dev/null "${wazuh_certs_tar}"
   run_or_die "Failed to compress generated certificates into ${wazuh_certs_tar}" \
       sudo tar -cf "${wazuh_certs_tar}" -C "${wazuh_certs_output_dir}/" .
   sudo rm -rf "${wazuh_certs_output_dir}"
@@ -568,6 +573,12 @@ function copy_dashboard_certs() {
   sudo chown -R wazuh-dashboard:wazuh-dashboard "${wazuh_dashboard_certs_dir}/"
 }
 
+function remove_certs_tar() {
+  # The tar bundles every leaf private key; once the copy_*_certs() functions and install_ca() have
+  # extracted what they need it is only a leftover. Safe to call more than once and when it is missing.
+  sudo rm -f "${wazuh_certs_tar}"
+}
+
 function clean_configuration(){
   logger "Cleaning configuration files"
   eval "rm -rf /var/log/wazuh-starter.log"
@@ -590,12 +601,18 @@ logger "Starting Wazuh services in order"
 # Certificates first: the packages never issue them outside `--install`, and the indexer records
 # its resolution as complete on its first start.
 reset_enrollment_state
+# clean_configuration only runs at the very end, after every service is up, so on any failure before
+# that (run_or_die exits the whole script) the tar would be left behind holding the private keys.
+trap remove_certs_tar EXIT
 generate_certificates
 copy_indexer_certs
 write_indexer_dns
 copy_manager_certs
 copy_dashboard_certs
 install_ca
+# install_ca is the last reader of the tar: drop it now rather than keeping the keys on disk for the
+# minutes the services take to start.
+remove_certs_tar
 
 # Then strictly in order, never in parallel: each package resolves its credentials when its service
 # starts. The indexer generates admin, kibanaserver and wazuh-manager and publishes them to the

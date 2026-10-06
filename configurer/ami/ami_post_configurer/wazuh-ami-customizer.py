@@ -424,9 +424,35 @@ def create_certificates() -> None:
 
     logger.debug("Creating new certificates...")
     certs_manager = CertsManager(raw_config_path=CERTS_TOOL_CONFIG_PATH, certs_tool_path=CERTS_TOOL_PATH)
-    certs_manager.generate_certificates(agent_san=get_manager_san_ips())
-    install_certificate_authority()
+    try:
+        certs_manager.generate_certificates(agent_san=get_manager_san_ips())
+        install_certificate_authority()
+    finally:
+        # install_certificate_authority() is the last reader of WAZUH_CERTS_TAR, so it is removed here
+        # instead of waiting for clean_up(): that only runs when the whole customization succeeds, and
+        # the failure path restarts sshd, which would leave every leaf private key sitting in the tar
+        # for whoever logs in next. Done in `finally` so it also covers a failure while generating or
+        # installing the certificates, before the error handler in main brings SSH back.
+        remove_certs_tar()
     logger.debug("New certificates created")
+
+
+def remove_certs_tar() -> None:
+    """
+    Deletes WAZUH_CERTS_TAR, the bundle CertsManager packs every generated certificate and leaf private
+    key into. Once the certificates are in each component's own directory it is only a leftover.
+
+    A failure to delete it is logged but never raised: this runs from a `finally`, where raising would
+    replace the original error that made the customization fail.
+
+    Returns:
+        None
+    """
+
+    try:
+        WAZUH_CERTS_TAR.unlink(missing_ok=True)
+    except OSError as error:
+        logger.error(f"Could not remove {WAZUH_CERTS_TAR}, it still holds the private keys: {error}")
 
 
 def install_certificate_authority() -> None:
