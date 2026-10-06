@@ -187,7 +187,9 @@ jobs:
 
     steps:
       - name: View parameters
-        run: echo "${{ toJson(inputs) }}"
+        env:
+          INPUTS_JSON: ${{ toJson(inputs) }}
+        run: printf '%s\n' "$INPUTS_JSON"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -391,7 +393,7 @@ jobs:
           fi
 
       - name: Comment PR with test results
-        if: always() && inputs.test_type == 'ami' && (github.event_name == 'pull_request' || github.event_name == 'issue_comment')
+        if: always() && inputs.test_type == 'ami' && github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
@@ -518,7 +520,9 @@ jobs:
 
     steps:
       - name: View parameters
-        run: echo "${{ toJson(inputs) }}"
+        env:
+          INPUTS_JSON: ${{ toJson(inputs) }}
+        run: printf '%s\n' "$INPUTS_JSON"
 
       - name: Checkout wazuh-virtual-machines
         uses: actions/checkout@v4
@@ -801,6 +805,7 @@ jobs:
           exit 1
 
       - name: Upload allocator working directory for cleanup
+        if: always() && steps.allocator.outcome == 'success'
         run: |
           echo "Uploading allocator working directory to S3..."
           aws s3 cp "${{ steps.allocator.outputs.work_dir }}" "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_test-vm/${{ github.run_id }}/allocator-workdir/" --recursive
@@ -899,7 +904,7 @@ jobs:
           fi
 
       - name: Comment PR with test results
-        if: always() && inputs.test_type == 'ova' && (github.event_name == 'pull_request' || github.event_name == 'issue_comment')
+        if: always() && inputs.test_type == 'ova' && github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |

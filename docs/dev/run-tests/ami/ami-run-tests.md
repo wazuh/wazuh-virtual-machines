@@ -74,12 +74,14 @@ Integration tests validate the correct behavior of the AMI itself by building th
 
 ### Manual Trigger
 
-Trigger AMI integration tests by commenting on the PR:
+Trigger AMI integration tests by adding a label to a non-draft PR:
 
-| Command | Triggers |
-|---------|----------|
-| `/test-integration` | OVA + AMI tests |
-| `/test-ami` | AMI only (both architectures) |
+| Label | Triggers |
+|-------|----------|
+| `test/integration` | OVA + AMI tests |
+| `test/ami` | AMI only (both architectures) |
+
+Each label added starts one run against the PR head at that moment. To run the tests again, remove the label and add it again. Labels added while the PR is a draft are ignored, and PRs opened from forks do not run.
 
 ### What it does
 
