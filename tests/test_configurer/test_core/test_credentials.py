@@ -123,6 +123,7 @@ def test_purge_build_credentials_script_installs_the_api_log_dropin():
     assert "ExecStartPre=-/usr/bin/chown wazuh-manager:wazuh-manager ${MANAGER_API_LOG}" in script
     assert "ExecStartPre=-/usr/bin/chmod 0660 ${MANAGER_API_LOG}" in script
 
+
 def test_purge_build_credentials_script_gives_no_stdin_to_the_resolvers():
     script = PURGE_BUILD_CREDENTIALS_SCRIPT.read_text()
 
