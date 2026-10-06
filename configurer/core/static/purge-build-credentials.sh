@@ -18,6 +18,7 @@
 #   1. Indexer: restore the ${WAZUH_INDEXER_*_PASSWORD} placeholders in internal_users.yml.
 #   2. Manager: remove the Server API TLS pair (apid.pem/apid-key.pem) and JWT signing keypair.
 #   3. Indexer: remove the build CA the postinst imported into the JDK truststore (cacerts).
+#   4. Manager: keep api.log from being rotated as root when the API starts (wazuh/wazuh#40053).
 
 set -euo pipefail
 
@@ -35,6 +36,8 @@ MANAGER_API_CERT="${MANAGER_HOME}/etc/certs/apid.pem"
 MANAGER_API_KEY="${MANAGER_HOME}/etc/certs/apid-key.pem"
 MANAGER_API_JWT_PRIVATE="${MANAGER_HOME}/api/configuration/security/private_key.pem"
 MANAGER_API_JWT_PUBLIC="${MANAGER_HOME}/api/configuration/security/public_key.pem"
+MANAGER_API_LOG="${MANAGER_HOME}/logs/api.log"
+MANAGER_API_LOG_DROPIN="/etc/systemd/system/wazuh-manager.service.d/api-log-workaround.conf"
 INDEXER_KEYTOOL="/usr/share/wazuh-indexer/jdk/bin/keytool"
 INDEXER_JDK_CA_ALIAS="wazuh-root-ca"
 INDEXER_JDK_CACERTS_PASS="changeit"
@@ -94,6 +97,25 @@ if jdk_ca_present; then
     "${INDEXER_KEYTOOL}" -delete -cacerts -storepass "${INDEXER_JDK_CACERTS_PASS}" \
         -alias "${INDEXER_JDK_CA_ALIAS}" < /dev/null
 fi
+
+# WORKAROUND 4 -- remove once wazuh/wazuh#40053 is fixed in the manager (planned for RC2).
+#
+# The API rotates api.log at midnight, based on the file's mtime. When the API starts with an
+# api.log last written on a previous day (first boot of an image built earlier, or any later
+# restart), its first log record rotates it while the API still runs as root: the new api.log is
+# created root:root 0644, the API cannot open it once it drops privileges, and it exits silently
+# (nothing listens on 55000). Refreshing the mtime and ownership before every manager start leaves
+# no rotation pending at startup; the midnight rotations that follow happen as wazuh-manager.
+# Note: only covers starts through systemd (the images never use wazuh-manager-control directly).
+echo "Installing the api.log workaround drop-in for wazuh-manager.service"
+mkdir -p "$(dirname "${MANAGER_API_LOG_DROPIN}")"
+cat > "${MANAGER_API_LOG_DROPIN}" <<EOF
+# Workaround for wazuh/wazuh#40053, added by wazuh-virtual-machines. Remove once the manager fixes it.
+[Service]
+ExecStartPre=-/usr/bin/touch ${MANAGER_API_LOG}
+ExecStartPre=-/usr/bin/chown wazuh-manager:wazuh-manager ${MANAGER_API_LOG}
+ExecStartPre=-/usr/bin/chmod 0660 ${MANAGER_API_LOG}
+EOF
 
 # --clear leaves /etc/wazuh behind: credentials.env with an empty managed block, the lock file and
 # an empty ca/ directory. A published image must carry none of them; the packages recreate the
