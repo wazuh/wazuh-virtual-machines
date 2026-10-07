@@ -165,7 +165,9 @@ jobs:
 
     steps:
       - name: View parameters
-        run: echo "${{ toJson(inputs) }}"
+        env:
+          INPUTS_JSON: ${{ toJson(inputs) }}
+        run: printf '%s\n' "$INPUTS_JSON"
 
       - name: Validate Issue URL
         if: inputs.issue != ''
@@ -335,6 +337,7 @@ jobs:
           fi
 
       - name: Build AMI from instance
+        id: create_ami
         if: success()
         run: |
           # Create AMI
@@ -405,11 +408,11 @@ jobs:
             --launch-permission "Add=[{UserId=${{ secrets.AWS_ACCOUNT_ID_WAZUH_DEV }}},{UserId=${{ secrets.AWS_ACCOUNT_ID_XDRSIEM_DEV }}}]"
 
       - name: Save AMI ID to artifact
-        if: success() && (inputs.is_pr_check == true || inputs.is_stage == true)
+        if: always() && steps.create_ami.outcome == 'success' && (inputs.is_pr_check == true || (inputs.is_stage == true && success()))
         run: echo "${{ env.AMI_ID }}" > ami_id.txt
 
       - name: Upload AMI ID artifact
-        if: success() && (inputs.is_pr_check == true || inputs.is_stage == true)
+        if: always() && steps.create_ami.outcome == 'success' && (inputs.is_pr_check == true || (inputs.is_stage == true && success()))
         run: |
           aws s3 cp "ami_id.txt" "s3://${{ secrets.CI_DEV_INTERNAL_S3_BUCKET }}/wazuh-virtual-machines/5_AMI_builder/${{ github.run_id }}/ami_id_${{ matrix.arch }}"
 

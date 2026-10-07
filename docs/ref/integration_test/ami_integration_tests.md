@@ -12,43 +12,43 @@ The workflow delegates image building to the reusable `.github/workflows/5_AMI_b
 
 | Mode | Trigger | Who can trigger |
 |---|---|---|
-| PR comment | `issue_comment` on an open, non-draft PR | Any repo collaborator |
+| PR label | `pull_request` (`labeled`) on a non-draft PR opened from a branch of this repository | Anyone who can add labels (triage access or higher) |
 | Manual | `workflow_dispatch` | Anyone with repo write access |
+
+To run the tests on a pull request, add one of the labels listed in [pull_request (label) flow](#pull_request-label-flow). Each label added starts one run against the PR head at that moment:
+
+- To run the tests again (for example after pushing new commits), remove the label and add it again.
+- Labels added while the PR is a draft are ignored. Mark the PR as ready for review and add the label again.
+- PRs opened from forks do not run: GitHub does not pass secrets or the OIDC token to `pull_request` runs from forks. Push the branch to this repository to test it.
 
 ---
 
 ## Execution Flows
 
-### issue_comment flow
+### pull_request (label) flow
 
 ```mermaid
 flowchart TD
-    A[PR comment posted] --> B{Recognized command\non open non-draft PR?}
+    A[Label added to PR] --> B{Test label on a non-draft\nPR from this repository?}
     B -- No --> Z[Ignored]
-    B -- Yes --> C[get_pr_info\nReact · Extract PR data\nGet linked issue\nCreate Check Run]
+    B -- Yes --> C[get_pr_info\nExtract PR data\nGet linked issue]
     C --> D[build_ami\nBuild amd64 + arm64 AMIs\nusing dev packages]
     D --> E[test_ami_amd64\nc5a.2xlarge]
     D --> F[test_ami_arm64\nc6g.2xlarge]
     E & F --> G[cleanup_amis\nDeregister AMIs + snapshots]
-    G --> H{outcome}
-    H -- success --> I[update_check_success]
-    H -- failure --> J[update_check_failure]
 ```
 
-**Recognized commands:** `/test-integration` or `/test-ami`
+**Labels:** `test/integration` (OVA and AMI) or `test/ami` (AMI only)
 
 ### workflow_dispatch flow
 
 ```mermaid
 flowchart TD
-    A[Manual trigger\npr_number required] --> C[get_pr_info\nFetch PR data from API\nGet linked issue\nCreate Check Run]
+    A[Manual trigger\npr_number required] --> C[get_pr_info\nFetch PR data from API\nGet linked issue]
     C --> D[build_ami\nBuild amd64 + arm64 AMIs]
     D --> E[test_ami_amd64\nc5a.2xlarge]
     D --> F[test_ami_arm64\nc6g.2xlarge]
     E & F --> G[cleanup_amis]
-    G --> H{outcome}
-    H -- success --> I[update_check_success]
-    H -- failure --> J[update_check_failure]
 ```
 
 ---
@@ -64,13 +64,13 @@ flowchart TD
 | `pr_head_sha` | No | — | PR commit SHA; fetched from GitHub API if not provided |
 | `wazuh_automation_reference` | No | `5.0.0` | Branch or tag of `wazuh-automation` to use |
 
-### issue_comment parameters
+### pull_request (label) parameters
 
 | Parameter | Source |
 |---|---|
-| `pr_number` | Issue number from the comment event |
-| `pr_head_ref` | Fetched from GitHub API using the PR number |
-| `pr_head_sha` | Fetched from GitHub API using the PR number |
+| `pr_number` | PR number from the event payload |
+| `pr_head_ref` | PR head branch from the event payload |
+| `pr_head_sha` | PR head SHA from the event payload |
 | `wazuh_automation_reference` | Fixed: `main` |
 
 ---
@@ -81,12 +81,10 @@ flowchart TD
 
 | Step | What it does |
 |---|---|
-| React to comment | Adds a 🚀 reaction (issue_comment only) |
-| Extract PR data | Resolves `pr_head_ref` and `pr_head_sha` from inputs or GitHub API |
+| Extract PR data | Resolves `pr_head_ref` and `pr_head_sha` from the event payload, or from inputs or the GitHub API on manual runs |
 | Get linked issue | Queries the GitHub GraphQL API for the closing issue linked to the PR; result is passed to the builder |
-| Create Check Run | Creates an `AMI Build & Test` Check Run in `in_progress` state on the PR head SHA |
 
-Outputs: `issue_url`, `pr_number`, `pr_head_ref`, `pr_head_sha`, `check_run_id`, `wazuh_automation_reference`.
+Outputs: `issue_url`, `pr_number`, `pr_head_ref`, `pr_head_sha`, `wazuh_automation_reference`.
 
 ### Job 2 — `build_ami` (reusable workflow)
 
@@ -181,15 +179,6 @@ aws ec2 delete-snapshot --snapshot-id {SNAPSHOT_ID}
 
 Each AMI ID is validated against the pattern `ami-[0-9a-f]{17}` before deregistration. Runs even if tests failed.
 
-### Jobs 5/6 — `update_check_success` / `update_check_failure`
-
-Two separate jobs handle the final Check Run update based on overall workflow outcome:
-
-| Trigger condition | Conclusion | Output |
-|---|---|---|
-| `if: success()` | `success` — ✅ AMI Build & Test - Success | Lists both AMI IDs and confirms tests passed |
-| `if: failure()` | `failure` — ❌ AMI Build & Test - Failed | Lists which step(s) failed (`Build AMI`, `Test amd64`, `Test arm64`) |
-
 ---
 
 ## Required Secrets and Variables
@@ -201,7 +190,7 @@ Two separate jobs handle the final Check Run update based on overall workflow ou
 | `AWS_IAM_OVA_ROLE` | OIDC role for all AWS operations (build, test, cleanup) |
 | `GH_CLONE_TOKEN` | Checkout `wazuh-automation` in test job |
 | `AWS_EC2_SG` | Security group for EC2 test instances |
-| `GITHUB_TOKEN` | Check Run updates (built-in) |
+| `GITHUB_TOKEN` | PR comments (built-in) |
 
 ### Repository variables
 
@@ -219,4 +208,3 @@ Two separate jobs handle the final Check Run update based on overall workflow ou
 | `contents: read` | Checkout repository |
 | `pull-requests: write` | Post PR comments |
 | `issues: write` | Post comments via issues API |
-| `checks: write` | Create and update GitHub Check Runs |
