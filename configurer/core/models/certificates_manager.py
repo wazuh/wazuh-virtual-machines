@@ -237,8 +237,11 @@ class CertsManager:
         if error_output:
             raise Exception(f"Error while generating certificates: {error_output}")
 
+        # The bundle carries every leaf private key, so it is created as root:root 0600 *before* tar writes
+        # into it. Relying on the caller's umask (or a later chmod) would leave it world-readable (0644) at
+        # least for a moment, and for good if a later step fails.
         command = f"""
-            sudo tar -cf {certs_tool_path.parent}/wazuh-certificates.tar -C {certs_tool_path.parent}/wazuh-certificates/ . && sudo rm -rf {certs_tool_path.parent}/wazuh-certificates
+            sudo install -m 0600 -o root -g root /dev/null {certs_tool_path.parent}/wazuh-certificates.tar && sudo tar -cf {certs_tool_path.parent}/wazuh-certificates.tar -C {certs_tool_path.parent}/wazuh-certificates/ . && sudo rm -rf {certs_tool_path.parent}/wazuh-certificates
             """
 
         output, error_output = exec_command(command=command, client=client)

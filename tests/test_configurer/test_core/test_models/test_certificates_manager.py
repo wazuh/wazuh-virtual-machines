@@ -314,7 +314,7 @@ def test_generate_certificates_success(
 
     mock_exec_command.assert_any_call(
         command=f"""
-            sudo tar -cf {CERTS_TOOL_PATH.parent}/wazuh-certificates.tar -C {CERTS_TOOL_PATH.parent}/wazuh-certificates/ . && sudo rm -rf {CERTS_TOOL_PATH.parent}/wazuh-certificates
+            sudo install -m 0600 -o root -g root /dev/null {CERTS_TOOL_PATH.parent}/wazuh-certificates.tar && sudo tar -cf {CERTS_TOOL_PATH.parent}/wazuh-certificates.tar -C {CERTS_TOOL_PATH.parent}/wazuh-certificates/ . && sudo rm -rf {CERTS_TOOL_PATH.parent}/wazuh-certificates
             """,
         client=None,
     )
@@ -366,6 +366,24 @@ def test_generate_certificates_error_during_generation(mock_exec_command):
     mock_exec_command.assert_any_call(command=f"sudo bash {CERTS_TOOL_PATH} -A", client=None)
 
 
+def test_generate_certificates_creates_the_tar_private_before_writing_into_it(mock_exec_command, mock_logger):
+    """The tar holds every leaf private key: it must exist as root:root 0600 before tar writes into it."""
+    certs_manager = CertsManager(raw_config_path=RAW_CONFIG_PATH, certs_tool_path=CERTS_TOOL_PATH)
+
+    mock_exec_command.side_effect = [("", ""), ("", ""), ("", ""), Exception("stop after the compression step")]
+    with pytest.raises(Exception, match="stop after the compression step"):
+        certs_manager.generate_certificates()
+
+    compression_command = next(
+        call.kwargs["command"] for call in mock_exec_command.call_args_list if "tar -cf" in call.kwargs["command"]
+    )
+    tar_path = f"{CERTS_TOOL_PATH.parent}/wazuh-certificates.tar"
+    create_private = f"sudo install -m 0600 -o root -g root /dev/null {tar_path}"
+
+    assert create_private in compression_command
+    assert compression_command.index(create_private) < compression_command.index("sudo tar -cf")
+
+
 def test_generate_certificates_error_during_compression(mock_exec_command, mock_logger):
     certs_manager = CertsManager(raw_config_path=RAW_CONFIG_PATH, certs_tool_path=CERTS_TOOL_PATH)
 
@@ -374,7 +392,7 @@ def test_generate_certificates_error_during_compression(mock_exec_command, mock_
         certs_manager.generate_certificates()
 
     expected_command = f"""
-        sudo tar -cf {CERTS_TOOL_PATH.parent}/wazuh-certificates.tar -C {CERTS_TOOL_PATH.parent}/wazuh-certificates/ . && sudo rm -rf {CERTS_TOOL_PATH.parent}/wazuh-certificates
+        sudo install -m 0600 -o root -g root /dev/null {CERTS_TOOL_PATH.parent}/wazuh-certificates.tar && sudo tar -cf {CERTS_TOOL_PATH.parent}/wazuh-certificates.tar -C {CERTS_TOOL_PATH.parent}/wazuh-certificates/ . && sudo rm -rf {CERTS_TOOL_PATH.parent}/wazuh-certificates
         """.replace("\n", "").replace(" ", "")
 
     for command_call in mock_exec_command.call_args_list:
