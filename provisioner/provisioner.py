@@ -3,10 +3,17 @@ from dataclasses import dataclass
 import paramiko
 from pydantic import AnyUrl
 
-from generic import exec_command, remote_connection
+from generic import exec_command, exec_command_with_status, remote_connection
 from models import Inventory
 from provisioner.models import CertsInfo, ComponentInfo, PasswordsToolInfo
-from provisioner.utils import Component_arch, Package_manager, Package_type
+from provisioner.utils import (
+    WAZUH_GPG_KEY_FINGERPRINTS,
+    WAZUH_GPG_KEY_URL,
+    Component_arch,
+    Package_manager,
+    Package_type,
+    get_gpg_key_fingerprint,
+)
 from utils import CertificatesComponent, Component, Logger, PasswordToolComponent, RemoteDirectories
 
 logger = Logger("Provisioner")
@@ -23,6 +30,8 @@ class Provisioner:
         components (List[ComponentInfo]): List of Wazuh components to be provisioned.
         arch (Component_arch): The architecture of the components. Default is X86_64.
         package_type (Package_type): The type of package to be used. Default is RPM.
+        skip_signature_check (bool): Install the Wazuh packages without checking their signature. Only
+            meant for unsigned development packages. Default is False.
 
     Properties:
         package_manager (Package_manager): The package manager to be used based on the package type.
@@ -34,6 +43,7 @@ class Provisioner:
     components: list[ComponentInfo]
     arch: Component_arch = Component_arch.X86_64
     package_type: Package_type = Package_type.RPM
+    skip_signature_check: bool = False
 
     @property
     def package_manager(self):
@@ -175,7 +185,7 @@ class Provisioner:
 
     def packages_provision(self, component: ComponentInfo, client: paramiko.SSHClient | None = None) -> None:
         """
-        Provisions the specified component by downloading and installing its package.
+        Provisions the specified component by downloading its package, checking its signature and installing it.
 
         Args:
             component (ComponentInfo): The component information including name and package URL.
@@ -197,12 +207,101 @@ class Provisioner:
         )
         full_package_path = f"{RemoteDirectories.PACKAGES}/{package_name}"
 
+        self.verify_package_signature(full_package_path, client)
         self.install_package(
             full_package_path,
             command_template,
             client,
             component.name.replace("_", " ").capitalize(),
         )
+
+    def verify_package_signature(self, package_path: str, client: paramiko.SSHClient | None = None) -> None:
+        """
+        Checks that a downloaded package is signed with the Wazuh key before it is installed.
+
+        `rpm -K` alone is not enough: it also succeeds for an unsigned package, as it only reports its
+        digests. The package must carry a signature made by the Wazuh key and `rpm -K` must validate it.
+
+        Args:
+            package_path (str): The path of the package in the client.
+            client (paramiko.SSHClient): The SSH client used to connect to the remote machine.
+
+        Raises:
+            RuntimeError: If the package is not signed with the Wazuh key or its signature is not valid.
+        """
+        if self.skip_signature_check:
+            logger.warning(
+                f"Skipping the signature check of {package_path}. Use it only with unsigned development packages."
+            )
+            return
+
+        if self.package_type != Package_type.RPM:
+            logger.error(
+                "The signature check is only available for RPM packages. Use --skip-signature-check to install "
+                f"{self.package_type} packages without checking them."
+            )
+            raise RuntimeError(f"Cannot check the signature of {package_path}")
+
+        key_id = self.wazuh_gpg_key_provision(client)
+
+        signature, _, _ = exec_command_with_status(
+            command=f"rpm -qp --qf '%{{RSAHEADER:pgpsig}}' {package_path}", client=client
+        )
+        if f"key id {key_id.lower()}" not in signature.lower():
+            logger.error(f"{package_path} is not signed with the Wazuh key. Signature found: {signature.strip()}")
+            raise RuntimeError(f"{package_path} is not signed with the Wazuh key")
+
+        output, error_output, exit_status = exec_command_with_status(command=f"rpm -K {package_path}", client=client)
+        if exit_status != 0:
+            logger.error(f"The signature of {package_path} is not valid: {(output + error_output).strip()}")
+            raise RuntimeError(f"The signature of {package_path} is not valid")
+
+        logger.info_success(f"{package_path} is signed with the Wazuh key")
+
+    def wazuh_gpg_key_provision(self, client: paramiko.SSHClient | None = None) -> str:
+        """
+        Downloads the Wazuh GPG key to the client and imports it into the RPM database.
+
+        The key is only trusted if it holds a single primary key whose fingerprint is one of
+        WAZUH_GPG_KEY_FINGERPRINTS.
+
+        Args:
+            client (paramiko.SSHClient): The SSH client used to connect to the remote machine.
+
+        Returns:
+            str: The key ID of the Wazuh key.
+
+        Raises:
+            RuntimeError: If the key cannot be downloaded or imported, or it is not the Wazuh key.
+        """
+        key_path = f"{RemoteDirectories.PACKAGES}/GPG-KEY-WAZUH"
+        command = (
+            f"mkdir -p {RemoteDirectories.PACKAGES} && "
+            f"curl -sSf --retry 5 --retry-delay 5 -o {key_path} '{WAZUH_GPG_KEY_URL}' && cat {key_path}"
+        )
+        armored_key, error_output, exit_status = exec_command_with_status(command=command, client=client)
+        if exit_status != 0:
+            logger.error(f"Error downloading the Wazuh GPG key: {error_output}")
+            raise RuntimeError("Error downloading the Wazuh GPG key")
+
+        try:
+            fingerprint = get_gpg_key_fingerprint(armored_key)
+        except ValueError as err:
+            logger.error(f"The Wazuh GPG key is not valid: {err}")
+            raise RuntimeError("The Wazuh GPG key is not valid") from err
+
+        if fingerprint not in WAZUH_GPG_KEY_FINGERPRINTS:
+            logger.error(f"The Wazuh GPG key does not have the expected fingerprint: {fingerprint}")
+            raise RuntimeError("The Wazuh GPG key does not have the expected fingerprint")
+
+        key_id = fingerprint[-16:]
+        command = f"rpm -q gpg-pubkey-{key_id[-8:].lower()} --quiet || sudo rpm --import {key_path}"
+        _, error_output, exit_status = exec_command_with_status(command=command, client=client)
+        if exit_status != 0:
+            logger.error(f"Error importing the Wazuh GPG key: {error_output}")
+            raise RuntimeError("Error importing the Wazuh GPG key")
+
+        return key_id
 
     def tool_provision(
         self, tool_url: AnyUrl, tool_dir: str, tool_filename: str, client: paramiko.SSHClient | None = None

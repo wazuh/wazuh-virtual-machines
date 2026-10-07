@@ -76,6 +76,7 @@ This workflow accepts the following inputs:
 - `architecture`: Determine the architecture. It must be a string list (JSON format). E.g: `["amd64", "arm64"]`
 - `commit_list`: Wazuh components revisions (JSON list) `["indexer-revision", "manager-revision", "dashboard-revision", "agent-revision", "assistant-revision"]`.
   Only needed if `wazuh_package_type` is `dev`.
+- `skip_signature_check`: Install the Wazuh packages without checking their signature. Only for unsigned development packages, such as a commit hash in `commit_list`. Defaults to false.
 - `customizer_debug`: Enable debug mode in the AMI customizer.
 - `issue`: URL of the GitHub issue related to this build. Must be a valid `https://github.com/wazuh/` URL.
 - `destroy`: If set, the EC2 instance used for building the AMI will be destroyed once complete.

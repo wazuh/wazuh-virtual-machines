@@ -50,6 +50,13 @@ def create_ova(
             ),
         ),
     ] = False,
+    skip_signature_check: Annotated[
+        bool,
+        typer.Option(
+            "--skip-signature-check",
+            help="Install the Wazuh packages without checking their signature. Use it only with unsigned development packages.",
+        ),
+    ] = False,
 ):
     """
     Create a new Wazuh OVA image.
@@ -74,7 +81,9 @@ def create_ova(
     setup_execution_environment(
         vm_name=name,
     )
-    vagrant_uuid = configure_vagrant_vm(packages_url_filename=artifact_urls_path, box_url=box_url)
+    vagrant_uuid = configure_vagrant_vm(
+        packages_url_filename=artifact_urls_path, box_url=box_url, skip_signature_check=skip_signature_check
+    )
     export_ova_image(vagrant_uuid=vagrant_uuid, name=name, ova_dest=output)
 
     if checksum:
