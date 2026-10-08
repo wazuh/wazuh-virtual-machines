@@ -351,7 +351,7 @@ def test_generate_certificates_with_agent_san(
     certs_manager.generate_certificates(agent_san=["10.0.2.15", "203.0.113.9"])
 
     mock_exec_command.assert_any_call(
-        command=f"sudo bash {CERTS_TOOL_PATH} -A --agent-san 10.0.2.15 --agent-san 203.0.113.9", client=None
+        command=f"sudo bash {CERTS_TOOL_PATH} -A --agent-san 10.0.2.15 --api-san 10.0.2.15 --agent-san 203.0.113.9 --api-san 203.0.113.9", client=None
     )
 
 
@@ -459,16 +459,18 @@ def test_generate_certificates_error_during_copy(mock_get_certs_name, mock_copy_
             },
             f"""
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_MANAGER}
-                sudo tar -xf {CERTS_TOOL_PATH.parent}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_MANAGER} ./manager-cert.pem ./manager-key.pem ./manager-ca.pem ./manager-remoted.pem ./manager-remoted-key.pem
-                sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/manager-cert.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-cert.pem
-                sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/manager-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-key.pem
-                sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/manager-ca.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-ca.pem
+                sudo tar -xf {CERTS_TOOL_PATH.parent}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_MANAGER} ./manager-cert.pem ./manager-key.pem ./manager-ca.pem ./manager-remoted.pem ./manager-remoted-key.pem ./manager-apid.pem ./manager-apid-key.pem
+                sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/manager-cert.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-cert.pem
+                sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/manager-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-key.pem
+                sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/manager-ca.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-ca.pem
                 sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/manager-remoted.pem {ComponentCertsDirectory.WAZUH_MANAGER}/remoted.pem
                 sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/manager-remoted-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/remoted-key.pem
+                sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/manager-apid.pem {ComponentCertsDirectory.WAZUH_MANAGER}/apid.pem
+                sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/manager-apid-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/apid-key.pem
                 sudo chown root:wazuh-manager {ComponentCertsDirectory.WAZUH_MANAGER}/manager-cert.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-ca.pem
                 sudo chmod 640 {ComponentCertsDirectory.WAZUH_MANAGER}/manager-cert.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-ca.pem
-                sudo chown wazuh-manager:wazuh-manager {ComponentCertsDirectory.WAZUH_MANAGER}/remoted.pem {ComponentCertsDirectory.WAZUH_MANAGER}/remoted-key.pem
-                sudo chmod 640 {ComponentCertsDirectory.WAZUH_MANAGER}/remoted.pem {ComponentCertsDirectory.WAZUH_MANAGER}/remoted-key.pem
+                sudo chown wazuh-manager:wazuh-manager {ComponentCertsDirectory.WAZUH_MANAGER}/remoted.pem {ComponentCertsDirectory.WAZUH_MANAGER}/remoted-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/apid.pem {ComponentCertsDirectory.WAZUH_MANAGER}/apid-key.pem
+                sudo chmod 640 {ComponentCertsDirectory.WAZUH_MANAGER}/remoted.pem {ComponentCertsDirectory.WAZUH_MANAGER}/remoted-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/apid.pem {ComponentCertsDirectory.WAZUH_MANAGER}/apid-key.pem
                 sudo chown root:wazuh-manager {ComponentCertsDirectory.WAZUH_MANAGER}
                 sudo chmod 1770 {ComponentCertsDirectory.WAZUH_MANAGER}
             """,
@@ -511,6 +513,8 @@ def test_copy_certs_to_component_directory_success(
             "ca": "manager-ca.pem",
             "remoted-cert": "manager-remoted.pem",
             "remoted-key": "manager-remoted-key.pem",
+            "apid-cert": "manager-apid.pem",
+            "apid-key": "manager-apid-key.pem",
         },
         Component.WAZUH_DASHBOARD: {
             "cert": "dashboard-cert.pem",

@@ -82,6 +82,12 @@ manager_wait_time=5
 wazuh_manager_certs_dir="/var/wazuh-manager/etc/certs"
 wazuh_manager_remoted_cert="${wazuh_manager_certs_dir}/remoted.pem"
 wazuh_manager_remoted_key="${wazuh_manager_certs_dir}/remoted-key.pem"
+# The Server API certificate (port 55000). Since wazuh/wazuh#40085 the manager no longer self-signs it
+# on start: without this pair wazuh-manager-apid exits and the manager does not come up.
+wazuh_manager_apid_cert="${wazuh_manager_certs_dir}/apid.pem"
+wazuh_manager_apid_key="${wazuh_manager_certs_dir}/apid-key.pem"
+# Publishes root-ca.pem to the agents (wazuh/wazuh#39319); see copy_manager_certs().
+wazuh_manager_certs_bin="/var/wazuh-manager/bin/wazuh-manager-certs"
 
 # Persisted at build time by add_wazuh_starter_certs_tool() (ova_post_configurer.py), since the
 # build-time copy under RemoteDirectories.CERTS is gone by the time this script runs. Both files
@@ -433,14 +439,15 @@ function generate_certificates() {
   # certificates from a new one.
   sudo rm -rf "${wazuh_ca_dir}"
 
-  local -a agent_san_flags=()
+  # The same addresses go to apid.pem's SAN: API clients reach this VM the same way agents do.
+  local -a san_flags=()
   local ip
   for ip in $(get_manager_san_ips); do
-    agent_san_flags+=(--agent-san "${ip}")
+    san_flags+=(--agent-san "${ip}" --api-san "${ip}")
   done
 
   run_or_die "wazuh-certs-tool.sh failed to generate certificates" \
-      sudo bash "${wazuh_certs_tool}" -A "${agent_san_flags[@]}"
+      sudo bash "${wazuh_certs_tool}" -A "${san_flags[@]}"
   # The tar bundles every leaf private key (the indexer admin one included). Created root:root 0600
   # *before* tar writes into it: left to the service's default umask it would be 0644, readable by any
   # local user, and it would stay that way if a later step failed.
@@ -524,10 +531,10 @@ function install_ca() {
 
 function copy_manager_certs() {
   # Mirrors copy_certs_to_component_directory(Component.WAZUH_MANAGER) in certificates_manager.py.
-  # No rm -rf: the manager package's postinstall still populates this directory with authd/apid
-  # daemon certs, which must survive untouched. remoted.pem/-key.pem are the exception -- force
-  # replaced (mv -f, not -n) since a manager package that still self-signs its own listener
-  # certificate at install time leaves a pair here too.
+  # No rm -rf: other files the manager package may leave here are kept. Everything this function
+  # installs is force-replaced (mv -f, not -n): on a re-run after a failed first boot, -n kept the
+  # previous run's CA and indexer-connector pair next to a remoted.pem from the new CA
+  # (wazuh-virtual-machines#1016).
   logger "Installing manager certificates"
   local cert_name key_name ca_name
   cert_name=$(read_cert_name '.wazuh_config.indexer.ssl.certificate' "${wazuh_manager_conf}")
@@ -538,18 +545,29 @@ function copy_manager_certs() {
   run_or_die "Failed to extract manager certificates from ${wazuh_certs_tar}" \
       sudo tar -xf "${wazuh_certs_tar}" -C "${wazuh_manager_certs_dir}" \
       ./manager.pem ./manager-key.pem ./admin.pem ./admin-key.pem ./root-ca.pem \
-      ./manager-remoted.pem ./manager-remoted-key.pem
-  sudo mv -n "${wazuh_manager_certs_dir}/manager.pem" "${wazuh_manager_certs_dir}/${cert_name}"
-  sudo mv -n "${wazuh_manager_certs_dir}/manager-key.pem" "${wazuh_manager_certs_dir}/${key_name}"
-  sudo mv -n "${wazuh_manager_certs_dir}/root-ca.pem" "${wazuh_manager_certs_dir}/${ca_name}"
+      ./manager-remoted.pem ./manager-remoted-key.pem ./manager-apid.pem ./manager-apid-key.pem
+  sudo mv -f "${wazuh_manager_certs_dir}/manager.pem" "${wazuh_manager_certs_dir}/${cert_name}"
+  sudo mv -f "${wazuh_manager_certs_dir}/manager-key.pem" "${wazuh_manager_certs_dir}/${key_name}"
+  sudo mv -f "${wazuh_manager_certs_dir}/root-ca.pem" "${wazuh_manager_certs_dir}/${ca_name}"
   sudo mv -f "${wazuh_manager_certs_dir}/manager-remoted.pem" "${wazuh_manager_remoted_cert}"
   sudo mv -f "${wazuh_manager_certs_dir}/manager-remoted-key.pem" "${wazuh_manager_remoted_key}"
+  sudo mv -f "${wazuh_manager_certs_dir}/manager-apid.pem" "${wazuh_manager_apid_cert}"
+  sudo mv -f "${wazuh_manager_certs_dir}/manager-apid-key.pem" "${wazuh_manager_apid_key}"
   sudo chown root:wazuh-manager "${wazuh_manager_certs_dir}/${cert_name}" "${wazuh_manager_certs_dir}/${key_name}" "${wazuh_manager_certs_dir}/${ca_name}"
   sudo chmod 640 "${wazuh_manager_certs_dir}/${cert_name}" "${wazuh_manager_certs_dir}/${key_name}" "${wazuh_manager_certs_dir}/${ca_name}"
-  sudo chown wazuh-manager:wazuh-manager "${wazuh_manager_remoted_cert}" "${wazuh_manager_remoted_key}"
-  sudo chmod 640 "${wazuh_manager_remoted_cert}" "${wazuh_manager_remoted_key}"
+  sudo chown wazuh-manager:wazuh-manager "${wazuh_manager_remoted_cert}" "${wazuh_manager_remoted_key}" \
+      "${wazuh_manager_apid_cert}" "${wazuh_manager_apid_key}"
+  sudo chmod 640 "${wazuh_manager_remoted_cert}" "${wazuh_manager_remoted_key}" \
+      "${wazuh_manager_apid_cert}" "${wazuh_manager_apid_key}"
   sudo chown root:wazuh-manager "${wazuh_manager_certs_dir}"
   sudo chmod 1770 "${wazuh_manager_certs_dir}"
+
+  # remoted remembers the build-time root-ca.pem; replacing it without publishing makes remoted log
+  # "changed outside the tool and is not published" and announce ca_generation 0 to the agents
+  # (wazuh-virtual-machines#1022). stamp publishes the new bundle as is; it only needs the files, not
+  # a running manager, and checks the bundle against remoted.pem, so it goes after both are in place.
+  run_or_die "Failed to publish this VM's CA with wazuh-manager-certs stamp" \
+      sudo "${wazuh_manager_certs_bin}" stamp
 }
 
 function copy_dashboard_certs() {

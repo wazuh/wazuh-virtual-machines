@@ -46,6 +46,10 @@ class CertsManager:
                 # what wazuh-installation-assistant#1009 deploys.
                 "remoted-cert": f"{CertificatesComponent.MANAGER}-remoted.pem",
                 "remoted-key": f"{CertificatesComponent.MANAGER}-remoted-key.pem",
+                # Server API identity (apid on 55000). Since wazuh/wazuh#40085 the manager no longer
+                # self-signs it on start, and the API does not come up without it.
+                "apid-cert": f"{CertificatesComponent.MANAGER}-apid.pem",
+                "apid-key": f"{CertificatesComponent.MANAGER}-apid-key.pem",
             },
             Component.WAZUH_DASHBOARD: {
                 "cert": f"{CertificatesComponent.DASHBOARD}.pem",
@@ -231,8 +235,9 @@ class CertsManager:
         if not certs_tool_path:
             certs_tool_path = self.certs_tool_path
 
-        agent_san_flags = "".join(f" --agent-san {san}" for san in agent_san or [])
-        command = f"sudo bash {certs_tool_path} -A{agent_san_flags}"
+        # The same addresses go to apid.pem's SAN: API clients reach the instance the same way agents do.
+        san_flags = "".join(f" --agent-san {san} --api-san {san}" for san in agent_san or [])
+        command = f"sudo bash {certs_tool_path} -A{san_flags}"
         output, error_output = exec_command(command=command, client=client)
         if error_output:
             raise Exception(f"Error while generating certificates: {error_output}")
@@ -353,29 +358,30 @@ class CertsManager:
                 sudo chown -R wazuh-indexer:wazuh-indexer {ComponentCertsDirectory.WAZUH_INDEXER}/
                 """
         elif component == Component.WAZUH_MANAGER:
-            # No `rm -rf` here: the manager package's postinstall still populates this directory with
-            # authd/apid daemon certs, which must survive this step untouched. remoted.pem/-key.pem are
-            # the exception -- a manager package that still self-signs its own listener certificate at
-            # install time leaves a pair here too, and it must be force-replaced (`mv -f`, not `-n`) by
-            # the one issued from root-ca.pem, or the agent-facing listener keeps presenting a cert no
-            # agent can verify.
+            # No `rm -rf` here: other files the manager package may leave in this directory are kept.
+            # Everything installed below is force-replaced (`mv -f`, not `-n`), so a re-run never keeps
+            # a CA or a pair from an earlier CA next to the new ones (wazuh-virtual-machines#1016).
             cert_name = certs_name[ComponentCertsConfigParameter.WAZUH_MANAGER_CERT.name]
             key_name = certs_name[ComponentCertsConfigParameter.WAZUH_MANAGER_KEY.name]
             ca_name = certs_name[ComponentCertsConfigParameter.WAZUH_MANAGER_CA.name]
             remoted_cert_name = self.components_certs_default_name[Component.WAZUH_MANAGER]["remoted-cert"]
             remoted_key_name = self.components_certs_default_name[Component.WAZUH_MANAGER]["remoted-key"]
+            apid_cert_name = self.components_certs_default_name[Component.WAZUH_MANAGER]["apid-cert"]
+            apid_key_name = self.components_certs_default_name[Component.WAZUH_MANAGER]["apid-key"]
             command = f"""
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_MANAGER}
                 sudo tar -xf {certs_path}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_MANAGER} ./{" ./".join(self.components_certs_default_name[Component.WAZUH_MANAGER].values())}
-                sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["cert"]} {ComponentCertsDirectory.WAZUH_MANAGER}/{cert_name}
-                sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["key"]} {ComponentCertsDirectory.WAZUH_MANAGER}/{key_name}
-                sudo mv -n {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["ca"]} {ComponentCertsDirectory.WAZUH_MANAGER}/{ca_name}
+                sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["cert"]} {ComponentCertsDirectory.WAZUH_MANAGER}/{cert_name}
+                sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["key"]} {ComponentCertsDirectory.WAZUH_MANAGER}/{key_name}
+                sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["ca"]} {ComponentCertsDirectory.WAZUH_MANAGER}/{ca_name}
                 sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/{remoted_cert_name} {ComponentCertsDirectory.WAZUH_MANAGER}/remoted.pem
                 sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/{remoted_key_name} {ComponentCertsDirectory.WAZUH_MANAGER}/remoted-key.pem
+                sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/{apid_cert_name} {ComponentCertsDirectory.WAZUH_MANAGER}/apid.pem
+                sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/{apid_key_name} {ComponentCertsDirectory.WAZUH_MANAGER}/apid-key.pem
                 sudo chown root:wazuh-manager {ComponentCertsDirectory.WAZUH_MANAGER}/{cert_name} {ComponentCertsDirectory.WAZUH_MANAGER}/{key_name} {ComponentCertsDirectory.WAZUH_MANAGER}/{ca_name}
                 sudo chmod 640 {ComponentCertsDirectory.WAZUH_MANAGER}/{cert_name} {ComponentCertsDirectory.WAZUH_MANAGER}/{key_name} {ComponentCertsDirectory.WAZUH_MANAGER}/{ca_name}
-                sudo chown wazuh-manager:wazuh-manager {ComponentCertsDirectory.WAZUH_MANAGER}/remoted.pem {ComponentCertsDirectory.WAZUH_MANAGER}/remoted-key.pem
-                sudo chmod 640 {ComponentCertsDirectory.WAZUH_MANAGER}/remoted.pem {ComponentCertsDirectory.WAZUH_MANAGER}/remoted-key.pem
+                sudo chown wazuh-manager:wazuh-manager {ComponentCertsDirectory.WAZUH_MANAGER}/remoted.pem {ComponentCertsDirectory.WAZUH_MANAGER}/remoted-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/apid.pem {ComponentCertsDirectory.WAZUH_MANAGER}/apid-key.pem
+                sudo chmod 640 {ComponentCertsDirectory.WAZUH_MANAGER}/remoted.pem {ComponentCertsDirectory.WAZUH_MANAGER}/remoted-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/apid.pem {ComponentCertsDirectory.WAZUH_MANAGER}/apid-key.pem
                 sudo chown root:wazuh-manager {ComponentCertsDirectory.WAZUH_MANAGER}
                 sudo chmod 1770 {ComponentCertsDirectory.WAZUH_MANAGER}
                 """
