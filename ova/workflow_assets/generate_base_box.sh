@@ -20,6 +20,9 @@ fi
 OVA_FILENAME="al2023-vmware_esx-${AL2023_VERSION}-kernel-6.1-x86_64.xfs.gpt.ova"
 VMDK_FILENAME=""  # Will be determined dynamically after extraction
 AL2023_OVA_OUTPUT="al2023.ova"
+# Size of the OVA disk. The AL2023 VMware image ships 25 GiB; the RAW is grown to this size and
+# the root partition and file system are extended inside the VM (systemConfig in steps.sh).
+DISK_SIZE="50G"
 # Temporary directories for raw, mount, and VDI files
 RAW_DIR="$(mktemp -d -t al2023_raw_XXXXXXXX)"
 MOUNT_DIR="$(mktemp -d -t al2023_mnt_XXXXXXXX)"
@@ -71,6 +74,7 @@ convert_vmdk_to_raw() {
     vboxmanage clonemedium "${VMDK_FILENAME}" "${RAW_DIR}/al2023.raw" --format RAW
     vboxmanage closemedium "${VMDK_FILENAME}"
     vboxmanage closemedium "${RAW_DIR}/al2023.raw"
+    truncate -s "${DISK_SIZE}" "${RAW_DIR}/al2023.raw"
 }
 
 mount_and_setup_image() {
