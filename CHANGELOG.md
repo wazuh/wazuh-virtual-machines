@@ -92,6 +92,7 @@
 
 | Issue | Comment |
 | - | - |
+| [#6861](https://github.com/wazuh/external-devel-requests/issues/6861) | Restore the 50 GB OVA disk the OVF declares: grow the Amazon Linux 2023 base disk and extend the root partition and file system |
 | [#6813](https://github.com/wazuh/internal-devel-requests/issues/6813) | Restrict the first-boot certificates tar to root in the OVA and AMI, and remove it as soon as it is consumed |
 | [#1010](https://github.com/wazuh/wazuh-virtual-machines/issues/1010) | Refresh the Server API log before every manager start in the OVA and AMI so the API does not fail to start (workaround for wazuh/wazuh#40053) |
 | [#992](https://github.com/wazuh/wazuh-virtual-machines/issues/992) | Fix the GitHub Actions workflow filenames referenced in the AMI and OVA artifact generation guides |

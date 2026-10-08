@@ -30,6 +30,7 @@ from configurer.ova.ova_post_configurer.ova_post_configurer import (
     post_conf_delete_generated_network_files,
     set_hostname,
     steps_clean,
+    grow_root_filesystem,
     steps_system_config,
     update_jvm_heap,
 )
@@ -65,6 +66,15 @@ def mock_shutil_copy():
 def mock_os_makedirs():
     with patch("os.makedirs") as mock_makedirs:
         yield mock_makedirs
+
+
+def test_grow_root_filesystem(mock_run_command):
+    grow_root_filesystem()
+
+    growpart_cmd = mock_run_command.call_args_list[0].args[0]
+    assert growpart_cmd.startswith("growpart ")
+    assert "findmnt -no SOURCE /" in growpart_cmd
+    mock_run_command.assert_any_call("xfs_growfs /", check=True)
 
 
 def test_set_hostname(mock_run_command):
@@ -250,6 +260,7 @@ def test_configure_sshd_str_is_converted_to_path(mock_modify_file):
     assert call_path == Path("/etc/ssh/sshd_config")
 
 
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.grow_root_filesystem")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.set_hostname")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.add_wazuh_starter_service")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.add_wazuh_starter_certs_tool")
@@ -267,11 +278,14 @@ def test_steps_system_config(
     mock_add_wazuh_starter_certs_tool,
     mock_add_wazuh_starter_service,
     mock_set_hostname,
+    mock_grow_root_filesystem,
     mock_run_command,
 ):
     mock_json_load.return_value = {"version": "5.0.0", "stage": "alpha0"}
 
     steps_system_config()
+
+    mock_grow_root_filesystem.assert_called_once()
 
     mock_run_command.assert_any_call("yum upgrade -y")
 
