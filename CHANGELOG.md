@@ -93,7 +93,6 @@
 | Issue | Comment |
 | - | - |
 | [#6813](https://github.com/wazuh/internal-devel-requests/issues/6813) | Restrict the first-boot certificates tar to root in the OVA and AMI, and remove it as soon as it is consumed |
-| [#1010](https://github.com/wazuh/wazuh-virtual-machines/issues/1010) | Refresh the Server API log before every manager start in the OVA and AMI so the API does not fail to start (workaround for wazuh/wazuh#40053) |
 | [#992](https://github.com/wazuh/wazuh-virtual-machines/issues/992) | Fix the GitHub Actions workflow filenames referenced in the AMI and OVA artifact generation guides |
 | [#945](https://github.com/wazuh/wazuh-virtual-machines/pull/945) | Leave the Wazuh services disabled in the AMI so they do not race the customizer on first boot |
 | [#901](https://github.com/wazuh/wazuh-virtual-machines/issues/901) | Remove unnecessary debhelper install-time dependency for wazuh_dashboard |

@@ -40,8 +40,6 @@ The Wazuh 5.0 packages generate their own passwords ([wazuh/wazuh-indexer#1928](
 2. It removes the Server API TLS pair (`apid.pem`/`apid-key.pem`) and JWT signing keypair (`api/configuration/security/private_key.pem`/`public_key.pem`) created during the build. The manager creates new ones on first boot.
 3. It removes the build CA the indexer postinst imported into the indexer JDK truststore (`cacerts`, alias `wazuh-root-ca`). First boot imports the instance's own CA there instead.
 
-It also installs the `wazuh-manager.service` drop-in `/etc/systemd/system/wazuh-manager.service.d/api-log-workaround.conf`, which refreshes the modification time of `/var/wazuh-manager/logs/api.log` and restores `wazuh-manager:wazuh-manager 0660` before every manager start. Without it, the Server API rotates a log last written on an earlier day while still running as root and cannot reopen it after dropping privileges, so it never listens on 55000 ([wazuh/wazuh#40053](https://github.com/wazuh/wazuh/issues/40053)). It only covers starts through systemd. Remove it once the manager fixes that issue.
-
 The script fails the build if anything resolved at build time is left: `/etc/wazuh`, the indexer marker, `rbac.db`, the manager keystore, a digest instead of a placeholder, a component certificate, the API pair or keypair, or the truststore alias.
 
 **First boot**, strictly in this order and never in parallel:
