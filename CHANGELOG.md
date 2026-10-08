@@ -13,7 +13,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- None
+- Restore the 50 GB OVA disk ([#1024](https://github.com/wazuh/wazuh-virtual-machines/pull/1024))
 
 ### Deleted
 
