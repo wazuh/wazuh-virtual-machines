@@ -4,7 +4,7 @@ from pathlib import Path
 import paramiko
 
 from configurer.core.utils import ComponentCertsConfigParameter, ComponentCertsDirectory, ComponentConfigFile
-from generic import exec_command
+from generic import exec_command, exec_command_with_status
 from utils import Component, Logger, CertificatesComponent
 
 logger = Logger("CertsManager")
@@ -238,9 +238,14 @@ class CertsManager:
         # The same addresses go to apid.pem's SAN: API clients reach the instance the same way agents do.
         san_flags = "".join(f" --agent-san {san} --api-san {san}" for san in agent_san or [])
         command = f"sudo bash {certs_tool_path} -A{san_flags}"
-        output, error_output = exec_command(command=command, client=client)
-        if error_output:
+        # Judged by exit status, not by stderr: the tool reports notices there on success. When /etc/wazuh/ca is
+        # empty (always the case at AMI first boot, after remove_certificates()) it says "created a new CA",
+        # which used to abort the whole customization.
+        output, error_output, status = exec_command_with_status(command=command, client=client)
+        if status != 0:
             raise Exception(f"Error while generating certificates: {error_output}")
+        if error_output:
+            logger.debug(f"Certificates tool succeeded but wrote to stderr: {error_output}")
 
         # The bundle carries every leaf private key, so it is created as root:root 0600 *before* tar writes
         # into it. Relying on the caller's umask (or a later chmod) would leave it world-readable (0644) at

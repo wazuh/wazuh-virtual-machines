@@ -45,7 +45,13 @@ def expected_config_query():
 def mock_exec_command():
     with patch("configurer.core.models.certificates_manager.exec_command") as mock_exec_command:
         mock_exec_command.return_value = ("", "")
-        yield mock_exec_command
+        # The certs-tool call goes through exec_command_with_status; route it to the same mock so tests drive
+        # every command from one place. A non-empty stderr stands for a failing exit status.
+        with patch(
+            "configurer.core.models.certificates_manager.exec_command_with_status",
+            side_effect=lambda **kw: (*(r := mock_exec_command(**kw)), 1 if r[1] else 0),
+        ):
+            yield mock_exec_command
 
 
 @pytest.mark.parametrize("client", [None, MagicMock()])
@@ -353,6 +359,22 @@ def test_generate_certificates_with_agent_san(
     mock_exec_command.assert_any_call(
         command=f"sudo bash {CERTS_TOOL_PATH} -A --agent-san 10.0.2.15 --api-san 10.0.2.15 --agent-san 203.0.113.9 --api-san 203.0.113.9", client=None
     )
+
+
+@patch("configurer.core.models.certificates_manager.CertsManager.set_indexer_distinguished_names")
+@patch("configurer.core.models.certificates_manager.CertsManager._get_certs_name", return_value={})
+@patch("configurer.core.models.certificates_manager.CertsManager.copy_certs_to_component_directory", return_value=("", ""))
+def test_generate_certificates_ignores_stderr_when_the_tool_succeeds(_copy, _names, _dns, mock_exec_command, mock_logger):
+    """The certs-tool prints "created a new CA" to stderr and exits 0 on every AMI first boot."""
+    notice = "wazuh-credentials: created a new CA in /etc/wazuh/ca."
+    certs_manager = CertsManager(raw_config_path=RAW_CONFIG_PATH, certs_tool_path=CERTS_TOOL_PATH)
+
+    with patch(
+        "configurer.core.models.certificates_manager.exec_command_with_status", return_value=("", notice, 0)
+    ):
+        certs_manager.generate_certificates()  # must not raise
+
+    mock_logger.info_success.assert_any_call("Certificates generated successfully")
 
 
 def test_generate_certificates_error_during_generation(mock_exec_command):
