@@ -19,6 +19,31 @@ def mock_exec_command():
         yield exec_command
 
 
+@pytest.fixture()
+def signature_outputs(wazuh_key):
+    """Outputs of the signature check commands for a package signed with the Wazuh key."""
+    armored_key, fingerprint = wazuh_key
+    return {
+        "curl": (armored_key, "", 0),
+        "gpg-pubkey": ("", "", 0),
+        "rpm -qp": (f"RSA/SHA256, Mon Oct  6 10:00:00 2026, Key ID {fingerprint[-16:].lower()}", "", 0),
+        "rpm -K": ("wazuh_manager.rpm: digests signatures OK\n", "", 0),
+    }
+
+
+@pytest.fixture()
+def mock_exec_command_with_status(wazuh_key, signature_outputs):
+    def exec_command_with_status(command, client=None):
+        return next(output for key, output in signature_outputs.items() if key in command)
+
+    with (
+        patch("provisioner.provisioner.exec_command_with_status") as mock_exec,
+        patch("provisioner.provisioner.WAZUH_GPG_KEY_FINGERPRINTS", [wazuh_key[1]]),
+    ):
+        mock_exec.side_effect = exec_command_with_status
+        yield mock_exec
+
+
 @pytest.fixture
 def component_info_valid(valid_inventory):
     dependencies = ["dependency1", "dependency2"]
@@ -58,7 +83,9 @@ def test_packege_manager_property_set_correct(package_type, expected_result, com
 
 
 @patch("paramiko.SSHClient")
-def test_provision_success(mock_paramiko, mock_logger, component_info_valid, mock_exec_command):
+def test_provision_success(
+    mock_paramiko, mock_logger, component_info_valid, mock_exec_command, mock_exec_command_with_status
+):
     mock_client_instance = MagicMock()
     mock_paramiko.return_value = mock_client_instance
 
@@ -206,10 +233,11 @@ def test_dependencies_provision(
 
 
 @pytest.mark.parametrize(
-    "package_manager, expected_command, expected_path",
+    "package_manager, expected_command, expected_path, skip_signature_check",
     [
-        (Package_manager.YUM, "sudo dnf install -y ", "~/wazuh-configure/packages/wazuh_manager.rpm"),
-        (Package_manager.APT, "sudo dpkg -i ", "~/wazuh-configure/packages/wazuh_manager.deb"),
+        (Package_manager.YUM, "sudo dnf install -y ", "~/wazuh-configure/packages/wazuh_manager.rpm", False),
+        (Package_manager.YUM, "sudo dnf install -y ", "~/wazuh-configure/packages/wazuh_manager.rpm", True),
+        (Package_manager.APT, "sudo dpkg -i ", "~/wazuh-configure/packages/wazuh_manager.deb", True),
     ],
 )
 @patch("paramiko.SSHClient")
@@ -218,14 +246,17 @@ def test_packages_provision_success(
     package_manager,
     expected_command,
     expected_path,
+    skip_signature_check,
     mock_logger,
     component_info_valid,
     mock_exec_command,
+    mock_exec_command_with_status,
 ):
     mock_client_instance = MagicMock()
     mock_paramiko.return_value = mock_client_instance
 
     component_info_valid.package_type = Package_type.RPM if package_manager == Package_manager.YUM else Package_type.DEB
+    component_info_valid.skip_signature_check = skip_signature_check
 
     component_info_valid.packages_provision(component_info_valid.components[0], mock_client_instance)
 
@@ -244,6 +275,37 @@ def test_packages_provision_success(
 
     mock_logger.debug_title.assert_any_call("Provisioning packages")
     mock_logger.debug.assert_any_call("Downloading wazuh manager package")
+    if skip_signature_check:
+        mock_exec_command_with_status.assert_not_called()
+        mock_logger.warning.assert_called_once_with(
+            f"Skipping the signature check of {expected_path}. Use it only with unsigned development packages."
+        )
+    else:
+        assert mock_exec_command_with_status.call_count == 4  # download key, import key, signer, rpm -K
+        mock_logger.info_success.assert_any_call(f"{expected_path} is signed with the Wazuh key")
+
+
+@patch("paramiko.SSHClient")
+def test_packages_provision_not_signed(
+    mock_paramiko,
+    mock_logger,
+    component_info_valid,
+    mock_exec_command,
+    mock_exec_command_with_status,
+    signature_outputs,
+):
+    signature_outputs["rpm -qp"] = ("(none)", "", 0)
+
+    with pytest.raises(
+        RuntimeError, match="~/wazuh-configure/packages/wazuh_manager.rpm is not signed with the Wazuh key"
+    ):
+        component_info_valid.packages_provision(component_info_valid.components[0], MagicMock())
+
+    # The package is downloaded but never installed.
+    assert mock_exec_command.call_count == 1
+    mock_logger.error.assert_called_once_with(
+        "~/wazuh-configure/packages/wazuh_manager.rpm is not signed with the Wazuh key. Signature found: (none)"
+    )
 
 
 @pytest.mark.parametrize(
@@ -372,3 +434,128 @@ def test_install_package(
         mock_logger.info_success.assert_called_once_with(f"{package_name} {expected_log}")
     else:
         mock_logger.error.assert_called_once_with(f"Error installing {package_name}: {error_output}")
+
+
+def test_verify_package_signature_success(component_info_valid, mock_exec_command_with_status, wazuh_key):
+    package_path = "~/wazuh-configure/packages/wazuh_manager.rpm"
+    client = MagicMock()
+
+    component_info_valid.verify_package_signature(package_path, client)
+
+    key_id = wazuh_key[1][-16:]
+    mock_exec_command_with_status.assert_has_calls(
+        [
+            mock.call(
+                command="mkdir -p ~/wazuh-configure/packages && curl -sSf --retry 5 --retry-delay 5 -o "
+                "~/wazuh-configure/packages/GPG-KEY-WAZUH 'https://packages.wazuh.com/key/GPG-KEY-WAZUH' && "
+                "cat ~/wazuh-configure/packages/GPG-KEY-WAZUH",
+                client=client,
+            ),
+            mock.call(
+                command=f"rpm -q gpg-pubkey-{key_id[-8:].lower()} --quiet || "
+                "sudo rpm --import ~/wazuh-configure/packages/GPG-KEY-WAZUH",
+                client=client,
+            ),
+            mock.call(command=f"rpm -qp --qf '%{{RSAHEADER:pgpsig}}' {package_path}", client=client),
+            mock.call(command=f"rpm -K {package_path}", client=client),
+        ]
+    )
+
+
+@pytest.mark.parametrize(
+    "signature",
+    [
+        "(none)",
+        "RSA/SHA256, Mon Oct  6 10:00:00 2026, Key ID 1234567890abcdef",
+        "",
+    ],
+)
+def test_verify_package_signature_wrong_signer(
+    component_info_valid, mock_exec_command_with_status, signature_outputs, signature
+):
+    signature_outputs["rpm -qp"] = (signature, "", 0)
+
+    with pytest.raises(RuntimeError, match="package.rpm is not signed with the Wazuh key"):
+        component_info_valid.verify_package_signature("package.rpm")
+
+    assert not any("rpm -K" in call.kwargs["command"] for call in mock_exec_command_with_status.call_args_list)
+
+
+def test_verify_package_signature_invalid_signature(
+    mock_logger, component_info_valid, mock_exec_command_with_status, signature_outputs
+):
+    signature_outputs["rpm -K"] = ("package.rpm: DIGESTS SIGNATURES NOT OK\n", "", 1)
+
+    with pytest.raises(RuntimeError, match="The signature of package.rpm is not valid"):
+        component_info_valid.verify_package_signature("package.rpm")
+
+    mock_logger.error.assert_called_once_with(
+        "The signature of package.rpm is not valid: package.rpm: DIGESTS SIGNATURES NOT OK"
+    )
+
+
+def test_verify_package_signature_deb_not_supported(mock_logger, component_info_valid, mock_exec_command_with_status):
+    component_info_valid.package_type = Package_type.DEB
+
+    with pytest.raises(RuntimeError, match="Cannot check the signature of package.deb"):
+        component_info_valid.verify_package_signature("package.deb")
+
+    mock_exec_command_with_status.assert_not_called()
+
+
+def test_verify_package_signature_skipped(mock_logger, component_info_valid, mock_exec_command_with_status):
+    component_info_valid.skip_signature_check = True
+
+    component_info_valid.verify_package_signature("package.rpm")
+
+    mock_exec_command_with_status.assert_not_called()
+    mock_logger.warning.assert_called_once_with(
+        "Skipping the signature check of package.rpm. Use it only with unsigned development packages."
+    )
+
+
+def test_wazuh_gpg_key_provision_success(component_info_valid, mock_exec_command_with_status, wazuh_key):
+    assert component_info_valid.wazuh_gpg_key_provision() == wazuh_key[1][-16:]
+
+
+def test_wazuh_gpg_key_provision_download_error(
+    mock_logger, component_info_valid, mock_exec_command_with_status, signature_outputs
+):
+    signature_outputs["curl"] = ("", "curl: (22) The requested URL returned error: 404", 22)
+
+    with pytest.raises(RuntimeError, match="Error downloading the Wazuh GPG key"):
+        component_info_valid.wazuh_gpg_key_provision()
+
+
+def test_wazuh_gpg_key_provision_wrong_key(
+    mock_logger, component_info_valid, mock_exec_command_with_status, signature_outputs, other_key
+):
+    signature_outputs["curl"] = (other_key[0], "", 0)
+
+    with pytest.raises(RuntimeError, match="The Wazuh GPG key does not have the expected fingerprint"):
+        component_info_valid.wazuh_gpg_key_provision()
+
+    assert mock_exec_command_with_status.call_count == 1  # The key is never imported
+
+
+def test_wazuh_gpg_key_provision_two_keys(
+    mock_logger, component_info_valid, mock_exec_command_with_status, signature_outputs, wazuh_key, other_key
+):
+    signature_outputs["curl"] = (wazuh_key[0] + other_key[0], "", 0)
+
+    with pytest.raises(RuntimeError, match="The Wazuh GPG key is not valid"):
+        component_info_valid.wazuh_gpg_key_provision()
+
+    mock_logger.error.assert_called_once_with(
+        "The Wazuh GPG key is not valid: The key file must hold a single public key block"
+    )
+    assert mock_exec_command_with_status.call_count == 1
+
+
+def test_wazuh_gpg_key_provision_import_error(
+    mock_logger, component_info_valid, mock_exec_command_with_status, signature_outputs
+):
+    signature_outputs["gpg-pubkey"] = ("", "error: key import failed", 1)
+
+    with pytest.raises(RuntimeError, match="Error importing the Wazuh GPG key"):
+        component_info_valid.wazuh_gpg_key_provision()

@@ -46,6 +46,11 @@ on:
         required: true
         default: '["latest", "latest", "latest", "latest", "latest"]'
         type: string
+      skip_signature_check:
+        description: 'Install the Wazuh packages without checking their signature. Only for unsigned development packages (e.g. a commit revision in commit_list)'
+        required: false
+        default: false
+        type: boolean
       destroy:
         description: 'Destroy the base instance after the OVA is created'
         required: false
@@ -82,6 +87,10 @@ on:
         type: string
         required: false
         default: '["latest", "latest", "latest", "latest", "latest"]'
+      skip_signature_check:
+        type: boolean
+        required: false
+        default: false
       destroy:
         type: boolean
         required: false
@@ -321,7 +330,7 @@ jobs:
               ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} << EOF
             set -e
             cd ${{ env.WVM_REPO_NAME }}
-            sudo vagrant ssh -c 'cd /tmp/wazuh-virtual-machines && sudo hatch run dev-ova-post-configurer:run --packages-url-path $(basename ${{ env.LOCAL_ARTIFACT_URLS_FILEPATH }})'
+            sudo vagrant ssh -c 'cd /tmp/wazuh-virtual-machines && sudo hatch run dev-ova-post-configurer:run --packages-url-path $(basename ${{ env.LOCAL_ARTIFACT_URLS_FILEPATH }})${{ inputs.skip_signature_check && ' --skip-signature-check' || '' }}'
           EOF
 
       - name: Stop the Vagrant VM, modify the network and export it as OVA

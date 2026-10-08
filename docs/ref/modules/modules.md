@@ -19,5 +19,6 @@ These modules are executed through a single CLI. The available CLI options are:
 | `--arch`               | No | Architecture to use | `x86_64`, `amd64`, `arm64`, `aarch64` | `x86_64` |
 | `--dependencies`       | No | Path to the dependencies file | - | `provisioner/static/wazuh_dependencies.yaml` |
 | `--component`          | No | Component to provision | `wazuh_indexer`, `wazuh_manager`, `wazuh_dashboard`, `wazuh_agent`, `all` | `all` |
+| `--skip-signature-check` | No | Install the Wazuh packages without checking their signature. Only for unsigned development packages | - | Disabled |
 
 > This CLI can be executed using **Hatch** or by creating a **venv**. For more information on how to configure it, you can check the setup of the toolchain [here](../../dev/setup.md).
