@@ -69,12 +69,14 @@ def mock_os_makedirs():
 
 
 def test_grow_root_filesystem(mock_run_command):
+    mock_run_command.return_value = (["/dev/sda1  50G"], [""], [0])
     grow_root_filesystem()
 
     growpart_cmd = mock_run_command.call_args_list[0].args[0]
     assert growpart_cmd.startswith("growpart ")
     assert "findmnt -no SOURCE /" in growpart_cmd
     mock_run_command.assert_any_call("xfs_growfs /", check=True)
+    mock_run_command.assert_any_call("df -h /", output=True)
 
 
 def test_set_hostname(mock_run_command):

@@ -225,7 +225,8 @@ def grow_root_filesystem() -> None:
         f'growpart "/dev/$(lsblk -no PKNAME {root_part})" "$(cat /sys/class/block/$(basename {root_part})/partition)"'
     )
     run_command("xfs_growfs /", check=True)
-    run_command("df -h /")
+    stdout, _, _ = run_command("df -h /", output=True)
+    logger.info(f"Root file system after growing:\n{stdout[0]}")
 
 
 def steps_system_config() -> None:
