@@ -56,6 +56,7 @@ def main(
     arch: Component_arch,
     dependencies: Path,
     inventory: Path | None = None,
+    skip_signature_check: bool = False,
 ):
     """
     Main function to parse arguments, create an Input object, parse components, and provision the environment.
@@ -80,6 +81,7 @@ def main(
     - components: Parsed components.
     - arch: Architecture type.
     - package_type: Type of the package.
+    - skip_signature_check: Whether to install the packages without checking their signature.
     """
     input = Input(
         component=component,
@@ -99,4 +101,5 @@ def main(
         components=components,
         arch=input.arch,
         package_type=input.package_type,
+        skip_signature_check=skip_signature_check,
     ).provision()

@@ -58,6 +58,11 @@ on:
         required: true
         default: '["latest", "latest", "latest", "latest", "latest"]'
         type: string
+      skip_signature_check:
+        description: 'Install the Wazuh packages without checking their signature. Only for unsigned development packages (e.g. a commit revision in commit_list)'
+        required: false
+        default: false
+        type: boolean
       customizer_debug:
         description: 'Enable debug mode in the AMI customizer'
         required: false
@@ -107,6 +112,10 @@ on:
         type: string
         required: false
         default: '["latest", "latest", "latest", "latest", "latest"]'
+      skip_signature_check:
+        type: boolean
+        required: false
+        default: false
       customizer_debug:
         type: boolean
         required: false
@@ -295,7 +304,7 @@ jobs:
       - name: Execute configuration AMI process
         run: |
           source ${{ env.WORKFLOW_VENV }}/bin/activate
-          hatch run dev:run --inventory ${{ env.ALLOCATOR_PATH }}/inventory.yml --packages-url-path ${{ env.LOCAL_ARTIFACT_URLS_FILEPATH }} --execute all-ami ${{ env.ARCH_FLAG }}
+          hatch run dev:run --inventory ${{ env.ALLOCATOR_PATH }}/inventory.yml --packages-url-path ${{ env.LOCAL_ARTIFACT_URLS_FILEPATH }} --execute all-ami ${{ env.ARCH_FLAG }}${{ inputs.skip_signature_check && ' --skip-signature-check' || '' }}
 
       - name: Stop instance
         run: |

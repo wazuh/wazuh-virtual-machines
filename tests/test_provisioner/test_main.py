@@ -240,6 +240,7 @@ def test_main(
         components=mock_components,
         arch=mock_input_instance.arch,
         package_type=mock_input_instance.package_type,
+        skip_signature_check=False,
     )
 
     mock_provisioner_instance.provision.assert_called_once()

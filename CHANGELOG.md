@@ -5,6 +5,7 @@
 
 | Issue | Comment |
 | - | - |
+| [#6790](https://github.com/wazuh/internal-devel-requests/issues/6790) | Check the signature of the Wazuh packages before installing them in the AMI and OVA, with `--skip-signature-check` for unsigned development packages |
 | [#991](https://github.com/wazuh/wazuh-virtual-machines/issues/991) | Add AMI dashboard access instructions and link the official upgrade, configuration and password management guides |
 | [#957](https://github.com/wazuh/wazuh-virtual-machines/issues/957) | Provision the agent listener certificate in the OVA and AMI, and reissue it at first boot |
 | [#944](https://github.com/wazuh/wazuh-virtual-machines/issues/944) | Provision the pre-installed agent's manager CA in AMI/OVA post-configuration |
