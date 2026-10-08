@@ -453,22 +453,22 @@ def test_generate_certificates_error_during_copy(mock_get_certs_name, mock_copy_
         (
             Component.WAZUH_MANAGER,
             {
-                ComponentCertsConfigParameter.WAZUH_MANAGER_CERT.name: "manager-cert.pem",
-                ComponentCertsConfigParameter.WAZUH_MANAGER_KEY.name: "manager-key.pem",
+                # cert and key renamed; the CA keeps the cert-tool's name, so it is not moved onto itself.
+                ComponentCertsConfigParameter.WAZUH_MANAGER_CERT.name: "indexer-connector.pem",
+                ComponentCertsConfigParameter.WAZUH_MANAGER_KEY.name: "indexer-connector-key.pem",
                 ComponentCertsConfigParameter.WAZUH_MANAGER_CA.name: "manager-ca.pem",
             },
             f"""
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_MANAGER}
                 sudo tar -xf {CERTS_TOOL_PATH.parent}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_MANAGER} ./manager-cert.pem ./manager-key.pem ./manager-ca.pem ./manager-remoted.pem ./manager-remoted-key.pem ./manager-apid.pem ./manager-apid-key.pem
-                sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/manager-cert.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-cert.pem
-                sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/manager-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-key.pem
-                sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/manager-ca.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-ca.pem
+                sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/manager-cert.pem {ComponentCertsDirectory.WAZUH_MANAGER}/indexer-connector.pem
+                sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/manager-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/indexer-connector-key.pem
                 sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/manager-remoted.pem {ComponentCertsDirectory.WAZUH_MANAGER}/remoted.pem
                 sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/manager-remoted-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/remoted-key.pem
                 sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/manager-apid.pem {ComponentCertsDirectory.WAZUH_MANAGER}/apid.pem
                 sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/manager-apid-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/apid-key.pem
-                sudo chown root:wazuh-manager {ComponentCertsDirectory.WAZUH_MANAGER}/manager-cert.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-ca.pem
-                sudo chmod 640 {ComponentCertsDirectory.WAZUH_MANAGER}/manager-cert.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-ca.pem
+                sudo chown root:wazuh-manager {ComponentCertsDirectory.WAZUH_MANAGER}/indexer-connector.pem {ComponentCertsDirectory.WAZUH_MANAGER}/indexer-connector-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-ca.pem
+                sudo chmod 640 {ComponentCertsDirectory.WAZUH_MANAGER}/indexer-connector.pem {ComponentCertsDirectory.WAZUH_MANAGER}/indexer-connector-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/manager-ca.pem
                 sudo chown wazuh-manager:wazuh-manager {ComponentCertsDirectory.WAZUH_MANAGER}/remoted.pem {ComponentCertsDirectory.WAZUH_MANAGER}/remoted-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/apid.pem {ComponentCertsDirectory.WAZUH_MANAGER}/apid-key.pem
                 sudo chmod 640 {ComponentCertsDirectory.WAZUH_MANAGER}/remoted.pem {ComponentCertsDirectory.WAZUH_MANAGER}/remoted-key.pem {ComponentCertsDirectory.WAZUH_MANAGER}/apid.pem {ComponentCertsDirectory.WAZUH_MANAGER}/apid-key.pem
                 sudo chown root:wazuh-manager {ComponentCertsDirectory.WAZUH_MANAGER}

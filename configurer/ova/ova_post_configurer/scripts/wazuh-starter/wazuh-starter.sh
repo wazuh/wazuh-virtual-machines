@@ -546,9 +546,16 @@ function copy_manager_certs() {
       sudo tar -xf "${wazuh_certs_tar}" -C "${wazuh_manager_certs_dir}" \
       ./manager.pem ./manager-key.pem ./admin.pem ./admin-key.pem ./root-ca.pem \
       ./manager-remoted.pem ./manager-remoted-key.pem ./manager-apid.pem ./manager-apid-key.pem
-  sudo mv -f "${wazuh_manager_certs_dir}/manager.pem" "${wazuh_manager_certs_dir}/${cert_name}"
-  sudo mv -f "${wazuh_manager_certs_dir}/manager-key.pem" "${wazuh_manager_certs_dir}/${key_name}"
-  sudo mv -f "${wazuh_manager_certs_dir}/root-ca.pem" "${wazuh_manager_certs_dir}/${ca_name}"
+  # The config can name a file exactly as the cert-tool does (root-ca.pem): mv -f onto itself fails
+  # with "are the same file", where -n used to skip it silently. Those are left as they are.
+  local src dst
+  for src in manager.pem:"${cert_name}" manager-key.pem:"${key_name}" root-ca.pem:"${ca_name}"; do
+    dst="${src#*:}"
+    src="${src%%:*}"
+    if [[ "${src}" != "${dst}" ]]; then
+      sudo mv -f "${wazuh_manager_certs_dir}/${src}" "${wazuh_manager_certs_dir}/${dst}"
+    fi
+  done
   sudo mv -f "${wazuh_manager_certs_dir}/manager-remoted.pem" "${wazuh_manager_remoted_cert}"
   sudo mv -f "${wazuh_manager_certs_dir}/manager-remoted-key.pem" "${wazuh_manager_remoted_key}"
   sudo mv -f "${wazuh_manager_certs_dir}/manager-apid.pem" "${wazuh_manager_apid_cert}"

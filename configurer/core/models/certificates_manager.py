@@ -368,12 +368,18 @@ class CertsManager:
             remoted_key_name = self.components_certs_default_name[Component.WAZUH_MANAGER]["remoted-key"]
             apid_cert_name = self.components_certs_default_name[Component.WAZUH_MANAGER]["apid-cert"]
             apid_key_name = self.components_certs_default_name[Component.WAZUH_MANAGER]["apid-key"]
+            # The config can name a file exactly as the cert-tool does (root-ca.pem): `mv -f` onto itself
+            # fails with "are the same file", where `-n` used to skip it silently. Those are left as they are.
+            default_names = self.components_certs_default_name[Component.WAZUH_MANAGER]
+            renames = "\n                ".join(
+                f"sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/{default_names[kind]} {ComponentCertsDirectory.WAZUH_MANAGER}/{name}"
+                for kind, name in (("cert", cert_name), ("key", key_name), ("ca", ca_name))
+                if default_names[kind] != name
+            )
             command = f"""
                 sudo mkdir -p {ComponentCertsDirectory.WAZUH_MANAGER}
                 sudo tar -xf {certs_path}/wazuh-certificates.tar -C {ComponentCertsDirectory.WAZUH_MANAGER} ./{" ./".join(self.components_certs_default_name[Component.WAZUH_MANAGER].values())}
-                sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["cert"]} {ComponentCertsDirectory.WAZUH_MANAGER}/{cert_name}
-                sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["key"]} {ComponentCertsDirectory.WAZUH_MANAGER}/{key_name}
-                sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/{self.components_certs_default_name[Component.WAZUH_MANAGER]["ca"]} {ComponentCertsDirectory.WAZUH_MANAGER}/{ca_name}
+                {renames}
                 sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/{remoted_cert_name} {ComponentCertsDirectory.WAZUH_MANAGER}/remoted.pem
                 sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/{remoted_key_name} {ComponentCertsDirectory.WAZUH_MANAGER}/remoted-key.pem
                 sudo mv -f {ComponentCertsDirectory.WAZUH_MANAGER}/{apid_cert_name} {ComponentCertsDirectory.WAZUH_MANAGER}/apid.pem
