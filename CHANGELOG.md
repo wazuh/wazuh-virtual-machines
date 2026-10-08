@@ -92,6 +92,7 @@
 
 | Issue | Comment |
 | - | - |
+| [#1007](https://github.com/wazuh/wazuh-virtual-machines/issues/1007) | Check the Server API in the OVA and AMI first boot with the renamed `wazuh-internal-client` user (formerly `wazuh-wui`) |
 | [#1023](https://github.com/wazuh/wazuh-virtual-machines/issues/1023) | Issue the Server API certificate (`apid.pem`) from the instance CA at first boot in the OVA and AMI, since the manager no longer self-signs it |
 | [#1022](https://github.com/wazuh/wazuh-virtual-machines/issues/1022) | Publish the manager CA bundle with `wazuh-manager-certs stamp` at first boot in the OVA and AMI |
 | [#1016](https://github.com/wazuh/wazuh-virtual-machines/issues/1016) | Replace the manager CA and indexer-connector pair when the OVA first-boot starter runs again |

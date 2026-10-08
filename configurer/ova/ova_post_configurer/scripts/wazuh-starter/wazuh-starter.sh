@@ -71,7 +71,7 @@ dashboard_max_retries=20
 dashboard_wait_time=15
 
 # The manager's API account the dashboard uses, for the readiness check below.
-wazuh_manager_api_user="wazuh-wui"
+wazuh_manager_api_user="wazuh-internal-client"
 wazuh_manager_api_key="WAZUH_MANAGER_WUI_PASSWORD"
 manager_max_retries=30
 manager_wait_time=5

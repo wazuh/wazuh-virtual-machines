@@ -47,8 +47,8 @@ The script fails the build if anything resolved at build time is left: `/etc/waz
 1. `wazuh-certs-tool.sh` creates this VM's CA and certificates. The CA goes to `/etc/wazuh/ca/` and each pair to its component. The manager gets the indexer-connector pair, the agent listener pair (`remoted.pem`) and the Server API pair (`apid.pem`), all replacing whatever a failed earlier attempt left there; the same detected addresses go to the SAN of both `remoted.pem` and `apid.pem`. `wazuh-manager-certs stamp` then publishes the manager's new `root-ca.pem` to the agents, so remoted does not warn that the bundle changed outside the tool. The CA is also imported into the indexer JDK truststore as `wazuh-root-ca` (workaround 3). `nodes_dn` and `authcz.admin_dn` are written from the certificates just installed, since their subject order depends on the certs-tool version. Certificates must be in place before the first start: the packages never issue them outside `--install`.
 2. The indexer starts: its `--prestart` generates `admin`, `kibanaserver` and `wazuh-manager` and publishes them.
 3. `indexer-security-init.sh` loads the security configuration (a manual step of the indexer package).
-4. The manager starts: it generates the Server API passwords (`wazuh`, `wazuh-wui`) and reads `WAZUH_INDEXER_MANAGER_PASSWORD`.
-5. The dashboard starts: it reads `kibanaserver` and `wazuh-wui`.
+4. The manager starts: it generates the Server API passwords (`wazuh`, `wazuh-internal-client`) and reads `WAZUH_INDEXER_MANAGER_PASSWORD`.
+5. The dashboard starts: it reads `kibanaserver` and `wazuh-internal-client`.
 
 Every readiness check reads its password from `credentials.env` and hands it to curl through its standard input, never on a command line. No passwords tool is involved on first boot: the packages generate a unique password per VM.
 

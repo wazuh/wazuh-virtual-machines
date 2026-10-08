@@ -30,7 +30,7 @@ sudo grep '^WAZUH_INDEXER_ADMIN_PASSWORD=' /etc/wazuh/credentials.env | cut -d= 
 | `WAZUH_INDEXER_KIBANASERVER_PASSWORD` | `kibanaserver` (dashboard to indexer) |
 | `WAZUH_INDEXER_MANAGER_PASSWORD` | `wazuh-manager` (manager to indexer) |
 | `WAZUH_MANAGER_API_PASSWORD` | `wazuh` (Wazuh server API) |
-| `WAZUH_MANAGER_WUI_PASSWORD` | `wazuh-wui` (dashboard to the Wazuh server API) |
+| `WAZUH_MANAGER_WUI_PASSWORD` | `wazuh-internal-client` (dashboard to the Wazuh server API) |
 
 - No two instances launched from the AMI share a password, a certificate or a CA: the image ships none of them, and each instance creates its own on first boot.
 - Save the passwords somewhere safe and then delete the file (`sudo rm /etc/wazuh/credentials.env`). The services keep working without it; the SSH login banner reminds you of this.

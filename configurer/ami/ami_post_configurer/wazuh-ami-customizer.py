@@ -56,7 +56,7 @@ WAZUH_AGENT_ENROLLMENT_ADDRESS = "127.0.0.1"
 # (`resolve-credentials --prestart`) and publish them to /etc/wazuh/credentials.env, which stays on
 # the instance as the record the user reads them from.
 WAZUH_INDEXER_ADMIN_USER = "admin"
-WAZUH_MANAGER_API_USER = "wazuh-wui"
+WAZUH_MANAGER_API_USER = "wazuh-internal-client"
 
 # The token CLI talks to queue/sockets/auth.sock, which a manager reporting "active" may still be
 # opening: systemctl returns as soon as the unit is active, not once every daemon inside it has
@@ -569,7 +569,7 @@ def verify_indexer_connection() -> None:
 
 def verify_manager_connection() -> None:
     """
-    Verifies the connection to the Wazuh manager API as wazuh-wui, the account the dashboard uses,
+    Verifies the connection to the Wazuh manager API as wazuh-internal-client, the account the dashboard uses,
     with the password the manager package generated on this boot (WAZUH_MANAGER_WUI_PASSWORD).
 
     Returns:
