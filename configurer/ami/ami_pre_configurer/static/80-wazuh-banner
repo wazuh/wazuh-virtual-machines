@@ -1,7 +1,12 @@
 #!/bin/sh
+# Read the version on every run instead of at build time. On AL2023 update-motd runs this at boot and
+# periodically (update-motd.timer), not at login, so after a manager upgrade the banner follows from the
+# next boot. The wazuh-manager package installs this file; if it is missing or unreadable,
+# the welcome line goes without a version rather than ending in a dangling "version".
+WAZUH_VERSION=$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' /var/wazuh-manager/VERSION.json 2>/dev/null)
 cat << EOF
 
-    Welcome to the Wazuh AMI version 
+    Welcome to the Wazuh AMI${WAZUH_VERSION:+ version ${WAZUH_VERSION}}
 
 wwwwww.           wwwwwww.          wwwwwww.
 wwwwwww.          wwwwwww.          wwwwwww.
