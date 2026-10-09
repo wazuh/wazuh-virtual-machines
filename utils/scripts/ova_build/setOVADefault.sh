@@ -8,6 +8,10 @@ path_ova=$2
 dest_ova=$3
 ovf_path=$4
 wazuh_version=$5
+# Version shown in the appliance name and Product (e.g. 5.0.0-rc1 for a pre-release build)
+ova_version=${6:-${wazuh_version}}
+# Download location of the OVA. The ProductUrl element is removed when empty
+product_url=$7
 file="wazuh-${wazuh_version}"
 mkdir -p ${workspace}/new-ova/
 
@@ -23,7 +27,15 @@ echo "Files renamed"
 cp ${ovf_path} ${workspace}/new-ova/${file}.ovf
 
 sed -i "s/{WAZUH_VERSION}/${wazuh_version}/" ${workspace}/new-ova/${file}.ovf
+sed -i "s/{OVA_VERSION}/${ova_version}/" ${workspace}/new-ova/${file}.ovf
 echo "OVF Version changed"
+
+if [ -n "${product_url}" ]; then
+    sed -i "s|{PRODUCT_URL}|${product_url}|" ${workspace}/new-ova/${file}.ovf
+else
+    sed -i "/{PRODUCT_URL}/d" ${workspace}/new-ova/${file}.ovf
+fi
+echo "OVF Product URL changed"
 
 ovf_size=$(stat --printf=%s ${workspace}/new-ova/${file}-disk-1.vmdk)
 sed -i "s/{SIZE}/${ovf_size}/" "${workspace}/new-ova/${file}.ovf"
