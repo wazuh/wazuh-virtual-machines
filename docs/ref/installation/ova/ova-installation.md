@@ -4,7 +4,7 @@ The OVA can be deployed by downloading the `.ova` file from the official Wazuh d
 You can do this by running the following command:
 
 ```bash
-curl -sO https://packages.wazuh.com/production/5.x/vm/wazuh-5.0.0-1.ova
+curl -sO https://packages.wazuh.com/production/5.x/vm/wazuh-5.0.0.ova
 ```
 
 To use `pre-release` packages instead, use the following command:

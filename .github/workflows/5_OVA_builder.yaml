@@ -361,13 +361,10 @@ jobs:
 
       - name: Standarizing OVA
         run: |
-          # Name the build and its download location in the OVF metadata, so a stage build can be told from the release
-          if [ ${{ inputs.is_stage }} == true ] && [ "${{ inputs.wazuh_package_type }}" == "prod" ]; then
+          # A stage OVA is copied unchanged to production on release, so its metadata names the release and its production URL
+          if [ ${{ inputs.is_stage }} == true ] && [ "${{ inputs.wazuh_package_type }}" != "dev" ]; then
             OVA_VERSION="${{ env.WAZUH_VERSION }}"
-            OVA_PRODUCT_URL="https://${{ vars.PACKAGES_PROD_URL }}/production/${{ env.WAZUH_MAJOR }}.x/vm/wazuh-${{ env.WAZUH_VERSION }}-${{ inputs.ova_revision }}.ova"
-          elif [ ${{ inputs.is_stage }} == true ] && [ "${{ inputs.wazuh_package_type }}" == "pre-prod" ]; then
-            OVA_VERSION="${{ env.WAZUH_VERSION }}-${{ env.WAZUH_REVISION }}"
-            OVA_PRODUCT_URL="https://${{ vars.PACKAGES_STAGING_URL }}/pre-release/${{ env.WAZUH_MAJOR }}.x/vm/wazuh-${OVA_VERSION}.ova"
+            OVA_PRODUCT_URL="https://${{ vars.PACKAGES_PROD_URL }}/production/${{ env.WAZUH_MAJOR }}.x/vm/wazuh-${{ env.WAZUH_VERSION }}.ova"
           else
             # Development builds are not published, so they have no download location
             OVA_VERSION="${{ env.WAZUH_VERSION }}-dev"

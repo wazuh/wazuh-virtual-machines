@@ -37,7 +37,7 @@
 
 | Issue | Comment |
 | - | - |
-| [#1015](https://github.com/wazuh/wazuh-virtual-machines/issues/1015) | Name the stage build and its download URL in the OVA metadata, and set the VirtualBox guest OS type to Fedora (64-bit) |
+| [#1015](https://github.com/wazuh/wazuh-virtual-machines/issues/1015) | Name the release and its production download URL in the stage OVA metadata, mark development builds with `-dev`, and set the VirtualBox guest OS type to Fedora (64-bit) |
 | [#1012](https://github.com/wazuh/wazuh-virtual-machines/issues/1012) | Start the OVA and AMI integration tests from PR labels |
 | [#973](https://github.com/wazuh/wazuh-virtual-machines/issues/973) | Adapt AMI and OVA first boot to install-time credential generation |
 | [#975](https://github.com/wazuh/wazuh-virtual-machines/issues/975) | Enroll the pre-installed agent with an enrollment token minted at first boot, instead of copying the manager's `authd.pass` |
