@@ -84,7 +84,7 @@ def create_ova(
     vagrant_uuid = configure_vagrant_vm(
         packages_url_filename=artifact_urls_path, box_url=box_url, skip_signature_check=skip_signature_check
     )
-    export_ova_image(vagrant_uuid=vagrant_uuid, name=name, ova_dest=output)
+    export_ova_image(vagrant_uuid=vagrant_uuid, name=name, ova_dest=output, environment=environment)
 
     if checksum:
         generate_checksum(name=name, ova_dest=output)
