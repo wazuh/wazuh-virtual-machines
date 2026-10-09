@@ -24,6 +24,9 @@ WAZUH_WARNING_SCRIPT = Path("/etc/profile.d/wazuh-debug-warning.sh")
 # standalone generator, so wazuh-manager-authd has to be running before this is called.
 WAZUH_MANAGER_AUTHD_BIN = "/var/wazuh-manager/bin/wazuh-manager-authd"
 
+# Publishes the manager's CA bundle (etc/certs/root-ca.pem) to the agents (wazuh/wazuh#39319).
+WAZUH_MANAGER_CERTS_BIN = "/var/wazuh-manager/bin/wazuh-manager-certs"
+
 # Where the pre-installed agent picks the token up. w_agent_token_bootstrap() reads it once at the
 # agent's first start, while still root, installs the trust anchor the token carries, enrolls, and
 # unlinks the file.
@@ -53,7 +56,7 @@ WAZUH_AGENT_ENROLLMENT_ADDRESS = "127.0.0.1"
 # (`resolve-credentials --prestart`) and publish them to /etc/wazuh/credentials.env, which stays on
 # the instance as the record the user reads them from.
 WAZUH_INDEXER_ADMIN_USER = "admin"
-WAZUH_MANAGER_API_USER = "wazuh-wui"
+WAZUH_MANAGER_API_USER = "wazuh-internal-client"
 
 # The token CLI talks to queue/sockets/auth.sock, which a manager reporting "active" may still be
 # opening: systemctl returns as soon as the unit is active, not once every daemon inside it has
@@ -426,6 +429,7 @@ def create_certificates() -> None:
     certs_manager = CertsManager(raw_config_path=CERTS_TOOL_CONFIG_PATH, certs_tool_path=CERTS_TOOL_PATH)
     try:
         certs_manager.generate_certificates(agent_san=get_manager_san_ips())
+        publish_manager_ca()
         install_certificate_authority()
     finally:
         # install_certificate_authority() is the last reader of WAZUH_CERTS_TAR, so it is removed here
@@ -435,6 +439,23 @@ def create_certificates() -> None:
         # installing the certificates, before the error handler in main brings SSH back.
         remove_certs_tar()
     logger.debug("New certificates created")
+
+
+def publish_manager_ca() -> None:
+    """
+    Publishes the root-ca.pem just installed for the manager with `wazuh-manager-certs stamp`.
+
+    remoted remembers the build-time bundle; replacing it without publishing makes remoted log
+    "changed outside the tool and is not published" and announce ca_generation 0 to the agents
+    (wazuh-virtual-machines#1022). stamp publishes the bundle as is. It only needs the files, not a
+    running manager, and checks the bundle against remoted.pem, so it runs once both are installed.
+
+    Returns:
+        None
+    """
+
+    logger.debug("Publishing the manager CA bundle")
+    run_command(command=f"{WAZUH_MANAGER_CERTS_BIN} stamp", error_message="Error publishing the manager CA bundle")
 
 
 def remove_certs_tar() -> None:
@@ -548,7 +569,7 @@ def verify_indexer_connection() -> None:
 
 def verify_manager_connection() -> None:
     """
-    Verifies the connection to the Wazuh manager API as wazuh-wui, the account the dashboard uses,
+    Verifies the connection to the Wazuh manager API as wazuh-internal-client, the account the dashboard uses,
     with the password the manager package generated on this boot (WAZUH_MANAGER_WUI_PASSWORD).
 
     Returns:

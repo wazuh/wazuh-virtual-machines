@@ -42,6 +42,7 @@ def stubbed_steps(customizer, monkeypatch):
     certs_manager.generate_certificates.side_effect = lambda **_: calls.append("generate_certificates")
     monkeypatch.setattr(customizer, "CertsManager", MagicMock(return_value=certs_manager))
     monkeypatch.setattr(customizer, "get_manager_san_ips", lambda: ["10.0.0.1"])
+    monkeypatch.setattr(customizer, "publish_manager_ca", lambda: calls.append("publish_manager_ca"))
     monkeypatch.setattr(
         customizer, "install_certificate_authority", lambda: calls.append("install_certificate_authority")
     )
@@ -85,7 +86,7 @@ def test_create_certificates_removes_the_tar_after_installing_the_ca(customizer,
 
     customizer.create_certificates()
 
-    assert calls == ["generate_certificates", "install_certificate_authority"]
+    assert calls == ["generate_certificates", "publish_manager_ca", "install_certificate_authority"]
     assert seen_by_last_reader == [True]
     assert not certs_tar.exists()
 

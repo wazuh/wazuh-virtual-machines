@@ -31,6 +31,10 @@ def mock_exec_command():
     with (
         patch("configurer.core.models.wazuh_components_config_manager.exec_command", mock_exec_command),
         patch("configurer.core.models.certificates_manager.exec_command", mock_exec_command),
+        patch(
+            "configurer.core.models.certificates_manager.exec_command_with_status",
+            side_effect=lambda **kw: (*mock_exec_command(**kw), 0),
+        ),
         patch("configurer.core.core_configurer.exec_command", mock_exec_command),
     ):
         mock_exec_command.return_value = "", ""

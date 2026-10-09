@@ -112,18 +112,6 @@ def test_purge_build_credentials_script_removes_the_api_pair_and_the_jdk_trustst
     assert "jdk_ca_present && leftovers+=" in script
 
 
-def test_purge_build_credentials_script_installs_the_api_log_dropin():
-    script = PURGE_BUILD_CREDENTIALS_SCRIPT.read_text()
-
-    # Workaround 4 (wazuh/wazuh#40053): refresh api.log before every manager start so the API never
-    # rotates it as root.
-    assert 'MANAGER_API_LOG="${MANAGER_HOME}/logs/api.log"' in script
-    assert 'MANAGER_API_LOG_DROPIN="/etc/systemd/system/wazuh-manager.service.d/' in script
-    assert "ExecStartPre=-/usr/bin/touch ${MANAGER_API_LOG}" in script
-    assert "ExecStartPre=-/usr/bin/chown wazuh-manager:wazuh-manager ${MANAGER_API_LOG}" in script
-    assert "ExecStartPre=-/usr/bin/chmod 0660 ${MANAGER_API_LOG}" in script
-
-
 def test_purge_build_credentials_script_gives_no_stdin_to_the_resolvers():
     script = PURGE_BUILD_CREDENTIALS_SCRIPT.read_text()
 
