@@ -5,6 +5,7 @@
 
 | Issue | Comment |
 | - | - |
+| [#6790](https://github.com/wazuh/internal-devel-requests/issues/6790) | Check the signature of the Wazuh packages before installing them in the AMI and OVA, with `--skip-signature-check` for unsigned development packages |
 | [#991](https://github.com/wazuh/wazuh-virtual-machines/issues/991) | Add AMI dashboard access instructions and link the official upgrade, configuration and password management guides |
 | [#957](https://github.com/wazuh/wazuh-virtual-machines/issues/957) | Provision the agent listener certificate in the OVA and AMI, and reissue it at first boot |
 | [#944](https://github.com/wazuh/wazuh-virtual-machines/issues/944) | Provision the pre-installed agent's manager CA in AMI/OVA post-configuration |
@@ -96,6 +97,7 @@
 | [#1023](https://github.com/wazuh/wazuh-virtual-machines/issues/1023) | Issue the Server API certificate (`apid.pem`) from the instance CA at first boot in the OVA and AMI, since the manager no longer self-signs it |
 | [#1022](https://github.com/wazuh/wazuh-virtual-machines/issues/1022) | Publish the manager CA bundle with `wazuh-manager-certs stamp` at first boot in the OVA and AMI |
 | [#1016](https://github.com/wazuh/wazuh-virtual-machines/issues/1016) | Replace the manager CA and indexer-connector pair when the OVA first-boot starter runs again |
+| [#6861](https://github.com/wazuh/external-devel-requests/issues/6861) | Restore the 50 GB OVA disk the OVF declares: grow the Amazon Linux 2023 base disk and extend the root partition and file system |
 | [#6813](https://github.com/wazuh/internal-devel-requests/issues/6813) | Restrict the first-boot certificates tar to root in the OVA and AMI, and remove it as soon as it is consumed |
 | [#992](https://github.com/wazuh/wazuh-virtual-machines/issues/992) | Fix the GitHub Actions workflow filenames referenced in the AMI and OVA artifact generation guides |
 | [#945](https://github.com/wazuh/wazuh-virtual-machines/pull/945) | Leave the Wazuh services disabled in the AMI so they do not race the customizer on first boot |

@@ -122,7 +122,7 @@ def setup_execution_environment(vm_name: str) -> None:
     logger.info_success("Vagrantfile created successfully")
 
 
-def configure_vagrant_vm(packages_url_filename: Path, box_url: str) -> str:
+def configure_vagrant_vm(packages_url_filename: Path, box_url: str, skip_signature_check: bool = False) -> str:
     """
     Configures a Vagrant virtual machine (VM) for the Wazuh environment.
 
@@ -134,6 +134,8 @@ def configure_vagrant_vm(packages_url_filename: Path, box_url: str) -> str:
             directory as ``ARTIFACT_URLS_FILENAME`` for use by the VM configuration.
         box_url (str): URL pointing to the ``.box`` file that will be downloaded and added
             as the Vagrant box for the VM.
+        skip_signature_check (bool): Install the Wazuh packages without checking their signature.
+            Only meant for unsigned development packages.
 
     Returns:
         str: The UUID of the configured Vagrant VM.
@@ -176,7 +178,8 @@ def configure_vagrant_vm(packages_url_filename: Path, box_url: str) -> str:
         the logs generated during the configuration will be displayed in the console. 
     """)
 
-    command = f"vagrant ssh {vagrant_uuid} -c 'cd /tmp/ && sudo hatch run dev-ova-post-configurer:run --packages-url-path {Path('wazuh_local_ova') / ARTIFACT_URLS_FILENAME}'"
+    skip_signature_check_flag = " --skip-signature-check" if skip_signature_check else ""
+    command = f"vagrant ssh {vagrant_uuid} -c 'cd /tmp/ && sudo hatch run dev-ova-post-configurer:run --packages-url-path {Path('wazuh_local_ova') / ARTIFACT_URLS_FILENAME}{skip_signature_check_flag}'"
     output, error_output = exec_command(command=command)
     if error_output:
         raise RuntimeError(f"Error running command in the remote VM: {error_output}")
