@@ -620,7 +620,7 @@ def start_ssh_service() -> None:
     start_service("sshd.service")
 
 
-def reset_agent_enrollment_state() -> str | None:
+def reset_agent_enrollment_state() -> None:
     """
     Removes every enrollment credential and agent identity the image was built with.
 
@@ -636,32 +636,55 @@ def reset_agent_enrollment_state() -> str | None:
       the token unused and returns -- so a baked anchor or a baked key would silently turn the fresh
       token into a no-op and leave every deployed instance enrolled under one identity.
 
-    client.keys is truncated rather than deleted so the file keeps the ownership and mode the agent
-    package gave it; the bootstrap only looks at its size. The image ships it empty, so an ID found
-    in it here can only come from an earlier run of this customizer that started the agent and then
-    failed (the service is only removed once it succeeds): it is returned for remove_previous_agent().
+    client.keys is left alone here: reset_agent_identity() empties it once the manager API is up.
 
     Returns:
-        str | None: The ID the agent held before the reset, or None if it held none.
+        None
     """
 
     logger.debug("Removing the enrollment credentials and agent identity baked into the image")
-
-    try:
-        previous_agent_id = (Path(WAZUH_AGENT_CLIENT_KEYS_FILE).read_text().split() or [None])[0]
-    except FileNotFoundError:
-        previous_agent_id = None
 
     command = f"""
     rm -f {WAZUH_MANAGER_AUTHD_PASS_FILE} {WAZUH_MANAGER_ENROLLMENT_TOKENS_FILE}
     rm -f {WAZUH_AGENT_AUTHD_PASS_FILE} {WAZUH_AGENT_ENROLLMENT_TOKEN_FILE}
     rm -f {WAZUH_AGENT_CA_FILE} {WAZUH_AGENT_ANCHOR_COMMITTED_FILE} {WAZUH_AGENT_REENROLL_SECRET_FILE}
-    if [ -f {WAZUH_AGENT_CLIENT_KEYS_FILE} ]; then : > {WAZUH_AGENT_CLIENT_KEYS_FILE}; fi
     """
     run_command(command=command, error_message="Error removing the baked enrollment state")
 
     logger.debug("Baked enrollment credentials and agent identity removed")
-    return previous_agent_id
+
+
+def reset_agent_identity() -> None:
+    """
+    Empties the agent's client.keys, first removing from the manager the agent it names, if any.
+
+    The image ships client.keys empty, so an ID in it can only come from an earlier run of this
+    customizer that started the agent and then failed (the service is only removed once it
+    succeeds). The manager still has that agent registered under the same name and would reject the
+    new enrollment as a duplicate. On a normal first boot this only truncates an empty file.
+
+    Reading the ID, removing the agent and truncating the file happen in this one step, after the
+    manager API is up, so a run that fails earlier (certificates, indexer, manager) leaves the ID on
+    disk for the next one. The agent is never started before this point.
+
+    client.keys is truncated rather than deleted so the file keeps the ownership and mode the agent
+    package gave it; the bootstrap only looks at its size.
+
+    Returns:
+        None
+    """
+
+    try:
+        agent_id = (Path(WAZUH_AGENT_CLIENT_KEYS_FILE).read_text().split() or [None])[0]
+    except FileNotFoundError:
+        return
+
+    remove_previous_agent(agent_id)
+
+    run_command(
+        command=f": > {WAZUH_AGENT_CLIENT_KEYS_FILE}",
+        error_message="Error emptying the agent's client.keys",
+    )
 
 
 def remove_previous_agent(agent_id: str | None) -> None:
@@ -678,7 +701,7 @@ def remove_previous_agent(agent_id: str | None) -> None:
     better than aborting the customization with SSH stopped. The warning says why.
 
     Args:
-        agent_id (str | None): The ID returned by reset_agent_enrollment_state().
+        agent_id (str | None): The ID read from the agent's client.keys by reset_agent_identity().
 
     Returns:
         None
@@ -856,12 +879,14 @@ def start_components_services() -> None:
     # Clear the enrollment credentials and the agent identity the image was built with, before the
     # manager starts, so nothing baked into the AMI is reused and the token minted below is the only
     # way this instance's agent can register.
-    previous_agent_id = reset_agent_enrollment_state()
+    reset_agent_enrollment_state()
 
     enable_service("wazuh-manager")
     start_service("wazuh-manager")
     verify_manager_connection()
-    remove_previous_agent(previous_agent_id)
+    # Only now, with the API up: removes the agent an earlier failed run enrolled, then empties
+    # client.keys. Done here and not in the reset above so a run failing in between keeps the ID.
+    reset_agent_identity()
 
     enable_service("wazuh-dashboard")
     start_service("wazuh-dashboard")

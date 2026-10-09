@@ -54,19 +54,51 @@ def curl(customizer, monkeypatch):
     return calls, delete_response
 
 
-def test_reset_returns_the_id_of_an_agent_enrolled_by_an_earlier_run(customizer, client_keys, run_command):
+@pytest.fixture
+def remove_previous_agent(customizer, monkeypatch):
+    mock = MagicMock()
+    monkeypatch.setattr(customizer, "remove_previous_agent", mock)
+    return mock
+
+
+def test_reset_removes_the_anchor_marker_but_leaves_client_keys(customizer, client_keys, run_command):
+    customizer.reset_agent_enrollment_state()
+
+    command = run_command.call_args.kwargs["command"]
+    assert customizer.WAZUH_AGENT_ANCHOR_COMMITTED_FILE in command
+    assert str(client_keys) not in command  # a run failing before reset_agent_identity() keeps the ID
+
+
+def test_reset_agent_identity_removes_the_previous_agent_before_emptying_client_keys(
+    customizer, client_keys, run_command, remove_previous_agent
+):
     client_keys.write_text("001 wazuh any 0123456789abcdef\n")
+    remove_previous_agent.side_effect = lambda _: run_command.assert_not_called()
 
-    assert customizer.reset_agent_enrollment_state() == "001"
-    assert customizer.WAZUH_AGENT_ANCHOR_COMMITTED_FILE in run_command.call_args.kwargs["command"]
+    customizer.reset_agent_identity()
+
+    remove_previous_agent.assert_called_once_with("001")
+    assert str(client_keys) in run_command.call_args.kwargs["command"]
 
 
-@pytest.mark.parametrize("content", ["", None])
-def test_reset_returns_none_on_a_normal_first_boot(customizer, client_keys, run_command, content):
-    if content is not None:
-        client_keys.write_text(content)
+def test_reset_agent_identity_only_empties_client_keys_on_a_normal_first_boot(
+    customizer, client_keys, run_command, remove_previous_agent
+):
+    client_keys.write_text("")
 
-    assert customizer.reset_agent_enrollment_state() is None
+    customizer.reset_agent_identity()
+
+    remove_previous_agent.assert_called_once_with(None)
+    run_command.assert_called_once()
+
+
+def test_reset_agent_identity_does_nothing_without_client_keys(
+    customizer, client_keys, run_command, remove_previous_agent
+):
+    customizer.reset_agent_identity()
+
+    remove_previous_agent.assert_not_called()
+    run_command.assert_not_called()
 
 
 def test_remove_previous_agent_does_nothing_without_a_previous_agent(customizer, curl):
