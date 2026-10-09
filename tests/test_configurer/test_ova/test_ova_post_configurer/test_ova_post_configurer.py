@@ -22,6 +22,7 @@ from configurer.ova.ova_post_configurer.ova_post_configurer import (
     delete_wazuh_indexes,
     purge_build_credentials,
     enable_fips,
+    generalize_image,
     main,
     post_conf_change_ssh_crypto_policies,
     post_conf_clean,
@@ -301,7 +302,7 @@ def test_steps_system_config(
 
     mock_add_wazuh_starter_certs_tool.assert_called_once()
 
-    mock_run_command.assert_any_call("echo 'root:wazuh' | chpasswd")
+    assert not any("chpasswd" in str(c) for c in mock_run_command.call_args_list)
 
     mock_set_hostname.assert_called_once()
 
@@ -632,6 +633,7 @@ def test_purge_build_credentials_fail(mock_run_command):
         purge_build_credentials()
 
 
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.generalize_image")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.steps_system_config")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.steps_clean")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.post_conf_create_network_config")
@@ -647,9 +649,17 @@ def test_main(
     mock_post_conf_create_network_config,
     mock_steps_clean,
     mock_steps_system_config,
+    mock_generalize_image,
     mock_run_command,
 ):
+    manager = MagicMock()
+    manager.attach_mock(mock_post_conf_clean, "post_conf_clean")
+    manager.attach_mock(mock_generalize_image, "generalize_image")
+
     main()
+
+    # generalize_image expires the build's login, so nothing can run after it.
+    assert manager.mock_calls[-1] == call.generalize_image()
 
     mock_steps_system_config.assert_called_once()
 
@@ -676,3 +686,42 @@ def test_main(
     mock_post_conf_create_network_config.assert_called_once()
     mock_configure_ssh.assert_called_once()
     mock_post_conf_clean.assert_called_once()
+
+
+def _generalized_root(tmp_path, root_hash="!$6$x", wazuh_user_last_change="0", **extra):
+    for rel, content in {
+        "etc/machine-id": "",
+        "etc/passwd": "root:x:0:0::/root:/bin/bash\nwazuh-user:x:1000:1000::/home/wazuh-user:/bin/bash\n",
+        "etc/shadow": f"root:{root_hash}:20000:0:99999:7:::\nwazuh-user:$6$y:{wazuh_user_last_change}:0:99999:7:::\n",
+        "etc/sudoers.d/wazuh-user": "wazuh-user ALL=(ALL) NOPASSWD: ALL\n",
+        "etc/ssh/sshd_config": "",
+        **extra,
+    }.items():
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_text(content)
+    return tmp_path
+
+
+def test_generalize_image(tmp_path, mock_run_command):
+    generalize_image(root=_generalized_root(tmp_path))
+
+    commands = mock_run_command.call_args.args[0]
+    assert commands[-1] == "chage -d 0 wazuh-user"
+    assert "truncate -s 0 /etc/machine-id" in commands
+    assert "passwd -l root" in commands
+
+
+@pytest.mark.parametrize(
+    "kwargs, error",
+    [
+        ({"home/wazuh-user/.ssh/authorized_keys": "ssh-rsa AAAA vagrant"}, "authorized_keys left"),
+        ({"etc/ssh/ssh_host_ecdsa_key": "key"}, "SSH host keys left"),
+        ({"etc/machine-id": "2871ce847a65"}, "machine-id is not empty"),
+        ({"etc/sudoers.d/90-cloud-init-users": "ec2-user ALL=(ALL) NOPASSWD:ALL\n"}, "ec2-user is still in"),
+        ({"root_hash": "$6$wazuh"}, "root password is not locked"),
+        ({"wazuh_user_last_change": "20000"}, "wazuh-user password is not expired"),
+    ],
+)
+def test_generalize_image_fails_on_leftovers(tmp_path, mock_run_command, kwargs, error):
+    with pytest.raises(RuntimeError, match=error):
+        generalize_image(root=_generalized_root(tmp_path, **kwargs))

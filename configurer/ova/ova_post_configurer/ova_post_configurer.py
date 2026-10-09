@@ -239,10 +239,9 @@ def steps_system_config() -> None:
     3. Enabling FIPS (Federal Information Processing Standards) mode.
     4. Updating the JVM heap size.
     5. Adding the Wazuh starter service.
-    6. Changing the root password to 'wazuh'.
-    7. Setting the system hostname.
-    8. Retrieving the Wazuh version from the `VERSION.json` file.
-    9. Running a script to display messages with the Wazuh version and user information.
+    6. Setting the system hostname.
+    7. Retrieving the Wazuh version from the `VERSION.json` file.
+    8. Running a script to display messages with the Wazuh version and user information.
 
     Returns:
         None
@@ -259,8 +258,6 @@ def steps_system_config() -> None:
 
     add_wazuh_starter_service()
     add_wazuh_starter_certs_tool()
-
-    run_command("echo 'root:wazuh' | chpasswd")
 
     set_hostname()
 
@@ -556,6 +553,66 @@ def purge_build_credentials() -> None:
     logger.info_success("Build-time credentials, certificates and CA removed.")
 
 
+def generalize_image(root: Path = Path("/")) -> None:
+    """
+    Removes everything that would be shared by every VM deployed from this OVA and locks the build-time access.
+
+    Must be the last step of the build: once the password of wazuh-user expires, the build can no longer log in.
+    The result is verified afterwards, as some of the commands report warnings on stderr even when they succeed.
+
+    1. Removes the SSH authorized_keys of every user (the Vagrant insecure public key, whose private key is public).
+    2. Removes the SSH host keys (sshd-keygen.target regenerates them on first boot, DSA no longer).
+    3. Empties /etc/machine-id, so each VM generates its own on first boot.
+    4. Removes the cloud-init ec2-user, its sudoers file and the ifcfg-eth0 left by the base image.
+    5. Locks the root password and expires the one of wazuh-user, which must be changed on the first login.
+
+    Args:
+        root (Path): Root of the file system that is verified. Only changed by the tests.
+
+    Raises:
+        RuntimeError: If anything shared or any build-time access is left in the image.
+    """
+    logger.debug("Generalizing the image and locking the build-time access.")
+    commands = [
+        "rm -f /root/.ssh/authorized_keys /home/*/.ssh/authorized_keys",
+        "rm -f /etc/ssh/ssh_host_*",
+        # Emptied, not removed: an empty machine-id makes systemd generate and commit a new one on first boot,
+        # while a missing (or "uninitialized") one triggers the first-boot semantics, `systemctl preset-all`
+        # included, which would undo the services left disabled on purpose for wazuh-starter.
+        "truncate -s 0 /etc/machine-id",
+        "[ -L /var/lib/dbus/machine-id ] || rm -f /var/lib/dbus/machine-id",
+        "! id ec2-user >/dev/null 2>&1 || userdel -r ec2-user",
+        "grep -rlw ec2-user /etc/sudoers.d | xargs -r rm -f",
+        "rm -f /etc/sysconfig/network-scripts/ifcfg-eth0",
+        # The password of wazuh-user stays documented in the banner, but must be changed on the first login. A random
+        # password per VM was ruled out, as the images never change passwords automatically on boot. sudo stays
+        # NOPASSWD, as it was.
+        "passwd -l root",
+        "chage -d 0 wazuh-user",
+    ]
+    run_command(commands)
+
+    errors = []
+    if leftovers := [*root.glob("home/*/.ssh/authorized_keys"), *root.glob("root/.ssh/authorized_keys")]:
+        errors.append(f"authorized_keys left: {leftovers}")
+    if leftovers := [*root.glob("etc/ssh/ssh_host_*")]:
+        errors.append(f"SSH host keys left: {leftovers}")
+    if (root / "etc/machine-id").stat().st_size:
+        errors.append("/etc/machine-id is not empty")
+    if any(line.startswith("ec2-user:") for line in (root / "etc/passwd").read_text().splitlines()):
+        errors.append("ec2-user still exists")
+    if any("ec2-user" in f.read_text() for f in (root / "etc/sudoers.d").glob("*")):
+        errors.append("ec2-user is still in /etc/sudoers.d")
+    shadow = {line.split(":")[0]: line.split(":") for line in (root / "etc/shadow").read_text().splitlines()}
+    if not shadow["root"][1].startswith("!"):
+        errors.append("the root password is not locked")
+    if shadow["wazuh-user"][2] != "0":
+        errors.append("the wazuh-user password is not expired")
+    if errors:
+        raise RuntimeError(f"Error generalizing the image: {'; '.join(errors)}")
+    logger.info_success("Image generalized and build-time access locked.")
+
+
 def main() -> None:
     """
     Main function to run the OVA PostConfigurer process.
@@ -575,6 +632,7 @@ def main() -> None:
             - Enable password authentication by replacing `PasswordAuthentication no` with `PasswordAuthentication yes`.
             - Append `PermitRootLogin no` to the SSH configuration file.
         - Performing additional cleanup tasks.
+    8. Generalizes the image (`generalize_image`). This must be the last step.
 
     Returns:
         None
@@ -610,6 +668,7 @@ def main() -> None:
     post_conf_create_network_config()
     configure_ssh()
     post_conf_clean()
+    generalize_image()
     logger.info_success("OVA PostConfigurer completed.")
 
 

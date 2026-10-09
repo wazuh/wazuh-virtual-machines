@@ -160,22 +160,23 @@ The workflow runs three jobs in sequence: `ova-setup` → `test-ova` → `ova-cl
 
 1. Checkout `wazuh-automation` at `wazuh_automation_reference`
 2. Set up Python 3.10 and install `integration-test-module`
-3. Run integration tests using SSH password authentication through the allocator's port-forwarded SSH:
+3. Log in as `wazuh-user` / `wazuh` and change the expired password, as a user would on the first login. The new password is random and masked, and the step checks that only the new password is accepted afterwards.
+4. Run integration tests using SSH password authentication through the allocator's port-forwarded SSH:
    ```bash
    test_runner \
      --test-type ova \
      --ssh-host {allocator_ip} \
      --ssh-port 2201 \
      --ssh-username wazuh-user \
-     --ssh-password wazuh \
+     --ssh-password "${OVA_PASSWORD}" \
      --test-pattern ALL \
      --log-level INFO \
      --output github \
      --output-file test-results.github
    ```
-   > The OVA VM is not directly reachable — connections go through the allocator at port 2201, which VirtualBox forwards to the VM's SSH port 22. The OVA uses default credentials (`wazuh-user` / `wazuh`).
-4. Parse results into `$GITHUB_ENV` and write step summary
-5. Post or update PR comment (marker: `<!-- wazuh-vm-test-ova -->`)
+   > The OVA VM is not directly reachable — connections go through the allocator at port 2201, which VirtualBox forwards to the VM's SSH port 22. The OVA ships `wazuh-user` / `wazuh` with the password expired, hence the previous step.
+5. Parse results into `$GITHUB_ENV` and write step summary
+6. Post or update PR comment (marker: `<!-- wazuh-vm-test-ova -->`)
 
 For details on what the `ova` test type validates, see the `Integration Test Module — Description` of the internal documentation.
 
