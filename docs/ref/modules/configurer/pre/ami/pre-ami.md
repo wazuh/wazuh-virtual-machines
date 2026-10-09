@@ -2,7 +2,7 @@
 
 The AMI pre-configuration step includes several system-level tasks to prepare the virtual machine before installing and configuring Wazuh components. These tasks include:
 
-- Updating the Message of the Day (MOTD) with the Wazuh logo.
+- Updating the Message of the Day (MOTD) with the Wazuh logo and the installed Wazuh version, read from `/var/wazuh-manager/VERSION.json` at every login so it stays right after an upgrade.
 - Creating the `wazuh-user` user.
 - Remove the remote default user.
 - Changing the machine’s hostname.

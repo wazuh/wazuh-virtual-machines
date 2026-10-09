@@ -15,7 +15,7 @@ Once the **Provisioner and Core Configurer** have been executed, the Wazuh compo
 6. Changed the VM hostname to `wazuh`.  
 7. Disable the SSH connection to the `root` user.  
 8. Enable SSH connection via password.  
-9. Execute the `messages.sh` script which adds welcome messages both at machine startup and login.  
+9. Execute the `messages.sh` script which adds welcome messages, with the Wazuh version from `VERSION.json`, both at machine startup and login.  
 10. Afterwards the `wazuh-manager` is stopped and the following indexes are deleted:  
     - `wazuh-alerts-*`  
     - `wazuh-archives-*`  

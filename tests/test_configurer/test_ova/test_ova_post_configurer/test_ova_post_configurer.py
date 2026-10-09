@@ -1,4 +1,5 @@
 import os
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, call, mock_open, patch
 
@@ -307,6 +308,27 @@ def test_steps_system_config(
 
     mock_open_file.assert_any_call("VERSION.json")
     mock_run_command.assert_any_call(f"sudo bash {SCRIPTS_PATH}/messages.sh no 5.0.0 wazuh-user")
+
+
+def test_messages_script_shows_version_in_both_banners(tmp_path):
+    # Run the real messages.sh, with the files it writes redirected to tmp_path
+    script = tmp_path / "messages.sh"
+    (tmp_path / "motd.d").mkdir()
+    script.write_text(
+        (Path(SCRIPTS_PATH) / "messages.sh")
+        .read_text()
+        .replace("/etc/issue", str(tmp_path / "issue"))
+        .replace("/usr/lib/motd.d", str(tmp_path / "motd.d"))
+        .replace("sudo tee -a /etc/profile", f"tee -a {tmp_path / 'profile'}")
+    )
+
+    subprocess.run(["bash", str(script), "no", "5.0.0", "wazuh-user"], capture_output=True, check=True)
+
+    issue = (tmp_path / "issue").read_text()
+    motd = (tmp_path / "motd.d" / "40-wazuh-banner").read_text()
+    assert "Welcome to the Wazuh OVA version 5.0.0\n" in issue
+    assert "Wazuh - 5.0.0" not in issue
+    assert "    Welcome to the Wazuh OVA version 5.0.0\n" in motd
 
 
 def test_steps_clean(mock_run_command):

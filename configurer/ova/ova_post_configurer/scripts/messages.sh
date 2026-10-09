@@ -9,8 +9,7 @@ SYSTEM_USER=$3
 # OVA Welcome message
 cat > /etc/issue <<EOF
 
-Welcome to the Wazuh OVA version
-Wazuh - ${WAZUH_VERSION}
+Welcome to the Wazuh OVA version ${WAZUH_VERSION}
 Login credentials:
   User: ${SYSTEM_USER}
   Password: wazuh
@@ -23,9 +22,13 @@ For security, save them and delete that file (if you have not deleted it yet).
 
 EOF
 
-# User Welcome message
+# User Welcome message. The version is written at build time: unlike the AMI's update-motd.d
+# script, pam_motd only prints this file, and /etc/issue cannot run anything either
 rm -f /usr/lib/motd.d/30-banner
 cat > /usr/lib/motd.d/40-wazuh-banner <<EOF
+
+    Welcome to the Wazuh OVA version ${WAZUH_VERSION}
+
 wwwwww.           wwwwwww.          wwwwwww.
 wwwwwww.          wwwwwww.          wwwwwww.
  wwwwww.         wwwwwwwww.        wwwwwww.
