@@ -8,7 +8,7 @@ path_ova=$2
 dest_ova=$3
 ovf_path=$4
 wazuh_version=$5
-# Version shown in the appliance name and Product (e.g. 5.0.0-rc1 for a pre-release build)
+# Version shown in the appliance name and Product (e.g. 5.0.0-dev for a development build)
 ova_version=${6:-${wazuh_version}}
 # Download location of the OVA. The ProductUrl element is removed when empty
 product_url=$7

@@ -241,7 +241,7 @@ def steps_system_config() -> None:
     5. Adding the Wazuh starter service.
     6. Changing the root password to 'wazuh'.
     7. Setting the system hostname.
-    8. Retrieving the Wazuh version and stage from the `VERSION.json` file.
+    8. Retrieving the Wazuh version from the `VERSION.json` file.
     9. Running a script to display messages with the Wazuh version and user information.
 
     Returns:
@@ -264,12 +264,10 @@ def steps_system_config() -> None:
 
     set_hostname()
 
-    # Retrieve Wazuh Version from Version.json
+    # Retrieve Wazuh Version from Version.json. The stage is not used, as the stage OVA is copied unchanged to production
     with open("VERSION.json") as file:
         data = json.load(file)
-    version = data.get("version")
-    stage = data.get("stage")
-    wazuh_version = version + "-" + stage
+    wazuh_version = data.get("version")
 
     logger.debug("Adding Wazuh welcome messages.")
     run_command(f"sudo bash {SCRIPTS_PATH}/messages.sh no {wazuh_version} wazuh-user")
