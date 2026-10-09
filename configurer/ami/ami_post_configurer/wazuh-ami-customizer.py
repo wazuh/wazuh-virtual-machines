@@ -1,4 +1,5 @@
 import argparse
+import json
 import logging
 import os
 import subprocess
@@ -39,6 +40,9 @@ WAZUH_MANAGER_AUTHD_PASS_FILE = "/var/wazuh-manager/etc/authd.pass"
 WAZUH_MANAGER_ENROLLMENT_TOKENS_FILE = "/var/wazuh-manager/etc/enrollment_tokens.json"
 WAZUH_AGENT_AUTHD_PASS_FILE = "/var/ossec/etc/authd.pass"
 WAZUH_AGENT_CA_FILE = "/var/ossec/etc/certs/root-ca.pem"
+# Written by the agent once it has committed to a trust anchor. With it present and the anchor gone,
+# agentd refuses to start (error 4125) instead of bootstrapping a new one, so it goes with the anchor.
+WAZUH_AGENT_ANCHOR_COMMITTED_FILE = "/var/ossec/etc/certs/.anchor-committed"
 WAZUH_AGENT_CLIENT_KEYS_FILE = "/var/ossec/etc/client.keys"
 WAZUH_AGENT_REENROLL_SECRET_FILE = "/var/ossec/etc/reenroll.secret"
 
@@ -616,7 +620,7 @@ def start_ssh_service() -> None:
     start_service("sshd.service")
 
 
-def reset_agent_enrollment_state() -> None:
+def reset_agent_enrollment_state() -> str | None:
     """
     Removes every enrollment credential and agent identity the image was built with.
 
@@ -633,23 +637,107 @@ def reset_agent_enrollment_state() -> None:
       token into a no-op and leave every deployed instance enrolled under one identity.
 
     client.keys is truncated rather than deleted so the file keeps the ownership and mode the agent
-    package gave it; the bootstrap only looks at its size.
+    package gave it; the bootstrap only looks at its size. The image ships it empty, so an ID found
+    in it here can only come from an earlier run of this customizer that started the agent and then
+    failed (the service is only removed once it succeeds): it is returned for remove_previous_agent().
 
     Returns:
-        None
+        str | None: The ID the agent held before the reset, or None if it held none.
     """
 
     logger.debug("Removing the enrollment credentials and agent identity baked into the image")
 
+    try:
+        previous_agent_id = (Path(WAZUH_AGENT_CLIENT_KEYS_FILE).read_text().split() or [None])[0]
+    except FileNotFoundError:
+        previous_agent_id = None
+
     command = f"""
     rm -f {WAZUH_MANAGER_AUTHD_PASS_FILE} {WAZUH_MANAGER_ENROLLMENT_TOKENS_FILE}
     rm -f {WAZUH_AGENT_AUTHD_PASS_FILE} {WAZUH_AGENT_ENROLLMENT_TOKEN_FILE}
-    rm -f {WAZUH_AGENT_CA_FILE} {WAZUH_AGENT_REENROLL_SECRET_FILE}
+    rm -f {WAZUH_AGENT_CA_FILE} {WAZUH_AGENT_ANCHOR_COMMITTED_FILE} {WAZUH_AGENT_REENROLL_SECRET_FILE}
     if [ -f {WAZUH_AGENT_CLIENT_KEYS_FILE} ]; then : > {WAZUH_AGENT_CLIENT_KEYS_FILE}; fi
     """
     run_command(command=command, error_message="Error removing the baked enrollment state")
 
     logger.debug("Baked enrollment credentials and agent identity removed")
+    return previous_agent_id
+
+
+def remove_previous_agent(agent_id: str | None) -> None:
+    """
+    Removes from the manager the agent an earlier, failed run of this customizer enrolled, so the
+    agent can enroll again under the same name instead of being rejected as a duplicate. No-op on a
+    normal first boot.
+
+    Goes through the Server API because in 5.0.0 the manager ships no local CLI that removes agents
+    (manage_agents is only installed with the agent). older_than=0s because the default (7d) skips
+    an agent registered minutes ago; purge drops its key instead of keeping it as removed.
+
+    Not fatal: if it fails, the agent's enrollment is rejected and the agent stays down, which is
+    better than aborting the customization with SSH stopped. The warning says why.
+
+    Args:
+        agent_id (str | None): The ID returned by reset_agent_enrollment_state().
+
+    Returns:
+        None
+    """
+
+    if agent_id is None:
+        return
+    if not agent_id.isdigit():
+        logger.warning(f"Ignoring an unexpected agent ID in client.keys: {agent_id}")
+        return
+
+    logger.info(f"Removing agent {agent_id}, enrolled by an earlier run of the customizer, from the manager")
+
+    # Password and JWT reach curl through its standard input, never argv (see http_status()).
+    password = read_credential(CredentialKey.MANAGER_WUI)
+    jwt = subprocess.run(
+        [
+            "curl",
+            "-s",
+            "-k",
+            "-K",
+            "-",
+            "-X",
+            "POST",
+            "--max-time",
+            "120",
+            "https://localhost:55000/security/user/authenticate?raw=true",
+        ],
+        input=f'user = "{WAZUH_MANAGER_API_USER}:{password}"\n',
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    response = subprocess.run(
+        [
+            "curl",
+            "-s",
+            "-k",
+            "-K",
+            "-",
+            "-X",
+            "DELETE",
+            "--max-time",
+            "120",
+            f"https://localhost:55000/agents?agents_list={agent_id}&status=all&older_than=0s&purge=true",
+        ],
+        input=f'header = "Authorization: Bearer {jwt}"\n',
+        capture_output=True,
+        text=True,
+    ).stdout
+
+    try:
+        removed = json.loads(response)["data"]["total_affected_items"] == 1
+    except (ValueError, KeyError, TypeError):
+        removed = False
+
+    if removed:
+        logger.info(f"Agent {agent_id} removed")
+    else:
+        logger.warning(f"Could not remove agent {agent_id}; its enrollment will be rejected as a duplicate: {response}")
 
 
 def mint_agent_enrollment_token() -> str:
@@ -768,11 +856,12 @@ def start_components_services() -> None:
     # Clear the enrollment credentials and the agent identity the image was built with, before the
     # manager starts, so nothing baked into the AMI is reused and the token minted below is the only
     # way this instance's agent can register.
-    reset_agent_enrollment_state()
+    previous_agent_id = reset_agent_enrollment_state()
 
     enable_service("wazuh-manager")
     start_service("wazuh-manager")
     verify_manager_connection()
+    remove_previous_agent(previous_agent_id)
 
     enable_service("wazuh-dashboard")
     start_service("wazuh-dashboard")

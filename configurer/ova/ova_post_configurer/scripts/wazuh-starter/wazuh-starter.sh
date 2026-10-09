@@ -127,6 +127,17 @@ wazuh_dashboard_conf="/etc/wazuh-dashboard/opensearch_dashboards.yml"
 # script no longer writes it -- it only makes sure the image did not ship one, which would make the
 # bootstrap skip the token entirely.
 wazuh_agent_ca="/var/ossec/etc/certs/root-ca.pem"
+# The marker the agent writes once it has committed to a trust anchor. With the marker present and
+# the anchor gone, agentd refuses to start (error 4125) instead of bootstrapping a new one, so it has
+# to go together with the anchor. Only there when an earlier, failed run of this script enrolled the
+# agent before dying.
+wazuh_agent_anchor_committed="/var/ossec/etc/certs/.anchor-committed"
+
+# The ID the agent held before reset_enrollment_state() truncated its client.keys, if any. Set when
+# an earlier run of this script got as far as enrolling the agent and then failed: the manager still
+# has that agent registered under the same name, and rejects the new enrollment as a duplicate until
+# it is removed. See remove_previous_agent().
+previous_agent_id=""
 
 ###########################################
 # Utility Functions
@@ -275,13 +286,50 @@ function reset_enrollment_state() {
   #     turn the fresh token into a no-op and leave every imported VM enrolled under one identity.
   #
   # client.keys is truncated rather than deleted so the file keeps the ownership and mode the agent
-  # package gave it; the bootstrap only looks at its size.
+  # package gave it; the bootstrap only looks at its size. The image ships it empty, so an ID read
+  # from it here can only come from an earlier run of this script that enrolled the agent and then
+  # failed (this script only deletes itself once it succeeds): it is kept for remove_previous_agent().
   logger "Removing the enrollment credentials and agent identity baked into the image"
   rm -f "${wazuh_manager_authd_pass}" "${wazuh_manager_enrollment_tokens}"
   rm -f "${wazuh_agent_authd_pass}" "${wazuh_agent_enrollment_token}"
-  rm -f "${wazuh_agent_ca}" "${wazuh_agent_reenroll_secret}"
+  rm -f "${wazuh_agent_ca}" "${wazuh_agent_anchor_committed}" "${wazuh_agent_reenroll_secret}"
   if [ -f "${wazuh_agent_client_keys}" ]; then
+      previous_agent_id=$(awk 'NR == 1 { print $1 }' "${wazuh_agent_client_keys}")
       : > "${wazuh_agent_client_keys}"
+  fi
+}
+
+function remove_previous_agent() {
+  # Remove from the manager the agent an earlier, failed run of this script enrolled, so the agent
+  # can enroll again under the same name. No-op on a normal first boot.
+  #
+  # Goes through the Server API because in 5.0.0 the manager ships no local CLI that removes agents
+  # (manage_agents is only installed with the agent). older_than=0s because the default (7d) skips an
+  # agent registered minutes ago; purge drops its key instead of keeping it as removed.
+  #
+  # Not fatal: if it fails, the agent's enrollment is rejected as a duplicate and the agent stays
+  # down, which is better than stopping before the dashboard starts. The warning says why.
+  if [ -z "${previous_agent_id}" ]; then
+      return
+  fi
+  if ! [[ "${previous_agent_id}" =~ ^[0-9]+$ ]]; then
+      logger -w "Ignoring an unexpected agent ID in client.keys: ${previous_agent_id}"
+      return
+  fi
+
+  logger "Removing agent ${previous_agent_id}, enrolled by an earlier run of this script, from the manager"
+  # Password and JWT reach curl through its standard input, never argv (see http_status()).
+  local password jwt response
+  password=$(get_credential "${wazuh_manager_api_key}")
+  jwt=$(printf 'user = "%s:%s"\n' "${wazuh_manager_api_user}" "${password}" \
+    | curl -s -k -K - -X POST --max-time 120 "https://localhost:55000/security/user/authenticate?raw=true")
+  response=$(printf 'header = "Authorization: Bearer %s"\n' "${jwt}" \
+    | curl -s -k -K - -X DELETE --max-time 120 \
+      "https://localhost:55000/agents?agents_list=${previous_agent_id}&status=all&older_than=0s&purge=true")
+  if grep -qE '"total_affected_items": ?1' <<< "${response}"; then
+      logger "Agent ${previous_agent_id} removed"
+  else
+      logger -w "Could not remove agent ${previous_agent_id}; its enrollment will be rejected as a duplicate: ${response}"
   fi
 }
 
@@ -650,6 +698,7 @@ verify_indexer
 
 starter_service wazuh-manager
 verify_manager
+remove_previous_agent
 # Minting goes through the manager's local authd socket, so it has to happen after the manager is
 # up; the bootstrap only looks for the token file at the agent's first start, so it has to happen
 # before the agent starts.
