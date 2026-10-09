@@ -17,6 +17,13 @@ systemConfig() {
   done
   yum upgrade -y > /dev/null 2>&1
 
+  # Extend the root partition and file system to the end of the disk, grown by the base box.
+  # growpart exits non-zero when there is nothing to grow, so only xfs_growfs is checked.
+  root_part=$(findmnt -no SOURCE /)
+  growpart "/dev/$(lsblk -no PKNAME "${root_part}")" "$(cat "/sys/class/block/$(basename "${root_part}")/partition")" || true
+  xfs_growfs /
+  df -h /
+
   # Disable kernel messages and edit background
   mv ${CUSTOM_PATH}/grub/wazuh.png /boot/grub2/
   mv ${CUSTOM_PATH}/grub/grub /etc/default/
