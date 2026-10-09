@@ -854,7 +854,7 @@ jobs:
           echo "::add-mask::${NEW_PASSWORD}"
           echo "OVA_PASSWORD=${NEW_PASSWORD}" >> $GITHUB_ENV
           NEW_PASSWORD="${NEW_PASSWORD}" python - <<'EOF'
-          import os, time, paramiko
+          import os, paramiko
 
           host, port, new = os.environ["OVA_HOST"], int(os.environ["OVA_PORT"]), os.environ["NEW_PASSWORD"]
 
@@ -867,23 +867,22 @@ jobs:
 
           client = connect("wazuh")
           shell = client.invoke_shell()
-          answers = [("current password", "wazuh"), ("new password", new)]
-          output, deadline = "", time.time() + 120
-          while time.time() < deadline and not shell.exit_status_ready():
-              if shell.recv_ready():
-                  output += shell.recv(4096).decode(errors="replace")
-                  last = output.lower().rstrip().splitlines()[-1] if output.strip() else ""
-                  for prompt, answer in answers:
-                      if prompt in last and last.endswith(":"):
-                          shell.send(answer + "\n")
-                          output += "\n"
-                          break
-              time.sleep(0.5)
+          shell.settimeout(120)
+          # Answered in order, each once. passwd closes the session right after the last answer, so the
+          # loop reads until the server closes the channel (recv returns b"") to keep its final output.
+          prompts = [("current password:", "wazuh"), ("new password:", new), ("retype new password:", new)]
+          output = ""
+          while data := shell.recv(4096):
+              output += data.decode(errors="replace")
+              if prompts and output.lower().rstrip().endswith(prompts[0][0]):
+                  shell.send(prompts.pop(0)[1] + "\n")
           client.close()
-          assert "updated successfully" in output, f"The password change failed:\n{output}"
 
           # Only the new password is accepted from now on.
-          connect(new).close()
+          try:
+              connect(new).close()
+          except paramiko.AuthenticationException:
+              raise SystemExit(f"The new password is not accepted. First login output:\n{output}")
           try:
               connect("wazuh").close()
               raise SystemExit("The old password is still accepted")
