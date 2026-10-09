@@ -209,6 +209,26 @@ def configure_sshd(ssh_config_file: Path | str = Path("/etc/ssh/sshd_config")) -
     modify_file(ssh_config_file, replace_content)
 
 
+def grow_root_filesystem() -> None:
+    """
+    Extends the root partition and its XFS file system to the end of the disk. The base box grows
+    the AL2023 disk (25 GiB) to its final size, but the partition and file system keep the original
+    size until they are extended here. growpart exits non-zero when there is nothing to grow (for
+    example, if cloud-init already did it at boot), so its result is not checked; xfs_growfs is.
+
+    Returns:
+        None
+    """
+    logger.debug("Growing the root partition and file system.")
+    root_part = "$(findmnt -no SOURCE /)"
+    run_command(
+        f'growpart "/dev/$(lsblk -no PKNAME {root_part})" "$(cat /sys/class/block/$(basename {root_part})/partition)"'
+    )
+    run_command("xfs_growfs /", check=True)
+    stdout, _, _ = run_command("df -h /", output=True)
+    logger.info(f"Root file system after growing:\n{stdout[0]}")
+
+
 def steps_system_config() -> None:
     """
     This function is the migration of the older systemConfig located in steps.sh.
@@ -228,6 +248,8 @@ def steps_system_config() -> None:
         None
     """
     run_command("yum upgrade -y")
+
+    grow_root_filesystem()
 
     config_grub()
 
