@@ -31,6 +31,8 @@ The `--environment` option determines how the artifact URLs file is obtained:
 - **`pre-release`**: Downloads the artifact URLs file automatically from the Wazuh pre-release packages server.
 - **`dev`**: Uses a local artifact URLs file. The path to this file must be provided via `--packages-url-path`.
 
+The environment also names the build in the OVA metadata, which is the VM name suggested on import: `Wazuh v5.0.0 OVA` for `release`, `Wazuh v5.0.0-<STAGE> OVA` for `pre-release` (the stage defined in `VERSION.json`), and `Wazuh v5.0.0-dev OVA` for `dev`.
+
 ### Artifact URLs file (dev environment)
 
 When using the `dev` environment, the file specified in `--packages-url-path` must contain the Vagrant base box URL and the download URLs of the Wazuh core component packages. Below is an example of the expected file content:

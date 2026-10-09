@@ -195,7 +195,26 @@ def configure_vagrant_vm(packages_url_filename: Path, box_url: str, skip_signatu
     return vagrant_uuid
 
 
-def export_ova_image(vagrant_uuid: str, name: str, ova_dest: str) -> None:
+def get_ova_version(wazuh_version: str, environment: EnvironmentType) -> str:
+    """
+    Get the version that names the OVA build in its OVF metadata (appliance name and Product).
+
+    Args:
+        wazuh_version (str): The Wazuh version (e.g. ``"5.0.0"``).
+        environment (EnvironmentType): The environment the Wazuh packages were fetched from.
+
+    Returns:
+        str: ``wazuh_version`` for a release build, ``wazuh_version`` followed by the stage
+            (e.g. ``"5.0.0-rc1"``) for a pre-release build and by ``-dev`` for a development build.
+    """
+    if environment == EnvironmentType.RELEASE:
+        return wazuh_version
+    if environment == EnvironmentType.PRE_RELEASE:
+        return f"{wazuh_version}-{get_wazuh_stage(VERSION_FILEPATH)}"
+    return f"{wazuh_version}-dev"
+
+
+def export_ova_image(vagrant_uuid: str, name: str, ova_dest: str, environment: EnvironmentType) -> None:
     """
     Export the configured Vagrant VM as an OVA image. This function handles the export process,
     including modifying the VM settings, exporting the VM to a temporary directory, and
@@ -204,6 +223,8 @@ def export_ova_image(vagrant_uuid: str, name: str, ova_dest: str) -> None:
         vagrant_uuid (str): The UUID of the configured Vagrant VM.
         name (str): The name of the OVA image to be created.
         ova_dest (str): The destination directory where the OVA image will be saved.
+        environment (EnvironmentType): The environment the Wazuh packages were fetched from,
+            used to name the build in the OVF metadata.
     Returns:
         None
     """
@@ -212,6 +233,7 @@ def export_ova_image(vagrant_uuid: str, name: str, ova_dest: str) -> None:
 
     logger.debug("Getting Wazuh version")
     wazuh_version = get_wazuh_version(version_file=VERSION_FILEPATH)
+    ova_version = get_ova_version(wazuh_version=wazuh_version, environment=environment)
     vbox_vm_id_file = VAGRANT_METADATA_PATH / "id"
     with open(vbox_vm_id_file) as file:
         vbox_vm_id = file.read()
@@ -226,7 +248,7 @@ def export_ova_image(vagrant_uuid: str, name: str, ova_dest: str) -> None:
         f'vboxmanage modifyvm "{vbox_vm_id}" --nic2 hostonly',
         f'vboxmanage modifyvm "{vbox_vm_id}" --cableconnected2 on',
         f'vboxmanage export "{vbox_vm_id}" -o "{temp_dir}/{name}-raw.ova"',
-        f'bash {STANDARIZE_OVA_FILEPATH} "{temp_dir}" "{temp_dir}/{name}-raw.ova" "{temp_dir}/{name}.ova" "{OVA_OVF_TEMPLATE_FILEPATH}" "{wazuh_version}"',
+        f'bash {STANDARIZE_OVA_FILEPATH} "{temp_dir}" "{temp_dir}/{name}-raw.ova" "{temp_dir}/{name}.ova" "{OVA_OVF_TEMPLATE_FILEPATH}" "{wazuh_version}" "{ova_version}"',
         f"vagrant destroy -f {vagrant_uuid}",
     ]
 
