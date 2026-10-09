@@ -94,6 +94,7 @@
 
 | Issue | Comment |
 | - | - |
+| [#994](https://github.com/wazuh/wazuh-virtual-machines/issues/994) | Generalize the OVA before export: expire the `wazuh-user` password, lock `root`, remove the Vagrant key, the SSH host keys, the `machine-id`, `ec2-user` and the unused `ifcfg-eth0` |
 | [#1027](https://github.com/wazuh/wazuh-virtual-machines/issues/1027) | Start the pre-installed agent when the OVA or AMI first boot runs again after a failure: remove the leftover `.anchor-committed` marker and the agent the failed run registered |
 | [#1007](https://github.com/wazuh/wazuh-virtual-machines/issues/1007) | Check the Server API in the OVA and AMI first boot with the renamed `wazuh-internal-client` user (formerly `wazuh-wui`) |
 | [#1023](https://github.com/wazuh/wazuh-virtual-machines/issues/1023) | Issue the Server API certificate (`apid.pem`) from the instance CA at first boot in the OVA and AMI, since the manager no longer self-signs it |

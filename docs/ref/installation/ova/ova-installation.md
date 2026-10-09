@@ -28,6 +28,8 @@ curl -sO https://packages-staging.xdrsiem.wazuh.info/pre-release/5.x/vm/wazuh-5.
    password: wazuh
    ```
 
+   The password is expired: on the first login, on the console or over SSH, you must enter `wazuh` again and then choose a new password. Only the new password is accepted afterwards. There is no SSH key access, and the `root` password is locked.
+
    SSH root user login has been deactivated; nevertheless, the wazuh-user retains sudo privileges. Root privilege escalation can be achieved by executing the following command:
 
    ```bash

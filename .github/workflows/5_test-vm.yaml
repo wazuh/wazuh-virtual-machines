@@ -844,6 +844,53 @@ jobs:
           role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
           aws-region: ${{ env.AWS_REGION }}
 
+      # The OVA ships wazuh-user's password expired: the first login must change it, as a user would.
+      - name: Change the wazuh-user password on the first login
+        env:
+          OVA_HOST: ${{ needs.ova-setup.outputs.allocator_ip }}
+          OVA_PORT: ${{ needs.ova-setup.outputs.ova_ssh_port }}
+        run: |
+          NEW_PASSWORD=$(python -c 'import secrets; print(secrets.token_urlsafe(18))')
+          echo "::add-mask::${NEW_PASSWORD}"
+          echo "OVA_PASSWORD=${NEW_PASSWORD}" >> $GITHUB_ENV
+          NEW_PASSWORD="${NEW_PASSWORD}" python - <<'EOF'
+          import os, paramiko
+
+          host, port, new = os.environ["OVA_HOST"], int(os.environ["OVA_PORT"]), os.environ["NEW_PASSWORD"]
+
+          def connect(password):
+              client = paramiko.SSHClient()
+              client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+              client.connect(host, port=port, username="wazuh-user", password=password,
+                             look_for_keys=False, allow_agent=False, timeout=30)
+              return client
+
+          client = connect("wazuh")
+          shell = client.invoke_shell()
+          shell.settimeout(120)
+          # Answered in order, each once. passwd closes the session right after the last answer, so the
+          # loop reads until the server closes the channel (recv returns b"") to keep its final output.
+          prompts = [("current password:", "wazuh"), ("new password:", new), ("retype new password:", new)]
+          output = ""
+          while data := shell.recv(4096):
+              output += data.decode(errors="replace")
+              if prompts and output.lower().rstrip().endswith(prompts[0][0]):
+                  shell.send(prompts.pop(0)[1] + "\n")
+          client.close()
+
+          # Only the new password is accepted from now on.
+          try:
+              connect(new).close()
+          except paramiko.AuthenticationException:
+              raise SystemExit(f"The new password is not accepted. First login output:\n{output}")
+          try:
+              connect("wazuh").close()
+              raise SystemExit("The old password is still accepted")
+          except paramiko.AuthenticationException:
+              pass
+          print("wazuh-user password changed on the first login")
+          EOF
+
       - name: Run OVA tests
         run: |
           # Find the test_runner executable
@@ -863,7 +910,7 @@ jobs:
             --ssh-host ${{ needs.ova-setup.outputs.allocator_ip }} \
             --ssh-port ${{ needs.ova-setup.outputs.ova_ssh_port }} \
             --ssh-username wazuh-user \
-            --ssh-password wazuh \
+            --ssh-password "${OVA_PASSWORD}" \
             --test-pattern "${{ inputs.TESTS || 'ALL' }}" \
             --log-level ${{ inputs.log_level || 'INFO' }} \
             --output github \

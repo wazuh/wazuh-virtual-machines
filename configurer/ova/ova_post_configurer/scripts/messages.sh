@@ -13,7 +13,7 @@ Welcome to the Wazuh OVA version
 Wazuh - ${WAZUH_VERSION}
 Login credentials:
   User: ${SYSTEM_USER}
-  Password: wazuh
+  Password: wazuh (you must change it on the first login)
 
 Wazuh dashboard: https://<this VM's IP address>   User: admin
 The passwords generated for this VM are stored in /etc/wazuh/credentials.env.

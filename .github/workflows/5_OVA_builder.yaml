@@ -341,7 +341,14 @@ jobs:
               ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} << EOF
             set -e
             cd ${{ env.WVM_REPO_NAME }}
-            sudo vagrant halt
+            # Not vagrant halt: the post-configurer expires wazuh-user's password and removes its SSH keys,
+            # so Vagrant can no longer log in to shut the VM down. ACPI does a clean shutdown without SSH.
+            sudo vboxmanage controlvm ova_base acpipowerbutton
+            for i in \$(seq 60); do
+              sudo vboxmanage showvminfo ova_base --machinereadable | grep -q '^VMState="poweroff"' && break
+              sleep 5
+            done
+            sudo vboxmanage showvminfo ova_base --machinereadable | grep -q '^VMState="poweroff"'
             sudo vboxmanage modifyvm ova_base --nic2 hostonly
             sudo vboxmanage modifyvm ova_base --cableconnected2 on
             sudo vboxmanage export ova_base --output ${{ env.FILENAME_OVA }}
