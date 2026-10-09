@@ -3,7 +3,10 @@
 ## Security considerations about SSH
 
 - The `root` user cannot be identified by SSH and the instance can only be accessed through the `wazuh-user` user. This retains `sudo` privileges.
-- SSH authentication is done with user and password.
+- SSH authentication is done with user and password. The documented `wazuh-user` / `wazuh` password is expired and must be changed on the first login, on the console or over SSH.
+- The `root` password is locked, so `root` cannot log in with a password on the console either.
+- No SSH key is authorized for any user, and the build's Vagrant key is removed.
+- Each VM generates its own SSH host keys and `/etc/machine-id` on its first boot, so two VMs imported from the same OVA do not share them.
 - Federal Information Processing Standards (FIPS) is enabled on the system.
 - SSH is configured to use modern and secure cryptographic algorithms, in accordance with FIPS activation.
 

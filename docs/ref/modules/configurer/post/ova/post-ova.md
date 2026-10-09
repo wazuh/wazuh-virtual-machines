@@ -11,7 +11,7 @@ Once the **Provisioner and Core Configurer** have been executed, the Wazuh compo
 2. **FIPS** (Federal Information Processing Standards) is enabled on the VM.  
 3. **JVM** heap size is updated to a quarter of the total RAM. The `updateIndexerHeap.service` runs on the first boot of the deployed VM, so the heap is sized against the RAM of the final host.
 4. Added `wazuh-starter` service which is responsible for raising each Wazuh component correctly.  
-5. Changed the `root` password to `wazuh`.  
+5. The `root` password is not set (it is locked at the end, see step 18).  
 6. Changed the VM hostname to `wazuh`.  
 7. Disable the SSH connection to the `root` user.  
 8. Enable SSH connection via password.  
@@ -29,6 +29,7 @@ Once the **Provisioner and Core Configurer** have been executed, the Wazuh compo
 15. A network configuration file is created which ensures that a network interface is raised with **DHCP** on **IPv4** accessible.  
 16. **SSH** is configured to use modern and secure cryptographic algorithms, in accordance with **FIPS** activation.  
 17. Further cleanup of logs, command history, package cache and restart of the `sshd` service.  
+18. The image is generalized (`generalize_image`), as the last step: the SSH `authorized_keys` of every user (with the Vagrant insecure public key) and the SSH host keys are removed, `/etc/machine-id` is emptied, `ec2-user` (created by cloud-init), its sudoers file and the unused `ifcfg-eth0` are removed, the `root` password is locked and the `wazuh-user` password is expired (`chage -d 0`), so it must be changed on the first login. The result is verified and the build fails if anything is left. After this step the build cannot log in to the VM any more, so the OVA builder powers it off through ACPI instead of `vagrant halt`.  
 
 ## Credentials: generated per VM on first boot
 
