@@ -702,8 +702,9 @@ def _generalized_root(tmp_path, root_hash="!$6$x", wazuh_user_last_change="0", *
     return tmp_path
 
 
-def test_generalize_image(tmp_path, mock_run_command):
-    generalize_image(root=_generalized_root(tmp_path))
+@pytest.mark.parametrize("root_hash", ["!$6$x", "*"])
+def test_generalize_image(tmp_path, mock_run_command, root_hash):
+    generalize_image(root=_generalized_root(tmp_path, root_hash=root_hash))
 
     commands = mock_run_command.call_args.args[0]
     assert commands[-1] == "chage -d 0 wazuh-user"

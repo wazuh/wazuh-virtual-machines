@@ -604,7 +604,9 @@ def generalize_image(root: Path = Path("/")) -> None:
     if any("ec2-user" in f.read_text() for f in (root / "etc/sudoers.d").glob("*")):
         errors.append("ec2-user is still in /etc/sudoers.d")
     shadow = {line.split(":")[0]: line.split(":") for line in (root / "etc/shadow").read_text().splitlines()}
-    if not shadow["root"][1].startswith("!"):
+    # "!" is what `passwd -l` prepends to a password. The build never sets one for root, so AL2023 keeps
+    # its "*" (no valid password), which `passwd -l` leaves as it is: both mean no password login.
+    if not shadow["root"][1].startswith(("!", "*")):
         errors.append("the root password is not locked")
     if shadow["wazuh-user"][2] != "0":
         errors.append("the wazuh-user password is not expired")
