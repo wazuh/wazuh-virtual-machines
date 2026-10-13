@@ -12,39 +12,39 @@ The workflow delegates image building to the reusable `.github/workflows/5_OVA_b
 
 | Mode | Trigger | Who can trigger |
 |---|---|---|
-| PR comment | `issue_comment` on an open, non-draft PR | Any repo collaborator |
+| PR label | `pull_request` (`labeled`) on a non-draft PR opened from a branch of this repository | Anyone who can add labels (triage access or higher) |
 | Manual | `workflow_dispatch` | Anyone with repo write access |
+
+To run the tests on a pull request, add one of the labels listed in [pull_request (label) flow](#pull_request-label-flow). Each label added starts one run against the PR head at that moment:
+
+- To run the tests again (for example after pushing new commits), remove the label and add it again.
+- Labels added while the PR is a draft are ignored. Mark the PR as ready for review and add the label again.
+- PRs opened from forks do not run: GitHub does not pass secrets or the OIDC token to `pull_request` runs from forks. Push the branch to this repository to test it.
 
 ---
 
 ## Execution Flows
 
-### issue_comment flow
+### pull_request (label) flow
 
 ```mermaid
 flowchart TD
-    A[PR comment posted] --> B{Recognized command\non open non-draft PR?}
+    A[Label added to PR] --> B{Test label on a non-draft\nPR from this repository?}
     B -- No --> Z[Ignored]
-    B -- Yes --> C[get_pr_info\nReact · Extract PR data\nCreate Check Run]
+    B -- Yes --> C[get_pr_info\nExtract PR data]
     C --> D[build_ova\nBuild OVA image\nusing dev packages]
     D --> E[test_ova\nProvision metal VM\nRun VirtualBox + OVA\nRun tests]
-    E --> F{outcome}
-    F -- success --> G[update_check_success]
-    F -- failure --> H[update_check_failure]
 ```
 
-**Recognized commands:** `/test-integration` or `/test-ova`
+**Labels:** `test/integration` (OVA and AMI) or `test/ova` (OVA only)
 
 ### workflow_dispatch flow
 
 ```mermaid
 flowchart TD
-    A[Manual trigger\npr_number required] --> C[get_pr_info\nFetch PR data from API\nCreate Check Run]
+    A[Manual trigger\npr_number required] --> C[get_pr_info\nFetch PR data from API]
     C --> D[build_ova\nBuild OVA image]
     D --> E[test_ova\nProvision metal VM\nRun VirtualBox + OVA\nRun tests]
-    E --> F{outcome}
-    F -- success --> G[update_check_success]
-    F -- failure --> H[update_check_failure]
 ```
 
 ---
@@ -60,13 +60,13 @@ flowchart TD
 | `pr_head_sha` | No | — | PR commit SHA; fetched from GitHub API if not provided |
 | `wazuh_automation_reference` | No | `5.0.0` | Branch or tag of `wazuh-automation` to use |
 
-### issue_comment parameters
+### pull_request (label) parameters
 
 | Parameter | Source |
 |---|---|
-| `pr_number` | Issue number from the comment event |
-| `pr_head_ref` | Fetched from GitHub API using the PR number |
-| `pr_head_sha` | Fetched from GitHub API using the PR number |
+| `pr_number` | PR number from the event payload |
+| `pr_head_ref` | PR head branch from the event payload |
+| `pr_head_sha` | PR head SHA from the event payload |
 | `wazuh_automation_reference` | Fixed: `main` |
 
 ---
@@ -77,11 +77,9 @@ flowchart TD
 
 | Step | What it does |
 |---|---|
-| React to comment | Adds a 🚀 reaction (issue_comment only) |
-| Extract PR data | Resolves `pr_head_ref` and `pr_head_sha` from inputs or GitHub API |
-| Create Check Run | Creates an `OVA Build & Test` Check Run in `in_progress` state on the PR head SHA |
+| Extract PR data | Resolves `pr_head_ref` and `pr_head_sha` from the event payload, or from inputs or the GitHub API on manual runs |
 
-Outputs: `pr_number`, `pr_head_ref`, `pr_head_sha`, `pr_head_sha_short`, `check_run_id`, `wazuh_automation_reference`.
+Outputs: `pr_number`, `pr_head_ref`, `pr_head_sha`, `pr_head_sha_short`, `wazuh_automation_reference`.
 
 ### Job 2 — `build_ova` (reusable workflow)
 
@@ -162,22 +160,23 @@ The workflow runs three jobs in sequence: `ova-setup` → `test-ova` → `ova-cl
 
 1. Checkout `wazuh-automation` at `wazuh_automation_reference`
 2. Set up Python 3.10 and install `integration-test-module`
-3. Run integration tests using SSH password authentication through the allocator's port-forwarded SSH:
+3. Log in as `wazuh-user` / `wazuh` and change the expired password, as a user would on the first login. The new password is random and masked, and the step checks that only the new password is accepted afterwards.
+4. Run integration tests using SSH password authentication through the allocator's port-forwarded SSH:
    ```bash
    test_runner \
      --test-type ova \
      --ssh-host {allocator_ip} \
      --ssh-port 2201 \
      --ssh-username wazuh-user \
-     --ssh-password wazuh \
+     --ssh-password "${OVA_PASSWORD}" \
      --test-pattern ALL \
      --log-level INFO \
      --output github \
      --output-file test-results.github
    ```
-   > The OVA VM is not directly reachable — connections go through the allocator at port 2201, which VirtualBox forwards to the VM's SSH port 22. The OVA uses default credentials (`wazuh-user` / `wazuh`).
-4. Parse results into `$GITHUB_ENV` and write step summary
-5. Post or update PR comment (marker: `<!-- wazuh-vm-test-ova -->`)
+   > The OVA VM is not directly reachable — connections go through the allocator at port 2201, which VirtualBox forwards to the VM's SSH port 22. The OVA ships `wazuh-user` / `wazuh` with the password expired, hence the previous step.
+5. Parse results into `$GITHUB_ENV` and write step summary
+6. Post or update PR comment (marker: `<!-- wazuh-vm-test-ova -->`)
 
 For details on what the `ova` test type validates, see the `Integration Test Module — Description` of the internal documentation.
 
@@ -193,15 +192,6 @@ For details on what the `ova` test type validates, see the `Integration Test Mod
    ```
    Terminating the allocator instance also stops the VirtualBox VM running inside it.
 
-### Jobs 4/5 — `update_check_success` / `update_check_failure`
-
-Two separate jobs handle the final Check Run update:
-
-| Trigger condition | Conclusion | Output |
-|---|---|---|
-| `if: success()` | `success` — ✅ OVA Build & Test - Success | Confirms OVA built and tests passed |
-| `if: failure()` | `failure` — ❌ OVA Build & Test - Failed | Reports `build_ova` and `test_ova` outcomes |
-
 ---
 
 ## Required Secrets and Variables
@@ -212,7 +202,7 @@ Two separate jobs handle the final Check Run update:
 |---|---|
 | `AWS_IAM_OVA_ROLE` | OIDC role for all AWS operations (build, allocator, cleanup) |
 | `GH_CLONE_TOKEN` | Checkout `wazuh-automation` and `wazuh-virtual-machines` |
-| `GITHUB_TOKEN` | Check Run updates (built-in) |
+| `GITHUB_TOKEN` | PR comments (built-in) |
 
 ### Repository variables
 
@@ -234,7 +224,6 @@ Two separate jobs handle the final Check Run update:
 | `contents: read` | Checkout repository |
 | `pull-requests: write` | Post PR comments |
 | `issues: write` | Post comments via issues API |
-| `checks: write` | Create and update GitHub Check Runs |
 
 ---
 

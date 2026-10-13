@@ -1,4 +1,4 @@
-run-name: "Check Integration OVA - ${{ github.event_name == 'workflow_dispatch' && format('Manual - PR #{0}', inputs.pr_number) || format('#{0} {1}', github.event.issue.number, github.event.issue.title) }}"
+run-name: "Check Integration OVA - ${{ github.event_name == 'workflow_dispatch' && format('Manual - PR #{0}', inputs.pr_number) || format('#{0} {1}', github.event.pull_request.number, github.event.pull_request.title) }}"
 name: (5.x) Check Integration - OVA Build & Test
 
 on:
@@ -21,108 +21,66 @@ on:
         required: false
         type: string
         default: '5.0.0'
-  issue_comment:
-    types: [created]
+  pull_request:
+    types: [labeled]
 
 permissions:
   id-token: write
   contents: read
   pull-requests: write
   issues: write
-  checks: write
 
 jobs:
   get_pr_info:
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.event.issue.pull_request &&
-       github.event.issue.state == 'open' &&
-       !github.event.issue.draft &&
-       (contains(github.event.comment.body, '/test-integration') ||
-        contains(github.event.comment.body, '/test-ova')))
+      (github.event_name == 'pull_request' &&
+       !github.event.pull_request.draft &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       contains(fromJSON('["test/integration","test/ova"]'), github.event.label.name))
     runs-on: ubuntu-24.04
     outputs:
       pr_number: ${{ steps.pr_data.outputs.pr_number }}
       pr_head_ref: ${{ steps.pr_data.outputs.pr_head_ref }}
       pr_head_sha: ${{ steps.pr_data.outputs.pr_head_sha }}
       pr_head_sha_short: ${{ steps.pr_data.outputs.pr_head_sha_short }}
-      check_run_id: ${{ steps.create_check.outputs.result }}
       wazuh_automation_reference: ${{ github.event_name == 'workflow_dispatch' && inputs.wazuh_automation_reference || 'main' }}
     steps:
-      - name: React to comment
-        if: github.event_name == 'issue_comment'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.reactions.createForIssueComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              comment_id: context.payload.comment.id,
-              content: 'rocket'
-            });
-
       - name: Extract PR data
         id: pr_data
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          REPOSITORY: ${{ github.repository }}
+          INPUT_PR_NUMBER: ${{ inputs.pr_number }}
+          INPUT_HEAD_REF: ${{ inputs.pr_head_ref }}
+          INPUT_HEAD_SHA: ${{ inputs.pr_head_sha }}
+          EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
+          EVENT_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          EVENT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          # Get PR number from workflow_dispatch input or issue comment
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            PR_NUMBER="${{ inputs.pr_number }}"
-            INPUT_HEAD_REF="${{ inputs.pr_head_ref }}"
-            INPUT_HEAD_SHA="${{ inputs.pr_head_sha }}"
-          else
-            PR_NUMBER="${{ github.event.issue.number }}"
-            INPUT_HEAD_REF=""
-            INPUT_HEAD_SHA=""
-          fi
-
-          # Fetch PR data from API if needed
-          if [ -z "$INPUT_HEAD_REF" ] || [ -z "$INPUT_HEAD_SHA" ]; then
-            PR_DATA=$(gh api repos/${{ github.repository }}/pulls/${PR_NUMBER})
-            PR_HEAD_REF=$(echo "$PR_DATA" | jq -r '.head.ref')
-            PR_HEAD_SHA=$(echo "$PR_DATA" | jq -r '.head.sha')
-          else
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            PR_NUMBER="$INPUT_PR_NUMBER"
             PR_HEAD_REF="$INPUT_HEAD_REF"
             PR_HEAD_SHA="$INPUT_HEAD_SHA"
+            # Fetch PR data from API if not provided
+            if [ -z "$PR_HEAD_REF" ] || [ -z "$PR_HEAD_SHA" ]; then
+              PR_DATA=$(gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}")
+              PR_HEAD_REF=$(echo "$PR_DATA" | jq -r '.head.ref')
+              PR_HEAD_SHA=$(echo "$PR_DATA" | jq -r '.head.sha')
+            fi
+          else
+            PR_NUMBER="$EVENT_PR_NUMBER"
+            PR_HEAD_REF="$EVENT_HEAD_REF"
+            PR_HEAD_SHA="$EVENT_HEAD_SHA"
           fi
 
           echo "pr_number=${PR_NUMBER}" >> $GITHUB_OUTPUT
           echo "pr_head_ref=${PR_HEAD_REF}" >> $GITHUB_OUTPUT
           echo "pr_head_sha=${PR_HEAD_SHA}" >> $GITHUB_OUTPUT
-          echo "pr_head_sha_short=${PR_HEAD_SHA_SHORT}" >> $GITHUB_OUTPUT
           echo "✅ PR: #${PR_NUMBER}"
           echo "✅ Branch: ${PR_HEAD_REF}"
-          echo "✅ SHA: ${PR_HEAD_SHA} (short: ${PR_HEAD_SHA_SHORT})"
-
-      - name: Create check run
-        id: create_check
-        uses: actions/github-script@v7
-        env:
-          COMMENT_BODY: ${{ github.event_name == 'workflow_dispatch' && 'Manual workflow dispatch' || github.event.comment.body }}
-          HEAD_SHA: ${{ steps.pr_data.outputs.pr_head_sha }}
-        with:
-          script: |
-            const commentBody = process.env.COMMENT_BODY;
-            const headSha = process.env.HEAD_SHA;
-
-            const { data: check } = await github.rest.checks.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              name: 'OVA Build & Test',
-              head_sha: headSha,
-              status: 'in_progress',
-              started_at: new Date().toISOString(),
-              details_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-              output: {
-                title: '🔨 Building OVA...',
-                summary: `Triggered by comment: \`${commentBody}\``,
-                text: 'Building OVA image and running integration tests'
-              }
-            });
-
-            console.log('✅ Check run created:', check.id);
-            return check.id;
+          echo "✅ SHA: ${PR_HEAD_SHA}"
 
   build_ova:
     needs: get_pr_info
@@ -153,66 +111,3 @@ jobs:
       log_level: INFO
       ova_revision: latest
     secrets: inherit
-
-  update_check_success:
-    needs: [get_pr_info, build_ova, test_ova]
-    if: success()
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Update check - success
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.checks.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              check_run_id: ${{ needs.get_pr_info.outputs.check_run_id }},
-              status: 'completed',
-              conclusion: 'success',
-              completed_at: new Date().toISOString(),
-              output: {
-                title: '✅ OVA Build & Test - Success',
-                summary: 'All tests passed!',
-                text: `
-                  ## Results
-
-                  - ✅ OVA built successfully
-                  - ✅ Integration tests passed
-
-                  [View workflow run](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
-                `
-              }
-            });
-
-  update_check_failure:
-    needs: [get_pr_info, build_ova, test_ova]
-    if: failure()
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Update check - failure
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const buildStatus = '${{ needs.build_ova.result }}';
-            const testStatus = '${{ needs.test_ova.result }}';
-
-            await github.rest.checks.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              check_run_id: ${{ needs.get_pr_info.outputs.check_run_id }},
-              status: 'completed',
-              conclusion: 'failure',
-              completed_at: new Date().toISOString(),
-              output: {
-                title: '❌ OVA Build & Test - Failed',
-                summary: 'One or more steps failed',
-                text: `
-                  ## Results
-
-                  - Build OVA: ${buildStatus}
-                  - Test OVA: ${testStatus}
-
-                  [View workflow run for details](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
-                `
-              }
-            });

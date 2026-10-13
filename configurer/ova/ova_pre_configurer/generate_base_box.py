@@ -10,6 +10,9 @@ logger = Logger("OVA PreConfigurer - Generate Base Box")
 
 OS_URL = "https://cdn.amazonlinux.com/al2023/os-images/latest/"
 OS = "al2023"
+# Size of the OVA disk. The AL2023 VMware image ships 25 GiB; the RAW is grown to this size and
+# the root partition and file system are extended inside the VM (ova_post_configurer).
+DISK_SIZE = "50G"
 
 
 def get_os_version() -> str:
@@ -81,7 +84,7 @@ def download_and_extract_ova(version: str, ova_filename: str) -> str:
 
 def convert_vmdk_to_raw(vmdk_filename: str, raw_file: str) -> None:
     """
-    Converts a VMDK file to a RAW file format using VBoxManage commands.
+    Converts a VMDK file to a RAW file format using VBoxManage commands, and grows the RAW to DISK_SIZE.
 
     Args:
         vmdk_filename (str): The path to the source VMDK file.
@@ -94,6 +97,7 @@ def convert_vmdk_to_raw(vmdk_filename: str, raw_file: str) -> None:
         f"vboxmanage clonemedium {vmdk_filename} {raw_file} --format RAW",
         f"vboxmanage closemedium {vmdk_filename}",
         f"vboxmanage closemedium {raw_file}",
+        f"truncate -s {DISK_SIZE} {raw_file}",
     ]
     run_command(commands)
 

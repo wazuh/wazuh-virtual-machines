@@ -31,7 +31,7 @@ wazuh_agent_enrollment_token="/var/ossec/etc/enrollment_token"
 # Everything the build leaves behind that would make a freshly minted token useless or unsafe. The
 # bootstrap refuses to run at all when the agent already holds a trust anchor or a non-empty
 # client.keys -- it deletes the token unused in both cases -- so anything baked into the image has
-# to go first. See reset_enrollment_state().
+# to go first. See reset_enrollment_state() and reset_agent_identity().
 wazuh_manager_authd_pass="/var/wazuh-manager/etc/authd.pass"
 wazuh_manager_enrollment_tokens="/var/wazuh-manager/etc/enrollment_tokens.json"
 wazuh_agent_authd_pass="/var/ossec/etc/authd.pass"
@@ -71,7 +71,7 @@ dashboard_max_retries=20
 dashboard_wait_time=15
 
 # The manager's API account the dashboard uses, for the readiness check below.
-wazuh_manager_api_user="wazuh-wui"
+wazuh_manager_api_user="wazuh-internal-client"
 wazuh_manager_api_key="WAZUH_MANAGER_WUI_PASSWORD"
 manager_max_retries=30
 manager_wait_time=5
@@ -82,6 +82,12 @@ manager_wait_time=5
 wazuh_manager_certs_dir="/var/wazuh-manager/etc/certs"
 wazuh_manager_remoted_cert="${wazuh_manager_certs_dir}/remoted.pem"
 wazuh_manager_remoted_key="${wazuh_manager_certs_dir}/remoted-key.pem"
+# The Server API certificate (port 55000). Since wazuh/wazuh#40085 the manager no longer self-signs it
+# on start: without this pair wazuh-manager-apid exits and the manager does not come up.
+wazuh_manager_apid_cert="${wazuh_manager_certs_dir}/apid.pem"
+wazuh_manager_apid_key="${wazuh_manager_certs_dir}/apid-key.pem"
+# Publishes root-ca.pem to the agents (wazuh/wazuh#39319); see copy_manager_certs().
+wazuh_manager_certs_bin="/var/wazuh-manager/bin/wazuh-manager-certs"
 
 # Persisted at build time by add_wazuh_starter_certs_tool() (ova_post_configurer.py), since the
 # build-time copy under RemoteDirectories.CERTS is gone by the time this script runs. Both files
@@ -121,6 +127,11 @@ wazuh_dashboard_conf="/etc/wazuh-dashboard/opensearch_dashboards.yml"
 # script no longer writes it -- it only makes sure the image did not ship one, which would make the
 # bootstrap skip the token entirely.
 wazuh_agent_ca="/var/ossec/etc/certs/root-ca.pem"
+# The marker the agent writes once it has committed to a trust anchor. With the marker present and
+# the anchor gone, agentd refuses to start (error 4125) instead of bootstrapping a new one, so it has
+# to go together with the anchor. Only there when an earlier, failed run of this script enrolled the
+# agent before dying.
+wazuh_agent_anchor_committed="/var/ossec/etc/certs/.anchor-committed"
 
 ###########################################
 # Utility Functions
@@ -268,15 +279,59 @@ function reset_enrollment_state() {
   #     it deletes the token unused and returns -- so a baked anchor or a baked key would silently
   #     turn the fresh token into a no-op and leave every imported VM enrolled under one identity.
   #
-  # client.keys is truncated rather than deleted so the file keeps the ownership and mode the agent
-  # package gave it; the bootstrap only looks at its size.
+  # client.keys is left alone here: reset_agent_identity() empties it once the manager API is up.
   logger "Removing the enrollment credentials and agent identity baked into the image"
   rm -f "${wazuh_manager_authd_pass}" "${wazuh_manager_enrollment_tokens}"
   rm -f "${wazuh_agent_authd_pass}" "${wazuh_agent_enrollment_token}"
-  rm -f "${wazuh_agent_ca}" "${wazuh_agent_reenroll_secret}"
-  if [ -f "${wazuh_agent_client_keys}" ]; then
-      : > "${wazuh_agent_client_keys}"
+  rm -f "${wazuh_agent_ca}" "${wazuh_agent_anchor_committed}" "${wazuh_agent_reenroll_secret}"
+}
+
+function reset_agent_identity() {
+  # Empty the agent's client.keys, first removing from the manager the agent it names, if any.
+  #
+  # The image ships client.keys empty, so an ID in it can only come from an earlier run of this
+  # script that enrolled the agent and then failed (this script only deletes itself once it
+  # succeeds). The manager still has that agent registered under the same name and would reject the
+  # new enrollment as a duplicate. On a normal first boot this only truncates an empty file.
+  #
+  # Reading the ID, removing the agent and truncating the file happen in this one step, after the
+  # manager API is up, so a run that fails earlier (certificates, indexer, manager) leaves the ID on
+  # disk for the next one. The agent is never started before this point.
+  #
+  # Goes through the Server API because in 5.0.0 the manager ships no local CLI that removes agents
+  # (manage_agents is only installed with the agent). older_than=0s because the default (7d) skips an
+  # agent registered minutes ago; purge drops its key instead of keeping it as removed.
+  #
+  # Not fatal: if the removal fails, the agent's enrollment is rejected as a duplicate and the agent
+  # stays down, which is better than stopping before the dashboard starts. The warning says why.
+  #
+  # client.keys is truncated rather than deleted so the file keeps the ownership and mode the agent
+  # package gave it; the bootstrap only looks at its size.
+  if [ ! -f "${wazuh_agent_client_keys}" ]; then
+      return
   fi
+
+  local agent_id password jwt response
+  agent_id=$(awk 'NR == 1 { print $1 }' "${wazuh_agent_client_keys}")
+  if [ -n "${agent_id}" ] && ! [[ "${agent_id}" =~ ^[0-9]+$ ]]; then
+      logger -w "Ignoring an unexpected agent ID in client.keys: ${agent_id}"
+  elif [ -n "${agent_id}" ]; then
+      logger "Removing agent ${agent_id}, enrolled by an earlier run of this script, from the manager"
+      # Password and JWT reach curl through its standard input, never argv (see http_status()).
+      password=$(get_credential "${wazuh_manager_api_key}")
+      jwt=$(printf 'user = "%s:%s"\n' "${wazuh_manager_api_user}" "${password}" \
+        | curl -s -k -K - -X POST --max-time 120 "https://localhost:55000/security/user/authenticate?raw=true")
+      response=$(printf 'header = "Authorization: Bearer %s"\n' "${jwt}" \
+        | curl -s -k -K - -X DELETE --max-time 120 \
+          "https://localhost:55000/agents?agents_list=${agent_id}&status=all&older_than=0s&purge=true")
+      if grep -qE '"total_affected_items": ?1' <<< "${response}"; then
+          logger "Agent ${agent_id} removed"
+      else
+          logger -w "Could not remove agent ${agent_id}; its enrollment will be rejected as a duplicate: ${response}"
+      fi
+  fi
+
+  : > "${wazuh_agent_client_keys}"
 }
 
 function set_agent_enrollment_token() {
@@ -433,14 +488,20 @@ function generate_certificates() {
   # certificates from a new one.
   sudo rm -rf "${wazuh_ca_dir}"
 
-  local -a agent_san_flags=()
+  # The same addresses go to apid.pem's SAN: API clients reach this VM the same way agents do.
+  local -a san_flags=()
   local ip
   for ip in $(get_manager_san_ips); do
-    agent_san_flags+=(--agent-san "${ip}")
+    san_flags+=(--agent-san "${ip}" --api-san "${ip}")
   done
 
   run_or_die "wazuh-certs-tool.sh failed to generate certificates" \
-      sudo bash "${wazuh_certs_tool}" -A "${agent_san_flags[@]}"
+      sudo bash "${wazuh_certs_tool}" -A "${san_flags[@]}"
+  # The tar bundles every leaf private key (the indexer admin one included). Created root:root 0600
+  # *before* tar writes into it: left to the service's default umask it would be 0644, readable by any
+  # local user, and it would stay that way if a later step failed.
+  run_or_die "Failed to create ${wazuh_certs_tar}" \
+      sudo install -m 0600 -o root -g root /dev/null "${wazuh_certs_tar}"
   run_or_die "Failed to compress generated certificates into ${wazuh_certs_tar}" \
       sudo tar -cf "${wazuh_certs_tar}" -C "${wazuh_certs_output_dir}/" .
   sudo rm -rf "${wazuh_certs_output_dir}"
@@ -519,10 +580,10 @@ function install_ca() {
 
 function copy_manager_certs() {
   # Mirrors copy_certs_to_component_directory(Component.WAZUH_MANAGER) in certificates_manager.py.
-  # No rm -rf: the manager package's postinstall still populates this directory with authd/apid
-  # daemon certs, which must survive untouched. remoted.pem/-key.pem are the exception -- force
-  # replaced (mv -f, not -n) since a manager package that still self-signs its own listener
-  # certificate at install time leaves a pair here too.
+  # No rm -rf: other files the manager package may leave here are kept. Everything this function
+  # installs is force-replaced (mv -f, not -n): on a re-run after a failed first boot, -n kept the
+  # previous run's CA and indexer-connector pair next to a remoted.pem from the new CA
+  # (wazuh-virtual-machines#1016).
   logger "Installing manager certificates"
   local cert_name key_name ca_name
   cert_name=$(read_cert_name '.wazuh_config.indexer.ssl.certificate' "${wazuh_manager_conf}")
@@ -533,18 +594,36 @@ function copy_manager_certs() {
   run_or_die "Failed to extract manager certificates from ${wazuh_certs_tar}" \
       sudo tar -xf "${wazuh_certs_tar}" -C "${wazuh_manager_certs_dir}" \
       ./manager.pem ./manager-key.pem ./admin.pem ./admin-key.pem ./root-ca.pem \
-      ./manager-remoted.pem ./manager-remoted-key.pem
-  sudo mv -n "${wazuh_manager_certs_dir}/manager.pem" "${wazuh_manager_certs_dir}/${cert_name}"
-  sudo mv -n "${wazuh_manager_certs_dir}/manager-key.pem" "${wazuh_manager_certs_dir}/${key_name}"
-  sudo mv -n "${wazuh_manager_certs_dir}/root-ca.pem" "${wazuh_manager_certs_dir}/${ca_name}"
+      ./manager-remoted.pem ./manager-remoted-key.pem ./manager-apid.pem ./manager-apid-key.pem
+  # The config can name a file exactly as the cert-tool does (root-ca.pem): mv -f onto itself fails
+  # with "are the same file", where -n used to skip it silently. Those are left as they are.
+  local src dst
+  for src in manager.pem:"${cert_name}" manager-key.pem:"${key_name}" root-ca.pem:"${ca_name}"; do
+    dst="${src#*:}"
+    src="${src%%:*}"
+    if [[ "${src}" != "${dst}" ]]; then
+      sudo mv -f "${wazuh_manager_certs_dir}/${src}" "${wazuh_manager_certs_dir}/${dst}"
+    fi
+  done
   sudo mv -f "${wazuh_manager_certs_dir}/manager-remoted.pem" "${wazuh_manager_remoted_cert}"
   sudo mv -f "${wazuh_manager_certs_dir}/manager-remoted-key.pem" "${wazuh_manager_remoted_key}"
+  sudo mv -f "${wazuh_manager_certs_dir}/manager-apid.pem" "${wazuh_manager_apid_cert}"
+  sudo mv -f "${wazuh_manager_certs_dir}/manager-apid-key.pem" "${wazuh_manager_apid_key}"
   sudo chown root:wazuh-manager "${wazuh_manager_certs_dir}/${cert_name}" "${wazuh_manager_certs_dir}/${key_name}" "${wazuh_manager_certs_dir}/${ca_name}"
   sudo chmod 640 "${wazuh_manager_certs_dir}/${cert_name}" "${wazuh_manager_certs_dir}/${key_name}" "${wazuh_manager_certs_dir}/${ca_name}"
-  sudo chown wazuh-manager:wazuh-manager "${wazuh_manager_remoted_cert}" "${wazuh_manager_remoted_key}"
-  sudo chmod 640 "${wazuh_manager_remoted_cert}" "${wazuh_manager_remoted_key}"
+  sudo chown wazuh-manager:wazuh-manager "${wazuh_manager_remoted_cert}" "${wazuh_manager_remoted_key}" \
+      "${wazuh_manager_apid_cert}" "${wazuh_manager_apid_key}"
+  sudo chmod 640 "${wazuh_manager_remoted_cert}" "${wazuh_manager_remoted_key}" \
+      "${wazuh_manager_apid_cert}" "${wazuh_manager_apid_key}"
   sudo chown root:wazuh-manager "${wazuh_manager_certs_dir}"
   sudo chmod 1770 "${wazuh_manager_certs_dir}"
+
+  # remoted remembers the build-time root-ca.pem; replacing it without publishing makes remoted log
+  # "changed outside the tool and is not published" and announce ca_generation 0 to the agents
+  # (wazuh-virtual-machines#1022). stamp publishes the new bundle as is; it only needs the files, not
+  # a running manager, and checks the bundle against remoted.pem, so it goes after both are in place.
+  run_or_die "Failed to publish this VM's CA with wazuh-manager-certs stamp" \
+      sudo "${wazuh_manager_certs_bin}" stamp
 }
 
 function copy_dashboard_certs() {
@@ -566,6 +645,12 @@ function copy_dashboard_certs() {
   sudo chmod 500 "${wazuh_dashboard_certs_dir}"
   sudo find "${wazuh_dashboard_certs_dir}" -type f -exec chmod 400 {} \;
   sudo chown -R wazuh-dashboard:wazuh-dashboard "${wazuh_dashboard_certs_dir}/"
+}
+
+function remove_certs_tar() {
+  # The tar bundles every leaf private key; once the copy_*_certs() functions and install_ca() have
+  # extracted what they need it is only a leftover. Safe to call more than once and when it is missing.
+  sudo rm -f "${wazuh_certs_tar}"
 }
 
 function clean_configuration(){
@@ -590,12 +675,18 @@ logger "Starting Wazuh services in order"
 # Certificates first: the packages never issue them outside `--install`, and the indexer records
 # its resolution as complete on its first start.
 reset_enrollment_state
+# clean_configuration only runs at the very end, after every service is up, so on any failure before
+# that (run_or_die exits the whole script) the tar would be left behind holding the private keys.
+trap remove_certs_tar EXIT
 generate_certificates
 copy_indexer_certs
 write_indexer_dns
 copy_manager_certs
 copy_dashboard_certs
 install_ca
+# install_ca is the last reader of the tar: drop it now rather than keeping the keys on disk for the
+# minutes the services take to start.
+remove_certs_tar
 
 # Then strictly in order, never in parallel: each package resolves its credentials when its service
 # starts. The indexer generates admin, kibanaserver and wazuh-manager and publishes them to the
@@ -608,6 +699,7 @@ verify_indexer
 
 starter_service wazuh-manager
 verify_manager
+reset_agent_identity
 # Minting goes through the manager's local authd socket, so it has to happen after the manager is
 # up; the bootstrap only looks for the token file at the agent's first start, so it has to happen
 # before the agent starts.

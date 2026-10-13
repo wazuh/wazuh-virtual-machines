@@ -65,6 +65,7 @@ def test_convert_vmdk_to_raw_success(mock_run_command):
         f"vboxmanage clonemedium {vmdk_filename} {raw_file} --format RAW",
         f"vboxmanage closemedium {vmdk_filename}",
         f"vboxmanage closemedium {raw_file}",
+        f"truncate -s 50G {raw_file}",
     ]
 
     convert_vmdk_to_raw(vmdk_filename, raw_file)
