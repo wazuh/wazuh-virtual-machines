@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -682,3 +683,33 @@ def test_create_ami_debug_script_failure(mock_ami_customizer, mock_logger, mock_
 
     mock_exec_command.assert_called_once_with(command=command, client=mock_paramiko.return_value)
     mock_logger.error.assert_any_call(f"Error creating debug script {file_local_path.name}")
+
+
+WAZUH_BANNER_SCRIPT = (
+    Path(__file__).parents[4] / "configurer" / "ami" / "ami_pre_configurer" / "static" / "80-wazuh-banner"
+)
+
+
+def run_wazuh_banner(tmp_path: Path, version_file: Path) -> str:
+    # Run the real update-motd.d script, pointed at a test VERSION.json instead of the manager's one
+    script = tmp_path / "80-wazuh-banner"
+    script.write_text(WAZUH_BANNER_SCRIPT.read_text().replace("/var/wazuh-manager/VERSION.json", str(version_file)))
+    return subprocess.run(["sh", str(script)], capture_output=True, text=True, check=True).stdout
+
+
+def test_wazuh_banner_shows_installed_version(tmp_path):
+    version_file = tmp_path / "VERSION.json"
+    version_file.write_text('{\n    "version": "5.0.0",\n    "stage": "rc2"\n}\n')
+
+    output = run_wazuh_banner(tmp_path, version_file)
+
+    assert "    Welcome to the Wazuh AMI version 5.0.0\n" in output
+    assert "rc2" not in output
+
+
+def test_wazuh_banner_without_version_file(tmp_path):
+    output = run_wazuh_banner(tmp_path, tmp_path / "missing" / "VERSION.json")
+
+    assert "    Welcome to the Wazuh AMI\n" in output
+    assert "version" not in output
+    assert "WAZUH Open Source Security Platform" in output

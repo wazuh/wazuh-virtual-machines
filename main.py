@@ -26,6 +26,7 @@ def parse_arguments():
         --arch (str): Architecture type (optional, default: "x86_64", choices: ["x86_64", "amd64", "arm64", "aarch64"]).
         --dependencies (str): Path to the dependencies file (optional, default: DEPENDENCIES_FILE_PATH).
         --component (str): Component to provision (optional, default: "all", choices: ["wazuh_indexer", "wazuh_manager", "wazuh_dashboard", "wazuh_agent", "all"]).
+        --skip-signature-check (bool): Install the Wazuh packages without checking their signature (optional, only for unsigned development packages).
         --execute (str): Module to execute (required, choices: ["provisioner", "core-configurer", "ova-pre-configurer", "ova-post-configurer", "ami-pre-configurer", "ami-post-configurer", "all-ami"]).
     """
     parser = argparse.ArgumentParser(description="Component Provisioner")
@@ -63,6 +64,12 @@ def parse_arguments():
         default="all",
         choices=["wazuh_indexer", "wazuh_manager", "wazuh_dashboard", "wazuh_agent", "all"],
         help="Component to provision",
+    )
+    parser.add_argument(
+        "--skip-signature-check",
+        required=False,
+        action="store_true",
+        help="Install the Wazuh packages without checking their signature. Use it only with unsigned development packages",
     )
 
     return parser.parse_args()
@@ -119,6 +126,7 @@ def main():
             dependencies=Path(parsed_args.dependencies),
             component=parsed_args.component,
             inventory=parsed_args.inventory,
+            skip_signature_check=parsed_args.skip_signature_check,
         )
 
     if parsed_args.execute in ["core-configurer", "ova-post-configurer", "all-ami"]:

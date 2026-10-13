@@ -28,6 +28,8 @@ curl -sO https://packages-staging.xdrsiem.wazuh.info/pre-release/5.x/vm/wazuh-5.
    password: wazuh
    ```
 
+   The password is expired: on the first login, on the console or over SSH, you must enter `wazuh` again and then choose a new password. Only the new password is accepted afterwards. There is no SSH key access, and the `root` password is locked.
+
    SSH root user login has been deactivated; nevertheless, the wazuh-user retains sudo privileges. Root privilege escalation can be achieved by executing the following command:
 
    ```bash
@@ -46,7 +48,7 @@ user: admin
 There is no default password. On its first boot the VM generates unique passwords for every Wazuh account and stores them in `/etc/wazuh/credentials.env` (readable by root only). Log in as `wazuh-user` and read the `admin` password with:
 
 ```bash
-sudo grep WAZUH_INDEXER_ADMIN_PASSWORD /etc/wazuh/credentials.env
+sudo grep '^WAZUH_INDEXER_ADMIN_PASSWORD=' /etc/wazuh/credentials.env | cut -d= -f2-
 ```
 
 For security, save the passwords somewhere safe and then delete the file (`sudo rm /etc/wazuh/credentials.env`). The console login banner reminds you of this. See [OVA security](../../security/ova/ova-security.md#wazuh-credentials) for the rest of the accounts.
