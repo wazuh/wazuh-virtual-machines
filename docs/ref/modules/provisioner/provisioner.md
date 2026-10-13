@@ -8,6 +8,15 @@ The `provisioner` module is responsible for preparing a target machine with the 
 
 This ensures that the target machine contains both the necessary certificate generation tools and the Wazuh packages ready for installation.
 
+## Package signature check
+
+Before installing a Wazuh package, the provisioner checks that it is signed with the Wazuh GPG key:
+
+1. It downloads the key from `https://packages.wazuh.com/key/GPG-KEY-WAZUH` to the target machine. The key is only trusted if the file holds a single key block with a single primary key whose fingerprint is one of the pinned fingerprints in `provisioner/utils/gpg_key.py`. Then it is imported into the RPM database.
+2. It requires the package signature to be made by that key (`rpm -qp --qf '%{RSAHEADER:pgpsig}'`) and to be valid (`rpm -K`). `rpm -K` alone is not enough, as it also succeeds for unsigned packages.
+
+Unsigned, tampered or foreign-signed packages make the provisioner fail. The package URLs must use HTTPS. The check is only available for RPM packages, the type used by the AMI and the OVA. Unsigned development packages can be installed with `--skip-signature-check`, which logs a warning for each package.
+
 ## Parameters
 
 The provisioner module accepts the following options:
@@ -18,6 +27,7 @@ The provisioner module accepts the following options:
 - `--arch`: Target architecture (`x86_64`, `amd64`, `arm64`, `aarch64`).
 - `--dependencies`: Path to the dependencies file.
 - `--component`: Component to provision (`wazuh_manager`, `wazuh_indexer`, `wazuh_dashboard`, `wazuh_agent`, `all`).
+- `--skip-signature-check`: Install the Wazuh packages without checking their signature. Only for unsigned development packages.
 
 ### Required Parameters
 
@@ -65,16 +75,32 @@ To run the provisioner module, the following are required:
 
 ### Provision remotely for `arm64` architecture and `deb` packages
 
+The signature check is not available for `deb` packages, so `--skip-signature-check` is needed.
+
 - Using Hatch:
 
     ``` bash
-    hatch run dev-provisioner:run --inventory <path-to-inventory> --packages-url-path <path-to-file> --arch arm64 --package-type deb
+    hatch run dev-provisioner:run --inventory <path-to-inventory> --packages-url-path <path-to-file> --arch arm64 --package-type deb --skip-signature-check
     ```
 
 - Using the command line:
 
     ``` bash
-    python -m main --execute provisioner --inventory <path-to-inventory> --packages-url-path <path-to-file> --arch arm64 --package-type deb
+    python -m main --execute provisioner --inventory <path-to-inventory> --packages-url-path <path-to-file> --arch arm64 --package-type deb --skip-signature-check
+    ```
+
+### Provision unsigned development packages locally
+
+- Using Hatch:
+
+    ``` bash
+    hatch run dev-provisioner:run --packages-url-path <path-to-file> --skip-signature-check
+    ```
+
+- Using the command line:
+
+    ``` bash
+    python -m main --execute provisioner --packages-url-path <path-to-file> --skip-signature-check
     ```
 
 ### Provision only the Wazuh Dashboard remotely

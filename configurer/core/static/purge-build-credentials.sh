@@ -76,11 +76,12 @@ rm -f "${INDEXER_INTERNAL_USERS}.tmp"
 
 # WORKAROUND 2 -- remove once the manager's --clear removes it itself.
 #
-# The Server API TLS pair is created when the manager first starts during the build, and the JWT
-# signing keypair the first time the API issues or checks a token; --clear leaves both in place, so
-# every instance would serve its API with the same TLS key and sign its tokens with the same key. The
-# manager creates a new TLS pair on its next start, and the API a new keypair when neither file
-# exists (they go together: the API refuses to start with only one of them).
+# The Server API TLS pair is issued from the build CA during the build, and the JWT signing keypair
+# is created the first time the API issues or checks a token; --clear leaves both in place, so every
+# instance would serve its API with the same TLS key and sign its tokens with the same key. First
+# boot issues a new TLS pair from the instance's own CA (the manager no longer self-signs it on
+# start since wazuh/wazuh#40085), and the API creates a new keypair when neither file exists (they
+# go together: the API refuses to start with only one of them).
 echo "Removing the Server API TLS pair and JWT signing keypair created at build time"
 rm -f "${MANAGER_API_CERT}" "${MANAGER_API_KEY}" "${MANAGER_API_JWT_PRIVATE}" "${MANAGER_API_JWT_PUBLIC}"
 

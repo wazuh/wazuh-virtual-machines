@@ -87,7 +87,7 @@ class PackageInfo(BaseModel):
             AnyUrl: The URL of the package for the specified component and architecture.
 
         Raises:
-            ValueError: If the URL format is invalid or if the URL is not for Wazuh packages.
+            ValueError: If the URL format is invalid, does not use HTTPS or is not for Wazuh packages.
             TypeError: If the architecture is not found in the component packages.
         """
         logger.debug(f"Getting URL for {component} with {component_arch} architecture...")
@@ -100,6 +100,9 @@ class PackageInfo(BaseModel):
             package_url = AnyUrl(package_url)
         except pydantic_core._pydantic_core.ValidationError as err:
             raise ValueError(f"URL for {component} with {component_arch} architecture has an invalid format.") from err
+
+        if package_url.scheme != "https":
+            raise ValueError(f"URL for {component} with {component_arch} architecture must use HTTPS.")
 
         if not check_correct_url(
             package_url,

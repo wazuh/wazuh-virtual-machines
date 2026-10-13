@@ -12,7 +12,7 @@ There are two alternatives for deploying a Wazuh instance. You can launch the Wa
     2. **Network Settings**: When selecting the **Security Group**, it must be one with the appropriate settings for your Wazuh instance to guarantee the correct operation. You can create a new security group by choosing **Create new based on seller** settings. This new group will have the appropriate settings by default.
 5. Click **Launch** to start the instance.
 
-Once your instance is successfully launched and a few minutes have elapsed, you can access the Wazuh dashboard.
+Once your instance is successfully launched and a few minutes have elapsed, you can [access the Wazuh dashboard](#access-the-wazuh-dashboard).
 
 ## Deploy an instance using the AWS Management Console
 
@@ -38,4 +38,24 @@ Once your instance is successfully launched and a few minutes have elapsed, you 
 
 11. Click **Launch instances** to complete the process and deploy your instance.
 
-Once your instance is fully configured and ready after a few minutes since launch, you can access the Wazuh dashboard. The `admin` password is generated on the instance's first boot: see [AMI security](../../security/ami/ami-security.md#access-the-wazuh-dashboard) to read it.
+Once your instance is fully configured and ready after a few minutes since launch, you can [access the Wazuh dashboard](#access-the-wazuh-dashboard).
+
+## Access the Wazuh dashboard
+
+Open the Wazuh dashboard in a browser:
+
+```
+URL: https://<instance_ip>
+user: admin
+```
+
+Use the public IP address (or public DNS name) that AWS assigns to the instance, or its private IP address if you are within a VPC without internet access. The security group must allow inbound HTTPS (TCP 443).
+
+There is no default password. On its first boot the instance generates unique passwords for every Wazuh account and stores them in `/etc/wazuh/credentials.env` (readable by root only). Connect with SSH and read the `admin` password with:
+
+```bash
+ssh -i "<KEY_PAIR_NAME>" wazuh-user@<instance_ip>
+sudo grep '^WAZUH_INDEXER_ADMIN_PASSWORD=' /etc/wazuh/credentials.env | cut -d= -f2-
+```
+
+For security, save the passwords somewhere safe and then delete the file (`sudo rm /etc/wazuh/credentials.env`). The SSH login banner reminds you of this. See [AMI security](../../security/ami/ami-security.md#wazuh-credentials) for the rest of the accounts and how to change a password.
