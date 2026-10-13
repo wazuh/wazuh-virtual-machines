@@ -91,7 +91,6 @@
 
 ### Fixed
 
-
 | Issue | Comment |
 | - | - |
 | [#1021](https://github.com/wazuh/wazuh-virtual-machines/issues/1021) | Show the Wazuh version in the AMI and OVA SSH login banners: the AMI reads the installed version when the MOTD is regenerated, and the OVA writes it at build time |
