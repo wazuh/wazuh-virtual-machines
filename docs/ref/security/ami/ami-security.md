@@ -17,7 +17,7 @@ To access the Wazuh dashboard through a browser, you must use the public IP addr
 The password is no longer the instance ID. On its first boot each instance generates unique passwords for every Wazuh account and stores them in `/etc/wazuh/credentials.env` (readable by root only). Connect with SSH and read the `admin` password with:
 
 ```bash
-sudo grep WAZUH_INDEXER_ADMIN_PASSWORD /etc/wazuh/credentials.env
+sudo grep '^WAZUH_INDEXER_ADMIN_PASSWORD=' /etc/wazuh/credentials.env | cut -d= -f2-
 ```
 
 ## Wazuh credentials
@@ -30,9 +30,9 @@ sudo grep WAZUH_INDEXER_ADMIN_PASSWORD /etc/wazuh/credentials.env
 | `WAZUH_INDEXER_KIBANASERVER_PASSWORD` | `kibanaserver` (dashboard to indexer) |
 | `WAZUH_INDEXER_MANAGER_PASSWORD` | `wazuh-manager` (manager to indexer) |
 | `WAZUH_MANAGER_API_PASSWORD` | `wazuh` (Wazuh server API) |
-| `WAZUH_MANAGER_WUI_PASSWORD` | `wazuh-wui` (dashboard to the Wazuh server API) |
+| `WAZUH_MANAGER_WUI_PASSWORD` | `wazuh-internal-client` (dashboard to the Wazuh server API) |
 
 - No two instances launched from the AMI share a password, a certificate or a CA: the image ships none of them, and each instance creates its own on first boot.
 - Save the passwords somewhere safe and then delete the file (`sudo rm /etc/wazuh/credentials.env`). The services keep working without it; the SSH login banner reminds you of this.
-- To change a password later, use `wazuh-passwords-tool.sh`.
+- To change a password later, use `wazuh-passwords-tool.sh`. The tool is not included in the image: see [Password management](https://documentation.wazuh.com/current/user-manual/user-administration/password-management.html) to download and run it.
 - This instance's root CA, including its private key, is kept in `/etc/wazuh/ca/` (root only) to reissue certificates later.

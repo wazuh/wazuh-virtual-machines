@@ -6,7 +6,7 @@ You can generate the OVA artifact automatically by using the GitHub Actions work
 
 ## Automatic execution with GitHub Actions
 
-This process is fully automatic. It can be used from the **Actions** page of the wazuh-virtual-machines repository. The name of the workflow is `builder_OVA.yaml` or **Build OVA** in the web browser.
+This process is fully automatic. It can be used from the **Actions** page of the wazuh-virtual-machines repository. The name of the workflow is `5_OVA_builder.yaml` or **(5.x) OVA Builder** in the web browser.
 
 This workflow accepts the following inputs:
 
@@ -20,6 +20,7 @@ This workflow accepts the following inputs:
   For development AMIs, you can use a different format (e.g., `-0`).
 - `wazuh_package_type`: Package type used for the AMI: `release`, `pre-release`, or `dev`.
 - `commit_list`: If using `dev` as `wazuh_package_type`, this should be a list of revisions (e.g., `latest` or the commit hash for each package). Defaults to `latest` for each Wazuh package.
+- `skip_signature_check`: Install the Wazuh packages without checking their signature. Only for unsigned development packages, such as a commit hash in `commit_list`. Defaults to false.
 - `destroy`: If set, the EC2 instance used for building the OVA will be destroyed once complete. Defaults to true.
 
 The resulted OVA will be stored in an **AWS S3 bucket**.

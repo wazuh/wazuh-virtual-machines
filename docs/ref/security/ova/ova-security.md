@@ -3,7 +3,10 @@
 ## Security considerations about SSH
 
 - The `root` user cannot be identified by SSH and the instance can only be accessed through the `wazuh-user` user. This retains `sudo` privileges.
-- SSH authentication is done with user and password.
+- SSH authentication is done with user and password. The documented `wazuh-user` / `wazuh` password is expired and must be changed on the first login, on the console or over SSH.
+- The `root` password is locked, so `root` cannot log in with a password on the console either.
+- No SSH key is authorized for any user, and the build's Vagrant key is removed.
+- Each VM generates its own SSH host keys and `/etc/machine-id` on its first boot, so two VMs imported from the same OVA do not share them.
 - Federal Information Processing Standards (FIPS) is enabled on the system.
 - SSH is configured to use modern and secure cryptographic algorithms, in accordance with FIPS activation.
 
@@ -17,10 +20,10 @@ There is no default password for any Wazuh account. On its first boot the VM gen
 | `WAZUH_INDEXER_KIBANASERVER_PASSWORD` | `kibanaserver` (dashboard to indexer) |
 | `WAZUH_INDEXER_MANAGER_PASSWORD` | `wazuh-manager` (manager to indexer) |
 | `WAZUH_MANAGER_API_PASSWORD` | `wazuh` (Wazuh server API) |
-| `WAZUH_MANAGER_WUI_PASSWORD` | `wazuh-wui` (dashboard to the Wazuh server API) |
+| `WAZUH_MANAGER_WUI_PASSWORD` | `wazuh-internal-client` (dashboard to the Wazuh server API) |
 
-- Read one with `sudo grep WAZUH_INDEXER_ADMIN_PASSWORD /etc/wazuh/credentials.env`.
+- Read one with `sudo grep '^WAZUH_INDEXER_ADMIN_PASSWORD=' /etc/wazuh/credentials.env | cut -d= -f2-`.
 - No two VMs imported from the OVA share a password, a certificate or a CA: the image ships none of them, and each VM creates its own on first boot.
 - Save the passwords somewhere safe and then delete the file (`sudo rm /etc/wazuh/credentials.env`). The services keep working without it; the console banner reminds you of this.
-- To change a password later, use `wazuh-passwords-tool.sh`.
+- To change a password later, use `wazuh-passwords-tool.sh`. The tool is not included in the image: see [Password management](https://documentation.wazuh.com/current/user-manual/user-administration/password-management.html) to download and run it.
 - This VM's root CA, including its private key, is kept in `/etc/wazuh/ca/` (root only) to reissue certificates later.

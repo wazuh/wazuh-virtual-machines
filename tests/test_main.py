@@ -41,6 +41,7 @@ def test_parse_arguments_required():
     assert args.arch == "x86_64"
     assert args.dependencies == DEPENDENCIES_FILE_PATH
     assert args.component == "all"
+    assert args.skip_signature_check is False
 
 
 def test_parse_arguments_optional():
@@ -60,6 +61,7 @@ def test_parse_arguments_optional():
         "custom_dependencies.yaml",
         "--component",
         "wazuh_manager",
+        "--skip-signature-check",
     ]
     sys.argv = test_args
     args = parse_arguments()
@@ -70,6 +72,7 @@ def test_parse_arguments_optional():
     assert args.arch == "arm64"
     assert args.dependencies == "custom_dependencies.yaml"
     assert args.component == "wazuh_manager"
+    assert args.skip_signature_check is True
 
 
 @pytest.mark.parametrize(
@@ -149,9 +152,33 @@ def test_main_with_provisioner(mock_execute_options):
         dependencies=DEPENDENCIES_FILE_PATH,
         component="all",
         inventory=None,
+        skip_signature_check=False,
     )
     mock_execute_options["core_configurer_main"].assert_not_called()
     mock_execute_options["ami_configurer_main"].assert_not_called()
+
+
+def test_main_with_provisioner_skip_signature_check(mock_execute_options):
+    test_args = [
+        "main.py",
+        "--packages-url-path",
+        "packages_url.yaml",
+        "--execute",
+        "provisioner",
+        "--skip-signature-check",
+    ]
+    sys.argv = test_args
+    main()
+
+    mock_execute_options["provisioner_main"].assert_called_once_with(
+        packages_url_path=Path("packages_url.yaml"),
+        package_type="rpm",
+        arch="x86_64",
+        dependencies=DEPENDENCIES_FILE_PATH,
+        component="all",
+        inventory=None,
+        skip_signature_check=True,
+    )
 
 
 def test_main_exeute_core_configurer(mock_execute_options):

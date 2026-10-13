@@ -46,6 +46,11 @@ on:
         required: true
         default: '["latest", "latest", "latest", "latest", "latest"]'
         type: string
+      skip_signature_check:
+        description: 'Install the Wazuh packages without checking their signature. Only for unsigned development packages (e.g. a commit revision in commit_list)'
+        required: false
+        default: false
+        type: boolean
       destroy:
         description: 'Destroy the base instance after the OVA is created'
         required: false
@@ -82,6 +87,10 @@ on:
         type: string
         required: false
         default: '["latest", "latest", "latest", "latest", "latest"]'
+      skip_signature_check:
+        type: boolean
+        required: false
+        default: false
       destroy:
         type: boolean
         required: false
@@ -135,7 +144,9 @@ jobs:
       instance_id: ${{ steps.alloc_vm_ova.outputs.INSTANCE_ID }}
     steps:
       - name: View parameters
-        run: echo "${{ toJson(inputs) }}"
+        env:
+          INPUTS_JSON: ${{ toJson(inputs) }}
+        run: printf '%s\n' "$INPUTS_JSON"
 
       - name: Checkout wazuh/wazuh-virtual-machines repository
         uses: actions/checkout@v6
@@ -283,14 +294,15 @@ jobs:
           EOF
 
       - name: Clone repo on remote instance
+        env:
+          WVM_REFERENCE: ${{ inputs.wazuh_virtual_machines_reference }}
         run: |
+          git check-ref-format --branch "$WVM_REFERENCE" >/dev/null
           ssh -p ${{ env.INSTANCE_PORT }} \
               -i ${{ env.INSTANCE_KEY }} \
               -o 'StrictHostKeyChecking no' \
-              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} << EOF
-            set -e
-            git clone -b ${{ inputs.wazuh_virtual_machines_reference }} ${{ env.WVM_REPOSITORY_PATH }}
-          EOF
+              ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} \
+              "git clone -b $(printf '%q' "$WVM_REFERENCE") ${{ env.WVM_REPOSITORY_PATH }}"
 
       - name: Copy artifacts URLs file to remote instance
         run: |
@@ -318,7 +330,7 @@ jobs:
               ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} << EOF
             set -e
             cd ${{ env.WVM_REPO_NAME }}
-            sudo vagrant ssh -c 'cd /tmp/wazuh-virtual-machines && sudo hatch run dev-ova-post-configurer:run --packages-url-path $(basename ${{ env.LOCAL_ARTIFACT_URLS_FILEPATH }})'
+            sudo vagrant ssh -c 'cd /tmp/wazuh-virtual-machines && sudo hatch run dev-ova-post-configurer:run --packages-url-path $(basename ${{ env.LOCAL_ARTIFACT_URLS_FILEPATH }})${{ inputs.skip_signature_check && ' --skip-signature-check' || '' }}'
           EOF
 
       - name: Stop the Vagrant VM, modify the network and export it as OVA
@@ -329,7 +341,14 @@ jobs:
               ${{ env.INSTANCE_USER }}@${{ env.INSTANCE_HOSTNAME }} << EOF
             set -e
             cd ${{ env.WVM_REPO_NAME }}
-            sudo vagrant halt
+            # Not vagrant halt: the post-configurer expires wazuh-user's password and removes its SSH keys,
+            # so Vagrant can no longer log in to shut the VM down. ACPI does a clean shutdown without SSH.
+            sudo vboxmanage controlvm ova_base acpipowerbutton
+            for i in \$(seq 60); do
+              sudo vboxmanage showvminfo ova_base --machinereadable | grep -q '^VMState="poweroff"' && break
+              sleep 5
+            done
+            sudo vboxmanage showvminfo ova_base --machinereadable | grep -q '^VMState="poweroff"'
             sudo vboxmanage modifyvm ova_base --nic2 hostonly
             sudo vboxmanage modifyvm ova_base --cableconnected2 on
             sudo vboxmanage export ova_base --output ${{ env.FILENAME_OVA }}
@@ -349,9 +368,21 @@ jobs:
 
       - name: Standarizing OVA
         run: |
+          # A stage OVA is copied unchanged to production on release, so its metadata names the release and its production URL
+          if [ ${{ inputs.is_stage }} == true ] && [ "${{ inputs.wazuh_package_type }}" != "dev" ]; then
+            OVA_VERSION="${{ env.WAZUH_VERSION }}"
+            OVA_PRODUCT_URL="https://${{ vars.PACKAGES_PROD_URL }}/production/${{ env.WAZUH_MAJOR }}.x/vm/wazuh-${{ env.WAZUH_VERSION }}.ova"
+          else
+            # Development builds are not published, so they have no download location
+            OVA_VERSION="${{ env.WAZUH_VERSION }}-dev"
+            OVA_PRODUCT_URL=""
+          fi
+          echo "OVA version: ${OVA_VERSION}"
+          echo "OVA product URL: ${OVA_PRODUCT_URL:-none}"
+
           sudo chmod 0777 ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_SET_DEFAULT_SCRIPT_NAME }}
           sed -i "s|ovf:capacity=\"40\"|ovf:capacity=\"50\"|g" ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_OVF_TEMPLATE_NAME }}
-          sudo bash ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_SET_DEFAULT_SCRIPT_NAME }} "${{ env.OVA_SCRIPTS_PATH }}/" "${{ github.workspace }}/${{ env.FILENAME_OVA }}" "${{ github.workspace }}/${{ env.FILENAME_OVA }}" ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_OVF_TEMPLATE_NAME }} "${{ env.WAZUH_VERSION }}"
+          sudo bash ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_SET_DEFAULT_SCRIPT_NAME }} "${{ env.OVA_SCRIPTS_PATH }}/" "${{ github.workspace }}/${{ env.FILENAME_OVA }}" "${{ github.workspace }}/${{ env.FILENAME_OVA }}" ${{ env.OVA_SCRIPTS_PATH }}/${{ env.OVA_OVF_TEMPLATE_NAME }} "${{ env.WAZUH_VERSION }}" "${OVA_VERSION}" "${OVA_PRODUCT_URL}"
 
       - name: Upload built OVA as artifact
         run: |

@@ -1,4 +1,5 @@
 import argparse
+import json
 import logging
 import os
 import subprocess
@@ -24,6 +25,9 @@ WAZUH_WARNING_SCRIPT = Path("/etc/profile.d/wazuh-debug-warning.sh")
 # standalone generator, so wazuh-manager-authd has to be running before this is called.
 WAZUH_MANAGER_AUTHD_BIN = "/var/wazuh-manager/bin/wazuh-manager-authd"
 
+# Publishes the manager's CA bundle (etc/certs/root-ca.pem) to the agents (wazuh/wazuh#39319).
+WAZUH_MANAGER_CERTS_BIN = "/var/wazuh-manager/bin/wazuh-manager-certs"
+
 # Where the pre-installed agent picks the token up. w_agent_token_bootstrap() reads it once at the
 # agent's first start, while still root, installs the trust anchor the token carries, enrolls, and
 # unlinks the file.
@@ -36,6 +40,9 @@ WAZUH_MANAGER_AUTHD_PASS_FILE = "/var/wazuh-manager/etc/authd.pass"
 WAZUH_MANAGER_ENROLLMENT_TOKENS_FILE = "/var/wazuh-manager/etc/enrollment_tokens.json"
 WAZUH_AGENT_AUTHD_PASS_FILE = "/var/ossec/etc/authd.pass"
 WAZUH_AGENT_CA_FILE = "/var/ossec/etc/certs/root-ca.pem"
+# Written by the agent once it has committed to a trust anchor. With it present and the anchor gone,
+# agentd refuses to start (error 4125) instead of bootstrapping a new one, so it goes with the anchor.
+WAZUH_AGENT_ANCHOR_COMMITTED_FILE = "/var/ossec/etc/certs/.anchor-committed"
 WAZUH_AGENT_CLIENT_KEYS_FILE = "/var/ossec/etc/client.keys"
 WAZUH_AGENT_REENROLL_SECRET_FILE = "/var/ossec/etc/reenroll.secret"
 
@@ -53,7 +60,7 @@ WAZUH_AGENT_ENROLLMENT_ADDRESS = "127.0.0.1"
 # (`resolve-credentials --prestart`) and publish them to /etc/wazuh/credentials.env, which stays on
 # the instance as the record the user reads them from.
 WAZUH_INDEXER_ADMIN_USER = "admin"
-WAZUH_MANAGER_API_USER = "wazuh-wui"
+WAZUH_MANAGER_API_USER = "wazuh-internal-client"
 
 # The token CLI talks to queue/sockets/auth.sock, which a manager reporting "active" may still be
 # opening: systemctl returns as soon as the unit is active, not once every daemon inside it has
@@ -424,9 +431,53 @@ def create_certificates() -> None:
 
     logger.debug("Creating new certificates...")
     certs_manager = CertsManager(raw_config_path=CERTS_TOOL_CONFIG_PATH, certs_tool_path=CERTS_TOOL_PATH)
-    certs_manager.generate_certificates(agent_san=get_manager_san_ips())
-    install_certificate_authority()
+    try:
+        certs_manager.generate_certificates(agent_san=get_manager_san_ips())
+        publish_manager_ca()
+        install_certificate_authority()
+    finally:
+        # install_certificate_authority() is the last reader of WAZUH_CERTS_TAR, so it is removed here
+        # instead of waiting for clean_up(): that only runs when the whole customization succeeds, and
+        # the failure path restarts sshd, which would leave every leaf private key sitting in the tar
+        # for whoever logs in next. Done in `finally` so it also covers a failure while generating or
+        # installing the certificates, before the error handler in main brings SSH back.
+        remove_certs_tar()
     logger.debug("New certificates created")
+
+
+def publish_manager_ca() -> None:
+    """
+    Publishes the root-ca.pem just installed for the manager with `wazuh-manager-certs stamp`.
+
+    remoted remembers the build-time bundle; replacing it without publishing makes remoted log
+    "changed outside the tool and is not published" and announce ca_generation 0 to the agents
+    (wazuh-virtual-machines#1022). stamp publishes the bundle as is. It only needs the files, not a
+    running manager, and checks the bundle against remoted.pem, so it runs once both are installed.
+
+    Returns:
+        None
+    """
+
+    logger.debug("Publishing the manager CA bundle")
+    run_command(command=f"{WAZUH_MANAGER_CERTS_BIN} stamp", error_message="Error publishing the manager CA bundle")
+
+
+def remove_certs_tar() -> None:
+    """
+    Deletes WAZUH_CERTS_TAR, the bundle CertsManager packs every generated certificate and leaf private
+    key into. Once the certificates are in each component's own directory it is only a leftover.
+
+    A failure to delete it is logged but never raised: this runs from a `finally`, where raising would
+    replace the original error that made the customization fail.
+
+    Returns:
+        None
+    """
+
+    try:
+        WAZUH_CERTS_TAR.unlink(missing_ok=True)
+    except OSError as error:
+        logger.error(f"Could not remove {WAZUH_CERTS_TAR}, it still holds the private keys: {error}")
 
 
 def install_certificate_authority() -> None:
@@ -522,7 +573,7 @@ def verify_indexer_connection() -> None:
 
 def verify_manager_connection() -> None:
     """
-    Verifies the connection to the Wazuh manager API as wazuh-wui, the account the dashboard uses,
+    Verifies the connection to the Wazuh manager API as wazuh-internal-client, the account the dashboard uses,
     with the password the manager package generated on this boot (WAZUH_MANAGER_WUI_PASSWORD).
 
     Returns:
@@ -585,8 +636,7 @@ def reset_agent_enrollment_state() -> None:
       the token unused and returns -- so a baked anchor or a baked key would silently turn the fresh
       token into a no-op and leave every deployed instance enrolled under one identity.
 
-    client.keys is truncated rather than deleted so the file keeps the ownership and mode the agent
-    package gave it; the bootstrap only looks at its size.
+    client.keys is left alone here: reset_agent_identity() empties it once the manager API is up.
 
     Returns:
         None
@@ -597,12 +647,120 @@ def reset_agent_enrollment_state() -> None:
     command = f"""
     rm -f {WAZUH_MANAGER_AUTHD_PASS_FILE} {WAZUH_MANAGER_ENROLLMENT_TOKENS_FILE}
     rm -f {WAZUH_AGENT_AUTHD_PASS_FILE} {WAZUH_AGENT_ENROLLMENT_TOKEN_FILE}
-    rm -f {WAZUH_AGENT_CA_FILE} {WAZUH_AGENT_REENROLL_SECRET_FILE}
-    if [ -f {WAZUH_AGENT_CLIENT_KEYS_FILE} ]; then : > {WAZUH_AGENT_CLIENT_KEYS_FILE}; fi
+    rm -f {WAZUH_AGENT_CA_FILE} {WAZUH_AGENT_ANCHOR_COMMITTED_FILE} {WAZUH_AGENT_REENROLL_SECRET_FILE}
     """
     run_command(command=command, error_message="Error removing the baked enrollment state")
 
     logger.debug("Baked enrollment credentials and agent identity removed")
+
+
+def reset_agent_identity() -> None:
+    """
+    Empties the agent's client.keys, first removing from the manager the agent it names, if any.
+
+    The image ships client.keys empty, so an ID in it can only come from an earlier run of this
+    customizer that started the agent and then failed (the service is only removed once it
+    succeeds). The manager still has that agent registered under the same name and would reject the
+    new enrollment as a duplicate. On a normal first boot this only truncates an empty file.
+
+    Reading the ID, removing the agent and truncating the file happen in this one step, after the
+    manager API is up, so a run that fails earlier (certificates, indexer, manager) leaves the ID on
+    disk for the next one. The agent is never started before this point.
+
+    client.keys is truncated rather than deleted so the file keeps the ownership and mode the agent
+    package gave it; the bootstrap only looks at its size.
+
+    Returns:
+        None
+    """
+
+    try:
+        agent_id = (Path(WAZUH_AGENT_CLIENT_KEYS_FILE).read_text().split() or [None])[0]
+    except FileNotFoundError:
+        return
+
+    remove_previous_agent(agent_id)
+
+    run_command(
+        command=f": > {WAZUH_AGENT_CLIENT_KEYS_FILE}",
+        error_message="Error emptying the agent's client.keys",
+    )
+
+
+def remove_previous_agent(agent_id: str | None) -> None:
+    """
+    Removes from the manager the agent an earlier, failed run of this customizer enrolled, so the
+    agent can enroll again under the same name instead of being rejected as a duplicate. No-op on a
+    normal first boot.
+
+    Goes through the Server API because in 5.0.0 the manager ships no local CLI that removes agents
+    (manage_agents is only installed with the agent). older_than=0s because the default (7d) skips
+    an agent registered minutes ago; purge drops its key instead of keeping it as removed.
+
+    Not fatal: if it fails, the agent's enrollment is rejected and the agent stays down, which is
+    better than aborting the customization with SSH stopped. The warning says why.
+
+    Args:
+        agent_id (str | None): The ID read from the agent's client.keys by reset_agent_identity().
+
+    Returns:
+        None
+    """
+
+    if agent_id is None:
+        return
+    if not agent_id.isdigit():
+        logger.warning(f"Ignoring an unexpected agent ID in client.keys: {agent_id}")
+        return
+
+    logger.info(f"Removing agent {agent_id}, enrolled by an earlier run of the customizer, from the manager")
+
+    # Password and JWT reach curl through its standard input, never argv (see http_status()).
+    password = read_credential(CredentialKey.MANAGER_WUI)
+    jwt = subprocess.run(
+        [
+            "curl",
+            "-s",
+            "-k",
+            "-K",
+            "-",
+            "-X",
+            "POST",
+            "--max-time",
+            "120",
+            "https://localhost:55000/security/user/authenticate?raw=true",
+        ],
+        input=f'user = "{WAZUH_MANAGER_API_USER}:{password}"\n',
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    response = subprocess.run(
+        [
+            "curl",
+            "-s",
+            "-k",
+            "-K",
+            "-",
+            "-X",
+            "DELETE",
+            "--max-time",
+            "120",
+            f"https://localhost:55000/agents?agents_list={agent_id}&status=all&older_than=0s&purge=true",
+        ],
+        input=f'header = "Authorization: Bearer {jwt}"\n',
+        capture_output=True,
+        text=True,
+    ).stdout
+
+    try:
+        removed = json.loads(response)["data"]["total_affected_items"] == 1
+    except (ValueError, KeyError, TypeError):
+        removed = False
+
+    if removed:
+        logger.info(f"Agent {agent_id} removed")
+    else:
+        logger.warning(f"Could not remove agent {agent_id}; its enrollment will be rejected as a duplicate: {response}")
 
 
 def mint_agent_enrollment_token() -> str:
@@ -726,6 +884,9 @@ def start_components_services() -> None:
     enable_service("wazuh-manager")
     start_service("wazuh-manager")
     verify_manager_connection()
+    # Only now, with the API up: removes the agent an earlier failed run enrolled, then empties
+    # client.keys. Done here and not in the reset above so a run failing in between keeps the ID.
+    reset_agent_identity()
 
     enable_service("wazuh-dashboard")
     start_service("wazuh-dashboard")

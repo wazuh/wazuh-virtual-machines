@@ -1,4 +1,5 @@
 import os
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, call, mock_open, patch
 
@@ -22,6 +23,7 @@ from configurer.ova.ova_post_configurer.ova_post_configurer import (
     delete_wazuh_indexes,
     purge_build_credentials,
     enable_fips,
+    generalize_image,
     main,
     post_conf_change_ssh_crypto_policies,
     post_conf_clean,
@@ -30,6 +32,7 @@ from configurer.ova.ova_post_configurer.ova_post_configurer import (
     post_conf_delete_generated_network_files,
     set_hostname,
     steps_clean,
+    grow_root_filesystem,
     steps_system_config,
     update_jvm_heap,
 )
@@ -65,6 +68,17 @@ def mock_shutil_copy():
 def mock_os_makedirs():
     with patch("os.makedirs") as mock_makedirs:
         yield mock_makedirs
+
+
+def test_grow_root_filesystem(mock_run_command):
+    mock_run_command.return_value = (["/dev/sda1  50G"], [""], [0])
+    grow_root_filesystem()
+
+    growpart_cmd = mock_run_command.call_args_list[0].args[0]
+    assert growpart_cmd.startswith("growpart ")
+    assert "findmnt -no SOURCE /" in growpart_cmd
+    mock_run_command.assert_any_call("xfs_growfs /", check=True)
+    mock_run_command.assert_any_call("df -h /", output=True)
 
 
 def test_set_hostname(mock_run_command):
@@ -250,6 +264,7 @@ def test_configure_sshd_str_is_converted_to_path(mock_modify_file):
     assert call_path == Path("/etc/ssh/sshd_config")
 
 
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.grow_root_filesystem")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.set_hostname")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.add_wazuh_starter_service")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.add_wazuh_starter_certs_tool")
@@ -267,11 +282,14 @@ def test_steps_system_config(
     mock_add_wazuh_starter_certs_tool,
     mock_add_wazuh_starter_service,
     mock_set_hostname,
+    mock_grow_root_filesystem,
     mock_run_command,
 ):
     mock_json_load.return_value = {"version": "5.0.1", "stage": "alpha0"}
 
     steps_system_config()
+
+    mock_grow_root_filesystem.assert_called_once()
 
     mock_run_command.assert_any_call("yum upgrade -y")
 
@@ -285,12 +303,33 @@ def test_steps_system_config(
 
     mock_add_wazuh_starter_certs_tool.assert_called_once()
 
-    mock_run_command.assert_any_call("echo 'root:wazuh' | chpasswd")
+    assert not any("chpasswd" in str(c) for c in mock_run_command.call_args_list)
 
     mock_set_hostname.assert_called_once()
 
     mock_open_file.assert_any_call("VERSION.json")
-    mock_run_command.assert_any_call(f"sudo bash {SCRIPTS_PATH}/messages.sh no 5.0.1-alpha0 wazuh-user")
+    mock_run_command.assert_any_call(f"sudo bash {SCRIPTS_PATH}/messages.sh no 5.0.1 wazuh-user")
+
+
+def test_messages_script_shows_version_in_both_banners(tmp_path):
+    # Run the real messages.sh, with the files it writes redirected to tmp_path
+    script = tmp_path / "messages.sh"
+    (tmp_path / "motd.d").mkdir()
+    script.write_text(
+        (Path(SCRIPTS_PATH) / "messages.sh")
+        .read_text()
+        .replace("/etc/issue", str(tmp_path / "issue"))
+        .replace("/usr/lib/motd.d", str(tmp_path / "motd.d"))
+        .replace("sudo tee -a /etc/profile", f"tee -a {tmp_path / 'profile'}")
+    )
+
+    subprocess.run(["bash", str(script), "no", "5.0.0", "wazuh-user"], capture_output=True, check=True)
+
+    issue = (tmp_path / "issue").read_text()
+    motd = (tmp_path / "motd.d" / "40-wazuh-banner").read_text()
+    assert "Welcome to the Wazuh OVA version 5.0.0\n" in issue
+    assert "Wazuh - 5.0.0" not in issue
+    assert "    Welcome to the Wazuh OVA version 5.0.0\n" in motd
 
 
 def test_steps_clean(mock_run_command):
@@ -616,6 +655,7 @@ def test_purge_build_credentials_fail(mock_run_command):
         purge_build_credentials()
 
 
+@patch("configurer.ova.ova_post_configurer.ova_post_configurer.generalize_image")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.steps_system_config")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.steps_clean")
 @patch("configurer.ova.ova_post_configurer.ova_post_configurer.post_conf_create_network_config")
@@ -631,9 +671,17 @@ def test_main(
     mock_post_conf_create_network_config,
     mock_steps_clean,
     mock_steps_system_config,
+    mock_generalize_image,
     mock_run_command,
 ):
+    manager = MagicMock()
+    manager.attach_mock(mock_post_conf_clean, "post_conf_clean")
+    manager.attach_mock(mock_generalize_image, "generalize_image")
+
     main()
+
+    # generalize_image expires the build's login, so nothing can run after it.
+    assert manager.mock_calls[-1] == call.generalize_image()
 
     mock_steps_system_config.assert_called_once()
 
@@ -660,3 +708,43 @@ def test_main(
     mock_post_conf_create_network_config.assert_called_once()
     mock_configure_ssh.assert_called_once()
     mock_post_conf_clean.assert_called_once()
+
+
+def _generalized_root(tmp_path, root_hash="!$6$x", wazuh_user_last_change="0", **extra):
+    for rel, content in {
+        "etc/machine-id": "",
+        "etc/passwd": "root:x:0:0::/root:/bin/bash\nwazuh-user:x:1000:1000::/home/wazuh-user:/bin/bash\n",
+        "etc/shadow": f"root:{root_hash}:20000:0:99999:7:::\nwazuh-user:$6$y:{wazuh_user_last_change}:0:99999:7:::\n",
+        "etc/sudoers.d/wazuh-user": "wazuh-user ALL=(ALL) NOPASSWD: ALL\n",
+        "etc/ssh/sshd_config": "",
+        **extra,
+    }.items():
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_text(content)
+    return tmp_path
+
+
+@pytest.mark.parametrize("root_hash", ["!$6$x", "*"])
+def test_generalize_image(tmp_path, mock_run_command, root_hash):
+    generalize_image(root=_generalized_root(tmp_path, root_hash=root_hash))
+
+    commands = mock_run_command.call_args.args[0]
+    assert commands[-1] == "chage -d 0 wazuh-user"
+    assert "truncate -s 0 /etc/machine-id" in commands
+    assert "passwd -l root" in commands
+
+
+@pytest.mark.parametrize(
+    "kwargs, error",
+    [
+        ({"home/wazuh-user/.ssh/authorized_keys": "ssh-rsa AAAA vagrant"}, "authorized_keys left"),
+        ({"etc/ssh/ssh_host_ecdsa_key": "key"}, "SSH host keys left"),
+        ({"etc/machine-id": "2871ce847a65"}, "machine-id is not empty"),
+        ({"etc/sudoers.d/90-cloud-init-users": "ec2-user ALL=(ALL) NOPASSWD:ALL\n"}, "ec2-user is still in"),
+        ({"root_hash": "$6$wazuh"}, "root password is not locked"),
+        ({"wazuh_user_last_change": "20000"}, "wazuh-user password is not expired"),
+    ],
+)
+def test_generalize_image_fails_on_leftovers(tmp_path, mock_run_command, kwargs, error):
+    with pytest.raises(RuntimeError, match=error):
+        generalize_image(root=_generalized_root(tmp_path, **kwargs))

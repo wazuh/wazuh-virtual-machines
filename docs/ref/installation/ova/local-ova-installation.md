@@ -21,6 +21,7 @@ To create the Wazuh OVA locally, we will use the `wazuh_local_ova` module. This 
 | `--environment` | `-e` | Environment to use for fetching Wazuh packages (`release`, `pre-release`, `dev`) | No | `release` |
 | `--packages-url-path` | `-p` | Path to the local artifact URLs file. Only used when `--environment` is `dev` | No | `./artifact_urls.yaml` |
 | `--checksum` | `-c` | Generate a `.sha512` file for the OVA | No | `False` |
+| `--skip-signature-check` | - | Install the Wazuh packages without checking their signature. Only for unsigned development packages | No | `False` |
 
 ### Environments
 
@@ -29,6 +30,8 @@ The `--environment` option determines how the artifact URLs file is obtained:
 - **`release`** (default): Downloads the artifact URLs file automatically from the official Wazuh packages server based on the version defined in `VERSION.json`.
 - **`pre-release`**: Downloads the artifact URLs file automatically from the Wazuh pre-release packages server.
 - **`dev`**: Uses a local artifact URLs file. The path to this file must be provided via `--packages-url-path`.
+
+The environment also names the build in the OVA metadata, which is the VM name suggested on import: `Wazuh v5.0.1 OVA` for `release`, `Wazuh v5.0.1-<STAGE> OVA` for `pre-release` (the stage defined in `VERSION.json`), and `Wazuh v5.0.1-dev OVA` for `dev`.
 
 ### Artifact URLs file (dev environment)
 
