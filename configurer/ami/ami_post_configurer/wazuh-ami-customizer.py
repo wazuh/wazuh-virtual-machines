@@ -64,8 +64,8 @@ WAZUH_AGENT_ENROLLMENT_ADDRESS = "127.0.0.1"
 # The indexer's own admin account, used to poll both the indexer and the dashboard (which
 # authenticates against the indexer's security plugin), and the manager API account the dashboard
 # uses. Their passwords are not known in advance: the packages generate them on this first boot
-# (`resolve-credentials --prestart`) and publish them to /etc/wazuh/credentials.env, which stays on
-# the instance as the record the user reads them from.
+# (`resolve-credentials --prestart`) and publish them to their own export/credentials.env
+# (credentials_file_for), which stays on the instance as the record the user reads them from.
 WAZUH_INDEXER_ADMIN_USER = "admin"
 WAZUH_MANAGER_API_USER = "wazuh-internal-client"
 
@@ -233,7 +233,7 @@ def debug_ssh_message() -> None:
 
 def http_status(url: str, user: str, password_key: str, method: str = "GET") -> str:
     """
-    Sends one request authenticated with a password from /etc/wazuh/credentials.env.
+    Sends one request authenticated with a password from its owner's export/credentials.env.
 
     The password goes to curl through its standard input (`-K -`), never on its command line, where
     any local user could read it off the process list, and it is never logged.
@@ -241,7 +241,7 @@ def http_status(url: str, user: str, password_key: str, method: str = "GET") -> 
     Args:
         url (str): The URL to request.
         user (str): The user to authenticate as.
-        password_key (str): The credentials.env key holding that user's password.
+        password_key (str): The CredentialKey holding that user's password.
         method (str): The HTTP method. Defaults to GET.
 
     Returns:
@@ -566,7 +566,7 @@ def stop_components_services() -> None:
 def verify_indexer_connection() -> None:
     """
     Verifies the connection to the Wazuh indexer as admin, with the password the indexer package
-    generated on this boot (WAZUH_INDEXER_ADMIN_PASSWORD in /etc/wazuh/credentials.env).
+    generated on this boot (WAZUH_INDEXER_ADMIN_PASSWORD in /etc/wazuh-indexer/export/credentials.env).
 
     Returns:
         None

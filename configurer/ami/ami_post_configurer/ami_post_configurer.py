@@ -241,7 +241,7 @@ class AmiPostConfigurer:
         ]
 
         # There is no admin:admin any more: the indexer package generated the admin password at install
-        # time and published it to /etc/wazuh/credentials.env. It is read and used on the instance, and
+        # time and published it to /etc/wazuh-indexer/export/credentials.env. It is read and used on the instance, and
         # reaches curl through its standard input, so it never travels back over SSH nor shows in argv.
         for index in indexes_to_delete:
             command = indexer_request_command(method="DELETE", path=index, url=base_url)

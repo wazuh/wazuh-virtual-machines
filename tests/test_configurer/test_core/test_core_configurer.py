@@ -180,7 +180,7 @@ def test_start_services_success(mock_exec_command, mock_logger):
 
 def test_start_services_does_not_write_the_manager_keystore(mock_exec_command, mock_logger):
     # The manager package resolves its indexer credential itself (WAZUH_INDEXER_MANAGER_PASSWORD from
-    # /etc/wazuh/credentials.env). Writing the old wazuh-manager/wazuh-manager pair over it would leave
+    # /etc/wazuh-indexer/export/credentials.env). Writing the old wazuh-manager/wazuh-manager pair over it would leave
     # the manager unable to authenticate to the indexer.
     core_configurer_instance = CoreConfigurer(inventory=None, files_configuration_path=Path("test_path.yml"))
     core_configurer_instance.start_services(client=None)

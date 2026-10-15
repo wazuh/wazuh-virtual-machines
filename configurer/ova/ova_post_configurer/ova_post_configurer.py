@@ -523,7 +523,7 @@ def delete_wazuh_indexes() -> None:
     ]
 
     # There is no admin:admin any more: the indexer package generated the admin password at install
-    # time and published it to /etc/wazuh/credentials.env. It reaches curl through its standard input,
+    # time and published it to /etc/wazuh-indexer/export/credentials.env. It reaches curl through its standard input,
     # never argv, and is never logged.
     for index in indexes_to_delete:
         result = run_command(indexer_request_command(method="DELETE", path=index), output=True)

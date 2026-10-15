@@ -31,7 +31,7 @@ logger = Logger("CoreConfigurer")
 
 # The manager's indexer credential is NOT set here any more. The manager package resolves it itself
 # (wazuh/wazuh-indexer#1928): its postinst reads WAZUH_INDEXER_MANAGER_PASSWORD from
-# /etc/wazuh/credentials.env, which the indexer package published with a generated value, and
+# /etc/wazuh-indexer/export/credentials.env, which the indexer package published with a generated value, and
 # stores it in the manager keystore. Writing the old wazuh-manager/wazuh-manager pair over it would
 # leave the manager unable to authenticate to the indexer.
 

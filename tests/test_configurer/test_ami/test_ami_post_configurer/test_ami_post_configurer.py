@@ -246,7 +246,7 @@ def test_remove_wazuh_indexes(mock_ami_post_configurer, mock_exec_command, mock_
     for cmd in expected_commands:
         assert cmd in called_commands
 
-    # The admin password comes from /etc/wazuh/credentials.env on the instance, through curl's stdin.
+    # The admin password comes from /etc/wazuh-indexer/export/credentials.env on the instance, through curl's stdin.
     assert not any("admin:admin" in cmd for cmd in called_commands)
     assert all("-K -" in cmd and "WAZUH_INDEXER_ADMIN_PASSWORD" in cmd for cmd in called_commands)
 

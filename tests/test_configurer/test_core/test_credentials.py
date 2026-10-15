@@ -5,6 +5,7 @@ import pytest
 from configurer.core.utils import (
     CredentialKey,
     credential_shell_expression,
+    credentials_file_for,
     indexer_request_command,
     parse_credentials,
     purge_build_credentials_command,
@@ -56,7 +57,23 @@ def test_credential_shell_expression_reads_the_key_from_the_file():
     expression = credential_shell_expression(CredentialKey.INDEXER_ADMIN)
 
     assert expression.startswith("$(")
-    assert "sudo sed -n 's/^WAZUH_INDEXER_ADMIN_PASSWORD=//p' /etc/wazuh/credentials.env" in expression
+    assert "sudo sed -n 's/^WAZUH_INDEXER_ADMIN_PASSWORD=//p' /etc/wazuh-indexer/export/credentials.env" in expression
+
+
+@pytest.mark.parametrize(
+    "key, path",
+    [
+        (CredentialKey.INDEXER_ADMIN, "/etc/wazuh-indexer/export/credentials.env"),
+        (CredentialKey.INDEXER_KIBANASERVER, "/etc/wazuh-indexer/export/credentials.env"),
+        (CredentialKey.INDEXER_MANAGER, "/etc/wazuh-indexer/export/credentials.env"),
+        (CredentialKey.MANAGER_API, "/etc/wazuh-manager/export/credentials.env"),
+        (CredentialKey.MANAGER_WUI, "/etc/wazuh-manager/export/credentials.env"),
+    ],
+)
+def test_each_key_is_read_from_its_owner_export(key, path):
+    # The indexer publishes its users' passwords, the manager the Server API ones (RC 2).
+    assert credentials_file_for(key) == Path(path)
+    assert f" {path} " in credential_shell_expression(key)
 
 
 def test_indexer_request_command_sends_the_password_through_stdin():

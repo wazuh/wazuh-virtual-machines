@@ -628,7 +628,7 @@ def test_delete_wazuh_indexes(mock_run_command):
 
     mock_run_command.assert_has_calls(expected_calls, any_order=False)
     assert mock_run_command.call_count == 6
-    # The admin password comes from /etc/wazuh/credentials.env, through curl's stdin.
+    # The admin password comes from /etc/wazuh-indexer/export/credentials.env, through curl's stdin.
     assert not any("admin:admin" in c.args[0] for c in mock_run_command.call_args_list)
 
 
