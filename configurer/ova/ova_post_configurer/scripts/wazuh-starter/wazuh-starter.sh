@@ -57,10 +57,13 @@ enrollment_token_max_retries=12
 enrollment_token_wait_time=5
 
 # The passwords are not known in advance: each package generates its own when its service first
-# starts (`resolve-credentials --prestart`) and publishes it to this file, which stays on the VM as
-# the record the user reads them from (the documentation tells them to delete it afterwards). It is
-# parsed, never sourced, and a value read from it only ever reaches curl through its standard input.
-wazuh_credentials_file="/etc/wazuh/credentials.env"
+# starts (`resolve-credentials --prestart`) and publishes them to its own export/credentials.env
+# (RC 2): the indexer its users' passwords, the manager the Server API ones. Both stay on the VM as
+# the record the user reads them from. They are parsed, never sourced, and a value read from them
+# only ever reaches curl through its standard input. Same split as credentials_file_for() in
+# configurer/core/utils/credentials.py.
+wazuh_indexer_credentials_file="/etc/wazuh-indexer/export/credentials.env"
+wazuh_manager_credentials_file="${wazuh_manager_conf_dir}/export/credentials.env"
 
 # The indexer's own admin account, used to poll both the indexer and the dashboard (which
 # authenticates against the indexer's security plugin). See verify_indexer().
@@ -175,10 +178,12 @@ function starter_service() {
 }
 
 function get_credential() {
-  # $1: key. Prints its value from the credentials file, parsed the way the packages' shared library
-  # reads it (last assignment wins, surrounding quotes removed). Never sourced: sourcing would run
-  # the file as shell.
-  sed -n "s/^${1}=//p" "${wazuh_credentials_file}" 2>/dev/null | tail -n 1 \
+  # $1: key. Prints its value from the credentials file of the package that owns it, parsed the way
+  # the packages' shared library reads it (last assignment wins, surrounding quotes removed). Never
+  # sourced: sourcing would run the file as shell.
+  local file="${wazuh_indexer_credentials_file}"
+  case "$1" in WAZUH_MANAGER_*) file="${wazuh_manager_credentials_file}" ;; esac
+  sed -n "s/^${1}=//p" "${file}" 2>/dev/null | tail -n 1 \
     | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/"
 }
 

@@ -15,10 +15,11 @@ Login credentials:
   Password: wazuh (you must change it on the first login)
 
 Wazuh dashboard: https://<this VM's IP address>   User: admin
-The passwords generated for this VM are stored in /etc/wazuh/credentials.env.
+The passwords generated for this VM are stored in
+/etc/wazuh-indexer/export/credentials.env (dashboard and indexer users) and
+/etc/wazuh-manager/export/credentials.env (Server API users).
 Print the admin password with:
-  sudo grep '^WAZUH_INDEXER_ADMIN_PASSWORD=' /etc/wazuh/credentials.env | cut -d= -f2-
-For security, save them and delete that file (if you have not deleted it yet).
+  sudo grep '^WAZUH_INDEXER_ADMIN_PASSWORD=' /etc/wazuh-indexer/export/credentials.env | cut -d= -f2-
 
 EOF
 
