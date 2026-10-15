@@ -13,7 +13,8 @@ wazuh_indexer:
         - \"__indexer_node_name__\" # Placeholder for indexer node name that will be replaced during configuration
         - \"__indexer_node_name__\"
 wazuh_manager:
-  - path: /var/wazuh-manager/etc/wazuh-manager.conf
+  # /etc/wazuh-manager is WAZUH_MANAGER_CONF_DIR (configurer/core/utils/enums.py); YAML cannot import it.
+  - path: /etc/wazuh-manager/wazuh-manager.conf
     replace:
       keys:
         - .wazuh_config.indexer.hosts.host
@@ -29,9 +30,9 @@ wazuh_manager:
         - .wazuh_config.remote.legacy.local_ip
       values:
         - https://127.0.0.1:9200
-        - /var/wazuh-manager/etc/certs/root-ca.pem
-        - /var/wazuh-manager/etc/certs/indexer-connector.pem
-        - /var/wazuh-manager/etc/certs/indexer-connector-key.pem
+        - /etc/wazuh-manager/certs/root-ca.pem
+        - /etc/wazuh-manager/certs/indexer-connector.pem
+        - /etc/wazuh-manager/certs/indexer-connector-key.pem
         - 0.0.0.0
         - 0.0.0.0
 wazuh_agent:

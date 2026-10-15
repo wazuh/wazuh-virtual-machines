@@ -8,7 +8,14 @@ from collections.abc import Callable
 from pathlib import Path
 
 from configurer.core.models import CertsManager
-from configurer.core.utils import WAZUH_BASE_DIR, WAZUH_CA_DIR, ComponentCertsDirectory, CredentialKey, read_credential
+from configurer.core.utils import (
+    WAZUH_BASE_DIR,
+    WAZUH_CA_DIR,
+    WAZUH_MANAGER_CONF_DIR,
+    ComponentCertsDirectory,
+    CredentialKey,
+    read_credential,
+)
 from generic import exec_command, exec_command_with_status
 from utils import Component, Logger
 
@@ -25,7 +32,7 @@ WAZUH_WARNING_SCRIPT = Path("/etc/profile.d/wazuh-debug-warning.sh")
 # standalone generator, so wazuh-manager-authd has to be running before this is called.
 WAZUH_MANAGER_AUTHD_BIN = "/var/wazuh-manager/bin/wazuh-manager-authd"
 
-# Publishes the manager's CA bundle (etc/certs/root-ca.pem) to the agents (wazuh/wazuh#39319).
+# Publishes the manager's CA bundle (certs/root-ca.pem) to the agents (wazuh/wazuh#39319).
 WAZUH_MANAGER_CERTS_BIN = "/var/wazuh-manager/bin/wazuh-manager-certs"
 
 # Where the pre-installed agent picks the token up. w_agent_token_bootstrap() reads it once at the
@@ -36,8 +43,8 @@ WAZUH_AGENT_ENROLLMENT_TOKEN_FILE = "/var/ossec/etc/enrollment_token"
 # Everything a build leaves behind that would make the freshly minted token useless or unsafe.
 # The bootstrap refuses to run at all when the agent already holds a trust anchor or a key -- it
 # deletes the token unused in both cases -- so anything baked into the image has to go first.
-WAZUH_MANAGER_AUTHD_PASS_FILE = "/var/wazuh-manager/etc/authd.pass"
-WAZUH_MANAGER_ENROLLMENT_TOKENS_FILE = "/var/wazuh-manager/etc/enrollment_tokens.json"
+WAZUH_MANAGER_AUTHD_PASS_FILE = f"{WAZUH_MANAGER_CONF_DIR}/authd.pass"
+WAZUH_MANAGER_ENROLLMENT_TOKENS_FILE = f"{WAZUH_MANAGER_CONF_DIR}/enrollment_tokens.json"
 WAZUH_AGENT_AUTHD_PASS_FILE = "/var/ossec/etc/authd.pass"
 WAZUH_AGENT_CA_FILE = "/var/ossec/etc/certs/root-ca.pem"
 # Written by the agent once it has committed to a trust anchor. With it present and the anchor gone,

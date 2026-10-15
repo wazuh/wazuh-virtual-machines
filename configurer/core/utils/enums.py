@@ -1,14 +1,19 @@
 from enum import StrEnum
 
+# The manager's configuration directory since wazuh/wazuh#40346. It used to be
+# /var/wazuh-manager/etc, which is gone (no symlink is left behind). Binaries, logs and
+# VERSION.json stay under /var/wazuh-manager.
+WAZUH_MANAGER_CONF_DIR = "/etc/wazuh-manager"
+
 
 class ComponentConfigFile(StrEnum):
-    WAZUH_MANAGER = "/var/wazuh-manager/etc/wazuh-manager.conf"
+    WAZUH_MANAGER = f"{WAZUH_MANAGER_CONF_DIR}/wazuh-manager.conf"
     WAZUH_INDEXER = "/etc/wazuh-indexer/opensearch.yml"
     WAZUH_DASHBOARD = "/etc/wazuh-dashboard/opensearch_dashboards.yml"
 
 
 class ComponentCertsDirectory(StrEnum):
-    WAZUH_MANAGER = "/var/wazuh-manager/etc/certs"
+    WAZUH_MANAGER = f"{WAZUH_MANAGER_CONF_DIR}/certs"
     WAZUH_INDEXER = "/etc/wazuh-indexer/certs"
     WAZUH_DASHBOARD = "/etc/wazuh-dashboard/certs"
 

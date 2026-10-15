@@ -19,6 +19,10 @@
 logfile="/var/log/wazuh-starter.log"
 debug="| tee -a ${logfile}"
 
+# The manager's configuration directory since wazuh/wazuh#40346 (/var/wazuh-manager/etc is gone, no
+# symlink). Keep it in sync with WAZUH_MANAGER_CONF_DIR in configurer/core/utils/enums.py.
+wazuh_manager_conf_dir="/etc/wazuh-manager"
+
 # The manager CLI that mints enrollment tokens. It is a client of the local authd socket, not a
 # standalone generator, so wazuh-manager-authd has to be running before it is called.
 wazuh_manager_authd_bin="/var/wazuh-manager/bin/wazuh-manager-authd"
@@ -32,8 +36,8 @@ wazuh_agent_enrollment_token="/var/ossec/etc/enrollment_token"
 # bootstrap refuses to run at all when the agent already holds a trust anchor or a non-empty
 # client.keys -- it deletes the token unused in both cases -- so anything baked into the image has
 # to go first. See reset_enrollment_state() and reset_agent_identity().
-wazuh_manager_authd_pass="/var/wazuh-manager/etc/authd.pass"
-wazuh_manager_enrollment_tokens="/var/wazuh-manager/etc/enrollment_tokens.json"
+wazuh_manager_authd_pass="${wazuh_manager_conf_dir}/authd.pass"
+wazuh_manager_enrollment_tokens="${wazuh_manager_conf_dir}/enrollment_tokens.json"
 wazuh_agent_authd_pass="/var/ossec/etc/authd.pass"
 wazuh_agent_client_keys="/var/ossec/etc/client.keys"
 wazuh_agent_reenroll_secret="/var/ossec/etc/reenroll.secret"
@@ -79,7 +83,7 @@ manager_wait_time=5
 # The manager's agent-listener certificate (HTTPS identity, reused by Authd as the /enroll mTLS
 # credential). Issued by copy_manager_certs from this instance's own CA (see generate_certificates),
 # making it unique per deployed instance instead of the baked-in self-signed pair the image ships.
-wazuh_manager_certs_dir="/var/wazuh-manager/etc/certs"
+wazuh_manager_certs_dir="${wazuh_manager_conf_dir}/certs"
 wazuh_manager_remoted_cert="${wazuh_manager_certs_dir}/remoted.pem"
 wazuh_manager_remoted_key="${wazuh_manager_certs_dir}/remoted-key.pem"
 # The Server API certificate (port 55000). Since wazuh/wazuh#40085 the manager no longer self-signs it
@@ -119,7 +123,7 @@ indexer_jdk_cacerts_pass="changeit"
 
 wazuh_indexer_certs_dir="/etc/wazuh-indexer/certs"
 wazuh_dashboard_certs_dir="/etc/wazuh-dashboard/certs"
-wazuh_manager_conf="/var/wazuh-manager/etc/wazuh-manager.conf"
+wazuh_manager_conf="${wazuh_manager_conf_dir}/wazuh-manager.conf"
 wazuh_indexer_conf="/etc/wazuh-indexer/opensearch.yml"
 wazuh_dashboard_conf="/etc/wazuh-dashboard/opensearch_dashboards.yml"
 

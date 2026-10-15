@@ -337,7 +337,7 @@ def test_steps_clean(mock_run_command):
     mock_run_command.assert_called_once_with(
         [
             "rm -f /securityadmin_demo.sh",
-            "rm -f /var/wazuh-manager/etc/certs/*.pem",
+            "rm -f /etc/wazuh-manager/certs/*.pem",
             "rm -rf /etc/wazuh-indexer/certs/* /etc/wazuh-dashboard/certs/*",
             "yum clean all",
             "systemctl daemon-reload",

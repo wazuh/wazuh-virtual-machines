@@ -293,7 +293,7 @@ def steps_clean() -> None:
         # deployed from this OVA share the same CA, letting anyone who downloaded a copy forge a
         # valid certificate for any other instance's manager. Removed here, regenerated per
         # instance by wazuh-starter on first boot.
-        "rm -f /var/wazuh-manager/etc/certs/*.pem",
+        "rm -f /etc/wazuh-manager/certs/*.pem",
         "rm -rf /etc/wazuh-indexer/certs/* /etc/wazuh-dashboard/certs/*",
         "yum clean all",
         "systemctl daemon-reload",
