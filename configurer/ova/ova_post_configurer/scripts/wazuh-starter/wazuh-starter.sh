@@ -174,7 +174,14 @@ function logger(){
 
 function starter_service() {
   logger "Starting $1 service"
-  systemctl start $1
+  if ! systemctl start "$1"; then
+    # Each package's `resolve-credentials --prestart` (ExecStartPre) refuses the start with a
+    # MISSING, INVALID or UNSAFE line; without them, log the last lines of the unit.
+    logger -e "$1 did not start:"
+    journalctl -u "$1" -n 50 --no-pager -o cat | grep -E 'MISSING|INVALID|UNSAFE' \
+      || journalctl -u "$1" -n 50 --no-pager -o cat
+    exit 1
+  fi
 }
 
 function get_credential() {

@@ -134,9 +134,19 @@ def run_command(command: str, error_message: str) -> str:
     return output
 
 
+# Logs why a unit did not start. Each package's `resolve-credentials --prestart` (ExecStartPre)
+# refuses the start with a MISSING, INVALID or UNSAFE line; without them, the last lines of the unit.
+SERVICE_FAILURE_REASON_COMMAND = (
+    "journalctl -u {name} -n 50 --no-pager -o cat | grep -E 'MISSING|INVALID|UNSAFE' "
+    "|| journalctl -u {name} -n 50 --no-pager -o cat"
+)
+
+
 def start_service(name: str) -> None:
     """
-    Starts a service using systemctl.
+    Starts a service using systemctl. If it does not start, logs the reason from its journal
+    (SERVICE_FAILURE_REASON_COMMAND) before raising.
+
     Args:
         name (str): The name of the service to start.
 
@@ -146,7 +156,12 @@ def start_service(name: str) -> None:
 
     logger.debug(f"Starting {name} service...")
 
-    run_command(command=f"systemctl start {name}", error_message=f"Error starting {name} service")
+    try:
+        run_command(command=f"systemctl start {name}", error_message=f"Error starting {name} service")
+    except RuntimeError:
+        reason, _, _ = exec_command_with_status(command=SERVICE_FAILURE_REASON_COMMAND.format(name=name))
+        logger.error(f"{name} did not start:\n{reason.strip()}")
+        raise
 
     logger.debug(f"{name} service started")
 
