@@ -6,8 +6,7 @@ wazuh_indexer:
         - .["node.name"]
         - .["cluster.initial_cluster_manager_nodes"][0]
         # plugins.security.nodes_dn and plugins.security.authcz.admin_dn are not set here: the
-        # certificates step writes both from the certificates it installs (CertsManager.
-        # set_indexer_distinguished_names), since their subject order depends on the certs-tool version.
+        # indexer's `resolve-credentials --install` writes both from the pairs it issues.
       values:
         - \"127.0.0.1\"
         - \"__indexer_node_name__\" # Placeholder for indexer node name that will be replaced during configuration
@@ -17,10 +16,9 @@ wazuh_manager:
   - path: /etc/wazuh-manager/wazuh-manager.conf
     replace:
       keys:
+        # indexer.ssl.* is left as packaged: certs/indexer-ca.pem and certs/indexer-connector*.pem,
+        # which the manager's resolver imports from the indexer's export/ on a single host.
         - .wazuh_config.indexer.hosts.host
-        - .wazuh_config.indexer.ssl.certificate_authorities.ca
-        - .wazuh_config.indexer.ssl.certificate
-        - .wazuh_config.indexer.ssl.key
         # The packaged wazuh-manager.conf binds remoted's agent ports (1517 HTTPS, 1514 legacy) to
         # loopback; on a standalone VM the manager must listen on all interfaces or no external
         # agent can enroll/connect. The packaged global_prefix (/wazuh-manager/) is left as-is:
@@ -30,9 +28,6 @@ wazuh_manager:
         - .wazuh_config.remote.legacy.local_ip
       values:
         - https://127.0.0.1:9200
-        - /etc/wazuh-manager/certs/root-ca.pem
-        - /etc/wazuh-manager/certs/indexer-connector.pem
-        - /etc/wazuh-manager/certs/indexer-connector-key.pem
         - 0.0.0.0
         - 0.0.0.0
 wazuh_agent:

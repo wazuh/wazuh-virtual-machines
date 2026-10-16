@@ -3,10 +3,10 @@ from pathlib import Path
 
 import paramiko
 
-from configurer.core.models import CertsManager, WazuhComponentConfigManager
+from configurer.core.models import WazuhComponentConfigManager
 from generic import exec_command, remote_connection
 from models import Inventory
-from utils import CertificatesComponent, Component, Logger, RemoteDirectories
+from utils import Component, Logger
 
 logger = Logger("CoreConfigurer")
 
@@ -18,7 +18,7 @@ logger = Logger("CoreConfigurer")
 #   * A mint is refused when the agent listener certificate names loopback only
 #     (enrollment_token_mint.c: "certificate only names loopback"), and at build time it does --
 #     the instance's real addresses only reach remoted.pem's SAN on the first boot of the deployed
-#     instance, through CertsManager.generate_certificates()'s agent_san (issue #957).
+#     instance, when the first-boot hook runs the manager's `resolve-credentials --install`.
 #   * Anything minted here would be baked into the published image, so every instance launched from
 #     it would share one enrollment credential and one agent key. That is the exact problem the
 #     Authd password rotation existed to avoid, and a token is no better baked than a password was.
@@ -35,6 +35,11 @@ logger = Logger("CoreConfigurer")
 # stores it in the manager keystore. Writing the old wazuh-manager/wazuh-manager pair over it would
 # leave the manager unable to authenticate to the indexer.
 
+# No certificate is generated here either. Since 5.0.0 RC 2 every package mints its own CA and issues
+# its own pairs in its postinst (`resolve-credentials --install`), and on a single host each imports
+# its peers' CAs from their export/. A pair issued from any other CA is refused at the next start.
+# The build purge clears all of it, and first boot runs `--install` again on the instance.
+
 
 @dataclass
 class CoreConfigurer:
@@ -44,13 +49,12 @@ class CoreConfigurer:
     @remote_connection
     def configure(self, client: paramiko.SSHClient | None = None):
         """
-        Configures the core components and manages certificates.
+        Configures the core components and starts their services.
 
         This method performs the following steps:
         1. Configures the Wazuh components (Indexer, Manager, Dashboard) by replacing file entries
         using the WazuhComponentConfigManager.
-        2. Generates certificates using the CertsManager and copy them to the current component certs directory.
-        3. Starts the Wazuh services.
+        2. Starts the Wazuh services.
 
         Args:
             client (paramiko.SSHClient | None): An optional SSH client to use for remote operations. Defaults to None.
@@ -65,14 +69,6 @@ class CoreConfigurer:
         config_mappings.replace_file_entries(Component.WAZUH_DASHBOARD, client=client)
         config_mappings.replace_file_entries(Component.WAZUH_AGENT, client=client)
         logger.info_success("Core configuration process finished")
-
-        logger.debug_title("Starting certificates creation and configuration process")
-        certs_manager = CertsManager(
-            raw_config_path=Path(RemoteDirectories.CERTS) / CertificatesComponent.CONFIG,
-            certs_tool_path=Path(RemoteDirectories.CERTS) / CertificatesComponent.CERTS_TOOL,
-            client=client,
-        )
-        certs_manager.generate_certificates(client=client)
 
         logger.debug_title("Starting services")
         self.start_services(client=client)
