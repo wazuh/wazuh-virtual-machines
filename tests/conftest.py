@@ -44,7 +44,6 @@ def mock_logger(autouse=True):
         "provisioner.models.passwords_tool_info.logger",
         "generic.remote_connection.logger",
         "configurer.core.models.wazuh_components_config_manager.logger",
-        "configurer.core.models.certificates_manager.logger",
         "configurer.core.core_configurer.logger",
         "configurer.ami.ami_pre_configurer.ami_pre_configurer.logger",
         "configurer.ami.ami_post_configurer.ami_post_configurer.logger",

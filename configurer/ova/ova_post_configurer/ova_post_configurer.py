@@ -6,7 +6,7 @@ from pathlib import Path
 from configurer.core.utils import indexer_request_command, purge_build_credentials_command
 from configurer.utils import run_command
 from generic.helpers import add_content_to_file, modify_file
-from utils import Logger, RemoteDirectories, CertificatesComponent
+from utils import Logger
 
 logger = Logger("OVA PostConfigurer - Main module")
 
@@ -14,21 +14,6 @@ STATIC_PATH = "configurer/ova/ova_post_configurer/static"
 SCRIPTS_PATH = "configurer/ova/ova_post_configurer/scripts"
 WAZUH_STARTER_PATH = f"{SCRIPTS_PATH}/wazuh-starter"
 UTILS_PATH = "utils"
-
-# wazuh-starter regenerates the CA and every component certificate on first boot (see steps_clean),
-# so it needs its own persistent copy of the certs-tool and its config -- the ones core_configurer
-# downloads under RemoteDirectories.CERTS only exist for the build, wazuh-starter runs long after
-# that directory is gone.
-#
-# Both files must keep their default names and live side by side: wazuh-certs-tool.sh resolves its
-# own config as "$(dirname "$0")/config.yml" with no flag to override it (verified against the real
-# tool on a booted OVA -- it failed with "No configuration file found" when the config was persisted
-# under a different name), so CertificatesComponent.CONFIG ("config.yml") is not just a default, it's
-# a hard requirement.
-WAZUH_STARTER_CERTS_DIR = "/etc/.wazuh-starter-certs"
-WAZUH_STARTER_CERTS_TOOL_PATH = f"{WAZUH_STARTER_CERTS_DIR}/{CertificatesComponent.CERTS_TOOL}"
-WAZUH_STARTER_CERTS_CONFIG_PATH = f"{WAZUH_STARTER_CERTS_DIR}/{CertificatesComponent.CONFIG}"
-
 
 def set_hostname() -> None:
     """
@@ -155,41 +140,6 @@ def add_wazuh_starter_service() -> None:
     run_command(commands)
 
 
-def add_wazuh_starter_certs_tool() -> None:
-    """
-    Persists the certs-tool and its config for wazuh-starter's first-boot use.
-
-    core_configurer's build-time run already downloaded these under RemoteDirectories.CERTS to
-    generate the certificates baked into the image (later discarded per instance, see steps_clean).
-    wazuh-starter needs the same tool at first boot, long after that build-time directory is gone,
-    so this copies both files to a location that survives packaging.
-
-    Returns:
-        None
-
-    Raises:
-        FileNotFoundError: If the certs-tool or its config are not present under RemoteDirectories.CERTS
-            at the point this runs -- steps_system_config must call this after core_configurer's certs
-            generation step, not before.
-    """
-
-    logger.debug("Persisting the certs-tool for wazuh-starter.")
-    certs_dir = os.path.expanduser(str(RemoteDirectories.CERTS))
-    src_certs_tool = f"{certs_dir}/{CertificatesComponent.CERTS_TOOL}"
-    src_config = f"{certs_dir}/{CertificatesComponent.CONFIG}"
-
-    os.makedirs(WAZUH_STARTER_CERTS_DIR, exist_ok=True)
-    for src, dst in {
-        src_certs_tool: WAZUH_STARTER_CERTS_TOOL_PATH,
-        src_config: WAZUH_STARTER_CERTS_CONFIG_PATH,
-    }.items():
-        if not os.path.exists(src):
-            raise FileNotFoundError(f"{src} not found -- expected core_configurer's certs generation to have run first")
-        shutil.copy(src, dst)
-
-    logger.info_success("Certs-tool persisted for wazuh-starter.")
-
-
 def configure_sshd(ssh_config_file: Path | str = Path("/etc/ssh/sshd_config")) -> None:
     """
     Configures the SSH daemon to disable root login, enable password authentication,
@@ -257,7 +207,6 @@ def steps_system_config() -> None:
     update_jvm_heap()
 
     add_wazuh_starter_service()
-    add_wazuh_starter_certs_tool()
 
     set_hostname()
 
@@ -293,7 +242,7 @@ def steps_clean() -> None:
         # deployed from this OVA share the same CA, letting anyone who downloaded a copy forge a
         # valid certificate for any other instance's manager. Removed here, regenerated per
         # instance by wazuh-starter on first boot.
-        "rm -f /var/wazuh-manager/etc/certs/*.pem",
+        "rm -f /etc/wazuh-manager/certs/*.pem",
         "rm -rf /etc/wazuh-indexer/certs/* /etc/wazuh-dashboard/certs/*",
         "yum clean all",
         "systemctl daemon-reload",
@@ -523,7 +472,7 @@ def delete_wazuh_indexes() -> None:
     ]
 
     # There is no admin:admin any more: the indexer package generated the admin password at install
-    # time and published it to /etc/wazuh/credentials.env. It reaches curl through its standard input,
+    # time and published it to /etc/wazuh-indexer/export/credentials.env. It reaches curl through its standard input,
     # never argv, and is never logged.
     for index in indexes_to_delete:
         result = run_command(indexer_request_command(method="DELETE", path=index), output=True)

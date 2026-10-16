@@ -45,13 +45,13 @@ URL: https://<wazuh_manager_ip>
 user: admin
 ```
 
-There is no default password. On its first boot the VM generates unique passwords for every Wazuh account and stores them in `/etc/wazuh/credentials.env` (readable by root only). Log in as `wazuh-user` and read the `admin` password with:
+There is no default password. On its first boot the VM generates unique passwords for every Wazuh account. The indexer and dashboard ones are in `/etc/wazuh-indexer/export/credentials.env` and the Server API ones in `/etc/wazuh-manager/export/credentials.env` (readable by root only). Log in as `wazuh-user` and read the `admin` password with:
 
 ```bash
-sudo grep '^WAZUH_INDEXER_ADMIN_PASSWORD=' /etc/wazuh/credentials.env | cut -d= -f2-
+sudo grep '^WAZUH_INDEXER_ADMIN_PASSWORD=' /etc/wazuh-indexer/export/credentials.env | cut -d= -f2-
 ```
 
-For security, save the passwords somewhere safe and then delete the file (`sudo rm /etc/wazuh/credentials.env`). The console login banner reminds you of this. See [OVA security](../../security/ova/ova-security.md#wazuh-credentials) for the rest of the accounts.
+Keep both files: each one is part of its package's state, and the other packages read it. The console login banner names both. See [OVA security](../../security/ova/ova-security.md#wazuh-credentials) for the rest of the accounts.
 
 You can find `<wazuh_manager_ip>` by typing the following command in the VM:
 

@@ -7,15 +7,16 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from configurer.core.models import CertsManager
-from configurer.core.utils import WAZUH_BASE_DIR, WAZUH_CA_DIR, ComponentCertsDirectory, CredentialKey, read_credential
+from configurer.core.utils import (
+    WAZUH_MANAGER_CONF_DIR,
+    CredentialKey,
+    read_credential,
+)
 from generic import exec_command, exec_command_with_status
 from utils import Component, Logger
 
 LOGFILE = Path("/var/log/wazuh-ami-customizer.log")
 TEMP_DIR = Path("/etc/wazuh-ami-customizer")
-CERTS_TOOL_PATH = Path(f"{TEMP_DIR}/certs-tool.sh")
-CERTS_TOOL_CONFIG_PATH = Path(f"{TEMP_DIR}/config.yml")
 SERVICE_PATH = "/etc/systemd/system"
 SERVICE_NAME = f"{SERVICE_PATH}/wazuh-ami-customizer.service"
 SERVICE_TIMER_NAME = f"{SERVICE_PATH}/wazuh-ami-customizer.timer"
@@ -25,7 +26,7 @@ WAZUH_WARNING_SCRIPT = Path("/etc/profile.d/wazuh-debug-warning.sh")
 # standalone generator, so wazuh-manager-authd has to be running before this is called.
 WAZUH_MANAGER_AUTHD_BIN = "/var/wazuh-manager/bin/wazuh-manager-authd"
 
-# Publishes the manager's CA bundle (etc/certs/root-ca.pem) to the agents (wazuh/wazuh#39319).
+# Publishes the manager's CA bundle (certs/root-ca.pem) to the agents (wazuh/wazuh#39319).
 WAZUH_MANAGER_CERTS_BIN = "/var/wazuh-manager/bin/wazuh-manager-certs"
 
 # Where the pre-installed agent picks the token up. w_agent_token_bootstrap() reads it once at the
@@ -36,8 +37,8 @@ WAZUH_AGENT_ENROLLMENT_TOKEN_FILE = "/var/ossec/etc/enrollment_token"
 # Everything a build leaves behind that would make the freshly minted token useless or unsafe.
 # The bootstrap refuses to run at all when the agent already holds a trust anchor or a key -- it
 # deletes the token unused in both cases -- so anything baked into the image has to go first.
-WAZUH_MANAGER_AUTHD_PASS_FILE = "/var/wazuh-manager/etc/authd.pass"
-WAZUH_MANAGER_ENROLLMENT_TOKENS_FILE = "/var/wazuh-manager/etc/enrollment_tokens.json"
+WAZUH_MANAGER_AUTHD_PASS_FILE = f"{WAZUH_MANAGER_CONF_DIR}/authd.pass"
+WAZUH_MANAGER_ENROLLMENT_TOKENS_FILE = f"{WAZUH_MANAGER_CONF_DIR}/enrollment_tokens.json"
 WAZUH_AGENT_AUTHD_PASS_FILE = "/var/ossec/etc/authd.pass"
 WAZUH_AGENT_CA_FILE = "/var/ossec/etc/certs/root-ca.pem"
 # Written by the agent once it has committed to a trust anchor. With it present and the anchor gone,
@@ -48,17 +49,17 @@ WAZUH_AGENT_REENROLL_SECRET_FILE = "/var/ossec/etc/reenroll.secret"
 
 # The address the token names, and the address the pre-installed agent's <manager><endpoint> already
 # holds (configurer/core/static/configuration_mappings.yaml). Manager and agent are on the same
-# instance, so loopback is the one address that is always reachable and never changes. It is a SAN
-# entry of remoted.pem through the manager node of the cert-tool config, and a mint only refuses an
-# address the listener certificate does not name -- or a certificate whose SAN is loopback AND
-# NOTHING ELSE, which is why create_certificates() has to add the instance's own addresses first.
+# instance, so loopback is the one address that is always reachable and never changes. The manager's
+# resolver always adds it to remoted.pem's SANs, and a mint only refuses an address the listener
+# certificate does not name -- or a certificate whose SAN is loopback AND NOTHING ELSE, which is why
+# write_manager_local_env() hands it the instance's own addresses first.
 WAZUH_AGENT_ENROLLMENT_ADDRESS = "127.0.0.1"
 
 # The indexer's own admin account, used to poll both the indexer and the dashboard (which
 # authenticates against the indexer's security plugin), and the manager API account the dashboard
 # uses. Their passwords are not known in advance: the packages generate them on this first boot
-# (`resolve-credentials --prestart`) and publish them to /etc/wazuh/credentials.env, which stays on
-# the instance as the record the user reads them from.
+# (`resolve-credentials --prestart`) and publish them to their own export/credentials.env
+# (credentials_file_for), which stays on the instance as the record the user reads them from.
 WAZUH_INDEXER_ADMIN_USER = "admin"
 WAZUH_MANAGER_API_USER = "wazuh-internal-client"
 
@@ -68,20 +69,20 @@ WAZUH_MANAGER_API_USER = "wazuh-internal-client"
 ENROLLMENT_TOKEN_MAX_RETRIES = 12
 ENROLLMENT_TOKEN_WAIT_TIME = 5
 
-# This instance's own root CA (key included) lives on past first boot in WAZUH_CA_DIR
-# (/etc/wazuh/ca), where the packages' shared credentials library expects it, so a leaf can be
-# reissued later (e.g. the instance's address changes, or a load balancer joins) without a brand new
-# CA every enrolled agent would have to re-trust. Issue #957 only requires that root-ca.key never
-# ship baked into the image, not that a launched instance destroy its own copy.
-WAZUH_CERTS_TAR = TEMP_DIR / "wazuh-certificates.tar"
+# Each package's credential resolver. `--install` mints the package's CA and issues its pairs; it is
+# the only mode that issues certificates, so first boot runs it again after the build purge cleared
+# what the packages' postinst made (wazuh/internal-devel-requests#7048). In this order: the manager
+# and the dashboard import the indexer's export/, the dashboard also the manager's.
+CREDENTIAL_RESOLVERS = (
+    "/usr/share/wazuh-indexer/bin/resolve-credentials.sh",
+    "/var/wazuh-manager/bin/wazuh-manager-resolve-credentials",
+    "/usr/share/wazuh-dashboard/bin/resolve-credentials",
+)
 
-# WORKAROUND (until the indexer's --clear handles it): the indexer postinst imports its CA into the
-# bundled JDK truststore as "wazuh-root-ca". The build removes the build CA from there
-# (purge-build-credentials.sh), so first boot imports this instance's CA instead, as a fresh
-# package install would.
-INDEXER_KEYTOOL = "/usr/share/wazuh-indexer/jdk/bin/keytool"
-INDEXER_JDK_CA_ALIAS = "wazuh-root-ca"
-INDEXER_JDK_CACERTS_PASS = "changeit"
+# Where the manager's resolver reads the SAN lists of remoted.pem and apid.pem (root:root 0600). The
+# indexer and the dashboard need none: they discover the default-route addresses themselves, and
+# only the manager is reached from outside the instance by an address it cannot see, the public one.
+WAZUH_MANAGER_LOCAL_ENV = f"{WAZUH_MANAGER_CONF_DIR}/local.env"
 
 # A stopped unit that left processes behind keeps them in its cgroup until the last one exits.
 SERVICE_CGROUP_PROCS = "/sys/fs/cgroup/system.slice/{unit}/cgroup.procs"
@@ -127,9 +128,19 @@ def run_command(command: str, error_message: str) -> str:
     return output
 
 
+# Logs why a unit did not start. Each package's `resolve-credentials --prestart` (ExecStartPre)
+# refuses the start with a MISSING, INVALID or UNSAFE line; without them, the last lines of the unit.
+SERVICE_FAILURE_REASON_COMMAND = (
+    "journalctl -u {name} -n 50 --no-pager -o cat | grep -E 'MISSING|INVALID|UNSAFE' "
+    "|| journalctl -u {name} -n 50 --no-pager -o cat"
+)
+
+
 def start_service(name: str) -> None:
     """
-    Starts a service using systemctl.
+    Starts a service using systemctl. If it does not start, logs the reason from its journal
+    (SERVICE_FAILURE_REASON_COMMAND) before raising.
+
     Args:
         name (str): The name of the service to start.
 
@@ -139,7 +150,12 @@ def start_service(name: str) -> None:
 
     logger.debug(f"Starting {name} service...")
 
-    run_command(command=f"systemctl start {name}", error_message=f"Error starting {name} service")
+    try:
+        run_command(command=f"systemctl start {name}", error_message=f"Error starting {name} service")
+    except RuntimeError:
+        reason, _, _ = exec_command_with_status(command=SERVICE_FAILURE_REASON_COMMAND.format(name=name))
+        logger.error(f"{name} did not start:\n{reason.strip()}")
+        raise
 
     logger.debug(f"{name} service started")
 
@@ -226,7 +242,7 @@ def debug_ssh_message() -> None:
 
 def http_status(url: str, user: str, password_key: str, method: str = "GET") -> str:
     """
-    Sends one request authenticated with a password from /etc/wazuh/credentials.env.
+    Sends one request authenticated with a password from its owner's export/credentials.env.
 
     The password goes to curl through its standard input (`-K -`), never on its command line, where
     any local user could read it off the process list, and it is never logged.
@@ -234,7 +250,7 @@ def http_status(url: str, user: str, password_key: str, method: str = "GET") -> 
     Args:
         url (str): The URL to request.
         user (str): The user to authenticate as.
-        password_key (str): The credentials.env key holding that user's password.
+        password_key (str): The CredentialKey holding that user's password.
         method (str): The HTTP method. Defaults to GET.
 
     Returns:
@@ -342,31 +358,6 @@ def run_indexer_security_init() -> None:
     logger.debug("Indexer security initialization completed")
 
 
-def remove_certificates() -> None:
-    """
-    Removes existing certificates from the components.
-    This function is used to remove existing certificates before creating new ones.
-    It ensures that the old certificates are deleted and do not interfere with the new ones.
-
-    Returns:
-        None
-    """
-
-    logger.debug("Removing existing certificates...")
-    # The CA directory goes too: if an earlier first-boot attempt failed after installing its CA, a
-    # retry would otherwise keep that CA (key and JDK truststore entry included) while issuing the
-    # certificates from a new one.
-    command = f"""
-    rm -rf {ComponentCertsDirectory.WAZUH_MANAGER}/*
-    rm -rf {ComponentCertsDirectory.WAZUH_INDEXER}/*
-    rm -rf {ComponentCertsDirectory.WAZUH_DASHBOARD}/*
-    rm -rf {WAZUH_CA_DIR}
-    """
-    run_command(command=command, error_message="Error removing existing certificates")
-
-    logger.debug("Existing certificates removed")
-
-
 def get_manager_san_ips() -> list[str]:
     """
     Collects the addresses agents may dial to reach this instance's manager, for remoted.pem's SAN.
@@ -381,19 +372,11 @@ def get_manager_san_ips() -> list[str]:
     reports "not available" when the instance has none, which is filtered out rather than baked
     into the SAN as a literal string.
 
-    Fed to CertsManager.generate_certificates()'s agent_san, which passes each value straight
-    through as a repeated `--agent-san <value>` flag to wazuh-certs-tool.sh -- additive on top of
-    the manager node's own config.yml entry (127.0.0.1, untouched), not a replacement for it.
-
-    DEPENDS ON wazuh-installation-assistant#1027 (Victor Ereñú, opened 2026-09-16, NOT MERGED as of
-    this writing): --agent-san doesn't exist yet, and neither does that issue's other change this
-    relies on -- dropping the public-IP refusal in cert_validateComponentSanValues() -- so the
-    public/IPv6-metadata addresses collected here would still be rejected by the tool as it stands
-    today. Written ahead of the merge so there's less to wire up once it lands; verify against the
-    real tool before trusting this.
+    Fed to write_manager_local_env(). A list there replaces the resolver's own discovery, so it
+    carries the local addresses too; the resolver appends the loopback names.
 
     Returns:
-        list[str]: Extra addresses for remoted.pem's SAN, on top of "127.0.0.1".
+        list[str]: The instance's addresses, local ones first.
     """
 
     logger.debug("Collecting the instance's addresses for the manager certificate SAN")
@@ -409,7 +392,10 @@ def get_manager_san_ips() -> list[str]:
         ("--ipv6", "Error retrieving the instance's IPv6 address"),
     ):
         metadata_output = run_command(
-            command=f"ec2-metadata {metadata_flag} | cut -d':' -f2", error_message=error_message
+            # -f2-, not -f2: an IPv6 address holds colons itself ("ipv6: 2600:1f18:..."), and the
+            # manager's resolver refuses the whole list (INVALID) on a truncated entry.
+            command=f"ec2-metadata {metadata_flag} | cut -d':' -f2-",
+            error_message=error_message,
         )
         metadata_ip = metadata_output.strip()
         if metadata_ip and "not available" not in metadata_ip:
@@ -421,33 +407,48 @@ def get_manager_san_ips() -> list[str]:
     return ips
 
 
-def create_certificates() -> None:
+def write_manager_local_env() -> None:
     """
-    Creates new certificates using the CertsManager.
+    Writes the instance's addresses as the SANs of the manager's remoted.pem and apid.pem.
+
+    Without it the resolver only sees the default-route interfaces, and on AWS the public IPv4 is on
+    none of them (1:1 NAT), so an agent enrolling through it would not match the listener
+    certificate. apid.pem gets the same list: it does not inherit remoted's.
 
     Returns:
         None
     """
 
-    logger.debug("Creating new certificates...")
-    certs_manager = CertsManager(raw_config_path=CERTS_TOOL_CONFIG_PATH, certs_tool_path=CERTS_TOOL_PATH)
-    try:
-        certs_manager.generate_certificates(agent_san=get_manager_san_ips())
-        publish_manager_ca()
-        install_certificate_authority()
-    finally:
-        # install_certificate_authority() is the last reader of WAZUH_CERTS_TAR, so it is removed here
-        # instead of waiting for clean_up(): that only runs when the whole customization succeeds, and
-        # the failure path restarts sshd, which would leave every leaf private key sitting in the tar
-        # for whoever logs in next. Done in `finally` so it also covers a failure while generating or
-        # installing the certificates, before the error handler in main brings SSH back.
-        remove_certs_tar()
-    logger.debug("New certificates created")
+    sans = ",".join(get_manager_san_ips())
+    logger.debug(f"Writing the manager certificate SANs to {WAZUH_MANAGER_LOCAL_ENV}")
+    command = f"""
+    install -m 0600 -o root -g root /dev/null {WAZUH_MANAGER_LOCAL_ENV}
+    printf '%s\n' 'WAZUH_MANAGER_REMOTED_CERT_SANS={sans}' 'WAZUH_MANAGER_APID_CERT_SANS={sans}' > {WAZUH_MANAGER_LOCAL_ENV}
+    """
+    run_command(command=command, error_message=f"Error writing {WAZUH_MANAGER_LOCAL_ENV}")
+
+
+def install_credentials() -> None:
+    """
+    Runs every package's `resolve-credentials --install`: each mints its own CA, issues its pairs
+    with this instance's addresses and publishes its export/, then publishes the manager CA bundle.
+
+    Safe to run again after a failed first boot: a resolver keeps a complete pair and a CA it finds.
+
+    Returns:
+        None
+    """
+
+    write_manager_local_env()
+    for resolver in CREDENTIAL_RESOLVERS:
+        logger.debug(f"Running {resolver} --install")
+        run_command(command=f"{resolver} --install < /dev/null", error_message=f"Error running {resolver} --install")
+    publish_manager_ca()
 
 
 def publish_manager_ca() -> None:
     """
-    Publishes the root-ca.pem just installed for the manager with `wazuh-manager-certs stamp`.
+    Publishes the root-ca.pem the manager's resolver just wrote with `wazuh-manager-certs stamp`.
 
     remoted remembers the build-time bundle; replacing it without publishing makes remoted log
     "changed outside the tool and is not published" and announce ca_generation 0 to the agents
@@ -460,67 +461,6 @@ def publish_manager_ca() -> None:
 
     logger.debug("Publishing the manager CA bundle")
     run_command(command=f"{WAZUH_MANAGER_CERTS_BIN} stamp", error_message="Error publishing the manager CA bundle")
-
-
-def remove_certs_tar() -> None:
-    """
-    Deletes WAZUH_CERTS_TAR, the bundle CertsManager packs every generated certificate and leaf private
-    key into. Once the certificates are in each component's own directory it is only a leftover.
-
-    A failure to delete it is logged but never raised: this runs from a `finally`, where raising would
-    replace the original error that made the customization fail.
-
-    Returns:
-        None
-    """
-
-    try:
-        WAZUH_CERTS_TAR.unlink(missing_ok=True)
-    except OSError as error:
-        logger.error(f"Could not remove {WAZUH_CERTS_TAR}, it still holds the private keys: {error}")
-
-
-def install_certificate_authority() -> None:
-    """
-    Leaves this instance's root CA in /etc/wazuh/ca, where the packages' shared credentials library
-    expects the trust anchor: the directory root:root 0700, root-ca.pem 0644 and root-ca.key 0400.
-
-    A wazuh-certs-tool.sh built on that library already creates the CA there and never copies its key
-    into the certificates bundle. An older one creates it in its own output directory, which
-    CertsManager packs into WAZUH_CERTS_TAR, so the anchor and its key are taken from the tar then.
-
-    Returns:
-        None
-    """
-
-    logger.debug(f"Installing this instance's CA in {WAZUH_CA_DIR}")
-
-    command = f"""
-    install -d -m 0700 -o root -g root {WAZUH_BASE_DIR} {WAZUH_CA_DIR}
-    if [ ! -f {WAZUH_CA_DIR}/root-ca.pem ]; then
-        tar -xf {WAZUH_CERTS_TAR} -C {WAZUH_CA_DIR} ./root-ca.pem
-        if tar -tf {WAZUH_CERTS_TAR} ./root-ca.key > /dev/null 2>&1; then
-            tar -xf {WAZUH_CERTS_TAR} -C {WAZUH_CA_DIR} ./root-ca.key
-        fi
-    fi
-    chown root:root {WAZUH_CA_DIR}/root-ca.*
-    chmod 0644 {WAZUH_CA_DIR}/root-ca.pem
-    if [ -f {WAZUH_CA_DIR}/root-ca.key ]; then chmod 0400 {WAZUH_CA_DIR}/root-ca.key; fi
-    """
-    run_command(command=command, error_message=f"Error installing the CA in {WAZUH_CA_DIR}")
-
-    # WORKAROUND: this instance's CA into the indexer JDK truststore, before the indexer starts.
-    # -cacerts: the truststore of the keytool's own JDK, the indexer's.
-    keytool_opts = f"-cacerts -storepass {INDEXER_JDK_CACERTS_PASS}"
-    command = f"""
-    if {INDEXER_KEYTOOL} -list {keytool_opts} -alias {INDEXER_JDK_CA_ALIAS} > /dev/null 2>&1; then
-        {INDEXER_KEYTOOL} -delete {keytool_opts} -alias {INDEXER_JDK_CA_ALIAS}
-    fi
-    {INDEXER_KEYTOOL} -importcert {keytool_opts} -noprompt -alias {INDEXER_JDK_CA_ALIAS} -file {WAZUH_CA_DIR}/root-ca.pem
-    """
-    run_command(command=command, error_message="Error importing the CA into the indexer JDK truststore")
-
-    logger.debug("CA installed")
 
 
 def stop_ssh_service() -> None:
@@ -559,7 +499,7 @@ def stop_components_services() -> None:
 def verify_indexer_connection() -> None:
     """
     Verifies the connection to the Wazuh indexer as admin, with the password the indexer package
-    generated on this boot (WAZUH_INDEXER_ADMIN_PASSWORD in /etc/wazuh/credentials.env).
+    generated on this boot (WAZUH_INDEXER_ADMIN_PASSWORD in /etc/wazuh-indexer/export/credentials.env).
 
     Returns:
         None
@@ -769,7 +709,7 @@ def mint_agent_enrollment_token() -> str:
 
     The token is minted, never baked: it is created here, on the running manager, with the CA and
     the listener certificate this instance generated for itself moments earlier in
-    create_certificates(). Its 30-day TTL (the CLI default, wazuh#39068) is therefore irrelevant and
+    install_credentials(). Its 30-day TTL (the CLI default, wazuh#39068) is therefore irrelevant and
     is left alone on purpose -- a token is minted on every first boot and consumed within seconds,
     so it never gets anywhere near expiring, and shortening it would buy nothing. Do NOT "fix" this
     later by minting a long-lived token at build time and shipping it in the image: that hands every
@@ -864,11 +804,10 @@ def start_components_services() -> None:
     logger.debug("Starting Wazuh components services...")
 
     # Strictly in this order, never in parallel: each package resolves its credentials when its
-    # service starts (`resolve-credentials --prestart`, wazuh-virtual-machines#973). The indexer
-    # generates admin, kibanaserver and wazuh-manager and publishes them to /etc/wazuh/credentials.env;
-    # the manager and the dashboard read theirs from there and refuse to start (MISSING) if the indexer
-    # has not published them yet. Certificates are already in place (create_certificates()): the
-    # packages never issue them outside `--install`.
+    # service starts (`resolve-credentials --prestart`, wazuh-virtual-machines#973), importing what
+    # it needs from its peers' export/: the manager the indexer's CA, client pair and password, the
+    # dashboard the indexer's and the manager's CAs and passwords. Certificates are already in place
+    # (install_credentials()): the packages never issue them outside `--install`.
     enable_service("wazuh-indexer")
     start_service("wazuh-indexer")
     # Loading the security configuration stays a manual step of the indexer package: it uploads the
@@ -909,13 +848,8 @@ def clean_up() -> None:
     """
     Cleans up temporary files and directories created during the process.
 
-    TEMP_DIR holds the cert-tool's own working directory, including WAZUH_CERTS_TAR -- a tar of its
-    whole output, unfiltered, which with older certs-tool versions also carries the root CA's private
-    key with none of the restrictive permissions applied to what gets extracted into each component's
-    own directory. The CA itself is kept, secured, in WAZUH_CA_DIR (install_certificate_authority()).
-
-    /etc/wazuh/credentials.env is deliberately left in place: it is where the user reads the
-    generated passwords from, and the documentation tells them to delete it once they have.
+    Each package's export/credentials.env is left in place: it is where the user reads the generated
+    passwords from, and the peers import from it.
 
     Returns:
         None
@@ -950,8 +884,7 @@ if __name__ == "__main__":
             debug_ssh_message()
         stop_ssh_service()
         stop_components_services()
-        remove_certificates()
-        create_certificates()
+        install_credentials()
         start_components_services()
         start_ssh_service()
 

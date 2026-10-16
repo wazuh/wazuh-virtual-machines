@@ -8,7 +8,7 @@ from configurer.ami.ami_post_configurer.create_service_directory import create_d
 from configurer.core.utils import indexer_request_command, purge_build_credentials_command
 from generic import exec_command, exec_command_with_status, modify_file, remote_connection
 from models import Inventory
-from utils import CertificatesComponent, Logger, RemoteDirectories
+from utils import Logger, RemoteDirectories
 
 logger = Logger("AmiPostConfigurer")
 
@@ -107,11 +107,7 @@ class AmiPostConfigurer:
         """
 
         script_dir = Path(__file__).resolve().parent / "templates"
-        context = {
-            "remote_certs_path": RemoteDirectories.CERTS,
-            "certs_tool": CertificatesComponent.CERTS_TOOL,
-            "certs_config": CertificatesComponent.CONFIG,
-        }
+        context = {}
         directory_template = generate_yaml(
             context=context,
             template_dir=str(script_dir),
@@ -241,7 +237,7 @@ class AmiPostConfigurer:
         ]
 
         # There is no admin:admin any more: the indexer package generated the admin password at install
-        # time and published it to /etc/wazuh/credentials.env. It is read and used on the instance, and
+        # time and published it to /etc/wazuh-indexer/export/credentials.env. It is read and used on the instance, and
         # reaches curl through its standard input, so it never travels back over SSH nor shows in argv.
         for index in indexes_to_delete:
             command = indexer_request_command(method="DELETE", path=index, url=base_url)

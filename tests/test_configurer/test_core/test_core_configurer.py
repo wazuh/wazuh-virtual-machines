@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, mock_open, patch
 import pytest
 
 from configurer.core.core_configurer import CoreConfigurer
-from configurer.core.utils import ComponentCertsConfigParameter, ComponentConfigFile
 from utils import Component
 
 
@@ -30,11 +29,6 @@ def mock_exec_command():
     mock_exec_command = MagicMock()
     with (
         patch("configurer.core.models.wazuh_components_config_manager.exec_command", mock_exec_command),
-        patch("configurer.core.models.certificates_manager.exec_command", mock_exec_command),
-        patch(
-            "configurer.core.models.certificates_manager.exec_command_with_status",
-            side_effect=lambda **kw: (*mock_exec_command(**kw), 0),
-        ),
         patch("configurer.core.core_configurer.exec_command", mock_exec_command),
     ):
         mock_exec_command.return_value = "", ""
@@ -63,43 +57,8 @@ def test_configure(mock_paramiko, mock_start_services, mock_open_file, mock_exec
     mock_exec_command.assert_any_call(command="sudo yq -i  '.key3 = \"value3\" ' /path/dashboard/config", client=None)
     mock_exec_command.assert_any_call(command="sudo yq -i  '.key4 = \"value4\" ' /path/agent/config", client=None)
 
-    # Generate certifates and copy them to the current component certs directory
-    mock_exec_command.assert_any_call(
-        command=f"sudo yq  '.[\"{ComponentCertsConfigParameter.WAZUH_INDEXER_KEY}\"]' {ComponentConfigFile.WAZUH_INDEXER}",
-        client=None,
-    )
-    mock_exec_command.assert_any_call(
-        command=f"sudo yq  '.[\"{ComponentCertsConfigParameter.WAZUH_INDEXER_CERT}\"]' {ComponentConfigFile.WAZUH_INDEXER}",
-        client=None,
-    )
-    mock_exec_command.assert_any_call(
-        command=f"sudo yq  '.[\"{ComponentCertsConfigParameter.WAZUH_INDEXER_CA}\"]' {ComponentConfigFile.WAZUH_INDEXER}",
-        client=None,
-    )
-    mock_exec_command.assert_any_call(
-        command=f"sudo yq -p xml -o xml '.{ComponentCertsConfigParameter.WAZUH_MANAGER_KEY}' {ComponentConfigFile.WAZUH_MANAGER}",
-        client=None,
-    )
-    mock_exec_command.assert_any_call(
-        command=f"sudo yq -p xml -o xml '.{ComponentCertsConfigParameter.WAZUH_MANAGER_CERT}' {ComponentConfigFile.WAZUH_MANAGER}",
-        client=None,
-    )
-    mock_exec_command.assert_any_call(
-        command=f"sudo yq -p xml -o xml '.{ComponentCertsConfigParameter.WAZUH_MANAGER_CA}' {ComponentConfigFile.WAZUH_MANAGER}",
-        client=None,
-    )
-    mock_exec_command.assert_any_call(
-        command=f"sudo yq  '.[\"{ComponentCertsConfigParameter.WAZUH_DASHBOARD_KEY}\"]' {ComponentConfigFile.WAZUH_DASHBOARD}",
-        client=None,
-    )
-    mock_exec_command.assert_any_call(
-        command=f"sudo yq  '.[\"{ComponentCertsConfigParameter.WAZUH_DASHBOARD_CERT}\"]' {ComponentConfigFile.WAZUH_DASHBOARD}",
-        client=None,
-    )
-    mock_exec_command.assert_any_call(
-        command=f"sudo yq  '.[\"{ComponentCertsConfigParameter.WAZUH_DASHBOARD_CA}\"]' {ComponentConfigFile.WAZUH_DASHBOARD}",
-        client=None,
-    )
+    # The packages issue their own certificates in their postinst (RC 2): the build runs no certs tool.
+    assert not any("certs-tool" in str(call) for call in mock_exec_command.call_args_list)
 
     mock_start_services.assert_called_once_with(client=None)
 
@@ -107,7 +66,6 @@ def test_configure(mock_paramiko, mock_start_services, mock_open_file, mock_exec
     mock_logger.debug_title.assert_any_call("Starting core configuration process")
     mock_logger.debug_title.assert_any_call("Configuring components")
     mock_logger.info_success.assert_any_call("Core configuration process finished")
-    mock_logger.debug_title.assert_any_call("Starting certificates creation and configuration process")
     mock_logger.debug_title.assert_any_call("Starting services")
 
 
@@ -180,7 +138,7 @@ def test_start_services_success(mock_exec_command, mock_logger):
 
 def test_start_services_does_not_write_the_manager_keystore(mock_exec_command, mock_logger):
     # The manager package resolves its indexer credential itself (WAZUH_INDEXER_MANAGER_PASSWORD from
-    # /etc/wazuh/credentials.env). Writing the old wazuh-manager/wazuh-manager pair over it would leave
+    # /etc/wazuh-indexer/export/credentials.env). Writing the old wazuh-manager/wazuh-manager pair over it would leave
     # the manager unable to authenticate to the indexer.
     core_configurer_instance = CoreConfigurer(inventory=None, files_configuration_path=Path("test_path.yml"))
     core_configurer_instance.start_services(client=None)
