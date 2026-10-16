@@ -1,8 +1,6 @@
 from .credentials import (
     INDEXER_CREDENTIALS_FILE,
     MANAGER_CREDENTIALS_FILE,
-    WAZUH_BASE_DIR,
-    WAZUH_CA_DIR,
     CredentialKey,
     credential_shell_expression,
     credentials_file_for,

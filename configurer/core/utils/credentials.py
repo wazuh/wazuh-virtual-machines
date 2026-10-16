@@ -17,12 +17,6 @@ from .enums import WAZUH_MANAGER_CONF_DIR
 INDEXER_CREDENTIALS_FILE = Path("/etc/wazuh-indexer/export/credentials.env")
 MANAGER_CREDENTIALS_FILE = Path(WAZUH_MANAGER_CONF_DIR) / "export" / "credentials.env"
 
-WAZUH_BASE_DIR = Path("/etc/wazuh")
-# Where this instance's own root CA lives past first boot. The shared credentials library expects it
-# here (root:root 0700, root-ca.pem 0644, root-ca.key 0400), and keeping the key lets a leaf be
-# reissued later without a new CA every enrolled agent would have to re-trust.
-WAZUH_CA_DIR = WAZUH_BASE_DIR / "ca"
-
 PURGE_BUILD_CREDENTIALS_SCRIPT = Path(__file__).resolve().parent.parent / "static" / "purge-build-credentials.sh"
 
 
