@@ -5,7 +5,7 @@ import pytest
 
 from configurer.ami.ami_post_configurer.ami_post_configurer import AmiPostConfigurer
 from configurer.core.utils import indexer_request_command, purge_build_credentials_command
-from utils.enums import CertificatesComponent, RemoteDirectories
+from utils.enums import RemoteDirectories
 
 INDEXES_TO_DELETE = [
     "wazuh-*",
@@ -86,11 +86,7 @@ def test_create_custom_dir_success(mock_create_structure, mock_generate_yaml, mo
     root_dir_path = Path(__file__).parents[4]
     post_configurer_template = root_dir_path / "configurer" / "ami" / "ami_post_configurer" / "templates"
     template_file = "ami_custom_service_directory.j2"
-    context = {
-        "remote_certs_path": RemoteDirectories.CERTS,
-        "certs_tool": CertificatesComponent.CERTS_TOOL,
-        "certs_config": CertificatesComponent.CONFIG,
-    }
+    context = {}
 
     mock_generate_yaml.return_value = {"template": "test_value"}
 

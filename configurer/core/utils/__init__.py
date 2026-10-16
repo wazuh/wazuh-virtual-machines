@@ -11,4 +11,4 @@ from .credentials import (
     purge_build_credentials_command,
     read_credential,
 )
-from .enums import WAZUH_MANAGER_CONF_DIR, ComponentCertsConfigParameter, ComponentCertsDirectory, ComponentConfigFile
+from .enums import WAZUH_MANAGER_CONF_DIR

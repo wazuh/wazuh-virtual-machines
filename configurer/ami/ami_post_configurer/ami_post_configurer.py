@@ -8,7 +8,7 @@ from configurer.ami.ami_post_configurer.create_service_directory import create_d
 from configurer.core.utils import indexer_request_command, purge_build_credentials_command
 from generic import exec_command, exec_command_with_status, modify_file, remote_connection
 from models import Inventory
-from utils import CertificatesComponent, Logger, RemoteDirectories
+from utils import Logger, RemoteDirectories
 
 logger = Logger("AmiPostConfigurer")
 
@@ -107,11 +107,7 @@ class AmiPostConfigurer:
         """
 
         script_dir = Path(__file__).resolve().parent / "templates"
-        context = {
-            "remote_certs_path": RemoteDirectories.CERTS,
-            "certs_tool": CertificatesComponent.CERTS_TOOL,
-            "certs_config": CertificatesComponent.CONFIG,
-        }
+        context = {}
         directory_template = generate_yaml(
             context=context,
             template_dir=str(script_dir),
