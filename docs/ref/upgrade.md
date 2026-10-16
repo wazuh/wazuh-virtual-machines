@@ -9,6 +9,6 @@ If you need to update any component (Wazuh server, Wazuh indexer, or Wazuh dashb
 3. [Upgrading the Wazuh server](https://documentation.wazuh.com/current/upgrade-guide/upgrading-central-components.html#upgrading-the-wazuh-server).
 4. [Upgrading the Wazuh dashboard](https://documentation.wazuh.com/current/upgrade-guide/upgrading-central-components.html#upgrading-the-wazuh-dashboard).
 
-The indexer steps ask for `<USERNAME>` and `<PASSWORD>`: use `admin` and the password stored in `/etc/wazuh/credentials.env` (see [AMI security](security/ami/ami-security.md#wazuh-credentials) or [OVA security](security/ova/ova-security.md#wazuh-credentials)). If you already deleted that file, use the password you saved.
+The indexer steps ask for `<USERNAME>` and `<PASSWORD>`: use `admin` and the password stored in `/etc/wazuh-indexer/export/credentials.env` (see [AMI security](security/ami/ami-security.md#wazuh-credentials) or [OVA security](security/ova/ova-security.md#wazuh-credentials)).
 
 > The AMI and the OVA do not modify the standard upgrade process of any Wazuh component, so the official documentation remains fully applicable.

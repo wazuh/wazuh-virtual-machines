@@ -51,11 +51,11 @@ user: admin
 
 Use the public IP address (or public DNS name) that AWS assigns to the instance, or its private IP address if you are within a VPC without internet access. The security group must allow inbound HTTPS (TCP 443).
 
-There is no default password. On its first boot the instance generates unique passwords for every Wazuh account and stores them in `/etc/wazuh/credentials.env` (readable by root only). Connect with SSH and read the `admin` password with:
+There is no default password. On its first boot the instance generates unique passwords for every Wazuh account. The indexer and dashboard ones are in `/etc/wazuh-indexer/export/credentials.env` and the Server API ones in `/etc/wazuh-manager/export/credentials.env` (readable by root only). Connect with SSH and read the `admin` password with:
 
 ```bash
 ssh -i "<KEY_PAIR_NAME>" wazuh-user@<instance_ip>
-sudo grep '^WAZUH_INDEXER_ADMIN_PASSWORD=' /etc/wazuh/credentials.env | cut -d= -f2-
+sudo grep '^WAZUH_INDEXER_ADMIN_PASSWORD=' /etc/wazuh-indexer/export/credentials.env | cut -d= -f2-
 ```
 
-For security, save the passwords somewhere safe and then delete the file (`sudo rm /etc/wazuh/credentials.env`). The SSH login banner reminds you of this. See [AMI security](../../security/ami/ami-security.md#wazuh-credentials) for the rest of the accounts and how to change a password.
+Keep both files: each one is part of its package's state, and the other packages read it. The SSH login banner names both. See [AMI security](../../security/ami/ami-security.md#wazuh-credentials) for the rest of the accounts and how to change a password.

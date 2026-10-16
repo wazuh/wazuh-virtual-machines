@@ -2,11 +2,9 @@
 
 The `provisioner` module is responsible for preparing a target machine with the following:
 
-- **certs-tool**: Script from the `certs-tool` project used to generate certificates for Wazuh components. Along with the script, the `config.yml` file is also copied, which contains the IP addresses and node names to generate the appropriate certificates.
+- **Component packages**: the provisioner downloads the Wazuh component packages from the specified URLs and copies them to the target machine, ready for installation.
 
-- **Component packages**: In addition to the `certs-tool`, the provisioner is also responsible for downloading Wazuh component packages from the specified URLs and copying them to the target machine.
-
-This ensures that the target machine contains both the necessary certificate generation tools and the Wazuh packages ready for installation.
+- **certs-tool**: the script and its `config.yml` are still downloaded, since their URLs are build inputs, but nothing uses them since 5.0.0 RC 2: each package issues its own certificates.
 
 ## Package signature check
 
