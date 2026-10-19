@@ -358,53 +358,61 @@ def run_indexer_security_init() -> None:
     logger.debug("Indexer security initialization completed")
 
 
-def get_manager_san_ips() -> list[str]:
+def get_manager_sans() -> list[str]:
     """
-    Collects the addresses agents may dial to reach this instance's manager, for remoted.pem's SAN.
+    Collects the names and addresses agents may dial to reach this instance's manager, for remoted.pem's SAN.
 
     `hostname -I` (util-linux) already lists every configured address on every non-loopback
     interface, IPv4 and IPv6 alike (only IPv6 link-local is excluded) -- no separate handling
     needed for IPv6 there. It does NOT cover a public IPv4, though: AWS 1:1-NATs it, so it never
     appears on any local interface, only in the instance metadata service. Public IPv6 is not
-    NAT'd -- AWS assigns it straight to the ENI -- but whether the OS actually configures it on an
-    interface (and so whether `hostname -I` catches it) depends on the AMI's own network setup, so
-    it's looked up the same way as a defensive second source, not assumed. Either metadata lookup
-    reports "not available" when the instance has none, which is filtered out rather than baked
-    into the SAN as a literal string.
+    NAT'd -- AWS assigns it straight to the ENI, where `hostname -I` sees it. (The AL2023
+    `ec2-metadata` has no IPv6 option at all: an earlier `--ipv6` lookup failed on every boot,
+    hidden by the pipe.) A metadata lookup reports "not available" when the instance has none,
+    which is filtered out rather than baked into the SAN as a literal string.
+
+    The host name and the private and public DNS names EC2 gives the instance go in too: the AMI
+    docs let users reach it by its public DNS name, and a token minted for a name the listener
+    certificate does not hold is refused (ERROR 9025; wazuh-virtual-machines#1039, TC-03).
 
     Fed to write_manager_local_env(). A list there replaces the resolver's own discovery, so it
-    carries the local addresses too; the resolver appends the loopback names.
+    carries the local addresses too; the resolver appends the loopback names. Every entry has its
+    IP: or DNS: prefix, as the RC 2 packages require (wazuh/wazuh-automation#3944).
 
     Returns:
-        list[str]: The instance's addresses, local ones first.
+        list[str]: e.g. ["DNS:wazuh", "IP:172.31.5.10", "IP:203.0.113.9", "DNS:ip-172-31-5-10.ec2.internal"].
     """
 
-    logger.debug("Collecting the instance's addresses for the manager certificate SAN")
-    ips: list[str] = []
+    logger.debug("Collecting the instance's names and addresses for the manager certificate SAN")
+    sans: list[str] = []
+
+    hostname = run_command(command="hostname -s", error_message="Error reading the host name").strip()
+    if hostname:
+        sans.append(f"DNS:{hostname}")
 
     local_ips_output = run_command(
         command="hostname -I", error_message="Error listing local network interface addresses"
     )
-    ips.extend(ip for ip in local_ips_output.split() if ip)
+    sans.extend(f"IP:{ip}" for ip in local_ips_output.split() if ip)
 
-    for metadata_flag, error_message in (
-        ("--public-ipv4", "Error retrieving the instance's public IPv4 address"),
-        ("--ipv6", "Error retrieving the instance's IPv6 address"),
+    for metadata_flag, prefix, error_message in (
+        ("--public-ipv4", "IP", "Error retrieving the instance's public IPv4 address"),
+        ("--local-hostname", "DNS", "Error retrieving the instance's private DNS name"),
+        ("--public-hostname", "DNS", "Error retrieving the instance's public DNS name"),
     ):
         metadata_output = run_command(
-            # -f2-, not -f2: an IPv6 address holds colons itself ("ipv6: 2600:1f18:..."), and the
-            # manager's resolver refuses the whole list (INVALID) on a truncated entry.
+            # -f2-: everything after the "public-ipv4:" style label.
             command=f"ec2-metadata {metadata_flag} | cut -d':' -f2-",
             error_message=error_message,
         )
-        metadata_ip = metadata_output.strip()
-        if metadata_ip and "not available" not in metadata_ip:
-            ips.append(metadata_ip)
+        value = metadata_output.strip()
+        if value and "not available" not in value:
+            sans.append(f"{prefix}:{value}")
 
-    ips = list(dict.fromkeys(ips))  # de-dupe (hostname -I and ec2-metadata can report the same IP), keep order
+    sans = list(dict.fromkeys(sans))  # de-dupe (hostname -I and ec2-metadata can report the same IP), keep order
 
-    logger.debug(f"Manager certificate SAN addresses: {ips}")
-    return ips
+    logger.debug(f"Manager certificate SANs: {sans}")
+    return sans
 
 
 def write_manager_local_env() -> None:
@@ -419,7 +427,7 @@ def write_manager_local_env() -> None:
         None
     """
 
-    sans = ",".join(get_manager_san_ips())
+    sans = ",".join(get_manager_sans())
     logger.debug(f"Writing the manager certificate SANs to {WAZUH_MANAGER_LOCAL_ENV}")
     command = f"""
     install -m 0600 -o root -g root /dev/null {WAZUH_MANAGER_LOCAL_ENV}
