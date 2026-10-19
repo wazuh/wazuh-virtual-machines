@@ -300,6 +300,7 @@ def test_steps_clean(mock_run_command):
             "rm -f /securityadmin_demo.sh",
             "rm -f /etc/wazuh-manager/certs/*.pem",
             "rm -rf /etc/wazuh-indexer/certs/* /etc/wazuh-dashboard/certs/*",
+            "rm -rf ~/wazuh-configure",
             "yum clean all",
             "systemctl daemon-reload",
             "cat /dev/null > ~/.bash_history && history -c",

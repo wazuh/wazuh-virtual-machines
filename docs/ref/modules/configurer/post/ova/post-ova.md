@@ -25,7 +25,7 @@ Once the **Provisioner and Core Configurer** have been executed, the Wazuh compo
 11. The `security-init.sh` is executed.  
 12. Stop `wazuh-indexer` and `wazuh-dashboard` services and disable every Wazuh service (`wazuh-starter` starts them in order on first boot).  
 13. The credentials, certificates and CA resolved at build time are removed (see below).  
-14. Cleanup tasks are executed.  
+14. Cleanup tasks are executed, including the provisioner's working directory (`~/wazuh-configure`, with the package RPMs and the tools it downloaded).  
 15. A network configuration file is created which ensures that a network interface is raised with **DHCP** on **IPv4** accessible.  
 16. **SSH** is configured to use modern and secure cryptographic algorithms, in accordance with **FIPS** activation.  
 17. Further cleanup of logs, command history, package cache and restart of the `sshd` service.  

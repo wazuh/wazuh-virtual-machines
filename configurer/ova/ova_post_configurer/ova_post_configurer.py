@@ -6,7 +6,7 @@ from pathlib import Path
 from configurer.core.utils import indexer_request_command, purge_build_credentials_command
 from configurer.utils import run_command
 from generic.helpers import add_content_to_file, modify_file
-from utils import Logger
+from utils import Logger, RemoteDirectories
 
 logger = Logger("OVA PostConfigurer - Main module")
 
@@ -228,9 +228,11 @@ def steps_clean() -> None:
     2. Removes the CA and every component certificate baked in at image build time (indexer,
        manager/indexer-connector, dashboard, admin, and the manager's remoted pair), regenerated
        per instance by wazuh-starter on first boot.
-    3. Cleans all cached data for the `yum` package manager.
-    4. Reloads the systemd manager configuration.
-    5. Clears the current user's bash history.
+    3. Removes the provisioner's working directory (`~/wazuh-configure`): the package RPMs and the
+       tools it downloaded.
+    4. Cleans all cached data for the `yum` package manager.
+    5. Reloads the systemd manager configuration.
+    6. Clears the current user's bash history.
 
     Returns:
         None
@@ -244,6 +246,11 @@ def steps_clean() -> None:
         # instance by wazuh-starter on first boot.
         "rm -f /etc/wazuh-manager/certs/*.pem",
         "rm -rf /etc/wazuh-indexer/certs/* /etc/wazuh-dashboard/certs/*",
+        # The provisioner's working directory: the package RPMs (1.2 GB) and the certs and passwords
+        # tools it still downloads. Nothing uses them after the build, and the passwords tool there is
+        # not the one for these packages (the image's is /usr/share/wazuh-indexer/tools/). The AMI
+        # removes the same directory in its post-configurer.
+        f"rm -rf {RemoteDirectories.WAZUH_ROOT_DIR}",
         "yum clean all",
         "systemctl daemon-reload",
         "cat /dev/null > ~/.bash_history && history -c",
