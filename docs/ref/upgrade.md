@@ -11,4 +11,4 @@ If you need to update any component (Wazuh server, Wazuh indexer, or Wazuh dashb
 
 The indexer steps ask for `<USERNAME>` and `<PASSWORD>`: use `admin` and the password stored in `/etc/wazuh-indexer/export/credentials.env` (see [AMI security](security/ami/ami-security.md#wazuh-credentials) or [OVA security](security/ova/ova-security.md#wazuh-credentials)).
 
-> The AMI and the OVA do not modify the standard upgrade process of any Wazuh component. The guide linked above describes 4.x (Filebeat, `/var/ossec`) until the 5.0 documentation is published: on these images the indexer listens on `127.0.0.1`, and the passwords are in each package's `export/credentials.env`.
+> The AMI and the OVA do not modify the standard upgrade process of any Wazuh component. On these images the indexer listens on `127.0.0.1`, and the passwords are in each package's `export/credentials.env`.

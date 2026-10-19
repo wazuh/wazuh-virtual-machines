@@ -34,5 +34,5 @@ Every password generated for this instance, and the file that holds it:
 
 - No two instances launched from the AMI share a password, a certificate or a CA: the image ships none of them, and each instance creates its own on first boot.
 - Keep both files: each one is part of its package's state, and the other packages read it. They are readable by root only. The SSH login banner names both.
-- To change a password later, use the passwords tool the indexer package ships: `sudo /usr/share/wazuh-indexer/tools/wazuh-passwords-tool.sh`. It publishes the new value in the owner's `export/credentials.env`. Do not download it from the 4.x [Password management](https://documentation.wazuh.com/current/user-manual/user-administration/password-management.html) page: that version writes the RC 1 `/etc/wazuh/credentials.env`.
+- To change a password later, use the passwords tool the indexer package ships: `sudo /usr/share/wazuh-indexer/tools/wazuh-passwords-tool.sh`. It publishes the new value in the owner's `export/credentials.env`.
 - Each package keeps the CA it minted for this instance, including its private key, in its own `ca/` directory (`/etc/wazuh-indexer/ca/`, `/etc/wazuh-manager/ca/`, `/etc/wazuh-dashboard/ca/`, root only), to reissue certificates later.
