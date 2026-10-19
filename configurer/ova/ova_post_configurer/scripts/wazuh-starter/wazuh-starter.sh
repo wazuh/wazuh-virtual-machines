@@ -394,17 +394,19 @@ function install_credentials() {
   # this VM's addresses and publishes its export/. Safe to run again after a failed first boot: a
   # resolver keeps a complete pair and a CA it finds.
   wait_for_network_address
+  # No sudo: the unit already runs as root, and SELinux denies the starter (init_t) running sudo
+  # (sudo_exec_t); it only worked because the OVA runs SELinux in permissive mode.
   local resolver
   for resolver in "${credential_resolvers[@]}"; do
     logger "Running ${resolver} --install"
-    run_or_die "${resolver} --install failed" sudo "${resolver}" --install < /dev/null
+    run_or_die "${resolver} --install failed" "${resolver}" --install < /dev/null
   done
   # remoted remembers the build-time root-ca.pem; replacing it without publishing makes remoted log
   # "changed outside the tool and is not published" and announce ca_generation 0 to the agents
   # (wazuh-virtual-machines#1022). stamp publishes the new bundle as is; it only needs the files, not
   # a running manager, and checks the bundle against remoted.pem.
   run_or_die "Failed to publish this VM's CA with wazuh-manager-certs stamp" \
-      sudo "${wazuh_manager_certs_bin}" stamp
+      "${wazuh_manager_certs_bin}" stamp
 }
 
 function clean_configuration(){

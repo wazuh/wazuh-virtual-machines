@@ -35,7 +35,7 @@ def fake_metadata(command: str) -> str:
     return ""
 
 
-def test_get_manager_sans_names_the_instance_with_prefixes(customizer, monkeypatch):
+def test_get_instance_sans_names_the_instance_with_prefixes(customizer, monkeypatch):
     commands = []
 
     def run(command, error_message):
@@ -46,7 +46,7 @@ def test_get_manager_sans_names_the_instance_with_prefixes(customizer, monkeypat
 
     # Prefixed (RC 2), the ENI's IPv6 from hostname -I, DNS names so agents can enroll by name
     # (TC-03), and a metadata "not available" left out.
-    assert customizer.get_manager_sans() == [
+    assert customizer.get_instance_sans() == [
         "DNS:wazuh",
         "IP:172.31.5.10",
         "IP:2600:1f18:aa::5",
@@ -58,7 +58,7 @@ def test_get_manager_sans_names_the_instance_with_prefixes(customizer, monkeypat
 
 
 def test_install_credentials_writes_the_manager_sans_then_installs_in_order(customizer, monkeypatch):
-    monkeypatch.setattr(customizer, "get_manager_sans", lambda: ["IP:172.31.5.10", "IP:203.0.113.9"])
+    monkeypatch.setattr(customizer, "get_instance_sans", lambda: ["IP:172.31.5.10", "IP:203.0.113.9"])
     run = MagicMock(return_value="")
     monkeypatch.setattr(customizer, "run_command", run)
 
@@ -69,6 +69,10 @@ def test_install_credentials_writes_the_manager_sans_then_installs_in_order(cust
     assert "install -m 0600 -o root -g root /dev/null /etc/wazuh-manager/local.env" in local_env
     assert "'WAZUH_MANAGER_REMOTED_CERT_SANS=IP:172.31.5.10,IP:203.0.113.9'" in local_env
     assert "'WAZUH_MANAGER_APID_CERT_SANS=IP:172.31.5.10,IP:203.0.113.9'" in local_env
+    # The dashboard too: users open it by the public address, which is on no interface.
+    assert "install -m 0600 -o root -g root /dev/null /etc/wazuh-dashboard/local.env" in local_env
+    assert "'WAZUH_DASHBOARD_CERT_SANS=IP:172.31.5.10,IP:203.0.113.9'" in local_env
+    assert "WAZUH_INDEXER_CERT_SANS" not in local_env
     # The indexer first: the manager and the dashboard import its export/, the dashboard the manager's too.
     assert commands[1:4] == [
         "/usr/share/wazuh-indexer/bin/resolve-credentials.sh --install < /dev/null",

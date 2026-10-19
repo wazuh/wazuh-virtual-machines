@@ -494,9 +494,10 @@ def purge_build_credentials() -> None:
     """
     Removes every credential, certificate and CA the build resolved, with every service stopped.
 
-    Runs each package's `resolve-credentials --clear`, restores the indexer's password placeholders
-    (workaround, see purge-build-credentials.sh) and removes /etc/wazuh. wazuh-starter then has each
-    VM resolve its own passwords (`--prestart`) and issue its own certificates on first boot.
+    Runs purge-build-credentials.sh: each package's `resolve-credentials --clear` removes what it
+    made at build time (CA, pairs, export/, passwords), the JWT signing keypair is removed
+    (workaround), and the script fails if anything is left or /etc/wazuh exists. wazuh-starter then
+    runs every package's `--install` again on each VM's first boot.
 
     Raises:
         RuntimeError: If any step fails or anything resolved at build time is left in the image.

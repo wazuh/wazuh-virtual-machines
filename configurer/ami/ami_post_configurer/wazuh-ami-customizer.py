@@ -52,7 +52,7 @@ WAZUH_AGENT_REENROLL_SECRET_FILE = "/var/ossec/etc/reenroll.secret"
 # instance, so loopback is the one address that is always reachable and never changes. The manager's
 # resolver always adds it to remoted.pem's SANs, and a mint only refuses an address the listener
 # certificate does not name -- or a certificate whose SAN is loopback AND NOTHING ELSE, which is why
-# write_manager_local_env() hands it the instance's own addresses first.
+# write_local_env() hands it the instance's own addresses first.
 WAZUH_AGENT_ENROLLMENT_ADDRESS = "127.0.0.1"
 
 # The indexer's own admin account, used to poll both the indexer and the dashboard (which
@@ -79,10 +79,12 @@ CREDENTIAL_RESOLVERS = (
     "/usr/share/wazuh-dashboard/bin/resolve-credentials",
 )
 
-# Where the manager's resolver reads the SAN lists of remoted.pem and apid.pem (root:root 0600). The
-# indexer and the dashboard need none: they discover the default-route addresses themselves, and
-# only the manager is reached from outside the instance by an address it cannot see, the public one.
+# Where the resolvers read the SAN lists (root:root 0600; the dashboard refuses a wider one as
+# UNSAFE). The manager's agents and the dashboard's users reach the instance by addresses the
+# resolvers cannot see, the public ones (1:1 NAT), so both get the instance's list. The indexer gets
+# none: it is only reached locally, and its default-route discovery covers that.
 WAZUH_MANAGER_LOCAL_ENV = f"{WAZUH_MANAGER_CONF_DIR}/local.env"
+WAZUH_DASHBOARD_LOCAL_ENV = "/etc/wazuh-dashboard/local.env"
 
 # A stopped unit that left processes behind keeps them in its cgroup until the last one exits.
 SERVICE_CGROUP_PROCS = "/sys/fs/cgroup/system.slice/{unit}/cgroup.procs"
@@ -358,9 +360,9 @@ def run_indexer_security_init() -> None:
     logger.debug("Indexer security initialization completed")
 
 
-def get_manager_sans() -> list[str]:
+def get_instance_sans() -> list[str]:
     """
-    Collects the names and addresses agents may dial to reach this instance's manager, for remoted.pem's SAN.
+    Collects the names and addresses this instance is reached by, for the manager's and the dashboard's SANs.
 
     `hostname -I` (util-linux) already lists every configured address on every non-loopback
     interface, IPv4 and IPv6 alike (only IPv6 link-local is excluded) -- no separate handling
@@ -375,7 +377,7 @@ def get_manager_sans() -> list[str]:
     docs let users reach it by its public DNS name, and a token minted for a name the listener
     certificate does not hold is refused (ERROR 9025; wazuh-virtual-machines#1039, TC-03).
 
-    Fed to write_manager_local_env(). A list there replaces the resolver's own discovery, so it
+    Fed to write_local_env(). A list there replaces the resolver's own discovery, so it
     carries the local addresses too; the resolver appends the loopback names. Every entry has its
     IP: or DNS: prefix, as the RC 2 packages require (wazuh/wazuh-automation#3944).
 
@@ -383,7 +385,7 @@ def get_manager_sans() -> list[str]:
         list[str]: e.g. ["DNS:wazuh", "IP:172.31.5.10", "IP:203.0.113.9", "DNS:ip-172-31-5-10.ec2.internal"].
     """
 
-    logger.debug("Collecting the instance's names and addresses for the manager certificate SAN")
+    logger.debug("Collecting the instance's names and addresses for the certificate SANs")
     sans: list[str] = []
 
     hostname = run_command(command="hostname -s", error_message="Error reading the host name").strip()
@@ -411,29 +413,33 @@ def get_manager_sans() -> list[str]:
 
     sans = list(dict.fromkeys(sans))  # de-dupe (hostname -I and ec2-metadata can report the same IP), keep order
 
-    logger.debug(f"Manager certificate SANs: {sans}")
+    logger.debug(f"Certificate SANs: {sans}")
     return sans
 
 
-def write_manager_local_env() -> None:
+def write_local_env() -> None:
     """
-    Writes the instance's addresses as the SANs of the manager's remoted.pem and apid.pem.
+    Writes the instance's names and addresses as the SANs of the manager's remoted.pem and apid.pem,
+    and of the dashboard's dashboard.pem.
 
-    Without it the resolver only sees the default-route interfaces, and on AWS the public IPv4 is on
-    none of them (1:1 NAT), so an agent enrolling through it would not match the listener
-    certificate. apid.pem gets the same list: it does not inherit remoted's.
+    Without it the resolvers only see the default-route interfaces, and on AWS the public IPv4 is on
+    none of them (1:1 NAT): an agent enrolling through it would not match the listener certificate,
+    and a browser opening the dashboard by it, as the AMI docs say, would not match dashboard.pem.
+    apid.pem gets the same list: it does not inherit remoted's.
 
     Returns:
         None
     """
 
-    sans = ",".join(get_manager_sans())
-    logger.debug(f"Writing the manager certificate SANs to {WAZUH_MANAGER_LOCAL_ENV}")
+    sans = ",".join(get_instance_sans())
+    logger.debug(f"Writing the certificate SANs to {WAZUH_MANAGER_LOCAL_ENV} and {WAZUH_DASHBOARD_LOCAL_ENV}")
     command = f"""
     install -m 0600 -o root -g root /dev/null {WAZUH_MANAGER_LOCAL_ENV}
     printf '%s\n' 'WAZUH_MANAGER_REMOTED_CERT_SANS={sans}' 'WAZUH_MANAGER_APID_CERT_SANS={sans}' > {WAZUH_MANAGER_LOCAL_ENV}
+    install -m 0600 -o root -g root /dev/null {WAZUH_DASHBOARD_LOCAL_ENV}
+    printf '%s\n' 'WAZUH_DASHBOARD_CERT_SANS={sans}' > {WAZUH_DASHBOARD_LOCAL_ENV}
     """
-    run_command(command=command, error_message=f"Error writing {WAZUH_MANAGER_LOCAL_ENV}")
+    run_command(command=command, error_message="Error writing the certificate SANs")
 
 
 def install_credentials() -> None:
@@ -447,7 +453,7 @@ def install_credentials() -> None:
         None
     """
 
-    write_manager_local_env()
+    write_local_env()
     for resolver in CREDENTIAL_RESOLVERS:
         logger.debug(f"Running {resolver} --install")
         run_command(command=f"{resolver} --install < /dev/null", error_message=f"Error running {resolver} --install")
