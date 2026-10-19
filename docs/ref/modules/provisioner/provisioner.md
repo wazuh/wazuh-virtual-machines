@@ -4,7 +4,7 @@ The `provisioner` module is responsible for preparing a target machine with the 
 
 - **Component packages**: the provisioner downloads the Wazuh component packages from the specified URLs and copies them to the target machine, ready for installation.
 
-- **certs-tool**: the script and its `config.yml` are still downloaded, since their URLs are build inputs, but nothing uses them since 5.0.0 RC 2: each package issues its own certificates.
+It provisions neither the certs tool nor the passwords tool. Since 5.0.0 RC 2 each package resolves its own certificates and passwords (`resolve-credentials`), at build time and on the first boot of each instance, so the build has no use for them. The indexer package ships both tools (`/usr/share/wazuh-indexer/tools/`) for users who want to rotate them later. A packages URL file that still lists `certs_tool`, `config` or `passwords_tool` is accepted: those keys are ignored.
 
 ## Package signature check
 

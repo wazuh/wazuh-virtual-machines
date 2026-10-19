@@ -6,9 +6,7 @@ import pytest
 from provisioner.models.utils.file_formatter import (
     Component,
     file_to_dict,
-    format_certificates_urls_file,
     format_component_urls_file,
-    format_passwords_tool_urls_file,
     get_component_packages,
     get_component_packages_by_arch,
     get_component_packages_by_type,
@@ -161,29 +159,6 @@ def test_get_component_packages_by_type_partial_match():
 @patch(
     "builtins.open",
     new_callable=mock_open,
-    read_data="certs_tool: certs-url\ncerts_config: certs_config-url",
-)
-def test_format_certificates_urls_file_valid(mock_file):
-    expected_output = {"certs_tool": "certs-url", "config": "certs_config-url"}
-    assert format_certificates_urls_file(Path("fake_certificates_urls.yaml")) == expected_output
-
-
-@patch("builtins.open", new_callable=mock_open, read_data="{}")
-def test_format_certificates_urls_file_empty(mock_file):
-    with pytest.raises(ValueError, match="No content found in raw URLs file"):
-        format_certificates_urls_file(Path("fake_certificates_urls.yaml"))
-
-
-@patch("builtins.open", new_callable=mock_open, read_data="certs_tool: certs-tool-url")
-def test_format_certificates_urls_file_partial(mock_file):
-    raw_urls_path = Path("fale_certificates_urls.yaml")
-    expected_output = {"certs_tool": "certs-tool-url", "config": ""}
-    assert format_certificates_urls_file(raw_urls_path) == expected_output
-
-
-@patch(
-    "builtins.open",
-    new_callable=mock_open,
     read_data="""
 wazuh_indexer_amd64_deb: https://packages.wazuh.com/wazuh-indexer-example/amd64/deb/
 wazuh_indexer_arm64_deb: https://packages.wazuh.com/wazuh-indexer-example/arm64/deb/
@@ -250,29 +225,3 @@ def test_format_component_urls_file_partial(mock_file):
 def test_format_component_urls_file_non_existent(mock_file):
     with pytest.raises(FileNotFoundError, match="File not found in non_existent.yaml path"):
         format_component_urls_file(Path("non_existent.yaml"))
-
-
-@patch(
-    "builtins.open",
-    new_callable=mock_open,
-    read_data="passwords_tool: https://packages.wazuh.com/password-tool-example/passwords_tool",
-)
-def test_format_passwords_tool_urls_file_valid(mock_file):
-    result = format_passwords_tool_urls_file(Path("fake_passwords_tool_urls.yaml"))
-    assert str(result) == "https://packages.wazuh.com/password-tool-example/passwords_tool"
-
-
-@patch("builtins.open", new_callable=mock_open, read_data="{}")
-def test_format_passwords_tool_urls_file_empty(mock_file):
-    with pytest.raises(ValueError, match="No content found in raw URLs file"):
-        format_passwords_tool_urls_file(Path("fake_passwords_tool_urls.yaml"))
-
-
-@patch(
-    "builtins.open",
-    new_callable=mock_open,
-    read_data="other_tool: https://packages.wazuh.com/other-tool/",
-)
-def test_format_passwords_tool_urls_file_no_match(mock_file):
-    result = format_passwords_tool_urls_file(Path("fake_passwords_tool_urls.yaml"))
-    assert result is None

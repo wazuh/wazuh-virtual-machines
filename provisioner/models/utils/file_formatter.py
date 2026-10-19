@@ -1,10 +1,9 @@
 from pathlib import Path
 
 import yaml
-from pydantic import AnyUrl
 
 from provisioner.utils import Component_arch, Package_type
-from utils import CertificatesComponent, Component, PasswordToolComponent
+from utils import Component
 
 
 def file_to_dict(raw_urls_path: Path) -> dict:
@@ -133,66 +132,6 @@ def get_component_packages_by_type(component_packages: dict) -> dict:
                 component_type.get(component_type_key, {}).update({package_arch: package_url})
 
     return component_type
-
-
-def format_certificates_urls_file(raw_urls_path: Path) -> dict:
-    """
-    Formats a file containing raw URLs into a dictionary of certificate URLs.
-
-    This function reads a file containing raw URLs and maps them to a dictionary
-    where the keys are the lowercase names of certificate components and the values
-    are the corresponding URLs.
-    >>> raw_urls_path = Path("certificates_urls.yaml")
-    >>> format_certificates_urls_file(raw_urls_path)
-    {'certs_tool': 'https://packages.wazuh.com/certificates-example/certs_tool',
-    'config': 'https://packages.wazuh.com/certificates-example/certs_config'
-    }
-
-    Args:
-        raw_urls_path (Path): The path to the file containing the raw URLs.
-
-    Returns:
-        dict: A dictionary where the keys are the lowercase names of certificate
-              components and the values are the corresponding URLs.
-    """
-    # Only include the actual certificate files, not the component node names
-    certificates_urls = {
-        CertificatesComponent.CERTS_TOOL.name.lower(): "",
-        CertificatesComponent.CONFIG.name.lower(): ""
-    }
-    raw_urls_content = file_to_dict(raw_urls_path)
-
-    for component_name, url in raw_urls_content.items():
-        if CertificatesComponent.CERTS_TOOL.name.lower() in component_name:
-            certificates_urls[CertificatesComponent.CERTS_TOOL.name.lower()] = url
-        elif CertificatesComponent.CONFIG.name.lower() in component_name or "certs_config" in component_name:
-            certificates_urls[CertificatesComponent.CONFIG.name.lower()] = url
-    return certificates_urls
-
-
-def format_passwords_tool_urls_file(raw_urls_path: Path) -> AnyUrl | None:
-    """
-    Formats a file containing raw URLs into a string of passwords tool URL.
-
-    This function reads a file containing raw URLs and retrieves the URL
-    for the passwords tool.
-
-    >>> raw_urls_path = Path("passwords_tool_urls.yaml")
-    >>> format_passwords_tool_urls_file(raw_urls_path)
-    'https://packages.wazuh.com/passwords-tool-example/passwords_tool'
-
-    Args:
-        raw_urls_path (Path): The path to the file containing the raw URLs.
-
-    Returns:
-        str: The URL for the passwords tool.
-    """
-    raw_urls_content = file_to_dict(raw_urls_path)
-
-    for component_name, url in raw_urls_content.items():
-        if PasswordToolComponent.PASSWORDS_TOOL.name.lower() in component_name.lower():
-            return AnyUrl(url)
-    return None
 
 
 def format_component_urls_file(raw_urls_path: Path) -> dict:
