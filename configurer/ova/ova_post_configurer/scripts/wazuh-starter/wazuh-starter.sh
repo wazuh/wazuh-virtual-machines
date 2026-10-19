@@ -362,17 +362,21 @@ function set_agent_enrollment_token() {
 }
 
 function wait_for_network_address() {
-  # The resolvers take the SANs from the default-route interfaces when --install runs. Confirmed on a
-  # real OVA boot (2026-09-17): wazuh-starter.timer's OnBootSec=10s has no ordering against
-  # networking, and at that point hostname -I can still be empty. A remoted.pem issued then names
-  # loopback only, and the manager refuses to mint the agent's enrollment token for it. Bounded
-  # wait, then carry on: the manager's resolver warns when it finds no address.
-  local retries=0 max_retries=5 wait_time=2
+  # The resolvers take the SANs from the default-route interfaces when --install runs, and issue a
+  # pair only once. A remoted.pem issued before the address is up names the host name and loopback
+  # only: agents cannot enroll by IP, and the manager refuses to mint a token for it (ERROR 9025).
+  # Confirmed on an OVA booted with its link down for 60 s (wazuh-virtual-machines#1039, TC-05).
+  # The unit waits for network-online.target; this covers a DHCP lease that comes later. With no
+  # address after the wait, carry on (an isolated VM still works locally) but say how to fix it.
+  local retries=0 max_retries=60 wait_time=5
   while [[ -z "$(hostname -I | tr -d ' ')" ]] && [[ "${retries}" -lt "${max_retries}" ]]; do
     logger -w "No network address available yet for the certificates' SANs, waiting ${wait_time} seconds"
     sleep "${wait_time}"
     retries=$((retries + 1))
   done
+  if [[ -z "$(hostname -I | tr -d ' ')" ]]; then
+    logger -e "No network address after $((max_retries * wait_time)) seconds: the certificates will name this VM by host name and loopback only. Agents cannot enroll by IP until the manager pairs are reissued (see the OVA documentation)."
+  fi
 }
 
 function run_or_die() {
