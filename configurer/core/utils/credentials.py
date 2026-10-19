@@ -1,8 +1,9 @@
 """
 Credentials resolved by the Wazuh 5.0 packages (wazuh/wazuh-indexer#1928).
 
-The indexer, manager and dashboard packages generate their own passwords and publish them to
-/etc/wazuh/credentials.env, which is also the record the user reads them from. Nothing here ever
+Since 5.0.0 RC 2 (wazuh/internal-devel-requests#7048) each package publishes the passwords it owns
+in its own export/credentials.env, which is also the record the user reads them from: the indexer
+those of its users, the manager those of the Server API. Nothing here ever
 prints a password or passes one on a command line: a value read from the file goes to curl through
 its standard input (`curl -K -`), and the file is parsed, never sourced.
 """
@@ -11,12 +12,10 @@ import re
 from enum import StrEnum
 from pathlib import Path
 
-WAZUH_BASE_DIR = Path("/etc/wazuh")
-CREDENTIALS_FILE = WAZUH_BASE_DIR / "credentials.env"
-# Where this instance's own root CA lives past first boot. The shared credentials library expects it
-# here (root:root 0700, root-ca.pem 0644, root-ca.key 0400), and keeping the key lets a leaf be
-# reissued later without a new CA every enrolled agent would have to re-trust.
-WAZUH_CA_DIR = WAZUH_BASE_DIR / "ca"
+from .enums import WAZUH_MANAGER_CONF_DIR
+
+INDEXER_CREDENTIALS_FILE = Path("/etc/wazuh-indexer/export/credentials.env")
+MANAGER_CREDENTIALS_FILE = Path(WAZUH_MANAGER_CONF_DIR) / "export" / "credentials.env"
 
 PURGE_BUILD_CREDENTIALS_SCRIPT = Path(__file__).resolve().parent.parent / "static" / "purge-build-credentials.sh"
 
@@ -27,6 +26,20 @@ class CredentialKey(StrEnum):
     INDEXER_MANAGER = "WAZUH_INDEXER_MANAGER_PASSWORD"
     MANAGER_API = "WAZUH_MANAGER_API_PASSWORD"
     MANAGER_WUI = "WAZUH_MANAGER_WUI_PASSWORD"
+
+
+def credentials_file_for(key: str) -> Path:
+    """
+    Returns the export/credentials.env of the package that owns a key.
+
+    Args:
+        key (str): A CredentialKey.
+
+    Returns:
+        Path: The manager's file for WAZUH_MANAGER_* keys, the indexer's for every other one.
+    """
+
+    return MANAGER_CREDENTIALS_FILE if str(key).startswith("WAZUH_MANAGER_") else INDEXER_CREDENTIALS_FILE
 
 
 _LINE = re.compile(r"^([A-Z_][A-Z0-9_]*)=(.*)$")
@@ -61,13 +74,13 @@ def parse_credentials(content: str) -> dict[str, str]:
     return credentials
 
 
-def read_credential(key: str, credentials_file: Path = CREDENTIALS_FILE) -> str:
+def read_credential(key: str, credentials_file: Path | None = None) -> str:
     """
     Reads one password from the credentials file.
 
     Args:
         key (str): The key to read, e.g. CredentialKey.INDEXER_ADMIN.
-        credentials_file (Path): The credentials file. Defaults to /etc/wazuh/credentials.env.
+        credentials_file (Path | None): The credentials file. Defaults to the owner's (credentials_file_for).
 
     Returns:
         str: The value of the key.
@@ -76,13 +89,14 @@ def read_credential(key: str, credentials_file: Path = CREDENTIALS_FILE) -> str:
         KeyError: If the key is absent or empty. The message names the key, never a value.
     """
 
+    credentials_file = credentials_file or credentials_file_for(key)
     value = parse_credentials(credentials_file.read_text()).get(str(key), "")
     if not value:
         raise KeyError(f"{key} is not set in {credentials_file}")
     return value
 
 
-def credential_shell_expression(key: str, credentials_file: Path = CREDENTIALS_FILE) -> str:
+def credential_shell_expression(key: str, credentials_file: Path | None = None) -> str:
     """
     Returns a shell command substitution that prints one password read from the credentials file.
 
@@ -91,11 +105,13 @@ def credential_shell_expression(key: str, credentials_file: Path = CREDENTIALS_F
 
     Args:
         key (str): The key to read.
-        credentials_file (Path): The credentials file. Defaults to /etc/wazuh/credentials.env.
+        credentials_file (Path | None): The credentials file. Defaults to the owner's (credentials_file_for).
 
     Returns:
-        str: e.g. `$(sudo sed -n 's/^KEY=//p' /etc/wazuh/credentials.env | tail -n 1 | sed ...)`.
+        str: e.g. `$(sudo sed -n 's/^KEY=//p' /etc/wazuh-indexer/export/credentials.env | tail -n 1 | sed ...)`.
     """
+
+    credentials_file = credentials_file or credentials_file_for(key)
 
     unquote = "sed -e 's/^\"\\(.*\\)\"$/\\1/' -e \"s/^'\\(.*\\)'$/\\1/\""
     return f"$(sudo sed -n 's/^{key}=//p' {credentials_file} | tail -n 1 | {unquote})"

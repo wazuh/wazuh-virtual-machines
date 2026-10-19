@@ -1,5 +1,5 @@
 # Wazuh AMI Customizer Service - Used to customize the Wazuh AMI with custom certificates and passwords
-# Copyright (C) 2015, Wazuh Inc.
+# Copyright (C) Wazuh Inc.
 #
 # This program is a free software; you can redistribute it
 # and/or modify it under the terms of the GNU General Public
@@ -9,7 +9,9 @@
 
 [Unit]
 Description=Starts Wazuh services in order
-Wants=wazuh-starter.timer
+Wants=wazuh-starter.timer network-online.target
+# The packages issue their certificates with the addresses they find when the starter runs.
+After=network-online.target
 
 [Service]
 Type=oneshot
