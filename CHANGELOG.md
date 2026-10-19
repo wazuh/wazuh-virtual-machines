@@ -37,7 +37,7 @@
 
 | Issue | Comment |
 | - | - |
-| [#1039](https://github.com/wazuh/wazuh-virtual-machines/issues/1039) | Adapt the AMI and OVA to the 5.0.0 RC 2 per-package credentials: manager configuration in `/etc/wazuh-manager`, passwords read from each package's `export/credentials.env`, and the pre-start reason logged when a first-boot service does not start |
+| [#1039](https://github.com/wazuh/wazuh-virtual-machines/issues/1039) | Adapt the AMI and OVA to the 5.0.0 RC 2 per-package credentials: manager configuration in `/etc/wazuh-manager`, passwords read from each package's `export/credentials.env`, the pre-start reason logged when a first-boot service does not start, each package issuing its own certificates on first boot, and the certs and passwords tools no longer used or provisioned |
 | [#1015](https://github.com/wazuh/wazuh-virtual-machines/issues/1015) | Name the release and its production download URL in the stage OVA metadata, mark development builds with `-dev`, remove the stage from the OVA console banner, and set the VirtualBox guest OS type to Fedora (64-bit) |
 | [#1012](https://github.com/wazuh/wazuh-virtual-machines/issues/1012) | Start the OVA and AMI integration tests from PR labels |
 | [#973](https://github.com/wazuh/wazuh-virtual-machines/issues/973) | Adapt AMI and OVA first boot to install-time credential generation |
