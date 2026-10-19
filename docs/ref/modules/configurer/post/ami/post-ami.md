@@ -35,7 +35,7 @@ The script fails the build if anything resolved at build time is left: `/etc/waz
 
 **First boot** (`wazuh-ami-customizer.py`), strictly in this order and never in parallel:
 
-1. The instance's addresses are written as the SANs of the manager's pairs, in `/etc/wazuh-manager/local.env` (`WAZUH_MANAGER_REMOTED_CERT_SANS` and `WAZUH_MANAGER_APID_CERT_SANS`, `root:root 0600`): every `hostname -I` address plus the public IPv4 and IPv6 from `ec2-metadata`. The public IPv4 is on no interface (AWS 1:1 NAT), so the resolver could not discover it, and a list there replaces the resolver's own discovery; the resolver appends the loopback names. The indexer and the dashboard need no list: they take the addresses of the default-route interfaces.
+1. The instance's addresses are written as the SANs of the manager's pairs, in `/etc/wazuh-manager/local.env` (`WAZUH_MANAGER_REMOTED_CERT_SANS` and `WAZUH_MANAGER_APID_CERT_SANS`, `root:root 0600`): the host name, every `hostname -I` address, and the public IPv4 and the private and public DNS names from `ec2-metadata`, each with its `IP:` or `DNS:` prefix. The public IPv4 is on no interface (AWS 1:1 NAT), so the resolver could not discover it, and a list there replaces the resolver's own discovery; the resolver appends the loopback names. The indexer and the dashboard need no list: they take the addresses of the default-route interfaces.
 2. Each package's `resolve-credentials --install` runs, indexer first, then manager, then dashboard: each mints its own CA, issues its pairs with this instance's addresses and publishes its `export/`. `--install` is the only mode that issues certificates. `wazuh-manager-certs stamp` then publishes the manager's `certs/root-ca.pem` to the agents, so remoted does not warn that the bundle changed outside the tool.
 3. The indexer starts, and `indexer-security-init.sh` loads its security configuration (a manual step of the indexer package).
 4. The manager starts: its `--prestart` imports the indexer's CA, client pair and password.
@@ -69,7 +69,23 @@ Some details worth knowing:
 
 Each package keeps the CA it minted on first boot, private key included, in its own `ca/` directory (root only). [wazuh-virtual-machines#957](https://github.com/wazuh/wazuh-virtual-machines/issues/957) only requires that no CA key ships baked into the image, and keeping it is what lets a pair be reissued later without a new CA: "reissuing the leaf is enough and does not break enrolled agents, since they pin the CA rather than the leaf."
 
-The manager's agent-listener pair (`remoted.pem`) and Server API pair (`apid.pem`) name the addresses written to `local.env` at first boot. If the instance's address changes afterward (a new private IP, a reassigned Elastic IP, a different public address), agents connecting through the new address fail hostname verification. The packages issue a missing pair from their own CA at `--install`, so the manager's pairs are reissued by hand: stop the manager, set the new list in `WAZUH_MANAGER_REMOTED_CERT_SANS` and `WAZUH_MANAGER_APID_CERT_SANS` in `/etc/wazuh-manager/local.env`, remove the pair, run `/var/wazuh-manager/bin/wazuh-manager-resolve-credentials --install` and `wazuh-manager-certs stamp`, and start the manager. Enrolled agents keep trusting it: the CA has not changed. There is no automation for this today.
+The manager's agent-listener pair (`remoted.pem`) and Server API pair (`apid.pem`) name the names and addresses written to `local.env` at first boot. If they change afterward, agents connecting through the new address fail hostname verification and the manager refuses to mint tokens for it (`ERROR 9025: Enrollment token refused: address not in certificate SAN`). A stopped and started instance without an Elastic IP gets a new public IP and public DNS name, so this happens on an ordinary stop/start too; so does a reassigned Elastic IP or a new private IP.
+
+The packages issue a missing pair from their own CA at `--install` only, so the manager's pairs are reissued by hand, as root:
+
+```bash
+systemctl stop wazuh-manager
+# Edit both lists in /etc/wazuh-manager/local.env (root:root 0600), every entry with its IP: or DNS: prefix:
+#   WAZUH_MANAGER_REMOTED_CERT_SANS=IP:<address>,DNS:<name>,...
+#   WAZUH_MANAGER_APID_CERT_SANS=IP:<address>,DNS:<name>,...
+rm -f /etc/wazuh-manager/certs/remoted.pem /etc/wazuh-manager/certs/remoted-key.pem \
+      /etc/wazuh-manager/certs/apid.pem /etc/wazuh-manager/certs/apid-key.pem
+/var/wazuh-manager/bin/wazuh-manager-resolve-credentials --install
+/var/wazuh-manager/bin/wazuh-manager-certs stamp
+systemctl start wazuh-manager
+```
+
+Remove both pairs: the resolver keeps a complete pair it finds, so a pair left in place keeps the old addresses. Use the full path of `wazuh-manager-certs`: `/var/wazuh-manager/bin` is not in root's `PATH` under `sudo`. Enrolled agents keep trusting the manager: the CA has not changed. There is no automation for this today.
 
 ## Considerations
 

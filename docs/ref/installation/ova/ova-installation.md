@@ -59,6 +59,18 @@ You can find `<wazuh_manager_ip>` by typing the following command in the VM:
 ip a
 ```
 
+## Enroll agents
+
+Agents enroll with a token the manager mints for the address they will connect to. As root on the VM:
+
+```bash
+/var/wazuh-manager/bin/wazuh-manager-authd --create-enrollment-token --address <wazuh_manager_ip>
+```
+
+Pass the token to the agent installer as `WAZUH_ENROLLMENT_TOKEN`, with the same address as the manager. Agents connect on TCP 1517 (1514 for legacy agents): with a NAT network, forward those ports to the VM.
+
+The address must be one the manager's certificate names: the VM's host name and the addresses it had at first boot. Otherwise the mint fails with `ERROR 9025: Enrollment token refused: address not in certificate SAN`. If the address changed after the first boot, reissue the manager certificates first (see [Certificate lifecycle after first boot](../../modules/configurer/post/ova/post-ova.md#certificate-lifecycle-after-first-boot)).
+
 ## VirtualBox time configuration
 
 In case of using VirtualBox, once the virtual machine is imported it may run into issues caused by time skew when VirtualBox synchronizes the time of the guest machine. To avoid this situation, enable the **Hardware Clock in UTC Time** option in the **System** tab of the virtual machine configuration.
