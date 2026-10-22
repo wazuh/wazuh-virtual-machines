@@ -7,11 +7,11 @@
 
 Wazuh is an Open Source Host-based Intrusion Detection System that performs log analysis, file integrity monitoring, policy monitoring, rootkit detection, real-time alerting, active response, vulnerability detector, etc.
 
-In this repository, you can find the necessary tools to build your own OVA file with all Wazuh components installed.
+In this repository, you can find the necessary tools to build your own Amazon Machine Image (AMI) and virtual machine (OVA) with all Wazuh central components installed.
 
-## Building OVA file:
+## Documentation
 
-Please, visit the following link for the full OVA building documentation: [Generate Wazuh virtual machine.](https://documentation.wazuh.com/current/development/packaging/generate-ova.html)
+The documentation of this repository is in [`docs/`](docs/README.md): how to use the AMI and the OVA, and how to build them in [Generate artifacts](docs/dev/generate-artifact/generate-artifact.md).
 
 ## Contribute
 

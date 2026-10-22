@@ -87,6 +87,18 @@ systemctl start wazuh-manager
 
 Remove both pairs: the resolver keeps a complete pair it finds, so a pair left in place keeps the old addresses. Use the full path of `wazuh-manager-certs`: `/var/wazuh-manager/bin` is not in root's `PATH` under `sudo`. Enrolled agents keep trusting the manager: the CA has not changed. There is no automation for this today.
 
+The Wazuh dashboard pair (`/etc/wazuh-dashboard/certs/dashboard.pem`) names the same first-boot addresses, from `WAZUH_DASHBOARD_CERT_SANS` in `/etc/wazuh-dashboard/local.env`. After an address change the dashboard keeps working, but the browser reports a name mismatch for the new address. Its package also issues a missing pair at `--install` only, from the CA it keeps in `ca/`:
+
+```bash
+systemctl stop wazuh-dashboard
+# Edit WAZUH_DASHBOARD_CERT_SANS in /etc/wazuh-dashboard/local.env (root:root 0600), every entry with its IP: or DNS: prefix.
+rm -f /etc/wazuh-dashboard/certs/dashboard.pem /etc/wazuh-dashboard/certs/dashboard-key.pem
+/usr/share/wazuh-dashboard/bin/resolve-credentials --install
+systemctl start wazuh-dashboard
+```
+
+`--install` leaves the passwords already in the dashboard keystore as they are.
+
 ## Considerations
 
 Just like the pre-configurer, this module is designed to be executed on a remote machine, meaning the `--inventory` option must be provided.

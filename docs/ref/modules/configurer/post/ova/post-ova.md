@@ -102,6 +102,17 @@ systemctl start wazuh-manager
 
 Remove both pairs: the resolver keeps a complete pair it finds, so a pair left in place keeps the old addresses. Use the full path of `wazuh-manager-certs`: `/var/wazuh-manager/bin` is not in root's `PATH` under `sudo`. Enrolled agents keep trusting the manager: the CA has not changed. There is no automation for this today.
 
+The Wazuh dashboard pair (`/etc/wazuh-dashboard/certs/dashboard.pem`) names the host name and the addresses of the default-route interfaces at first boot. After an address change the dashboard keeps working, but the browser reports a name mismatch for the new address. Its package also issues a missing pair at `--install` only, from the CA it keeps in `ca/`, and takes the addresses the VM has at that moment unless `WAZUH_DASHBOARD_CERT_SANS` is set in `/etc/wazuh-dashboard/local.env` (`root:root 0600`, every entry with its `IP:` or `DNS:` prefix):
+
+```bash
+systemctl stop wazuh-dashboard
+rm -f /etc/wazuh-dashboard/certs/dashboard.pem /etc/wazuh-dashboard/certs/dashboard-key.pem
+/usr/share/wazuh-dashboard/bin/resolve-credentials --install
+systemctl start wazuh-dashboard
+```
+
+`--install` leaves the passwords already in the dashboard keystore as they are.
+
 ## Considerations
 
 The **OVA Post Configurer** is designed to be executed in a **local machine only**. As mentioned above the execution of this module using **Hatch** will execute the **Provisioner** and **Core Configurer** modules previously.
