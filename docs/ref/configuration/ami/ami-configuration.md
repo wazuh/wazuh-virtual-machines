@@ -4,4 +4,4 @@ Any configuration you can apply to the Wazuh components included in the AMI is *
 
 This means that if you need to make adjustments or customizations, you can simply refer to the official documentation for each Wazuh component in the [Wazuh user manual](https://documentation.wazuh.com/current/user-manual/index.html).
 
-> The AMI does not alter the standard behavior or configuration mechanisms of any Wazuh component.
+> The AMI does not alter the standard behavior or configuration mechanisms of any Wazuh component. The only AMI-specific step is the Wazuh indexer heap, set to a quarter of the RAM on the first boot; after that, `/etc/wazuh-indexer/jvm.options` is yours to change.

@@ -94,6 +94,7 @@
 
 | Issue | Comment |
 | - | - |
+| [#1049](https://github.com/wazuh/wazuh-virtual-machines/issues/1049) | Run the indexer heap service only on the first boot of the AMI and OVA, before the Wazuh indexer starts, so a heap changed later in `jvm.options` is kept |
 | [#1021](https://github.com/wazuh/wazuh-virtual-machines/issues/1021) | Show the Wazuh version in the AMI and OVA SSH login banners: the AMI reads the installed version when the MOTD is regenerated, and the OVA writes it at build time |
 | [#994](https://github.com/wazuh/wazuh-virtual-machines/issues/994) | Generalize the OVA before export: expire the `wazuh-user` password, lock `root`, remove the Vagrant key, the SSH host keys, the `machine-id`, `ec2-user` and the unused `ifcfg-eth0` |
 | [#1027](https://github.com/wazuh/wazuh-virtual-machines/issues/1027) | Start the pre-installed agent when the OVA or AMI first boot runs again after a failure: remove the leftover `.anchor-committed` marker and the agent the failed run registered |

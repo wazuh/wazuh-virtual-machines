@@ -18,4 +18,5 @@ if [[ "${value}" != "${ram}" ]]; then
     eval "sed -i "s/^-Xmx.*$/-Xmx${ram}m/" ${file} ${debug}"
 fi
 
-systemctl stop updateIndexerHeap.service
+# Only on the first boot: later boots keep whatever heap is set in jvm.options.
+systemctl disable updateIndexerHeap.service
