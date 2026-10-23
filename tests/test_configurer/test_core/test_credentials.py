@@ -5,6 +5,7 @@ import pytest
 from configurer.core.utils import (
     CredentialKey,
     credential_shell_expression,
+    credentials_file_for,
     indexer_request_command,
     parse_credentials,
     purge_build_credentials_command,
@@ -56,7 +57,23 @@ def test_credential_shell_expression_reads_the_key_from_the_file():
     expression = credential_shell_expression(CredentialKey.INDEXER_ADMIN)
 
     assert expression.startswith("$(")
-    assert "sudo sed -n 's/^WAZUH_INDEXER_ADMIN_PASSWORD=//p' /etc/wazuh/credentials.env" in expression
+    assert "sudo sed -n 's/^WAZUH_INDEXER_ADMIN_PASSWORD=//p' /etc/wazuh-indexer/export/credentials.env" in expression
+
+
+@pytest.mark.parametrize(
+    "key, path",
+    [
+        (CredentialKey.INDEXER_ADMIN, "/etc/wazuh-indexer/export/credentials.env"),
+        (CredentialKey.INDEXER_KIBANASERVER, "/etc/wazuh-indexer/export/credentials.env"),
+        (CredentialKey.INDEXER_MANAGER, "/etc/wazuh-indexer/export/credentials.env"),
+        (CredentialKey.MANAGER_API, "/etc/wazuh-manager/export/credentials.env"),
+        (CredentialKey.MANAGER_WUI, "/etc/wazuh-manager/export/credentials.env"),
+    ],
+)
+def test_each_key_is_read_from_its_owner_export(key, path):
+    # The indexer publishes its users' passwords, the manager the Server API ones (RC 2).
+    assert credentials_file_for(key) == Path(path)
+    assert f" {path} " in credential_shell_expression(key)
 
 
 def test_indexer_request_command_sends_the_password_through_stdin():
@@ -82,34 +99,41 @@ def test_purge_build_credentials_command_runs_the_script_from_a_file_not_stdin()
     assert command.rstrip().endswith('exit "${WAZUH_PURGE_RC}"')
 
 
-def test_purge_build_credentials_script_clears_every_component_and_restores_the_placeholders():
+def test_purge_build_credentials_script_clears_every_component():
     script = PURGE_BUILD_CREDENTIALS_SCRIPT.read_text()
 
     assert '"${INDEXER_RESOLVER}" --clear' in script
     assert '"${MANAGER_RESOLVER}" --clear -H "${MANAGER_HOME}"' in script
     assert '"${DASHBOARD_RESOLVER}" --clear' in script
-    for key in (CredentialKey.INDEXER_ADMIN, CredentialKey.INDEXER_KIBANASERVER, CredentialKey.INDEXER_MANAGER):
-        assert str(key) in script
-    assert 'rm -rf "${WAZUH_BASE_DIR}"' in script
+    # The indexer's --clear restores the placeholders and untrusts its CA itself (RC 2): no workaround.
+    assert "awk" not in script
+    assert "-delete -cacerts" not in script
+    # /etc/wazuh is no package's any more: checked for, never removed.
+    assert "rm -rf" not in script
+    assert '[ -e /etc/wazuh ] && leftovers+=("/etc/wazuh")' in script
 
 
-def test_purge_build_credentials_script_removes_the_api_pair_and_the_jdk_truststore_ca():
+def test_purge_build_credentials_script_checks_every_package_ca_export_and_certs():
     script = PURGE_BUILD_CREDENTIALS_SCRIPT.read_text()
 
-    # Workaround 2: the Server API TLS pair and JWT signing keypair created at build time.
-    assert (
-        'rm -f "${MANAGER_API_CERT}" "${MANAGER_API_KEY}" "${MANAGER_API_JWT_PRIVATE}" "${MANAGER_API_JWT_PUBLIC}"'
-        in script
-    )
-    assert 'MANAGER_API_CERT="${MANAGER_HOME}/etc/certs/apid.pem"' in script
-    assert 'MANAGER_API_JWT_PRIVATE="${MANAGER_HOME}/api/configuration/security/private_key.pem"' in script
-    assert 'MANAGER_API_JWT_PUBLIC="${MANAGER_HOME}/api/configuration/security/public_key.pem"' in script
-    # Workaround 3: the build CA imported by the indexer postinst into the JDK truststore.
-    assert 'INDEXER_JDK_CA_ALIAS="wazuh-root-ca"' in script
-    assert '-delete -cacerts -storepass "${INDEXER_JDK_CACERTS_PASS}"' in script
-    # Both are part of the leftovers verification.
-    assert '"${MANAGER_API_JWT_PRIVATE}" "${MANAGER_API_JWT_PUBLIC}"; do' in script
+    for package in ("INDEXER", "MANAGER", "DASHBOARD"):
+        assert f'"${{{package}_CONF}}/ca" "${{{package}_CONF}}/export"' in script
+    # D5: the client pair the indexer issued to the manager, imported from its export/.
+    assert '"${MANAGER_CONF}"/certs/indexer-connector*.pem' in script
+    assert '"${MANAGER_CONF}"/certs/indexer-ca.pem' in script
+    assert '"${MANAGER_CONF}"/certs/apid*.pem' in script
+    for key in (CredentialKey.INDEXER_ADMIN, CredentialKey.INDEXER_KIBANASERVER, CredentialKey.INDEXER_MANAGER):
+        assert str(key) in script
     assert "jdk_ca_present && leftovers+=" in script
+
+
+def test_purge_build_credentials_script_removes_the_jwt_keypair():
+    script = PURGE_BUILD_CREDENTIALS_SCRIPT.read_text()
+
+    # Workaround: the manager's --clear removes apid.pem but not the JWT signing keypair.
+    assert 'rm -f "${MANAGER_API_JWT_PRIVATE}" "${MANAGER_API_JWT_PUBLIC}"' in script
+    assert 'MANAGER_API_JWT_PRIVATE="${MANAGER_HOME}/api/configuration/security/private_key.pem"' in script
+    assert '"${MANAGER_API_JWT_PRIVATE}" "${MANAGER_API_JWT_PUBLIC}"; do' in script
 
 
 def test_purge_build_credentials_script_gives_no_stdin_to_the_resolvers():

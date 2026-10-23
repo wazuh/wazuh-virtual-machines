@@ -6,11 +6,6 @@
 #   - directories: list of subdirectories to be created within the current directory. Each subdirectory can contain its own files and subdirectories.
 
 name: "wazuh-ami-customizer"
-files:
-  - path: "{{ remote_certs_path }}/{{ certs_tool }}"
-    local: false
-  - path: "{{ remote_certs_path }}/{{ certs_config }}"
-    local: false
 directories:
   - name: "src"
     files:
@@ -29,16 +24,6 @@ directories:
                     local: true
                   - path: "configurer/core/utils/credentials.py"
                     local: true
-              - name: "models"
-                files:
-                  - path: "configurer/core/models/certificates_manager.py"
-                    local: true
-                  - path: "configurer/core/models/wazuh_components_config_manager.py"
-                    local: true
-                  - path: "configurer/core/models/wazuh_config_mapping.py"
-                    local: true
-                  - path: "configurer/core/models/__init__.py"
-                    local: true        
       - name: "generic"
         files:
           - path: "generic/__init__.py"

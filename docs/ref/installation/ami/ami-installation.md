@@ -51,11 +51,23 @@ user: admin
 
 Use the public IP address (or public DNS name) that AWS assigns to the instance, or its private IP address if you are within a VPC without internet access. The security group must allow inbound HTTPS (TCP 443).
 
-There is no default password. On its first boot the instance generates unique passwords for every Wazuh account and stores them in `/etc/wazuh/credentials.env` (readable by root only). Connect with SSH and read the `admin` password with:
+There is no default password. On its first boot the instance generates unique passwords for every Wazuh account. The indexer and dashboard ones are in `/etc/wazuh-indexer/export/credentials.env` and the Server API ones in `/etc/wazuh-manager/export/credentials.env` (readable by root only). Connect with SSH and read the `admin` password with:
 
 ```bash
 ssh -i "<KEY_PAIR_NAME>" wazuh-user@<instance_ip>
-sudo grep '^WAZUH_INDEXER_ADMIN_PASSWORD=' /etc/wazuh/credentials.env | cut -d= -f2-
+sudo grep '^WAZUH_INDEXER_ADMIN_PASSWORD=' /etc/wazuh-indexer/export/credentials.env | cut -d= -f2-
 ```
 
-For security, save the passwords somewhere safe and then delete the file (`sudo rm /etc/wazuh/credentials.env`). The SSH login banner reminds you of this. See [AMI security](../../security/ami/ami-security.md#wazuh-credentials) for the rest of the accounts and how to change a password.
+Keep both files: each one is part of its package's state, and the other packages read it. The SSH login banner names both. See [AMI security](../../security/ami/ami-security.md#wazuh-credentials) for the rest of the accounts and how to change a password.
+
+## Enroll agents
+
+Agents enroll with a token the manager mints for the address they will connect to. As root on the instance:
+
+```bash
+/var/wazuh-manager/bin/wazuh-manager-authd --create-enrollment-token --address <instance_ip_or_dns_name>
+```
+
+Pass the token to the agent installer as `WAZUH_ENROLLMENT_TOKEN`, with the same address as the manager. The security group must allow inbound TCP 1517 from the agents (1514 for legacy agents).
+
+The address must be one the manager's certificate names: the instance's private and public IP addresses and DNS names at first boot. Otherwise the mint fails with `ERROR 9025: Enrollment token refused: address not in certificate SAN`. If the address changed after the first boot, reissue the manager certificates first (see [Certificate lifecycle after first boot](../../modules/configurer/post/ami/post-ami.md#certificate-lifecycle-after-first-boot)).
