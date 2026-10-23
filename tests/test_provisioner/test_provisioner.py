@@ -4,9 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import AnyUrl
 
-from provisioner.models.certs_info import CertsInfo
 from provisioner.models.component_info import ComponentInfo
-from provisioner.models.passwords_tool_info import PasswordsToolInfo
 from provisioner.provisioner import Provisioner
 from provisioner.utils import Package_manager, Package_type
 from utils.enums import Component
@@ -52,21 +50,9 @@ def component_info_valid(valid_inventory):
         package_url=AnyUrl("http://packages-staging.xdrsiem.wazuh.info"),
         dependencies=dependencies,
     )
-    certs = CertsInfo(
-        certs_url_content={
-            "certs_tool": "http://packages-staging.xdrsiem.wazuh.info/example/certs-tool.sh",
-            "config": "http://packages-staging.xdrsiem.wazuh.info/example/config.yml",
-        }
-    )
-    passwords_tool = PasswordsToolInfo(
-        url=AnyUrl("http://packages-staging.xdrsiem.wazuh.info/example/passwords-tool.sh")
-    )
-
     package_type = Package_type.RPM
     return Provisioner(
         inventory=valid_inventory,
-        certs=certs,
-        passwords_tool=passwords_tool,
         components=[component_manager],
         package_type=package_type,
     )
@@ -88,12 +74,6 @@ def test_provision_success(
 ):
     mock_client_instance = MagicMock()
     mock_paramiko.return_value = mock_client_instance
-
-    tools_expect_commands = [
-        "mkdir -p ~/wazuh-configure/tools/certs && curl -s -o ~/wazuh-configure/tools/certs/certs-tool.sh 'http://packages-staging.xdrsiem.wazuh.info/example/certs-tool.sh'",
-        "mkdir -p ~/wazuh-configure/tools/certs && curl -s -o ~/wazuh-configure/tools/certs/config.yml 'http://packages-staging.xdrsiem.wazuh.info/example/config.yml'",
-        "mkdir -p ~/wazuh-configure/tools && curl -s -o ~/wazuh-configure/tools/passwords-tool.sh 'http://packages-staging.xdrsiem.wazuh.info/example/passwords-tool.sh'",
-    ]
 
     dependencies_expect_commands = [
         "sudo wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq",
@@ -119,70 +99,22 @@ def test_provision_success(
         key_filename=str(component_info_valid.inventory.ansible_ssh_private_key_file),
     )
 
-    assert (
-        mock_exec_command.call_count == 8
-    )  # 3 for dependencies, 3 for tools (certs-tool and password-tool), 1 download package, 1 install package
-
-    # tools
-    assert tools_expect_commands[0] in mock_exec_command.call_args_list[0].kwargs["command"]
-    assert tools_expect_commands[1] in mock_exec_command.call_args_list[1].kwargs["command"]
-    assert tools_expect_commands[2] in mock_exec_command.call_args_list[2].kwargs["command"]
+    # 3 for dependencies, 1 download package, 1 install package. No certs or passwords tool: the
+    # packages resolve their own credentials since RC 2.
+    assert mock_exec_command.call_count == 5
+    assert not any("tool" in call.kwargs["command"] for call in mock_exec_command.call_args_list)
 
     # dependencies
-    assert dependencies_expect_commands[0] in mock_exec_command.call_args_list[3].kwargs["command"]
-    assert dependencies_expect_commands[1] in mock_exec_command.call_args_list[3].kwargs["command"]
-    assert dependencies_expect_commands[2] in mock_exec_command.call_args_list[4].kwargs["command"]
-    assert dependencies_expect_commands[3] in mock_exec_command.call_args_list[5].kwargs["command"]
+    assert dependencies_expect_commands[0] in mock_exec_command.call_args_list[0].kwargs["command"]
+    assert dependencies_expect_commands[1] in mock_exec_command.call_args_list[0].kwargs["command"]
+    assert dependencies_expect_commands[2] in mock_exec_command.call_args_list[1].kwargs["command"]
+    assert dependencies_expect_commands[3] in mock_exec_command.call_args_list[2].kwargs["command"]
 
     # package
-    assert package_expect_commands[0] in mock_exec_command.call_args_list[6].kwargs["command"]
-    assert package_expect_commands[1] in mock_exec_command.call_args_list[7].kwargs["command"]
+    assert package_expect_commands[0] in mock_exec_command.call_args_list[3].kwargs["command"]
+    assert package_expect_commands[1] in mock_exec_command.call_args_list[4].kwargs["command"]
     mock_logger.debug_title.assert_any_call("Starting provisioning")
-    mock_logger.debug_title.assert_any_call("Provisioning certificates files")
     mock_logger.debug_title.assert_any_call("Starting provisioning for wazuh manager")
-
-
-@pytest.mark.parametrize(
-    "certs_component, certs_method",
-    [("certs-tool.sh", "certs_tool_provision"), ("config.yml", "certs_config_provision")],
-)
-@patch("paramiko.SSHClient")
-def test_certs_tool_provision_success(
-    mock_paramiko, certs_component, certs_method, mock_logger, component_info_valid, mock_exec_command
-):
-    mock_client_instance = MagicMock()
-    mock_paramiko.return_value = mock_client_instance
-
-    getattr(component_info_valid, certs_method)(mock_client_instance)
-
-    mock_exec_command.assert_called_once_with(
-        command=f"mkdir -p ~/wazuh-configure/tools/certs && curl -s -o ~/wazuh-configure/tools/certs/{certs_component} 'http://packages-staging.xdrsiem.wazuh.info/example/{certs_component}'",
-        client=mock_client_instance,
-    )
-    mock_logger.debug.assert_any_call(f"Provisioning {certs_component}")
-
-
-@pytest.mark.parametrize(
-    "certs_component, certs_method",
-    [("certs-tool.sh", "certs_tool_provision"), ("config.yml", "certs_config_provision")],
-)
-@patch("paramiko.SSHClient")
-def test_certs_tool_provision_failure(
-    mock_paramiko, certs_component, certs_method, mock_logger, component_info_valid, mock_exec_command
-):
-    mock_client_instance = MagicMock()
-    mock_paramiko.return_value = mock_client_instance
-    mock_exec_command.return_value = "Bad output", "Error output"
-
-    with pytest.raises(Exception, match=f"Error downloading {certs_component}"):
-        getattr(component_info_valid, certs_method)(mock_client_instance)
-
-    mock_exec_command.assert_called_once_with(
-        command=f"mkdir -p ~/wazuh-configure/tools/certs && curl -s -o ~/wazuh-configure/tools/certs/{certs_component} 'http://packages-staging.xdrsiem.wazuh.info/example/{certs_component}'",
-        client=mock_client_instance,
-    )
-    mock_logger.debug.assert_any_call(f"Provisioning {certs_component}")
-    mock_logger.error.assert_called_once_with(f"Error downloading {certs_component}: Error output")
 
 
 @pytest.mark.parametrize(
