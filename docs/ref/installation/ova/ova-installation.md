@@ -45,19 +45,31 @@ URL: https://<wazuh_manager_ip>
 user: admin
 ```
 
-There is no default password. On its first boot the VM generates unique passwords for every Wazuh account and stores them in `/etc/wazuh/credentials.env` (readable by root only). Log in as `wazuh-user` and read the `admin` password with:
+There is no default password. On its first boot the VM generates unique passwords for every Wazuh account. The indexer and dashboard ones are in `/etc/wazuh-indexer/export/credentials.env` and the Server API ones in `/etc/wazuh-manager/export/credentials.env` (readable by root only). Log in as `wazuh-user` and read the `admin` password with:
 
 ```bash
-sudo grep '^WAZUH_INDEXER_ADMIN_PASSWORD=' /etc/wazuh/credentials.env | cut -d= -f2-
+sudo grep '^WAZUH_INDEXER_ADMIN_PASSWORD=' /etc/wazuh-indexer/export/credentials.env | cut -d= -f2-
 ```
 
-For security, save the passwords somewhere safe and then delete the file (`sudo rm /etc/wazuh/credentials.env`). The console login banner reminds you of this. See [OVA security](../../security/ova/ova-security.md#wazuh-credentials) for the rest of the accounts.
+Keep both files: each one is part of its package's state, and the other packages read it. The console login banner names both. See [OVA security](../../security/ova/ova-security.md#wazuh-credentials) for the rest of the accounts.
 
 You can find `<wazuh_manager_ip>` by typing the following command in the VM:
 
 ```bash
 ip a
 ```
+
+## Enroll agents
+
+Agents enroll with a token the manager mints for the address they will connect to. As root on the VM:
+
+```bash
+/var/wazuh-manager/bin/wazuh-manager-authd --create-enrollment-token --address <wazuh_manager_ip>
+```
+
+Pass the token to the agent installer as `WAZUH_ENROLLMENT_TOKEN`, with the same address as the manager. Agents connect on TCP 1517 (1514 for legacy agents): with a NAT network, forward those ports to the VM.
+
+The address must be one the manager's certificate names: the VM's host name and the addresses it had at first boot. Otherwise the mint fails with `ERROR 9025: Enrollment token refused: address not in certificate SAN`. If the address changed after the first boot, reissue the manager certificates first (see [Certificate lifecycle after first boot](../../modules/configurer/post/ova/post-ova.md#certificate-lifecycle-after-first-boot)).
 
 ## VirtualBox time configuration
 

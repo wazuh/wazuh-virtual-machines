@@ -8,7 +8,7 @@ The AMI pre-configuration step includes several system-level tasks to prepare th
 - Changing the machine’s hostname.
 - Modifying various files from the base image.
 - Creating necessary directories for the post-configurer to run.
-- Creating a service (`updateIndexerHeap.service`) that sets the Wazuh Indexer JVM heap size to a quarter of the total RAM. It runs on the first boot of the deployed instance, so the heap is sized against the RAM of the final host.
+- Creating a service (`updateIndexerHeap.service`) that sets the Wazuh Indexer JVM heap size to a quarter of the total RAM. It runs only on the first boot of the deployed instance, before the Wazuh indexer starts, so the heap is sized against the RAM of the final host; it then disables itself, so a heap changed later in `/etc/wazuh-indexer/jvm.options` is kept across reboots.
 
 These changes prepare the AMI environment to continue with the full configuration process.
 

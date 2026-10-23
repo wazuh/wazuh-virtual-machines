@@ -7,11 +7,9 @@ from models import Inventory
 from provisioner.utils import Component_arch, Package_type
 from utils import Component
 
-from .certs_info import CertsInfo
 from .components_dependencies import ComponentsDependencies
 from .package_info import PackageInfo
-from .passwords_tool_info import PasswordsToolInfo
-from .utils import format_certificates_urls_file, format_component_urls_file, format_passwords_tool_urls_file
+from .utils import format_component_urls_file
 
 
 class Input(BaseModel):
@@ -29,7 +27,6 @@ class Input(BaseModel):
     Properties:
         dependencies (ComponentsDependencies): Parsed dependencies from the dependencies file.
         packages_url_content (PackageInfo): Parsed package information from the packages URL file.
-        certificates_content (CertsInfo): Parsed certificate information from the packages URL file.
         inventory_content (Inventory): Inventory content for the given host name.
     """
 
@@ -59,24 +56,6 @@ class Input(BaseModel):
             )
         except FileNotFoundError as err:
             raise FileNotFoundError(f"Packages file not found at {self.packages_url_path}") from err
-
-    @property
-    def certificates_content(self) -> CertsInfo:
-        try:
-            certs_data = format_certificates_urls_file(self.packages_url_path)
-            return CertsInfo(certs_url_content=certs_data)
-        except FileNotFoundError as err:
-            raise FileNotFoundError(f"Certificates file not found at {self.packages_url_path}") from err
-
-    @property
-    def passwords_tool_content(self) -> PasswordsToolInfo:
-        try:
-            passwords_tool_data = format_passwords_tool_urls_file(self.packages_url_path)
-            if passwords_tool_data is None:
-                raise ValueError("Passwords tool URL not found in the packages URL file.")
-            return PasswordsToolInfo(url=passwords_tool_data)
-        except FileNotFoundError as err:
-            raise FileNotFoundError(f"Passwords tool file not found at {self.packages_url_path}") from err
 
     @property
     def inventory_content(self, host_name: str | None = None) -> Inventory | None:

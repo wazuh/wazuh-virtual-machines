@@ -6,50 +6,53 @@ The **AMI Post-configurer** is responsible for preparing the AMI to be exported 
 - Deleting any Wazuh indices created in the indexer during the configuration process.
 - Removing the credentials, certificates and CA resolved at build time, so no two instances share them.
 - Clearing all log files that may have been generated during the configuration.
-- Removing the base directory created in the provisioner step that contains the certs tool and component packages.
+- Removing the base directory created in the provisioner step that contains the component packages.
 
 These steps ensure that when a user launches an instance from the base AMI image, they will find a clean Wazuh environment.
 
-## Creation of Custom Certificate Service
+## First-boot customization service
 
-In the **core-configurer**, certificates are created for each Wazuh component. When creating the AMI, every instance launched from this image will have the same certificates, which could pose a security issue.
+Every instance launched from the AMI has to end up with its own credentials, CA and certificates, never the build's. A custom systemd service (`wazuh-ami-customizer`) runs once on the first boot: it lets each package issue its certificates, starts the services in order and enrolls the pre-installed agent (see below).
 
-To address this, a custom systemd service is created that, when the instance starts for the first time, generates new certificates for each Wazuh component and restarts the services. This ensures that each instance has unique certificates.
+For this service, a Python virtual environment is set up with the necessary dependencies to run the corresponding Python scripts. This virtual environment is created during the post-configurer process, and the service files and the virtual environment are deleted once the service succeeds.
 
-For this service, a Python virtual environment is set up with the necessary dependencies to run the corresponding Python scripts. This virtual environment is created during the post-configurer process, so that when the service runs and generates the new certificates, the service files and the virtual environment used for execution are deleted. This ensures that any unnecessary files and dependencies are removed from the system.
+## Credentials and certificates: each package's own, issued per instance on first boot
 
-## Credentials: generated per instance on first boot
+Since 5.0.0 RC 2 ([wazuh/internal-devel-requests#7048](https://github.com/wazuh/internal-devel-requests/issues/7048)) every package owns its credentials under its own configuration directory, and there is no shared `/etc/wazuh` any more:
 
-The Wazuh 5.0 packages generate their own passwords ([wazuh/wazuh-indexer#1928](https://github.com/wazuh/wazuh-indexer/issues/1928)): there are no fixed default passwords such as `admin:admin` or `wazuh:wazuh` any more. Each package runs `resolve-credentials` when it is installed (`--install`) and again when its service starts (`--prestart`), and publishes the passwords it owns to `/etc/wazuh/credentials.env` (`root:root 0600`).
+| Directory | What the package keeps there |
+|---|---|
+| `/etc/<package>/ca/` | its own CA, minted at `--install` (key included, root only) |
+| `/etc/<package>/certs/` | its pairs, and the peers' CAs it imported |
+| `/etc/<package>/export/` | what its peers need: `credentials.env` with the passwords it owns, `ca.pem`, and the indexer's client pair for the manager |
+| `/etc/<package>/local.env` | optional values supplied by the operator (passwords, SAN lists) |
 
-**Build.** The packages are installed, so the build resolves credentials of its own. Once every service is stopped, `purge-build-credentials.sh` (`configurer/core/static/`) runs each package's `resolve-credentials --clear` and removes `/etc/wazuh`. Until the packages' `--clear` covers them, it also applies three workarounds, to be removed in the next release:
+`<package>` is `wazuh-indexer`, `wazuh-manager` or `wazuh-dashboard`. Each package runs `resolve-credentials` when it is installed (`--install`) and before every start (`--prestart`). On a single host each one imports its peers' `export/` by itself: the manager takes the indexer's CA, client pair and `wazuh-manager` password; the dashboard takes the indexer's and the manager's CAs and passwords. There are no fixed default passwords such as `admin:admin` or `wazuh:wazuh`.
 
-1. It restores the indexer's password placeholders in `internal_users.yml`. The indexer's `--clear` keeps the build-time digests, and the first boot would then publish passwords the indexer does not accept.
-2. It removes the Server API TLS pair (`apid.pem`/`apid-key.pem`) and JWT signing keypair (`api/configuration/security/private_key.pem`/`public_key.pem`) created during the build. First boot issues a new TLS pair from the instance CA, and the API creates a new keypair.
-3. It removes the build CA the indexer postinst imported into the indexer JDK truststore (`cacerts`, alias `wazuh-root-ca`). First boot imports the instance's own CA there instead.
+**Build.** No certificate is generated by the build: the packages' postinst already issues them. Once every service is stopped, `purge-build-credentials.sh` (`configurer/core/static/`) runs each package's `resolve-credentials --clear`. It removes what the package made: its pairs, its minted CA, its `export/`, the peers' files it imported, and, for the indexer, the password digests in `internal_users.yml`, the DN settings and its CA in the JDK truststore; for the manager, `rbac.db` and its keystore. One workaround remains until the manager's `--clear` covers it: the script removes the Server API JWT signing keypair (`api/configuration/security/private_key.pem`/`public_key.pem`), and the API creates a new one.
 
-The script fails the build if anything resolved at build time is left: `/etc/wazuh`, the indexer marker, `rbac.db`, the manager keystore, a digest instead of a placeholder, a component certificate, the API pair or keypair, or the truststore alias.
+The script fails the build if anything resolved at build time is left: `/etc/wazuh`, the indexer marker, `rbac.db`, the manager keystore, anything in a package's `ca/` or `export/`, a component certificate (the manager's `indexer-ca.pem` and `indexer-connector*.pem` included), a digest instead of a placeholder, the JWT keypair or the truststore alias.
 
-**First boot**, strictly in this order and never in parallel:
+**First boot** (`wazuh-ami-customizer.py`), strictly in this order and never in parallel:
 
-1. `wazuh-certs-tool.sh` creates this instance's CA and certificates. The CA goes to `/etc/wazuh/ca/` and each pair to its component. The manager gets the indexer-connector pair, the agent listener pair (`remoted.pem`) and the Server API pair (`apid.pem`), all replacing whatever a failed earlier attempt left there; the same detected addresses go to the SAN of both `remoted.pem` and `apid.pem`. `wazuh-manager-certs stamp` then publishes the manager's new `root-ca.pem` to the agents, so remoted does not warn that the bundle changed outside the tool. The CA is also imported into the indexer JDK truststore as `wazuh-root-ca` (workaround 3). `nodes_dn` and `authcz.admin_dn` are written from the certificates just installed, since their subject order depends on the certs-tool version. Certificates must be in place before the first start: the packages never issue them outside `--install`.
-2. The indexer starts: its `--prestart` generates `admin`, `kibanaserver` and `wazuh-manager` and publishes them.
-3. `indexer-security-init.sh` loads the security configuration (a manual step of the indexer package).
-4. The manager starts: it generates the Server API passwords (`wazuh`, `wazuh-internal-client`) and reads `WAZUH_INDEXER_MANAGER_PASSWORD`.
-5. The dashboard starts: it reads `kibanaserver` and `wazuh-internal-client`.
+1. The instance's addresses are written as the SANs of the manager's pairs, in `/etc/wazuh-manager/local.env` (`WAZUH_MANAGER_REMOTED_CERT_SANS` and `WAZUH_MANAGER_APID_CERT_SANS`, `root:root 0600`): the host name, every `hostname -I` address, and the public IPv4 and the private and public DNS names from `ec2-metadata`, each with its `IP:` or `DNS:` prefix. The public IPv4 is on no interface (AWS 1:1 NAT), so the resolver could not discover it, and a list there replaces the resolver's own discovery; the resolver appends the loopback names. The same list goes to the dashboard as `WAZUH_DASHBOARD_CERT_SANS` in `/etc/wazuh-dashboard/local.env` (`root:root 0600`), since users open it by the public address too. The indexer needs no list: it is only reached locally, and it takes the addresses of the default-route interfaces.
+2. Each package's `resolve-credentials --install` runs, indexer first, then manager, then dashboard: each mints its own CA, issues its pairs with this instance's addresses and publishes its `export/`. `--install` is the only mode that issues certificates. `wazuh-manager-certs stamp` then publishes the manager's `certs/root-ca.pem` to the agents, so remoted does not warn that the bundle changed outside the tool.
+3. The indexer starts, and `indexer-security-init.sh` loads its security configuration (a manual step of the indexer package).
+4. The manager starts: its `--prestart` imports the indexer's CA, client pair and password.
+5. The dashboard starts: its `--prestart` imports the indexer's and the manager's CAs and passwords.
 
-Every readiness check reads its password from `credentials.env` and hands it to curl through its standard input, never on a command line. No passwords tool is involved on first boot: the packages generate a unique password per instance.
+If a service does not start, its `--prestart` lines (`MISSING`, `INVALID`, `UNSAFE`) are logged from the unit journal before the customizer aborts. Every readiness check reads its password from the owner's `export/credentials.env` and hands it to curl through its standard input, never on a command line.
 
-**Where the user finds the password.** `credentials.env` is left in place: the dashboard user is `admin`, with the password in `WAZUH_INDEXER_ADMIN_PASSWORD` (`sudo grep '^WAZUH_INDEXER_ADMIN_PASSWORD=' /etc/wazuh/credentials.env | cut -d= -f2-`). The login banner says so, and recommends deleting the file once the passwords are saved.
+**Where the user finds the password.** The dashboard user is `admin`, with the password in `WAZUH_INDEXER_ADMIN_PASSWORD` of `/etc/wazuh-indexer/export/credentials.env` (`sudo grep '^WAZUH_INDEXER_ADMIN_PASSWORD=' /etc/wazuh-indexer/export/credentials.env | cut -d= -f2-`). The Server API passwords are in `/etc/wazuh-manager/export/credentials.env`. The login banner names both files. They stay in place: they are part of each package's state, and its peers read them.
 
 ## Wazuh Agent enrollment on first boot
 
 Wazuh 5.0 ([wazuh/wazuh#39063](https://github.com/wazuh/wazuh/issues/39063)) replaced the shared Authd registration password with a per-agent `WAZUH_ENROLLMENT_TOKEN`. The pre-installed agent is no longer handed a copy of the manager's `authd.pass`; it is handed a token that the manager mints for it, on this instance, at first boot.
 
-The same first-boot custom service that regenerates the certificates (`wazuh-ami-customizer.py`) does it in this order:
+The same first-boot custom service that has the packages issue the certificates (`wazuh-ami-customizer.py`) does it in this order:
 
-1. **Clears the enrollment state baked into the image.** The manager's `authd.pass` and its enrollment token store (`/var/wazuh-manager/etc/enrollment_tokens.json`) are removed, and so is everything on the agent side that would make the token bootstrap decline to run: its trust anchor (`/var/ossec/etc/certs/root-ca.pem`), the `.anchor-committed` marker next to it and its re-enrollment secret. Its `client.keys` is emptied later, in step 3. The bootstrap refuses to run whenever the agent already holds an anchor or a non-empty `client.keys` — it deletes the token unused in both cases — so a baked anchor or a baked key would silently turn the fresh token into a no-op and leave every instance launched from the base AMI enrolled under one identity.
-2. **Regenerates the certificates**, which is what puts this instance's own addresses into `remoted.pem`'s SAN. A mint is refused against a certificate whose SAN names loopback and nothing else, so this has to come first.
+1. **Clears the enrollment state baked into the image.** The manager's `authd.pass` and its enrollment token store (`/etc/wazuh-manager/enrollment_tokens.json`) are removed, and so is everything on the agent side that would make the token bootstrap decline to run: its trust anchor (`/var/ossec/etc/certs/root-ca.pem`), the `.anchor-committed` marker next to it and its re-enrollment secret. Its `client.keys` is emptied later, in step 3. The bootstrap refuses to run whenever the agent already holds an anchor or a non-empty `client.keys` — it deletes the token unused in both cases — so a baked anchor or a baked key would silently turn the fresh token into a no-op and leave every instance launched from the base AMI enrolled under one identity.
+2. **Has the packages issue the certificates**, which is what puts this instance's own addresses into `remoted.pem`'s SAN. A mint is refused against a certificate whose SAN names loopback and nothing else, so this has to come first.
 3. **Empties the agent's `client.keys`, first removing the agent it names, if any**, once the manager API is up. Doing it in this one step, and not in step 1, means a run that fails before the API is up keeps the ID on disk for the next one. The customizer only removes its service once it succeeds, so it runs again on the next boot after a failure; if that failure came after the agent enrolled, the manager still has it registered under the same name and would reject the new enrollment as a duplicate. The agent is removed through the Server API (`DELETE /agents?agents_list=<id>&status=all&older_than=0s&purge=true`), since the 5.0.0 manager has no local CLI to remove agents. A failure here is logged as a warning and does not stop the boot. On a normal first boot `client.keys` is already empty and nothing is removed.
 4. **Mints the token** once the manager is up: `wazuh-manager-authd --create-enrollment-token --address 127.0.0.1 --embed-ca --max-uses 1`. Minting goes through the manager's local `authd` socket, so the manager has to be running; the call is retried while the socket is still coming up.
 5. **Stores it** at `/var/ossec/etc/enrollment_token`, created and locked down to `0600 root:root` *before* the token is written into it, the same way the agent installer writes it. The token never appears on a command line.
@@ -57,20 +60,44 @@ The same first-boot custom service that regenerates the certificates (`wazuh-ami
 
 Some details worth knowing:
 
-- **`--address 127.0.0.1`.** Manager and agent are on the same instance, so loopback is the one address that is always reachable and never changes, and it is already what the agent's `<manager><endpoint>` holds. It is a SAN entry of `remoted.pem` through the manager node of the cert-tool config.
+- **`--address 127.0.0.1`.** Manager and agent are on the same instance, so loopback is the one address that is always reachable and never changes, and it is already what the agent's `<manager><endpoint>` holds. The manager's resolver always adds it to `remoted.pem`'s SANs.
 - **`--embed-ca`** carries the CA inside the token instead of a pin of it, so the agent gets its trust anchor without first fetching `/cacerts` over a connection it cannot verify yet.
 - **The token's 30-day TTL** (the CLI default, [wazuh/wazuh#39068](https://github.com/wazuh/wazuh/issues/39068)) is irrelevant here and is left alone on purpose: a token is minted on every first boot and consumed within seconds, so it never gets anywhere near expiring. Do **not** "fix" this later by minting a long-lived token at build time and shipping it in the image — that hands every instance launched from the base AMI the same credential, which is the whole reason this runs at first boot.
 - **No `<ssl><certificate_authorities>` is configured** for the agent. The bootstrap installs the anchor itself, and the agent then resolves `verification_mode` to `full` from the presence of that file. Naming the path in `ossec.conf` instead would point the agent at a file that does not exist yet: the agent validates the configured CA before the bootstrap runs, and fails closed on a CA it cannot read.
 
 ## Certificate lifecycle after first boot
 
-First boot generates a fresh root CA and issues every component's certificate from it, including the manager's agent-listener certificate (`remoted.pem`), whose SAN is built from the addresses detected at that moment (`hostname -I` plus the instance's public IPv4/IPv6 from `ec2-metadata`). If the instance's address changes afterward — a new private IP, a reassigned Elastic IP, a different public address — `remoted.pem`'s SAN goes stale and agents connecting from the new address fail hostname verification.
+Each package keeps the CA it minted on first boot, private key included, in its own `ca/` directory (root only). [wazuh-virtual-machines#957](https://github.com/wazuh/wazuh-virtual-machines/issues/957) only requires that no CA key ships baked into the image, and keeping it is what lets a pair be reissued later without a new CA: "reissuing the leaf is enough and does not break enrolled agents, since they pin the CA rather than the leaf."
 
-[wazuh-virtual-machines#957](https://github.com/wazuh/wazuh-virtual-machines/issues/957), which introduced this first-boot regeneration, asked to decide and document this case: "reissuing the leaf is enough and does not break enrolled agents, since they pin the CA rather than the leaf." Its only requirement about the CA's private key is that it never ships baked into the image (a single `root-ca.key` shared by every instance launched from it would make hostname/chain verification worthless) — nothing in the issue asks a launched instance to destroy its own copy once generated.
+The manager's agent-listener pair (`remoted.pem`) and Server API pair (`apid.pem`) name the names and addresses written to `local.env` at first boot. If they change afterward, agents connecting through the new address fail hostname verification and the manager refuses to mint tokens for it (`ERROR 9025: Enrollment token refused: address not in certificate SAN`). A stopped and started instance without an Elastic IP gets a new public IP and public DNS name, so this happens on an ordinary stop/start too; so does a reassigned Elastic IP or a new private IP.
 
-So this instance's root CA (`root-ca.pem` and `root-ca.key`) is kept, not deleted, in `/etc/wazuh/ca/`, where the packages' shared credentials library expects it (directory `700`, `root-ca.pem` `644`, `root-ca.key` `400`, owner `root:root`). `wazuh-installation-assistant`, which this whole first-boot design otherwise mirrors, does the same with its own equivalent — it `chmod 400`s the generated `root-ca.pem`/`.key` and bundles them into `wazuh-install-files.tar` for the operator to keep (`install_functions/installCommon.sh`) — rather than ever destroying them. An earlier revision of `clean_up()` in `wazuh-ami-customizer.py` deleted `root-ca.key` outright instead of securing it; that satisfied the letter of "not baked into the image" but broke the issue's own reissuing guarantee, and was only caught by tracing the issue's exact wording rather than by anything that runs.
+The packages issue a missing pair from their own CA at `--install` only, so the manager's pairs are reissued by hand, as root:
 
-**To reissue `remoted.pem`'s SAN (and `apid.pem`'s, which is built from the same addresses) after the instance's address changes** (or to add a load balancer's own certificate later, `wazuh-certs-tool.sh -lb`), run `wazuh-certs-tool.sh` again with this CA instead of a new one — versions built on the shared credentials library reuse `/etc/wazuh/ca` by default; older ones take `/etc/wazuh/ca/root-ca.pem` and `root-ca.key` as the existing CA — this keeps every already-enrolled agent's trust intact, since they pinned the CA and it has not changed. There is no automation for this today; it is a manual operator step.
+```bash
+systemctl stop wazuh-manager
+# Edit both lists in /etc/wazuh-manager/local.env (root:root 0600), every entry with its IP: or DNS: prefix:
+#   WAZUH_MANAGER_REMOTED_CERT_SANS=IP:<address>,DNS:<name>,...
+#   WAZUH_MANAGER_APID_CERT_SANS=IP:<address>,DNS:<name>,...
+rm -f /etc/wazuh-manager/certs/remoted.pem /etc/wazuh-manager/certs/remoted-key.pem \
+      /etc/wazuh-manager/certs/apid.pem /etc/wazuh-manager/certs/apid-key.pem
+/var/wazuh-manager/bin/wazuh-manager-resolve-credentials --install
+/var/wazuh-manager/bin/wazuh-manager-certs stamp
+systemctl start wazuh-manager
+```
+
+Remove both pairs: the resolver keeps a complete pair it finds, so a pair left in place keeps the old addresses. Use the full path of `wazuh-manager-certs`: `/var/wazuh-manager/bin` is not in root's `PATH` under `sudo`. Enrolled agents keep trusting the manager: the CA has not changed. There is no automation for this today.
+
+The Wazuh dashboard pair (`/etc/wazuh-dashboard/certs/dashboard.pem`) names the same first-boot addresses, from `WAZUH_DASHBOARD_CERT_SANS` in `/etc/wazuh-dashboard/local.env`. After an address change the dashboard keeps working, but the browser reports a name mismatch for the new address. Its package also issues a missing pair at `--install` only, from the CA it keeps in `ca/`:
+
+```bash
+systemctl stop wazuh-dashboard
+# Edit WAZUH_DASHBOARD_CERT_SANS in /etc/wazuh-dashboard/local.env (root:root 0600), every entry with its IP: or DNS: prefix.
+rm -f /etc/wazuh-dashboard/certs/dashboard.pem /etc/wazuh-dashboard/certs/dashboard-key.pem
+/usr/share/wazuh-dashboard/bin/resolve-credentials --install
+systemctl start wazuh-dashboard
+```
+
+`--install` leaves the passwords already in the dashboard keystore as they are.
 
 ## Considerations
 

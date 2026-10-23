@@ -3,14 +3,12 @@ from unittest.mock import mock_open, patch
 
 import pytest
 import yaml
-from pydantic import AnyUrl, SecretStr
+from pydantic import SecretStr
 
 from models import Inventory
-from provisioner.models.certs_info import CertsInfo
 from provisioner.models.components_dependencies import ComponentsDependencies
 from provisioner.models.input import Input
 from provisioner.models.package_info import PackageInfo
-from provisioner.models.passwords_tool_info import PasswordsToolInfo
 from provisioner.utils import Component_arch, Package_type
 from utils import Component
 
@@ -86,26 +84,6 @@ def test_packages_url_content_file_not_found(mock_format_component_urls_file):
         _ = INPUT_EXAMPLE.packages_url_content
 
 
-@patch("provisioner.models.input.format_certificates_urls_file")
-def test_certificates_content_success(mock_format_certificates_urls_file):
-    mock_format_certificates_urls_file.return_value = {"cert1": "url1", "cert2": "url2"}
-
-    certificates_content = INPUT_EXAMPLE.certificates_content
-
-    mock_format_certificates_urls_file.assert_called_once_with(Path("/path/to/packages_url"))
-    assert isinstance(certificates_content, CertsInfo)
-    assert certificates_content.certs_url_content == {"cert1": "url1", "cert2": "url2"}
-
-
-@patch(
-    "provisioner.models.input.format_certificates_urls_file",
-    side_effect=FileNotFoundError,
-)
-def test_certificates_content_file_not_found(mock_format_certificates_urls_file):
-    with pytest.raises(FileNotFoundError, match="Certificates file not found at /path/to/packages_url"):
-        _ = INPUT_EXAMPLE.certificates_content
-
-
 @patch("builtins.open", new_callable=mock_open, read_data=yaml.dump(INVENTORY_EXAMPLE))
 def test_inventory_content_success(mock_open):
     host_name = "test_host"
@@ -136,39 +114,3 @@ def test_inventory_content_no_host_name(mock_open):
     assert inventory_content.ansible_port == 22
     assert inventory_content.ansible_ssh_private_key_file == Path("/path/to/key")
     assert inventory_content.ansible_ssh_common_args == "-o StrictHostKeyChecking=no"
-
-
-@patch("provisioner.models.input.format_passwords_tool_urls_file")
-def test_passwords_tool_url_success(mock_format_passwords_tool_urls_file):
-    mock_format_passwords_tool_urls_file.return_value = "https://packages-staging.xdrsiem.wazuh.info/password-tool"
-
-    passwords_tool_content = INPUT_EXAMPLE.passwords_tool_content
-
-    mock_format_passwords_tool_urls_file.assert_called_once_with(Path("/path/to/packages_url"))
-    assert isinstance(passwords_tool_content, PasswordsToolInfo)
-    assert passwords_tool_content.url == AnyUrl("https://packages-staging.xdrsiem.wazuh.info/password-tool")
-
-
-@patch("provisioner.models.input.format_passwords_tool_urls_file")
-def test_passwords_tool_url_with_wrong_format(mock_format_passwords_tool_urls_file):
-    mock_format_passwords_tool_urls_file.return_value = "https://wrong-url-not-in-allowwed/passwords-tool"
-
-    with pytest.raises(ValueError, match="URL for passwords-tool is not for Wazuh packages."):
-        _ = INPUT_EXAMPLE.passwords_tool_content
-
-
-@patch("provisioner.models.input.format_passwords_tool_urls_file")
-def test_passwords_tool_url_none_value(mock_format_passwords_tool_urls_file):
-    mock_format_passwords_tool_urls_file.return_value = None
-
-    with pytest.raises(ValueError, match="Passwords tool URL not found in the packages URL file."):
-        _ = INPUT_EXAMPLE.passwords_tool_content
-
-
-@patch(
-    "provisioner.models.input.format_passwords_tool_urls_file",
-    side_effect=FileNotFoundError,
-)
-def test_passwords_tool_url_file_not_found(mock_format_passwords_tool_urls_file):
-    with pytest.raises(FileNotFoundError, match="Passwords tool file not found at /path/to/packages_url"):
-        _ = INPUT_EXAMPLE.passwords_tool_content
