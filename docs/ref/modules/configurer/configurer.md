@@ -4,7 +4,7 @@ The `configurer` module is responsible for all the required configuration tasks,
 
 This module is divided into three main submodules:
 
-- **Core** ([core.md](core/core.md)): Handles the general Wazuh configuration. It generates certificates for each component, installs them, and applies their respective configurations. Once this module is executed, the machine is ready to be used.
+- **Core** ([core.md](core/core.md)): Handles the general Wazuh configuration. It installs each component and applies its configuration; each package issues its own certificates. Once this module is executed, the machine is ready to be used.
 
 - **Pre-configurer**([pre.md](pre/pre.md)): Performs the preliminary setup required before executing the core module. Each deployment type (AMI or OVA) uses this submodule to prepare the environment with deployment-specific settings.
 

@@ -5,7 +5,7 @@ from pydantic import AnyUrl
 
 from generic import exec_command, exec_command_with_status, remote_connection
 from models import Inventory
-from provisioner.models import CertsInfo, ComponentInfo, PasswordsToolInfo
+from provisioner.models import ComponentInfo
 from provisioner.utils import (
     WAZUH_GPG_KEY_FINGERPRINTS,
     WAZUH_GPG_KEY_URL,
@@ -14,7 +14,7 @@ from provisioner.utils import (
     Package_type,
     get_gpg_key_fingerprint,
 )
-from utils import CertificatesComponent, Component, Logger, PasswordToolComponent, RemoteDirectories
+from utils import Component, Logger, RemoteDirectories
 
 logger = Logger("Provisioner")
 
@@ -22,11 +22,14 @@ logger = Logger("Provisioner")
 @dataclass
 class Provisioner:
     """
-    A class to handle the provisioning of components, certificates, and dependencies on remote machines.
+    A class to handle the provisioning of components and dependencies on remote machines.
+
+    It provisions no certs tool and no passwords tool: since 5.0.0 RC 2 each package resolves its own
+    certificates and passwords (`resolve-credentials`), at build and on first boot, and the indexer
+    package ships both tools (/usr/share/wazuh-indexer/tools/) for the user to rotate them later.
 
     Attributes:
         inventory (Inventory): The ansible inventory to connect to the instance.
-        certs (CertsInfo): Information about certificates (certs_tool and config file).
         components (List[ComponentInfo]): List of Wazuh components to be provisioned.
         arch (Component_arch): The architecture of the components. Default is X86_64.
         package_type (Package_type): The type of package to be used. Default is RPM.
@@ -38,8 +41,6 @@ class Provisioner:
     """
 
     inventory: Inventory | None
-    certs: CertsInfo
-    passwords_tool: PasswordsToolInfo
     components: list[ComponentInfo]
     arch: Component_arch = Component_arch.X86_64
     package_type: Package_type = Package_type.RPM
@@ -54,14 +55,11 @@ class Provisioner:
     @remote_connection
     def provision(self, client: paramiko.SSHClient | None = None) -> None:
         """
-        Provisions the necessary certificates and component packages to the client instance.
+        Provisions the component packages to the client instance.
 
         This method performs the following steps:
         1. Logs the start of the provisioning process.
-        2. Provisions the certs_tool using `certs_tool_provision`.
-        3. Provision the config file using `certs_config_provision`.
-        4. Provisions the password tool using `passwords_tool_provision`.
-        5. Iterates over each component and performs the following:
+        2. Iterates over each component and performs the following:
             a. Logs the start of provisioning for the component.
             b. Provisions dependencies for the component using `dependencies_provision`.
             c. Provisions packages for the component using `packages_provision`.
@@ -70,14 +68,6 @@ class Provisioner:
             client (paramiko.SSHClient, optional): The SSH client to use for provisioning. Defaults to a new instance of `paramiko.SSHClient`.
         """
         logger.debug_title("Starting provisioning")
-        logger.debug_title("Provisioning certificates files")
-
-        self.certs_tool_provision(client)
-        self.certs_config_provision(client)
-
-        logger.debug_title("Provisioning password tool")
-
-        self.passwords_tool_provision(client)
 
         logger.debug_title("Provisioning special dependencies")
 
@@ -87,55 +77,6 @@ class Provisioner:
             logger.debug_title(f"Starting provisioning for {component.name.replace('_', ' ')}")
             self.dependencies_provision(component, client)
             self.packages_provision(component, client)
-
-    def certs_tool_provision(self, client: paramiko.SSHClient | None = None) -> None:
-        """
-        Provisions the certs_tool on the specified client.
-
-        This method uses the provided SSH client to connect to a remote machine
-        and provision the certs_tool by calling the `tool_provision`
-        method with the appropriate URL.
-
-        Args:
-            client (paramiko.SSHClient): The SSH client used to connect to the remote machine.
-        """
-        self.tool_provision(
-            self.certs.certs_tool_url, f"{RemoteDirectories.CERTS}", CertificatesComponent.CERTS_TOOL, client
-        )
-
-    def certs_config_provision(self, client: paramiko.SSHClient | None = None) -> None:
-        """
-        Provisions the certs config file on the remote client.
-
-        This method uses the provided SSH client to connect to a remote machine
-        and provision the certs config file by calling the `tool_provision`
-        method with the appropriate URL.
-
-        Args:
-            client (paramiko.SSHClient): The SSH client used to connect to the remote machine.
-
-        Returns:
-            None
-        """
-        self.tool_provision(self.certs.config_url, f"{RemoteDirectories.CERTS}", CertificatesComponent.CONFIG, client)
-
-    def passwords_tool_provision(self, client: paramiko.SSHClient | None = None) -> None:
-        """
-        Provisions the password tool on the specified client.
-
-        This method uses the provided SSH client to connect to a remote machine
-        and provision the password tool by calling the `tool_provision`
-        method with the appropriate URL.
-
-        Args:
-            client (paramiko.SSHClient): The SSH client used to connect to the remote machine.
-        """
-        self.tool_provision(
-            self.passwords_tool.url,
-            f"{RemoteDirectories.PASSWORDS_TOOL}",
-            PasswordToolComponent.PASSWORDS_TOOL,
-            client,
-        )
 
     def special_dependencies_provision(self, client: paramiko.SSHClient | None = None) -> None:
         """
@@ -302,35 +243,6 @@ class Provisioner:
             raise RuntimeError("Error importing the Wazuh GPG key")
 
         return key_id
-
-    def tool_provision(
-        self, tool_url: AnyUrl, tool_dir: str, tool_filename: str, client: paramiko.SSHClient | None = None
-    ) -> None:
-        """
-        Provisions a tool (certs_tool, config file, or password tool) on the remote client.
-        Args:
-            tool_url (AnyUrl): The URL of the tool to be provisioned.
-            tool_dir (str): The directory on the remote client where the tool will be stored.
-            tool_filename (str): The filename of the tool to be provisioned.
-            client (paramiko.SSHClient): The SSH client used to connect to the remote machine.
-        """
-        logger.debug(f"Provisioning {tool_filename}")
-        logger.debug(f"Tool URL used: {tool_url}")
-
-        command_template = "mkdir -p {directory} && curl -s -o {path} '{tool_file_url}'"
-
-        command = command_template.format(
-            directory=tool_dir,
-            path=f"{tool_dir}/{tool_filename}",
-            tool_file_url=tool_url,
-        )
-        _, error_output = exec_command(command=command, client=client)
-
-        if error_output:
-            logger.error(f"Error downloading {tool_filename}: {error_output}")
-            raise RuntimeError(f"Error downloading {tool_filename}")
-
-        logger.info_success(f"{tool_filename} downloaded successfully")
 
     def list_dependencies(self, elements: list[str], component_name: str) -> None:
         """
