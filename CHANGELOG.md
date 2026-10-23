@@ -37,6 +37,7 @@
 
 | Issue | Comment |
 | - | - |
+| [#1051](https://github.com/wazuh/wazuh-virtual-machines/issues/1051) | Align the docs with the 5.0.0 code and packages (upgrade and 4.x migration paths, dashboard certificate reissue, README), and disable the first-boot units before removing them |
 | [#1039](https://github.com/wazuh/wazuh-virtual-machines/issues/1039) | Adapt the AMI and OVA to the 5.0.0 RC 2 per-package credentials: manager configuration in `/etc/wazuh-manager`, passwords read from each package's `export/credentials.env`, the pre-start reason logged when a first-boot service does not start, each package issuing its own certificates on first boot, and the certs and passwords tools no longer used or provisioned |
 | [#1015](https://github.com/wazuh/wazuh-virtual-machines/issues/1015) | Name the release and its production download URL in the stage OVA metadata, mark development builds with `-dev`, remove the stage from the OVA console banner, and set the VirtualBox guest OS type to Fedora (64-bit) |
 | [#1012](https://github.com/wazuh/wazuh-virtual-machines/issues/1012) | Start the OVA and AMI integration tests from PR labels |
@@ -94,6 +95,7 @@
 
 | Issue | Comment |
 | - | - |
+| [#1049](https://github.com/wazuh/wazuh-virtual-machines/issues/1049) | Run the indexer heap service only on the first boot of the AMI and OVA, before the Wazuh indexer starts, so a heap changed later in `jvm.options` is kept |
 | [#1021](https://github.com/wazuh/wazuh-virtual-machines/issues/1021) | Show the Wazuh version in the AMI and OVA SSH login banners: the AMI reads the installed version when the MOTD is regenerated, and the OVA writes it at build time |
 | [#994](https://github.com/wazuh/wazuh-virtual-machines/issues/994) | Generalize the OVA before export: expire the `wazuh-user` password, lock `root`, remove the Vagrant key, the SSH host keys, the `machine-id`, `ec2-user` and the unused `ifcfg-eth0` |
 | [#1027](https://github.com/wazuh/wazuh-virtual-machines/issues/1027) | Start the pre-installed agent when the OVA or AMI first boot runs again after a failure: remove the leftover `.anchor-committed` marker and the agent the failed run registered |

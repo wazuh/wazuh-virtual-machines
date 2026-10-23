@@ -9,7 +9,7 @@ Once the **Provisioner and Core Configurer** have been executed, the Wazuh compo
 
 1. **GRUB bootloader** is configured to display an image with the **Wazuh logo** when loading the VM.  
 2. **FIPS** (Federal Information Processing Standards) is enabled on the VM.  
-3. **JVM** heap size is updated to a quarter of the total RAM. The `updateIndexerHeap.service` runs on the first boot of the deployed VM, so the heap is sized against the RAM of the final host.
+3. **JVM** heap size is updated to a quarter of the total RAM. The `updateIndexerHeap.service` runs only on the first boot of the deployed VM, before the Wazuh indexer starts, so the heap is sized against the RAM of the final host; it then disables itself, so a heap changed later in `/etc/wazuh-indexer/jvm.options` is kept across reboots.
 4. Added `wazuh-starter` service which is responsible for raising each Wazuh component correctly.  
 5. The `root` password is not set (it is locked at the end, see step 18).  
 6. Changed the VM hostname to `wazuh`.  
@@ -101,6 +101,17 @@ systemctl start wazuh-manager
 ```
 
 Remove both pairs: the resolver keeps a complete pair it finds, so a pair left in place keeps the old addresses. Use the full path of `wazuh-manager-certs`: `/var/wazuh-manager/bin` is not in root's `PATH` under `sudo`. Enrolled agents keep trusting the manager: the CA has not changed. There is no automation for this today.
+
+The Wazuh dashboard pair (`/etc/wazuh-dashboard/certs/dashboard.pem`) names the host name and the addresses of the default-route interfaces at first boot. After an address change the dashboard keeps working, but the browser reports a name mismatch for the new address. Its package also issues a missing pair at `--install` only, from the CA it keeps in `ca/`, and takes the addresses the VM has at that moment unless `WAZUH_DASHBOARD_CERT_SANS` is set in `/etc/wazuh-dashboard/local.env` (`root:root 0600`, every entry with its `IP:` or `DNS:` prefix):
+
+```bash
+systemctl stop wazuh-dashboard
+rm -f /etc/wazuh-dashboard/certs/dashboard.pem /etc/wazuh-dashboard/certs/dashboard-key.pem
+/usr/share/wazuh-dashboard/bin/resolve-credentials --install
+systemctl start wazuh-dashboard
+```
+
+`--install` leaves the passwords already in the dashboard keystore as they are.
 
 ## Considerations
 
