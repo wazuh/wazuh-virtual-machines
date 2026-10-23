@@ -1,4 +1,4 @@
-# Wazuh AMI Customizer Service - Used to customize the Wazuh AMI with custom certificates and passwords
+# Wazuh OVA starter - Starts the Wazuh components in order on the first boot of the OVA
 # Copyright (C) Wazuh Inc.
 #
 # This program is a free software; you can redistribute it

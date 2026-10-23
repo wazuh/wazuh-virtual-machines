@@ -412,7 +412,10 @@ function install_credentials() {
 function clean_configuration(){
   logger "Cleaning configuration files"
   eval "rm -rf /var/log/wazuh-starter.log"
+  # Disable the units before removing them, so no dangling symlink is left in the *.wants directories.
+  systemctl --quiet disable wazuh-starter.timer wazuh-starter.service 2>/dev/null || true
   eval "rm -f /etc/.wazuh-starter.sh /etc/systemd/system/wazuh-starter.service /etc/systemd/system/wazuh-starter.timer"
+  systemctl daemon-reload || true
   # Each package's export/credentials.env is kept: it is where the user reads the generated passwords
   # from, and the peers import from it.
 }

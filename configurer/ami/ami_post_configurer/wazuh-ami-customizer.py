@@ -871,12 +871,16 @@ def clean_up() -> None:
 
     logger.debug("Cleaning up temporary files and directories...")
 
+    # The units are disabled before they are removed, so no dangling symlink is left in the
+    # *.wants directories.
     command = f"""
     rm -rf {TEMP_DIR}
     rm -rf {LOGFILE}
+    systemctl --quiet disable wazuh-ami-customizer.timer wazuh-ami-customizer.service 2>/dev/null || true
     rm -rf {SERVICE_NAME}
     rm -rf {SERVICE_TIMER_NAME}
     rm -rf {WAZUH_WARNING_SCRIPT}
+    systemctl daemon-reload || true
     """
     run_command(command=command, error_message="Error cleaning up")
     logger.debug("Clean up completed")
