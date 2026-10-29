@@ -44,7 +44,7 @@ jobs:
       pr_number: ${{ steps.pr_data.outputs.pr_number }}
       pr_head_ref: ${{ steps.pr_data.outputs.pr_head_ref }}
       pr_head_sha: ${{ steps.pr_data.outputs.pr_head_sha }}
-      wazuh_automation_reference: ${{ github.event_name == 'workflow_dispatch' && inputs.wazuh_automation_reference || 'main' }}
+      wazuh_automation_reference: ${{ github.event_name == 'workflow_dispatch' && inputs.wazuh_automation_reference || github.base_ref || 'main' }}
     steps:
       - name: Extract PR data
         id: pr_data

@@ -335,6 +335,30 @@ jobs:
       - name: Set SSH key permissions
         run: chmod 600 /tmp/ssh/${{ needs.ami-setup.outputs.ssh_key_name }}
 
+      - name: Checkout wazuh-virtual-machines (VERSION.json only)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.WAZUH_VIRTUAL_MACHINES_REFERENCE }}
+          sparse-checkout: |
+            VERSION.json
+          sparse-checkout-cone-mode: false
+          path: wazuh-virtual-machines
+
+      # The version checks need an expected version; without the *_VERSION_REVISION inputs,
+      # use the one of the tested branch.
+      - name: Resolve expected versions
+        run: |
+          VERSION=$(jq -r .version wazuh-virtual-machines/VERSION.json)
+          for COMPONENT in MANAGER INDEXER DASHBOARD; do
+            VAR="WAZUH_${COMPONENT}_EXPECTED_VERSION"
+            if [ -z "${!VAR}" ]; then
+              echo "${VAR}=${VERSION}" >> "$GITHUB_ENV"
+              echo "${VAR}=${VERSION}"
+            else
+              echo "${VAR}=${!VAR}"
+            fi
+          done
+
       - name: Run AMI tests
         run: |
           # Find the test_runner executable
@@ -890,6 +914,30 @@ jobs:
               pass
           print("wazuh-user password changed on the first login")
           EOF
+
+      - name: Checkout wazuh-virtual-machines (VERSION.json only)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.WAZUH_VIRTUAL_MACHINES_REFERENCE }}
+          sparse-checkout: |
+            VERSION.json
+          sparse-checkout-cone-mode: false
+          path: wazuh-virtual-machines
+
+      # The version checks need an expected version; without the *_VERSION_REVISION inputs,
+      # use the one of the tested branch.
+      - name: Resolve expected versions
+        run: |
+          VERSION=$(jq -r .version wazuh-virtual-machines/VERSION.json)
+          for COMPONENT in MANAGER INDEXER DASHBOARD; do
+            VAR="WAZUH_${COMPONENT}_EXPECTED_VERSION"
+            if [ -z "${!VAR}" ]; then
+              echo "${VAR}=${VERSION}" >> "$GITHUB_ENV"
+              echo "${VAR}=${VERSION}"
+            else
+              echo "${VAR}=${!VAR}"
+            fi
+          done
 
       - name: Run OVA tests
         run: |

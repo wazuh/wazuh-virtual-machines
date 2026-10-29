@@ -71,7 +71,7 @@ flowchart TD
 | `pr_number` | PR number from the event payload |
 | `pr_head_ref` | PR head branch from the event payload |
 | `pr_head_sha` | PR head SHA from the event payload |
-| `wazuh_automation_reference` | Fixed: `main` |
+| `wazuh_automation_reference` | Base branch of the PR (`github.base_ref`), for example `5.0.0` |
 
 ---
 
