@@ -106,6 +106,8 @@
 | [#1016](https://github.com/wazuh/wazuh-virtual-machines/issues/1016) | Replace the manager CA and indexer-connector pair when the OVA first-boot starter runs again |
 | [#6861](https://github.com/wazuh/external-devel-requests/issues/6861) | Restore the 50 GB OVA disk the OVF declares: grow the Amazon Linux 2023 base disk and extend the root partition and file system |
 | [#6813](https://github.com/wazuh/internal-devel-requests/issues/6813) | Restrict the first-boot certificates tar to root in the OVA and AMI, and remove it as soon as it is consumed |
+| [#993](https://github.com/wazuh/wazuh-virtual-machines/issues/993) | Fix the amd64 instance type (`c5a.2xlarge`) named in the AMI integration tests guide |
+| [#1091](https://github.com/wazuh/wazuh-installation-assistant/issues/1091) | Print only the admin password, not the whole `KEY=value` line, in the AMI and OVA login banners and docs |
 | [#992](https://github.com/wazuh/wazuh-virtual-machines/issues/992) | Fix the GitHub Actions workflow filenames referenced in the AMI and OVA artifact generation guides |
 | [#945](https://github.com/wazuh/wazuh-virtual-machines/pull/945) | Leave the Wazuh services disabled in the AMI so they do not race the customizer on first boot |
 | [#901](https://github.com/wazuh/wazuh-virtual-machines/issues/901) | Remove unnecessary debhelper install-time dependency for wazuh_dashboard |
