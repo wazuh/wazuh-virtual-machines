@@ -5,7 +5,7 @@
 
 | Issue | Comment |
 | - | - |
-| [#6790](https://github.com/wazuh/internal-devel-requests/issues/6790) | Check the signature of the Wazuh packages before installing them in the AMI and OVA, with `--skip-signature-check` for unsigned development packages |
+| [#1017](https://github.com/wazuh/wazuh-virtual-machines/pull/1017) | Check the signature of the Wazuh packages before installing them in the AMI and OVA, with `--skip-signature-check` for unsigned development packages |
 | [#991](https://github.com/wazuh/wazuh-virtual-machines/issues/991) | Add AMI dashboard access instructions and link the official upgrade, configuration and password management guides |
 | [#957](https://github.com/wazuh/wazuh-virtual-machines/issues/957) | Provision the agent listener certificate in the OVA and AMI, and reissue it at first boot |
 | [#944](https://github.com/wazuh/wazuh-virtual-machines/issues/944) | Provision the pre-installed agent's manager CA in AMI/OVA post-configuration |
@@ -40,12 +40,11 @@
 | [#1051](https://github.com/wazuh/wazuh-virtual-machines/issues/1051) | Align the docs with the 5.0.0 code and packages (upgrade and 4.x migration paths, dashboard certificate reissue, README), and disable the first-boot units before removing them |
 | [#1039](https://github.com/wazuh/wazuh-virtual-machines/issues/1039) | Adapt the AMI and OVA to the 5.0.0 RC 2 per-package credentials: manager configuration in `/etc/wazuh-manager`, passwords read from each package's `export/credentials.env`, the pre-start reason logged when a first-boot service does not start, each package issuing its own certificates on first boot, and the certs and passwords tools no longer used or provisioned |
 | [#1015](https://github.com/wazuh/wazuh-virtual-machines/issues/1015) | Name the release and its production download URL in the stage OVA metadata, mark development builds with `-dev`, remove the stage from the OVA console banner, and set the VirtualBox guest OS type to Fedora (64-bit) |
-| [#1012](https://github.com/wazuh/wazuh-virtual-machines/issues/1012) | Start the OVA and AMI integration tests from PR labels |
+| [#1012](https://github.com/wazuh/wazuh-virtual-machines/pull/1012) | Start the OVA and AMI integration tests from PR labels |
 | [#973](https://github.com/wazuh/wazuh-virtual-machines/issues/973) | Adapt AMI and OVA first boot to install-time credential generation |
 | [#975](https://github.com/wazuh/wazuh-virtual-machines/issues/975) | Enroll the pre-installed agent with an enrollment token minted at first boot, instead of copying the manager's `authd.pass` |
-| [#975](https://github.com/wazuh/wazuh-virtual-machines/issues/975) | Fix the OVA/AMI first-boot readiness checks, which asked the indexer and the dashboard for a `wazuh-admin` user that does not exist, and wait for the manager API on the OVA |
 | [#916](https://github.com/wazuh/wazuh-virtual-machines/issues/916) | Adapt the manager certificate deployment to the unified certificate layout |
-| [#912](https://github.com/wazuh/wazuh-virtual-machines/issues/912) | Change Codebuild runners to Github runners |
+| [#912](https://github.com/wazuh/wazuh-virtual-machines/pull/912) | Change Codebuild runners to Github runners |
 | [#883](https://github.com/wazuh/wazuh-virtual-machines/issues/883) | Error on AMI and OVA Build |
 | [#872](https://github.com/wazuh/wazuh-virtual-machines/issues/872) | Update deployment for Wazuh Indexer 5.0.0 RBAC (VMs) |
 | [#859](https://github.com/wazuh/wazuh-virtual-machines/issues/859) | Modify the Wazuh indexer heap size |
@@ -62,6 +61,7 @@
 | [#640](https://github.com/wazuh/wazuh-virtual-machines/pull/640) | Change artifact suffix and prod and pre-prod urls |
 | [#635](https://github.com/wazuh/wazuh-virtual-machines/issues/635) | Wazuh virtual machines - Review and update the passwords tool's naming conventions |
 | [#631](https://github.com/wazuh/wazuh-virtual-machines/pull/631) | Updated wazuh-virtual-machines documentation config and tooling versions to meet new standards. |
+| [#625](https://github.com/wazuh/wazuh-virtual-machines/pull/625) | Split the OVA build workflow into separate jobs and upload the Amazon Linux 2023 `.box` file to S3 next to the OVA |
 | [#584](https://github.com/wazuh/wazuh-virtual-machines/issues/584) | Decouple EC2 bare metal termination from GHA workflow in OVA build and monitor termination failures via EventBridge |
 | [#621](https://github.com/wazuh/wazuh-virtual-machines/pull/621) | Update artifact generation jobs to use wz-linux dedicated runner group |
 | [#599](https://github.com/wazuh/wazuh-virtual-machines/issues/599) | URL presigned file - Update the Wazuh virtual machines arctifact creation workflows |
@@ -69,6 +69,7 @@
 | [#610](https://github.com/wazuh/wazuh-virtual-machines/issues/610) | Wazuh Manager/agent Separation - Breaking changes summary |
 | [#578](https://github.com/wazuh/wazuh-virtual-machines/issues/578) | Addapt Builder OVA and AMI to execute test WF |
 | [#564](https://github.com/wazuh/wazuh-virtual-machines/issues/564) | Development - Separate Agent/Manager - VMs - Update the Wazuh Manager path references to `/var/wazuh-manager/` |
+| [#565](https://github.com/wazuh/wazuh-virtual-machines/issues/565) | Rename the `server` references to `manager` in `config.yml`, enums, descriptions and tests |
 | [#548](https://github.com/wazuh/wazuh-virtual-machines/issues/548) | Adapt the integration test module |
 | [#549](https://github.com/wazuh/wazuh-virtual-machines/issues/549) | Duplicate AMI name in CreateImage in AWS EC2 |
 | [#553](https://github.com/wazuh/wazuh-virtual-machines/pull/553) | Change URL sign expiration time and add debug messages |
@@ -95,7 +96,7 @@
 
 | Issue | Comment |
 | - | - |
-| [#1059](https://github.com/wazuh/wazuh-virtual-machines/issues/1059) | Fixing integration tests |
+| [#1059](https://github.com/wazuh/wazuh-virtual-machines/pull/1059) | Fixing integration tests |
 | [#1049](https://github.com/wazuh/wazuh-virtual-machines/issues/1049) | Run the indexer heap service only on the first boot of the AMI and OVA, before the Wazuh indexer starts, so a heap changed later in `jvm.options` is kept |
 | [#1021](https://github.com/wazuh/wazuh-virtual-machines/issues/1021) | Show the Wazuh version in the AMI and OVA SSH login banners: the AMI reads the installed version when the MOTD is regenerated, and the OVA writes it at build time |
 | [#994](https://github.com/wazuh/wazuh-virtual-machines/issues/994) | Generalize the OVA before export: expire the `wazuh-user` password, lock `root`, remove the Vagrant key, the SSH host keys, the `machine-id`, `ec2-user` and the unused `ifcfg-eth0` |
@@ -104,14 +105,13 @@
 | [#1023](https://github.com/wazuh/wazuh-virtual-machines/issues/1023) | Issue the Server API certificate (`apid.pem`) from the instance CA at first boot in the OVA and AMI, since the manager no longer self-signs it |
 | [#1022](https://github.com/wazuh/wazuh-virtual-machines/issues/1022) | Publish the manager CA bundle with `wazuh-manager-certs stamp` at first boot in the OVA and AMI |
 | [#1016](https://github.com/wazuh/wazuh-virtual-machines/issues/1016) | Replace the manager CA and indexer-connector pair when the OVA first-boot starter runs again |
-| [#6861](https://github.com/wazuh/external-devel-requests/issues/6861) | Restore the 50 GB OVA disk the OVF declares: grow the Amazon Linux 2023 base disk and extend the root partition and file system |
-| [#6813](https://github.com/wazuh/internal-devel-requests/issues/6813) | Restrict the first-boot certificates tar to root in the OVA and AMI, and remove it as soon as it is consumed |
-| [#993](https://github.com/wazuh/wazuh-virtual-machines/issues/993) | Fix the amd64 instance type (`c5a.2xlarge`) named in the AMI integration tests guide |
-| [#1091](https://github.com/wazuh/wazuh-installation-assistant/issues/1091) | Print only the admin password, not the whole `KEY=value` line, in the AMI and OVA login banners and docs |
+| [#1018](https://github.com/wazuh/wazuh-virtual-machines/pull/1018) | Restore the 50 GB OVA disk the OVF declares: grow the Amazon Linux 2023 base disk and extend the root partition and file system |
+| [#1009](https://github.com/wazuh/wazuh-virtual-machines/pull/1009) | Restrict the first-boot certificates tar to root in the OVA and AMI, and remove it as soon as it is consumed |
 | [#992](https://github.com/wazuh/wazuh-virtual-machines/issues/992) | Fix the GitHub Actions workflow filenames referenced in the AMI and OVA artifact generation guides |
+| [#975](https://github.com/wazuh/wazuh-virtual-machines/issues/975) | Fix the OVA/AMI first-boot readiness checks, which asked the indexer and the dashboard for a `wazuh-admin` user that does not exist, and wait for the manager API on the OVA |
 | [#945](https://github.com/wazuh/wazuh-virtual-machines/pull/945) | Leave the Wazuh services disabled in the AMI so they do not race the customizer on first boot |
 | [#901](https://github.com/wazuh/wazuh-virtual-machines/issues/901) | Remove unnecessary debhelper install-time dependency for wazuh_dashboard |
-| [#919](https://github.com/wazuh/wazuh-virtual-machines/pull/919) | Report skipped bumps in the repository bumper workflow |
+| [#909](https://github.com/wazuh/wazuh-virtual-machines/issues/909) | Report skipped bumps in the repository bumper workflow |
 | [#896](https://github.com/wazuh/wazuh-virtual-machines/pull/896) | Fixed changelog check workflow to accept Prior versions entries |
 | [#856](https://github.com/wazuh/wazuh-virtual-machines/issues/856) | Unexpected failure when repository bump is executed and no changes are made |
 | [#826](https://github.com/wazuh/wazuh-virtual-machines/issues/826) | Bumper script issue when the tag is set to false |
