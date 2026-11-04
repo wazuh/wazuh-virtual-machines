@@ -9,6 +9,7 @@
 
 | Issue | Comment |
 | - | - |
+| [#933](https://github.com/wazuh/wazuh-virtual-machines/pull/933) | Migrate Allocator invocation to installable Python package |
 
 ### Removed
 
