@@ -69,6 +69,10 @@ WAZUH_MANAGER_API_USER = "wazuh-internal-client"
 ENROLLMENT_TOKEN_MAX_RETRIES = 12
 ENROLLMENT_TOKEN_WAIT_TIME = 5
 
+# Same budget as wazuh-starter.sh's wait_for_network_address: the resolvers read the addresses once, at --install.
+NETWORK_ADDRESS_MAX_RETRIES = 60
+NETWORK_ADDRESS_WAIT_TIME = 5
+
 # Each package's credential resolver. `--install` mints the package's CA and issues its pairs; it is
 # the only mode that issues certificates, so first boot runs it again after the build purge cleared
 # what the packages' postinst made (wazuh/internal-devel-requests#7048). In this order: the manager
@@ -360,6 +364,22 @@ def run_indexer_security_init() -> None:
     logger.debug("Indexer security initialization completed")
 
 
+def wait_for_network_address() -> None:
+    """Waits until `hostname -I` lists an address; raises RuntimeError if none shows up."""
+
+    for attempt in range(1, NETWORK_ADDRESS_MAX_RETRIES + 1):
+        output = run_command(command="hostname -I", error_message="Error listing local network interface addresses")
+        if output.split():
+            return
+        logger.warning(
+            f"No network address yet (attempt {attempt}/{NETWORK_ADDRESS_MAX_RETRIES}), "
+            f"waiting {NETWORK_ADDRESS_WAIT_TIME} seconds"
+        )
+        time.sleep(NETWORK_ADDRESS_WAIT_TIME)
+
+    raise RuntimeError(f"No network address after {NETWORK_ADDRESS_MAX_RETRIES * NETWORK_ADDRESS_WAIT_TIME} seconds")
+
+
 def get_instance_sans() -> list[str]:
     """
     Collects the names and addresses this instance is reached by, for the manager's and the dashboard's SANs.
@@ -403,11 +423,11 @@ def get_instance_sans() -> list[str]:
         ("--public-hostname", "DNS", "Error retrieving the instance's public DNS name"),
     ):
         metadata_output = run_command(
-            # -f2-: everything after the "public-ipv4:" style label.
-            command=f"ec2-metadata {metadata_flag} | cut -d':' -f2-",
+            # No pipe: run_command has no pipefail, so a pipe would hide ec2-metadata's exit status.
+            command=f"ec2-metadata {metadata_flag}",
             error_message=error_message,
         )
-        value = metadata_output.strip()
+        value = metadata_output.partition(":")[2].strip()
         if value and "not available" not in value:
             sans.append(f"{prefix}:{value}")
 
@@ -900,6 +920,7 @@ if __name__ == "__main__":
         if args.debug:
             logger.info("Wazuh customizer is running in debug mode.")
             debug_ssh_message()
+        wait_for_network_address()
         stop_ssh_service()
         stop_components_services()
         install_credentials()

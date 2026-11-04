@@ -1,7 +1,7 @@
 import importlib.util
 import logging
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -27,11 +27,11 @@ def fake_metadata(command: str) -> str:
     if command == "hostname -I":
         return "172.31.5.10 2600:1f18:aa::5\n"
     if "--public-ipv4" in command:
-        return " 203.0.113.9\n"
+        return "public-ipv4: 203.0.113.9\n"
     if "--local-hostname" in command:
-        return " ip-172-31-5-10.ec2.internal\n"
+        return "local-hostname: ip-172-31-5-10.ec2.internal\n"
     if "--public-hostname" in command:
-        return " not available\n"
+        return "public-hostname: not available\n"
     return ""
 
 
@@ -55,6 +55,59 @@ def test_get_instance_sans_names_the_instance_with_prefixes(customizer, monkeypa
     ]
     # The AL2023 ec2-metadata has no --ipv6 option.
     assert not any("--ipv6" in command for command in commands)
+
+
+def test_get_instance_sans_reads_the_value_after_the_label_and_skips_not_available(customizer, monkeypatch):
+    commands = []
+
+    def run(command, error_message):
+        commands.append(command)
+        return fake_metadata(command)
+
+    monkeypatch.setattr(customizer, "run_command", run)
+
+    sans = customizer.get_instance_sans()
+
+    assert "IP:203.0.113.9" in sans
+    assert not any("not available" in san for san in sans)
+    assert not any("|" in command for command in commands)
+
+
+def test_get_instance_sans_propagates_an_ec2_metadata_failure(customizer, monkeypatch):
+    def run(command, error_message):
+        if command.startswith("ec2-metadata"):
+            raise RuntimeError(error_message)
+        return fake_metadata(command)
+
+    monkeypatch.setattr(customizer, "run_command", run)
+
+    with pytest.raises(RuntimeError, match="public IPv4"):
+        customizer.get_instance_sans()
+
+
+def test_wait_for_network_address_returns_once_an_address_shows_up(customizer, monkeypatch):
+    outputs = iter(["\n", "\n", "172.31.5.10 \n"])
+    monkeypatch.setattr(customizer, "run_command", lambda command, error_message: next(outputs))
+    sleep = MagicMock()
+    monkeypatch.setattr(customizer.time, "sleep", sleep)
+    warning = MagicMock()
+    monkeypatch.setattr(customizer.logger, "warning", warning)
+
+    customizer.wait_for_network_address()
+
+    assert sleep.call_args_list == [call(customizer.NETWORK_ADDRESS_WAIT_TIME)] * 2
+    assert warning.call_count == 2
+
+
+def test_wait_for_network_address_raises_when_no_address_shows_up(customizer, monkeypatch):
+    monkeypatch.setattr(customizer, "run_command", lambda command, error_message: "\n")
+    sleep = MagicMock()
+    monkeypatch.setattr(customizer.time, "sleep", sleep)
+
+    with pytest.raises(RuntimeError, match="No network address"):
+        customizer.wait_for_network_address()
+
+    assert sleep.call_count == customizer.NETWORK_ADDRESS_MAX_RETRIES
 
 
 def test_install_credentials_writes_the_manager_sans_then_installs_in_order(customizer, monkeypatch):
