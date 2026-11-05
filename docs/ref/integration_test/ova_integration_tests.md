@@ -67,7 +67,7 @@ flowchart TD
 | `pr_number` | PR number from the event payload |
 | `pr_head_ref` | PR head branch from the event payload |
 | `pr_head_sha` | PR head SHA from the event payload |
-| `wazuh_automation_reference` | Fixed: `main` |
+| `wazuh_automation_reference` | Base branch of the PR (`github.base_ref`), for example `main` |
 
 ---
 
@@ -128,7 +128,7 @@ The workflow runs three jobs in sequence: `ova-setup` → `test-ova` → `ova-cl
    - Extract `wazuh_ova` field from the resulting `artifact_urls.yaml`
 6. **Provision allocator instance** — a bare-metal EC2 instance required for nested virtualization:
    ```bash
-   python wazuh-automation/deployability/modules/allocation/main.py \
+   wazuh-allocator \
      --action create \
      --provider aws \
      --size metal \
@@ -186,7 +186,7 @@ For details on what the `ova` test type validates, see the `Integration Test Mod
 2. Update paths in `track.yml` to match the download location
 3. Terminate the allocator instance via the `deployability` allocator:
    ```bash
-   python wazuh-automation/deployability/modules/allocation/main.py \
+   wazuh-allocator \
      --action delete \
      --track-output {track_file}
    ```
