@@ -699,12 +699,12 @@ def run_wazuh_banner(tmp_path: Path, version_file: Path) -> str:
 
 def test_wazuh_banner_shows_installed_version(tmp_path):
     version_file = tmp_path / "VERSION.json"
-    version_file.write_text('{\n    "version": "5.0.0",\n    "stage": "rc2"\n}\n')
+    version_file.write_text('{\n    "version": "5.0.0",\n    "stage": "rc3"\n}\n')
 
     output = run_wazuh_banner(tmp_path, version_file)
 
     assert "    Welcome to the Wazuh AMI version 5.0.0\n" in output
-    assert "rc2" not in output
+    assert "rc3" not in output
 
 
 def test_wazuh_banner_without_version_file(tmp_path):
