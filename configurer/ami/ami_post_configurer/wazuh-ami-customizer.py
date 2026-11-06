@@ -73,6 +73,10 @@ ENROLLMENT_TOKEN_WAIT_TIME = 5
 NETWORK_ADDRESS_MAX_RETRIES = 60
 NETWORK_ADDRESS_WAIT_TIME = 5
 
+# ec2-metadata fails while the metadata service does not answer yet, and for good when HttpEndpoint=disabled.
+METADATA_MAX_RETRIES = 12
+METADATA_WAIT_TIME = 5
+
 # Each package's credential resolver. `--install` mints the package's CA and issues its pairs; it is
 # the only mode that issues certificates, so first boot runs it again after the build purge cleared
 # what the packages' postinst made (wazuh/internal-devel-requests#7048). In this order: the manager
@@ -380,6 +384,39 @@ def wait_for_network_address() -> None:
     raise RuntimeError(f"No network address after {NETWORK_ADDRESS_MAX_RETRIES * NETWORK_ADDRESS_WAIT_TIME} seconds")
 
 
+def get_ec2_metadata_sans() -> list[str]:
+    """Reads the public IPv4 and the DNS names from ec2-metadata; returns [] with a warning if it keeps failing."""
+
+    for attempt in range(1, METADATA_MAX_RETRIES + 1):
+        sans: list[str] = []
+        try:
+            for metadata_flag, prefix, error_message in (
+                ("--public-ipv4", "IP", "Error retrieving the instance's public IPv4 address"),
+                ("--local-hostname", "DNS", "Error retrieving the instance's private DNS name"),
+                ("--public-hostname", "DNS", "Error retrieving the instance's public DNS name"),
+            ):
+                metadata_output = run_command(
+                    # No pipe: run_command has no pipefail, so a pipe would hide ec2-metadata's exit status.
+                    command=f"timeout 10 ec2-metadata {metadata_flag}",
+                    error_message=error_message,
+                )
+                value = metadata_output.partition(":")[2].strip()
+                if value and "not available" not in value:
+                    sans.append(f"{prefix}:{value}")
+            return sans
+        except RuntimeError:
+            logger.warning(
+                f"ec2-metadata failed (attempt {attempt}/{METADATA_MAX_RETRIES}), waiting {METADATA_WAIT_TIME} seconds"
+            )
+            time.sleep(METADATA_WAIT_TIME)
+
+    logger.warning(
+        f"ec2-metadata still failing after {METADATA_MAX_RETRIES} attempts: the public IPv4 and the AWS DNS names "
+        "will not be in the certificates, so agents must use the private address"
+    )
+    return []
+
+
 def get_instance_sans() -> list[str]:
     """
     Collects the names and addresses this instance is reached by, for the manager's and the dashboard's SANs.
@@ -417,19 +454,7 @@ def get_instance_sans() -> list[str]:
     )
     sans.extend(f"IP:{ip}" for ip in local_ips_output.split() if ip)
 
-    for metadata_flag, prefix, error_message in (
-        ("--public-ipv4", "IP", "Error retrieving the instance's public IPv4 address"),
-        ("--local-hostname", "DNS", "Error retrieving the instance's private DNS name"),
-        ("--public-hostname", "DNS", "Error retrieving the instance's public DNS name"),
-    ):
-        metadata_output = run_command(
-            # No pipe: run_command has no pipefail, so a pipe would hide ec2-metadata's exit status.
-            command=f"ec2-metadata {metadata_flag}",
-            error_message=error_message,
-        )
-        value = metadata_output.partition(":")[2].strip()
-        if value and "not available" not in value:
-            sans.append(f"{prefix}:{value}")
+    sans.extend(get_ec2_metadata_sans())
 
     sans = list(dict.fromkeys(sans))  # de-dupe (hostname -I and ec2-metadata can report the same IP), keep order
 

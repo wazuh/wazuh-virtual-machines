@@ -73,16 +73,42 @@ def test_get_instance_sans_reads_the_value_after_the_label_and_skips_not_availab
     assert not any("|" in command for command in commands)
 
 
-def test_get_instance_sans_propagates_an_ec2_metadata_failure(customizer, monkeypatch):
+def test_get_instance_sans_retries_ec2_metadata_until_it_answers(customizer, monkeypatch):
+    failures = iter([True, True])
+
     def run(command, error_message):
-        if command.startswith("ec2-metadata"):
+        if "ec2-metadata" in command and next(failures, False):
             raise RuntimeError(error_message)
         return fake_metadata(command)
 
     monkeypatch.setattr(customizer, "run_command", run)
+    sleep = MagicMock()
+    monkeypatch.setattr(customizer.time, "sleep", sleep)
 
-    with pytest.raises(RuntimeError, match="public IPv4"):
-        customizer.get_instance_sans()
+    sans = customizer.get_instance_sans()
+
+    assert "IP:203.0.113.9" in sans
+    assert sleep.call_args_list == [call(customizer.METADATA_WAIT_TIME)] * 2
+
+
+def test_get_instance_sans_keeps_the_local_sans_and_warns_when_ec2_metadata_keeps_failing(customizer, monkeypatch):
+    def run(command, error_message):
+        if "ec2-metadata" in command:
+            raise RuntimeError(error_message)
+        return fake_metadata(command)
+
+    monkeypatch.setattr(customizer, "run_command", run)
+    sleep = MagicMock()
+    monkeypatch.setattr(customizer.time, "sleep", sleep)
+    warning = MagicMock()
+    monkeypatch.setattr(customizer.logger, "warning", warning)
+
+    assert customizer.get_instance_sans() == ["DNS:wazuh", "IP:172.31.5.10", "IP:2600:1f18:aa::5"]
+    assert sleep.call_count == customizer.METADATA_MAX_RETRIES
+    final_warning = warning.call_args.args[0]
+    assert "public IPv4" in final_warning
+    assert "AWS DNS names" in final_warning
+    assert "private address" in final_warning
 
 
 def test_wait_for_network_address_returns_once_an_address_shows_up(customizer, monkeypatch):
