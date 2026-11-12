@@ -16,12 +16,13 @@ Once the **Provisioner and Core Configurer** have been executed, the Wazuh compo
 7. Disable the SSH connection to the `root` user.  
 8. Enable SSH connection via password.  
 9. Execute the `messages.sh` script which adds welcome messages, with the Wazuh version from `VERSION.json`, both at machine startup and login.  
-10. Afterwards the `wazuh-manager` is stopped and the following indexes are deleted:  
-    - `wazuh-alerts-*`  
-    - `wazuh-archives-*`  
-    - `wazuh-states-vulnerabilities-*`  
-    - `wazuh-statistics-*`  
-    - `wazuh-monitoring-*`  
+10. Afterwards the `wazuh-manager` and `wazuh-agent` are stopped and the following indexes and data streams are deleted:  
+    - `wazuh-*`  
+    - `_data_stream/*`  
+    - `.wazuh-cti-consumers`  
+    - `.wazuh-threatintel-vulnerabilities-*`  
+    - `.wazuh-settings`  
+    - `.wazuh-content-manager-jobs`  
 11. The `security-init.sh` is executed.  
 12. Stop `wazuh-indexer` and `wazuh-dashboard` services and disable every Wazuh service (`wazuh-starter` starts them in order on first boot).  
 13. The credentials, certificates and CA resolved at build time are removed (see below).  
