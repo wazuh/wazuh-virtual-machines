@@ -39,6 +39,8 @@ on:
           - prod
           - pre-prod
           - dev
+          - private-stage
+          - private-stage-test
       commit_list:
         description: |
           'Wazuh components revisions (comma-separated string list) ["indexer-revision", "manager-revision", "dashboard-revision", "agent-revision", "assistant-revision"]'
@@ -258,10 +260,23 @@ jobs:
             curl -f "https://${{ vars.PACKAGES_PROD_URL }}/production/${{ env.WAZUH_MAJOR }}.x/artifact-urls/artifact_urls_${{ env.WAZUH_VERSION }}.yaml" -o ${{ env.LOCAL_ARTIFACT_URLS_FILEPATH }}
           elif [ "${{ inputs.wazuh_package_type }}" == "pre-prod" ]; then
             curl -f "https://${{ vars.PACKAGES_STAGING_URL }}/pre-release/${{ env.WAZUH_MAJOR }}.x/artifact-urls/artifact_urls_${{ env.WAZUH_VERSION }}-${{ env.WAZUH_REVISION }}.yaml" -o ${{ env.LOCAL_ARTIFACT_URLS_FILEPATH }}
+          elif [ "${{ inputs.wazuh_package_type }}" == "private-stage" ] || [ "${{ inputs.wazuh_package_type }}" == "private-stage-test" ]; then
+            PRIVATE_STAGE_PREFIX="private-stage/pre-release/${{ env.WAZUH_MAJOR }}.x"
+            if [ "${{ inputs.wazuh_package_type }}" == "private-stage-test" ]; then
+              PRIVATE_STAGE_PREFIX="${PRIVATE_STAGE_PREFIX}-test"
+            fi
+            echo PRIVATE_STAGE_PREFIX=$PRIVATE_STAGE_PREFIX >> $GITHUB_ENV
+            aws s3 cp --quiet "s3://${{ vars.AWS_S3_BUCKET_DEV }}/${PRIVATE_STAGE_PREFIX}/artifact-urls/artifact_urls_${{ env.WAZUH_VERSION }}-${{ env.WAZUH_REVISION }}.yaml" ${{ env.LOCAL_ARTIFACT_URLS_FILEPATH }} --region us-west-1
           else
             LOCAL_AWS_S3_BUCKET_DEV=${{ vars.AWS_S3_BUCKET_DEV }}
             echo LOCAL_AWS_S3_BUCKET_DEV=$LOCAL_AWS_S3_BUCKET_DEV >> $GITHUB_ENV
           fi
+
+      - name: Presign the artifact URLs of the stage packages
+        if: env.PRIVATE_STAGE_PREFIX != ''
+        env:
+          PRIVATE_BUCKET: ${{ vars.AWS_S3_BUCKET_DEV }}
+        run: python .github/scripts/presign_private_stage_urls.py ${{ env.LOCAL_ARTIFACT_URLS_FILEPATH }} --prefix "$PRIVATE_STAGE_PREFIX"
 
       - name: Generate presigned URLs for artifacts for dev packages
         if: inputs.wazuh_package_type == 'dev'

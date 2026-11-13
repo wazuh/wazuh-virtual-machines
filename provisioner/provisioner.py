@@ -137,7 +137,7 @@ class Provisioner:
         """
         logger.debug_title("Provisioning packages")
         logger.debug(f"Downloading {component.name.replace('_', ' ')} package")
-        logger.debug(f"Package URL used: {component.package_url}")
+        logger.debug(f"Package URL used: {str(component.package_url).split('?')[0]}")
 
         package_name = self.get_package_by_url(component.name, component.package_url, client)
 
