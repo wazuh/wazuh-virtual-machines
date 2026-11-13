@@ -24,6 +24,7 @@ This submodule installs the following dependencies:
 - `perl`
 - `python3-pip`
 - `git`
+- `wget`
 - `Development Tools group`
 - `Virtual Box`
 - `vagrant`
