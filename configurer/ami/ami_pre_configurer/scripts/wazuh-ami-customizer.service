@@ -9,8 +9,8 @@
 
 [Unit]
 Description=Creates custom certificates for Wazuh AMI
-Wants=wazuh-ami-customizer.timer
-After=wazuh-manager.service wazuh-indexer.service wazuh-agent.service
+Wants=wazuh-ami-customizer.timer network-online.target
+After=network-online.target wazuh-manager.service wazuh-indexer.service wazuh-agent.service
 
 [Service]
 Type=oneshot

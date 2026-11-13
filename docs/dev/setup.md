@@ -5,7 +5,7 @@
 The following dependencies are required to set up the development environment for the Wazuh OVA and AMI:
 
 - **Git**
-- **Python >= 3.8**
+- **Python >= 3.12**
 - **Pip**
 - Plus some additionals packages listed in the toolchain
 
@@ -25,7 +25,7 @@ To install Hatch:
 pip install hatch
 ```
 
-**Note:** Hatch requires Python **3.8 or later**.
+**Note:** The project requires Python **3.12 or later** (`requires-python` in `pyproject.toml`), also when using Hatch.
 
 ### Option 2: Manual `venv` Setup
 
