@@ -37,7 +37,7 @@
 
 | Issue | Comment |
 | - | - |
-| [#PR_NUMBER](https://github.com/wazuh/wazuh-virtual-machines/pull/PR_NUMBER) | Describe the 5.0.0 product in the docs and the builder comments without the pre-release chronology, remove the `/etc/wazuh` build check and pin the links to other Wazuh repositories to `v5.0.0` |
+| [#1086](https://github.com/wazuh/wazuh-virtual-machines/pull/1086) | Describe the 5.0.0 product in the docs and the builder comments without the pre-release chronology, remove the `/etc/wazuh` build check and pin the links to other Wazuh repositories to `v5.0.0` |
 | [#1051](https://github.com/wazuh/wazuh-virtual-machines/issues/1051) | Align the docs with the 5.0.0 code and packages (upgrade and 4.x migration paths, dashboard certificate reissue, README), and disable the first-boot units before removing them |
 | [#1039](https://github.com/wazuh/wazuh-virtual-machines/issues/1039) | Adapt the AMI and OVA to the 5.0.0 RC 2 per-package credentials: manager configuration in `/etc/wazuh-manager`, passwords read from each package's `export/credentials.env`, the pre-start reason logged when a first-boot service does not start, each package issuing its own certificates on first boot, and the certs and passwords tools no longer used or provisioned |
 | [#1015](https://github.com/wazuh/wazuh-virtual-machines/issues/1015) | Name the release and its production download URL in the stage OVA metadata, mark development builds with `-dev`, remove the stage from the OVA console banner, and set the VirtualBox guest OS type to Fedora (64-bit) |
