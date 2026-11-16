@@ -24,7 +24,7 @@ class Provisioner:
     """
     A class to handle the provisioning of components and dependencies on remote machines.
 
-    It provisions no certs tool and no passwords tool: since 5.0.0 RC 2 each package resolves its own
+    It provisions no certs tool and no passwords tool: each package resolves its own
     certificates and passwords (`resolve-credentials`), at build and on first boot, and the indexer
     package ships both tools (/usr/share/wazuh-indexer/tools/) for the user to rotate them later.
 

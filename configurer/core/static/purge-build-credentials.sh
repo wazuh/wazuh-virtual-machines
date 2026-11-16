@@ -1,10 +1,10 @@
 #!/bin/bash
 # Removes every credential, certificate and CA the image build generated, so that no two instances
-# deployed from a published AMI or OVA share any of them (wazuh-virtual-machines#973).
+# deployed from a published AMI or OVA share any of them.
 #
 # The Wazuh 5.0 packages resolve their own credentials in their postinst (`resolve-credentials
 # --install`): each mints its own CA in /etc/<package>/ca/, issues its pairs, publishes what its
-# peers need in /etc/<package>/export/ and imports its peers' (wazuh/internal-devel-requests#7048).
+# peers need in /etc/<package>/export/ and imports its peers'.
 # Each package ships `resolve-credentials --clear` for exactly this case: it removes what that
 # package made, so the next `--install` -- the first boot of the deployed instance -- starts from
 # nothing.
@@ -60,8 +60,6 @@ rm -f "${MANAGER_API_JWT_PRIVATE}" "${MANAGER_API_JWT_PUBLIC}"
 
 echo "Verifying that nothing resolved at build time is left"
 leftovers=()
-# No package uses /etc/wazuh since RC 2; one left behind would be an older package's.
-[ -e /etc/wazuh ] && leftovers+=("/etc/wazuh")
 [ -e "${INDEXER_MARKER}" ] && leftovers+=("${INDEXER_MARKER}")
 [ -e "${MANAGER_RBAC_DB}" ] && leftovers+=("${MANAGER_RBAC_DB}")
 for dir in "${MANAGER_KEYSTORE_DIR}" \
@@ -75,7 +73,7 @@ done
 for key in WAZUH_INDEXER_ADMIN_PASSWORD WAZUH_INDEXER_KIBANASERVER_PASSWORD WAZUH_INDEXER_MANAGER_PASSWORD; do
     grep -q "\${${key}}" "${INDEXER_INTERNAL_USERS}" || leftovers+=("${INDEXER_INTERNAL_USERS} (no \${${key}} placeholder)")
 done
-# The manager's indexer-ca.pem and indexer-connector*.pem are the pair the indexer issued it (D5),
+# The manager's indexer-ca.pem and indexer-connector*.pem are the pair the indexer issued it,
 # imported from the indexer's export/.
 for cert in "${INDEXER_CONF}"/certs/* "${DASHBOARD_CONF}"/certs/* \
             "${MANAGER_CONF}"/certs/remoted*.pem "${MANAGER_CONF}"/certs/apid*.pem \

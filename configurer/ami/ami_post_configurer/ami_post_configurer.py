@@ -236,9 +236,9 @@ class AmiPostConfigurer:
             ".wazuh-content-manager-jobs",
         ]
 
-        # There is no admin:admin any more: the indexer package generated the admin password at install
-        # time and published it to /etc/wazuh-indexer/export/credentials.env. It is read and used on the instance, and
-        # reaches curl through its standard input, so it never travels back over SSH nor shows in argv.
+        # Unlike 4.x, there is no default admin:admin: the indexer package generates the admin password at
+        # install time and publishes it to /etc/wazuh-indexer/export/credentials.env. It is read and used on the
+        # instance, and reaches curl through its standard input, so it never travels back over SSH nor shows in argv.
         for index in indexes_to_delete:
             command = indexer_request_command(method="DELETE", path=index, url=base_url)
             output, error_output = exec_command(command=command, client=client)
@@ -294,7 +294,7 @@ class AmiPostConfigurer:
 
         Runs purge-build-credentials.sh: each package's `resolve-credentials --clear` removes what it
         made at build time (CA, pairs, export/, passwords), the JWT signing keypair is removed
-        (workaround), and the script fails if anything is left or /etc/wazuh exists. The first boot
+        (workaround), and the script fails if anything is left. The first boot
         of each instance then runs every package's `--install` again.
 
         Args:
