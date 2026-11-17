@@ -493,7 +493,7 @@ def purge_build_credentials() -> None:
 
     Runs purge-build-credentials.sh: each package's `resolve-credentials --clear` removes what it
     made at build time (CA, pairs, export/, passwords), the JWT signing keypair is removed
-    (workaround), and the script fails if anything is left. wazuh-starter then
+    (workaround), and the script fails if anything is left or /etc/wazuh exists. wazuh-starter then
     runs every package's `--install` again on each VM's first boot.
 
     Raises:

@@ -294,7 +294,7 @@ class AmiPostConfigurer:
 
         Runs purge-build-credentials.sh: each package's `resolve-credentials --clear` removes what it
         made at build time (CA, pairs, export/, passwords), the JWT signing keypair is removed
-        (workaround), and the script fails if anything is left. The first boot
+        (workaround), and the script fails if anything is left or /etc/wazuh exists. The first boot
         of each instance then runs every package's `--install` again.
 
         Args:

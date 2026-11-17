@@ -60,6 +60,8 @@ rm -f "${MANAGER_API_JWT_PRIVATE}" "${MANAGER_API_JWT_PUBLIC}"
 
 echo "Verifying that nothing resolved at build time is left"
 leftovers=()
+# Each package keeps its files in its own directory; /etc/wazuh belongs to the 4.x layout.
+[ -e /etc/wazuh ] && leftovers+=("/etc/wazuh")
 [ -e "${INDEXER_MARKER}" ] && leftovers+=("${INDEXER_MARKER}")
 [ -e "${MANAGER_RBAC_DB}" ] && leftovers+=("${MANAGER_RBAC_DB}")
 for dir in "${MANAGER_KEYSTORE_DIR}" \

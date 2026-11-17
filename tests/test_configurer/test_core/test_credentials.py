@@ -108,7 +108,9 @@ def test_purge_build_credentials_script_clears_every_component():
     # The indexer's --clear restores the placeholders and untrusts its CA itself: no workaround.
     assert "awk" not in script
     assert "-delete -cacerts" not in script
+    # /etc/wazuh belongs to the 4.x layout: checked for, never removed.
     assert "rm -rf" not in script
+    assert '[ -e /etc/wazuh ] && leftovers+=("/etc/wazuh")' in script
 
 
 def test_purge_build_credentials_script_checks_every_package_ca_export_and_certs():
