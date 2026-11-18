@@ -26,7 +26,7 @@ WAZUH_WARNING_SCRIPT = Path("/etc/profile.d/wazuh-debug-warning.sh")
 # standalone generator, so wazuh-manager-authd has to be running before this is called.
 WAZUH_MANAGER_AUTHD_BIN = "/var/wazuh-manager/bin/wazuh-manager-authd"
 
-# Publishes the manager's CA bundle (certs/root-ca.pem) to the agents (wazuh/wazuh#39319).
+# Publishes the manager's CA bundle (certs/root-ca.pem) to the agents.
 WAZUH_MANAGER_CERTS_BIN = "/var/wazuh-manager/bin/wazuh-manager-certs"
 
 # Where the pre-installed agent picks the token up. w_agent_token_bootstrap() reads it once at the
@@ -79,7 +79,7 @@ METADATA_WAIT_TIME = 5
 
 # Each package's credential resolver. `--install` mints the package's CA and issues its pairs; it is
 # the only mode that issues certificates, so first boot runs it again after the build purge cleared
-# what the packages' postinst made (wazuh/internal-devel-requests#7048). In this order: the manager
+# what the packages' postinst made. In this order: the manager
 # and the dashboard import the indexer's export/, the dashboard also the manager's.
 CREDENTIAL_RESOLVERS = (
     "/usr/share/wazuh-indexer/bin/resolve-credentials.sh",
@@ -111,12 +111,11 @@ def run_command(command: str, error_message: str) -> str:
 
     Tools invoked during the customization write to stderr while still doing their job: the
     dashboard keystore CLI, for one, reports an uncaught EPIPE when the password tool pipes its
-    listing into `grep -q`. Aborting on any stderr output stopped the customization on that noise
-    and left the instance half configured -- part of the passwords rotated, the rest still the
-    defaults -- so the exit status is what decides here and stderr is only kept for the log.
+    listing into `grep -q`. Aborting on that noise would leave the instance half configured, so
+    the exit status is what decides here and stderr is only kept for the log.
 
     `set -e` makes a multi-command block report the first command that fails instead of the exit
-    status of its last line, which is what the stderr check used to cover.
+    status of its last line.
 
     Args:
         command (str): The command to run.
@@ -426,17 +425,16 @@ def get_instance_sans() -> list[str]:
     needed for IPv6 there. It does NOT cover a public IPv4, though: AWS 1:1-NATs it, so it never
     appears on any local interface, only in the instance metadata service. Public IPv6 is not
     NAT'd -- AWS assigns it straight to the ENI, where `hostname -I` sees it. (The AL2023
-    `ec2-metadata` has no IPv6 option at all: an earlier `--ipv6` lookup failed on every boot,
-    hidden by the pipe.) A metadata lookup reports "not available" when the instance has none,
-    which is filtered out rather than baked into the SAN as a literal string.
+    `ec2-metadata` has no IPv6 option at all.) A metadata lookup reports "not available" when the
+    instance has none, which is filtered out rather than baked into the SAN as a literal string.
 
     The host name and the private and public DNS names EC2 gives the instance go in too: the AMI
     docs let users reach it by its public DNS name, and a token minted for a name the listener
-    certificate does not hold is refused (ERROR 9025; wazuh-virtual-machines#1039, TC-03).
+    certificate does not hold is refused (ERROR 9025).
 
     Fed to write_local_env(). A list there replaces the resolver's own discovery, so it
     carries the local addresses too; the resolver appends the loopback names. Every entry has its
-    IP: or DNS: prefix, as the RC 2 packages require (wazuh/wazuh-automation#3944).
+    IP: or DNS: prefix, as the packages require.
 
     Returns:
         list[str]: e.g. ["DNS:wazuh", "IP:172.31.5.10", "IP:203.0.113.9", "DNS:ip-172-31-5-10.ec2.internal"].
@@ -510,9 +508,9 @@ def publish_manager_ca() -> None:
     Publishes the root-ca.pem the manager's resolver just wrote with `wazuh-manager-certs stamp`.
 
     remoted remembers the build-time bundle; replacing it without publishing makes remoted log
-    "changed outside the tool and is not published" and announce ca_generation 0 to the agents
-    (wazuh-virtual-machines#1022). stamp publishes the bundle as is. It only needs the files, not a
-    running manager, and checks the bundle against remoted.pem, so it runs once both are installed.
+    "changed outside the tool and is not published" and announce ca_generation 0 to the agents.
+    stamp publishes the bundle as is. It only needs the files, not a running manager, and checks
+    the bundle against remoted.pem, so it runs once both are installed.
 
     Returns:
         None
@@ -628,8 +626,7 @@ def reset_agent_enrollment_state() -> None:
 
     * Credentials the manager generated during the build -- its Authd password and, if anything ever
       minted one there, its enrollment token store. Shipped as they are, every instance launched
-      from this AMI would share them. This is what the old rotate_authd_password() did, widened
-      to the artifact that replaced the password.
+      from this AMI would share them.
     * Anything on the agent side that makes the token bootstrap decline to run. It refuses whenever
       the agent already holds a trust anchor or a non-empty client.keys -- on both counts it deletes
       the token unused and returns -- so a baked anchor or a baked key would silently turn the fresh
@@ -768,7 +765,7 @@ def mint_agent_enrollment_token() -> str:
 
     The token is minted, never baked: it is created here, on the running manager, with the CA and
     the listener certificate this instance generated for itself moments earlier in
-    install_credentials(). Its 30-day TTL (the CLI default, wazuh#39068) is therefore irrelevant and
+    install_credentials(). Its 30-day TTL (the CLI default) is therefore irrelevant and
     is left alone on purpose -- a token is minted on every first boot and consumed within seconds,
     so it never gets anywhere near expiring, and shortening it would buy nothing. Do NOT "fix" this
     later by minting a long-lived token at build time and shipping it in the image: that hands every
@@ -814,8 +811,7 @@ def set_agent_enrollment_token() -> None:
     """
     Leaves a freshly minted enrollment token where the pre-installed agent picks it up.
 
-    Replaces the old authd.pass copy: the manager no longer hands the agent a shared registration
-    password, it mints a credential for that one agent (wazuh#39063). The agent reads this file on
+    The manager mints a credential for that one agent. The agent reads this file on
     its first start, while it is still root, installs the CA the token carries as its trust anchor,
     enrolls, and unlinks the file.
 
@@ -863,8 +859,8 @@ def start_components_services() -> None:
     logger.debug("Starting Wazuh components services...")
 
     # Strictly in this order, never in parallel: each package resolves its credentials when its
-    # service starts (`resolve-credentials --prestart`, wazuh-virtual-machines#973), importing what
-    # it needs from its peers' export/: the manager the indexer's CA and password, the
+    # service starts (`resolve-credentials --prestart`), importing what
+    # it needs from its peers' export/: the manager the indexer's CA, client pair and password, the
     # dashboard the indexer's and the manager's CAs and passwords. Certificates are already in place
     # (install_credentials()): the packages never issue them outside `--install`.
     enable_service("wazuh-indexer")

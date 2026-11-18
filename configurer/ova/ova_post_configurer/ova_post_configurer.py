@@ -226,10 +226,9 @@ def steps_clean() -> None:
     This function performs the following cleanup steps:
     1. Removes the file `/securityadmin_demo.sh`.
     2. Removes the CA and every component certificate baked in at image build time (indexer,
-       dashboard, admin, and the manager's pairs and imported indexer CA), regenerated per instance
-       by wazuh-starter on first boot.
-    3. Removes the provisioner's working directory (`~/wazuh-configure`): the package RPMs and the
-       tools it downloaded.
+       manager/indexer-connector, dashboard, admin, and the manager's remoted pair), regenerated
+       per instance by wazuh-starter on first boot.
+    3. Removes the provisioner's working directory (`~/wazuh-configure`) with the package RPMs.
     4. Cleans all cached data for the `yum` package manager.
     5. Reloads the systemd manager configuration.
     6. Clears the current user's bash history.
@@ -246,10 +245,8 @@ def steps_clean() -> None:
         # instance by wazuh-starter on first boot.
         "rm -f /etc/wazuh-manager/certs/*.pem",
         "rm -rf /etc/wazuh-indexer/certs/* /etc/wazuh-dashboard/certs/*",
-        # The provisioner's working directory: the package RPMs (1.2 GB) and the certs and passwords
-        # tools it still downloads. Nothing uses them after the build, and the passwords tool there is
-        # not the one for these packages (the image's is /usr/share/wazuh-indexer/tools/). The AMI
-        # removes the same directory in its post-configurer.
+        # The provisioner's working directory: the package RPMs (1.2 GB). Nothing uses them after
+        # the build. The AMI removes the same directory in its post-configurer.
         f"rm -rf {RemoteDirectories.WAZUH_ROOT_DIR}",
         "yum clean all",
         "systemctl daemon-reload",
@@ -478,9 +475,9 @@ def delete_wazuh_indexes() -> None:
         ".wazuh-content-manager-jobs",
     ]
 
-    # There is no admin:admin any more: the indexer package generated the admin password at install
-    # time and published it to /etc/wazuh-indexer/export/credentials.env. It reaches curl through its standard input,
-    # never argv, and is never logged.
+    # Unlike 4.x, there is no default admin:admin: the indexer package generates the admin password at
+    # install time and publishes it to /etc/wazuh-indexer/export/credentials.env. It reaches curl through its
+    # standard input, never argv, and is never logged.
     for index in indexes_to_delete:
         result = run_command(indexer_request_command(method="DELETE", path=index), output=True)
         http_code = result[0][0] if result else ""

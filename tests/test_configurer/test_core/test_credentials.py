@@ -71,7 +71,7 @@ def test_credential_shell_expression_reads_the_key_from_the_file():
     ],
 )
 def test_each_key_is_read_from_its_owner_export(key, path):
-    # The indexer publishes its users' passwords, the manager the Server API ones (RC 2).
+    # The indexer publishes its users' passwords, the manager the Server API ones.
     assert credentials_file_for(key) == Path(path)
     assert f" {path} " in credential_shell_expression(key)
 
@@ -105,10 +105,10 @@ def test_purge_build_credentials_script_clears_every_component():
     assert '"${INDEXER_RESOLVER}" --clear' in script
     assert '"${MANAGER_RESOLVER}" --clear -H "${MANAGER_HOME}"' in script
     assert '"${DASHBOARD_RESOLVER}" --clear' in script
-    # The indexer's --clear restores the placeholders and untrusts its CA itself (RC 2): no workaround.
+    # The indexer's --clear restores the placeholders and untrusts its CA itself: no workaround.
     assert "awk" not in script
     assert "-delete -cacerts" not in script
-    # /etc/wazuh is no package's any more: checked for, never removed.
+    # /etc/wazuh belongs to the 4.x layout: checked for, never removed.
     assert "rm -rf" not in script
     assert '[ -e /etc/wazuh ] && leftovers+=("/etc/wazuh")' in script
 
@@ -118,8 +118,7 @@ def test_purge_build_credentials_script_checks_every_package_ca_export_and_certs
 
     for package in ("INDEXER", "MANAGER", "DASHBOARD"):
         assert f'"${{{package}_CONF}}/ca" "${{{package}_CONF}}/export"' in script
-    # The indexer's CA, imported from its export/, and the client pair an older indexer package
-    # published for the manager: still checked, so a pair that survives the purge fails the build.
+    # The client pair the indexer issued to the manager, imported from its export/.
     assert '"${MANAGER_CONF}"/certs/indexer-connector*.pem' in script
     assert '"${MANAGER_CONF}"/certs/indexer-ca.pem' in script
     assert '"${MANAGER_CONF}"/certs/apid*.pem' in script
