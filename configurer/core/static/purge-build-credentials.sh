@@ -75,8 +75,9 @@ done
 for key in WAZUH_INDEXER_ADMIN_PASSWORD WAZUH_INDEXER_KIBANASERVER_PASSWORD WAZUH_INDEXER_MANAGER_PASSWORD; do
     grep -q "\${${key}}" "${INDEXER_INTERNAL_USERS}" || leftovers+=("${INDEXER_INTERNAL_USERS} (no \${${key}} placeholder)")
 done
-# The manager's indexer-ca.pem and indexer-connector*.pem are the pair the indexer issued it (D5),
-# imported from the indexer's export/.
+# The manager's indexer-ca.pem is the indexer's CA, imported from the indexer's export/.
+# indexer-connector*.pem is the client pair an older indexer package published for the manager: it
+# stays in the list so an image built from such a package still fails if the pair survives the purge.
 for cert in "${INDEXER_CONF}"/certs/* "${DASHBOARD_CONF}"/certs/* \
             "${MANAGER_CONF}"/certs/remoted*.pem "${MANAGER_CONF}"/certs/apid*.pem \
             "${MANAGER_CONF}"/certs/root-ca.pem "${MANAGER_CONF}"/certs/indexer-ca.pem \

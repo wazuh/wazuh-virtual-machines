@@ -226,8 +226,8 @@ def steps_clean() -> None:
     This function performs the following cleanup steps:
     1. Removes the file `/securityadmin_demo.sh`.
     2. Removes the CA and every component certificate baked in at image build time (indexer,
-       manager/indexer-connector, dashboard, admin, and the manager's remoted pair), regenerated
-       per instance by wazuh-starter on first boot.
+       dashboard, admin, and the manager's pairs and imported indexer CA), regenerated per instance
+       by wazuh-starter on first boot.
     3. Removes the provisioner's working directory (`~/wazuh-configure`): the package RPMs and the
        tools it downloaded.
     4. Cleans all cached data for the `yum` package manager.

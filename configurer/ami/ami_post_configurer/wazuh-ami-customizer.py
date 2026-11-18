@@ -864,7 +864,7 @@ def start_components_services() -> None:
 
     # Strictly in this order, never in parallel: each package resolves its credentials when its
     # service starts (`resolve-credentials --prestart`, wazuh-virtual-machines#973), importing what
-    # it needs from its peers' export/: the manager the indexer's CA, client pair and password, the
+    # it needs from its peers' export/: the manager the indexer's CA and password, the
     # dashboard the indexer's and the manager's CAs and passwords. Certificates are already in place
     # (install_credentials()): the packages never issue them outside `--install`.
     enable_service("wazuh-indexer")

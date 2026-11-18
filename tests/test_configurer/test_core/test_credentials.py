@@ -118,7 +118,8 @@ def test_purge_build_credentials_script_checks_every_package_ca_export_and_certs
 
     for package in ("INDEXER", "MANAGER", "DASHBOARD"):
         assert f'"${{{package}_CONF}}/ca" "${{{package}_CONF}}/export"' in script
-    # D5: the client pair the indexer issued to the manager, imported from its export/.
+    # The indexer's CA, imported from its export/, and the client pair an older indexer package
+    # published for the manager: still checked, so a pair that survives the purge fails the build.
     assert '"${MANAGER_CONF}"/certs/indexer-connector*.pem' in script
     assert '"${MANAGER_CONF}"/certs/indexer-ca.pem' in script
     assert '"${MANAGER_CONF}"/certs/apid*.pem' in script

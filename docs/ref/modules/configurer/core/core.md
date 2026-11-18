@@ -29,7 +29,7 @@ Since 5.0.0 RC 2 ([wazuh/internal-devel-requests#7048](https://github.com/wazuh/
 
 - It runs no certificate tool. A pair issued from another CA would be refused at the next start.
 - It does not write the indexer credential into the manager keystore: the manager package already stored `WAZUH_INDEXER_MANAGER_PASSWORD` there, and the old `wazuh-manager`/`wazuh-manager` pair would overwrite it.
-- `configuration_mappings.yaml` leaves the manager's `indexer.ssl.*` as packaged (`certs/indexer-ca.pem` and `certs/indexer-connector*.pem`, imported from the indexer) and does not set `nodes_dn`/`admin_dn`: the indexer's `--install` writes them from the pairs it issues.
+- `configuration_mappings.yaml` leaves the manager's `indexer.ssl.*` as packaged (`certs/indexer-ca.pem`, imported from the indexer; the manager presents no client certificate and logs in with the `wazuh-manager` password) and does not set `nodes_dn`/`admin_dn`: the indexer's `--install` writes them from the pairs it issues.
 
 Everything resolved at build time (passwords, CA, certificates) is removed again by the AMI and OVA post-configurers (`purge-build-credentials.sh`), and each deployed instance resolves its own on first boot. See the [AMI](../post/ami/post-ami.md) and [OVA](../post/ova/post-ova.md) post-configurer documentation.
 
