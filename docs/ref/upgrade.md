@@ -8,6 +8,8 @@ Follow the all-in-one upgrade guide of the Wazuh installation assistant, [All in
 
 When the indexer steps ask for `<USERNAME>` and `<PASSWORD>`, use `admin` and the password stored in `/etc/wazuh-indexer/export/credentials.env` (see [AMI security](security/ami/ami-security.md#wazuh-credentials) or [OVA security](security/ova/ova-security.md#wazuh-credentials)). On these images the indexer listens on `127.0.0.1`, and the passwords are in each package's `export/credentials.env`.
 
+An edited `/etc/wazuh-indexer/wazuh-indexer-setup/setup.yml`, or an edited policy file in the same directory, is kept by the upgrade. If the new package also changes that file, the new version is saved beside it as `<file>.rpmnew`: compare both to bring in the new defaults. See [Package upgrades](https://github.com/wazuh/wazuh-indexer-plugins/blob/v5.0.0/docs/ref/modules/setup/customization.md#package-upgrades).
+
 ## From 4.x
 
 A 4.x AMI or OVA cannot be upgraded in place to 5.0. Launch a 5.0 image as a new deployment instead, and carry the agents across with the Wazuh manager migration procedure: [Migrating a Wazuh manager from 4.x to 5.0](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/migration/manager-4x-to-5x.md). Its [`wazuh-migrate-identity.py`](https://github.com/wazuh/wazuh/blob/v5.0.0/tools/migration/wazuh-migrate-identity.py) tool exports the agent keys, registry and groups from the stopped 4.x manager and imports them into the 5.0 manager through its API, so enrolled agents reconnect without enrolling again. The configuration, the ruleset and the agent upgrade are covered by the same guide.
