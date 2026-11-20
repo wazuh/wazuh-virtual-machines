@@ -7,7 +7,7 @@ There are two paths:
 | | New VM | Same VM |
 |---|---|---|
 | What runs 5.0 | A new 5.0 AMI or OVA, beside the 4.x one | The 4.x AMI or OVA, with 4.x removed and the 5.0 packages installed |
-| Manager downtime | The cutover | From the export until the agent listeners are reopened |
+| Manager downtime | From the export until the cutover | From the export until the agent listeners are reopened |
 | Rollback | The 4.x VM is kept | None: going back means reinstalling 4.x and restoring your own backups |
 | 4.x alerts | Stay in the 4.x VM's indexer | Kept only through a snapshot taken before 4.x is removed |
 | Result | A 5.0 image | The 4.x image with the 5.0 packages, see [What differs from a 5.0 image](#what-differs-from-a-50-image) |
@@ -30,23 +30,14 @@ There are two paths:
         | sudo /var/wazuh-manager/bin/rbac_control change-password -u wazuh-internal-client -p -
     ```
 
+- **Dashboard.** The image's dashboard has its own migration: [Migration guide: Wazuh dashboard 4.x to 5.x](https://github.com/wazuh/wazuh-dashboard-plugins/blob/v5.0.0/docs/guide/migration/README.md). Its [Before you begin](https://github.com/wazuh/wazuh-dashboard-plugins/blob/v5.0.0/docs/guide/migration/README.md#before-you-begin) steps (backing up the dashboard files and the PDF reports, and exporting your own dashboards and visualizations) need the 4.x dashboard running: on the same VM path, do them before step 3. Once 5.0 runs, import the saved objects as its [Custom dashboards and visualizations](https://github.com/wazuh/wazuh-dashboard-plugins/blob/v5.0.0/docs/guide/migration/dashboards.md) page describes.
 - **Manager address.** Every 4.x agent dials the address in its `<client><server><address>`. Plan for the 5.0 manager to answer on that address at the cutover, or to edit it on every agent.
 
 ## New VM
 
 1. **Deploy a 5.0 image** following [AMI Installation](installation/ami/ami-installation.md) or [OVA Installation](installation/ova/ova-installation.md), on an address the 4.x agents do not dial: for the OVA, any IP but the 4.x VM's; for the AMI, a new instance without the 4.x Elastic IP or DNS name. The image's first boot starts the manager with the agent listeners open, so the installation variables of [Install it out of the fleet's reach](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/migration/manager-4x-to-5x.md#install-it-out-of-the-fleets-reach) do not apply: the address is what keeps the fleet away until the cutover.
 
-2. **Back up and export the 4.x manager** as in [step 1](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/migration/manager-4x-to-5x.md#1-back-up-the-4x-manager) of the manager guide, on the 4.x VM:
-
-    ```bash
-    sudo systemctl stop wazuh-manager
-    sudo systemctl disable wazuh-manager
-    sudo python3 wazuh-migrate-identity.py export --with-rbac /root/wazuh-4x-bundle
-    ```
-
-    Copy `/root/wazuh-4x-bundle` to the 5.0 VM and keep it readable by root only: it carries every agent key. From here the 4.x agents retry against a stopped manager and buffer their events.
-
-3. **Remove the pre-installed agent from the manager.** The 5.0 image enrolls its own agent on the first boot, and it takes the first free ID, `001`, which every 4.x fleet already uses for its first agent. The import refuses an agent whose ID is taken (`There is an agent with the same ID: 001`). On the 5.0 VM, stop the local agent, delete it through the Server API and clear its identity:
+2. **Remove the pre-installed agent from the manager.** The 5.0 image enrolls its own agent on the first boot, and it takes the first free ID, `001`, which every 4.x fleet already uses for its first agent. The import refuses an agent whose ID is taken (`There is an agent with the same ID: 001`). On the 5.0 VM, stop the local agent, delete it through the Server API and clear its identity:
 
     ```bash
     sudo systemctl stop wazuh-agent
@@ -59,7 +50,17 @@ There are two paths:
     sudo rm -f /var/ossec/etc/certs/root-ca.pem /var/ossec/etc/certs/.anchor-committed /var/ossec/etc/reenroll.secret
     ```
 
-    Wait about two minutes before the import. The manager does not hand out a deleted agent's ID again until the indexer purge of its documents has run (`authd.purge_delay`, 120 seconds by default), and until then the import reports `The agent ID cannot be reused yet`. If it does, wait and run the import again with `--force`. The documents the local agent indexed before it was deleted stay in the 5.0 indices under its ID, beside those of the 4.x agent that takes it.
+    Wait about two minutes before the import in step 4; doing this before the export keeps that wait out of the downtime. The manager does not hand out a deleted agent's ID again until the indexer purge of its documents has run (`authd.purge_delay`, 120 seconds by default), and until then the import reports `The agent ID cannot be reused yet`. If it does, wait and run the import again with `--force`. The documents the local agent indexed before it was deleted stay in the 5.0 indices under its ID, beside those of the 4.x agent that takes it.
+
+3. **Back up and export the 4.x manager** as in [step 1](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/migration/manager-4x-to-5x.md#1-back-up-the-4x-manager) of the manager guide, on the 4.x VM:
+
+    ```bash
+    sudo systemctl stop wazuh-manager
+    sudo systemctl disable wazuh-manager
+    sudo python3 wazuh-migrate-identity.py export --with-rbac /root/wazuh-4x-bundle
+    ```
+
+    Copy `/root/wazuh-4x-bundle` to the 5.0 VM and keep it readable by root only: it carries every agent key. From here the 4.x agents retry against a stopped manager and buffer their events.
 
 4. **Import the identity** ([step 3](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/migration/manager-4x-to-5x.md#3-restore-the-identity-data) of the manager guide), restart the manager and restore the published API passwords as described in [Before you start](#before-you-start):
 
@@ -101,14 +102,18 @@ Run every step on the 4.x VM:
 
 1. **Snapshot the 4.x indices**, with 4.x still running, as step 1 of [Historical data](#historical-data) describes. On this path it is the only copy of the 4.x alerts: the indexer data is removed in step 3.
 
-2. **Back up and export the 4.x manager** as in [step 1](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/migration/manager-4x-to-5x.md#1-back-up-the-4x-manager) of the manager guide, to a folder outside `/var/ossec`:
+2. **Back up and export the 4.x manager** as in [step 1](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/migration/manager-4x-to-5x.md#1-back-up-the-4x-manager) of the manager guide, to folders outside `/var/ossec`. The export keeps `ossec.conf`, `local_internal_options.conf` and `api.yaml` in the bundle's `reference/` folder, but not your rules, decoders and CDB lists, the group files it reports as not migrated, or the indexer configuration: save them too, since step 3 removes them.
 
     ```bash
     sudo systemctl stop wazuh-manager
     sudo python3 wazuh-migrate-identity.py export --with-rbac /root/wazuh-4x-bundle
+    sudo mkdir -p /root/wazuh-4x-backup
+    sudo tar -czf /root/wazuh-4x-backup/ruleset.tar.gz -C /var/ossec/etc rules decoders lists
+    sudo tar -czf /root/wazuh-4x-backup/shared.tar.gz -C /var/ossec/etc shared
+    sudo cp /etc/wazuh-indexer/opensearch.yml /root/wazuh-4x-backup/opensearch-4x.yml
     ```
 
-3. **Remove 4.x and what its packages leave behind.** `dnf remove` keeps the 4.x indexer data and configuration, the dashboard configuration and `/var/ossec`. A 5.0 indexer installed over them starts on the 4.x cluster and serves its indices, which is an in-place upgrade of the indexer, so remove them too. Remove Filebeat as well: 5.0 does not use it, and it is a package of its own that removing the manager does not take with it ([Remove Filebeat](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/migration/filebeat-to-indexer-connector.md#6-remove-filebeat)):
+3. **Remove 4.x and what its packages leave behind.** Take the dashboard backup of [Before you start](#before-you-start) first: this step removes the 4.x dashboard. `dnf remove` keeps the 4.x indexer data and configuration, the dashboard configuration and `/var/ossec`. A 5.0 indexer installed over them starts on the 4.x cluster and serves its indices, which is an in-place upgrade of the indexer, so remove them too. Remove Filebeat as well: 5.0 does not use it, and it is a package of its own that removing the manager does not take with it ([Remove Filebeat](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/migration/filebeat-to-indexer-connector.md#6-remove-filebeat)):
 
     ```bash
     sudo systemctl stop wazuh-dashboard wazuh-indexer filebeat
@@ -116,8 +121,7 @@ Run every step on the 4.x VM:
     sudo rm -rf /var/lib/wazuh-indexer /etc/wazuh-indexer /etc/wazuh-dashboard /var/ossec /etc/filebeat /var/log/filebeat
     ```
 
-4. **Install the 5.0 packages** following the installation assistant's [All in one](https://github.com/wazuh/wazuh-installation-assistant/blob/v5.0.0/docs/guide/step-by-step-deployments/all-in-one.md) step-by-step guide, which adds the Wazuh repository, installs the indexer, runs `indexer-security-init.sh` and installs the manager and the dashboard. Three changes:
-    - Before starting the indexer, set `network.host: "127.0.0.1"` in `/etc/wazuh-indexer/opensearch.yml`, as the 5.0 image does. The package default listens on every interface.
+4. **Install the 5.0 packages** following the installation assistant's [All in one](https://github.com/wazuh/wazuh-installation-assistant/blob/v5.0.0/docs/guide/step-by-step-deployments/all-in-one.md) step-by-step guide, which adds the Wazuh repository, installs the indexer, keeps it on `127.0.0.1` and sets its heap to a quarter of the RAM as the 5.0 image does, runs `indexer-security-init.sh` and installs the manager and the dashboard. Two changes:
     - Install the manager with the agent listeners on loopback ([Install it out of the fleet's reach](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/migration/manager-4x-to-5x.md#install-it-out-of-the-fleets-reach)): this VM keeps the address the agents dial.
 
         ```bash
@@ -125,7 +129,7 @@ Run every step on the 4.x VM:
         sudo systemctl start wazuh-manager
         ```
 
-    - Disable the 4.x heap service, which sets the indexer heap to half the RAM on every boot, and set `-Xms` and `-Xmx` in `/etc/wazuh-indexer/jvm.options` by hand (the 5.0 image uses a quarter of the RAM):
+    - Disable the 4.x heap service, which would set the indexer heap back to half the RAM on every boot:
 
         ```bash
         sudo systemctl disable updateIndexerHeap.service
@@ -174,8 +178,8 @@ The VM keeps the 4.x image around the 5.0 packages:
 
 | | 5.0 AMI or OVA | 4.x AMI or OVA with the 5.0 packages |
 |---|---|---|
-| Indexer address | `127.0.0.1:9200` | `127.0.0.1:9200` once `network.host` is set in step 4 |
-| Indexer heap | A quarter of the RAM, set on the first boot | Set by hand in step 4 |
+| Indexer address | `127.0.0.1:9200` | `127.0.0.1:9200`, set by the all-in-one guide in step 4 |
+| Indexer heap | A quarter of the RAM, set on the first boot | A quarter of the RAM, set by the all-in-one guide in step 4, once the 4.x heap service is disabled |
 | Agent on the server host | Pre-installed and enrolled on the first boot | Installed and enrolled by hand in step 7 |
 | Certificates and credentials | Issued per VM on the first boot | Issued by the packages at installation, for the VM's addresses |
 | Services | Enabled by the image | Enabled by hand in step 5 |
@@ -183,7 +187,7 @@ The VM keeps the 4.x image around the 5.0 packages:
 
 ## Configuration and content
 
-5.0 does not read any 4.x configuration file. Each one is rewritten on the 5.0 file, as [step 4](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/migration/manager-4x-to-5x.md#4-migrate-the-configuration) of the manager guide says: do not copy the 4.x files over the 5.0 ones. The manager guide's step 1 saves the manager files to `/root/wazuh-4x-backup`, which is what to read on the same VM once 4.x is removed.
+5.0 does not read any 4.x configuration file. Each one is rewritten on the 5.0 file, as [step 4](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/migration/manager-4x-to-5x.md#4-migrate-the-configuration) of the manager guide says: do not copy the 4.x files over the 5.0 ones. On the same VM, read them from the backup taken in step 2 once 4.x is removed: `ossec.conf`, `local_internal_options.conf` and `api.yaml` in `/root/wazuh-4x-bundle/reference/`, and the rules, decoders, lists, group files and the 4.x `opensearch.yml` in `/root/wazuh-4x-backup/`.
 
 | 4.x file on the image | 5.0 destination |
 |---|---|
@@ -193,7 +197,7 @@ The VM keeps the 4.x image around the 5.0 packages:
 | `/var/ossec/api/configuration/api.yaml` | `/var/wazuh-manager/api/configuration/api.yaml`, as the [`api.yaml`](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/migration/manager-configuration-migration.md#apiyaml) section of the same guide says |
 | `/etc/wazuh-indexer/opensearch.yml` | Not reused: it names the 4.x certificates. Keep the 5.0 file and set only your own settings in it |
 | `/etc/wazuh-dashboard/opensearch_dashboards.yml` | Not reused. Keep the 5.0 file and set only your own settings in it |
-| `/usr/share/wazuh-dashboard/data/wazuh/config/wazuh.yml` | None: there is no `wazuh.yml` in 5.x |
+| `/usr/share/wazuh-dashboard/data/wazuh/config/wazuh.yml` | `/etc/wazuh-dashboard/opensearch_dashboards.yml` and the dashboard's Advanced settings, as its [Configuration migration](https://github.com/wazuh/wazuh-dashboard-plugins/blob/v5.0.0/docs/guide/migration/configuration.md) says. Keep the manager connection the image or the installation wrote |
 
 Keep the settings the image or the installation wrote to the 5.0 files: in `wazuh-manager.conf`, the indexer address (`https://127.0.0.1:9200`) and the agent listeners; in `opensearch.yml`, `network.host: "127.0.0.1"`. Validate the manager configuration before restarting the manager:
 
@@ -205,7 +209,7 @@ sudo /var/wazuh-manager/bin/wazuh-manager-conf validate
 
 The 5.0 indexer does not read the 4.x indices. On the new VM path they stay in the 4.x VM, whose indexer and dashboard keep serving them. To consult them from 5.0, on either path, take a snapshot of them while 4.x is still running and restore it into the 5.0 indexer.
 
-1. **On the 4.x VM**, before the export, add `path.repo` to the indexer configuration and take the snapshot to a folder outside the indexer's data path, with the 4.x `admin` password:
+1. **On the 4.x VM**, while its indexer still runs (on the same VM path, before step 3 removes it), add `path.repo` to the indexer configuration and take the snapshot to a folder outside the indexer's data path, with the 4.x `admin` password:
 
     ```bash
     sudo install -d -o wazuh-indexer -g wazuh-indexer /var/backups/wazuh-4x-snapshots
