@@ -1,11 +1,10 @@
 """
-Credentials resolved by the Wazuh 5.0 packages (wazuh/wazuh-indexer#1928).
+Credentials resolved by the Wazuh 5.0 packages.
 
-Since 5.0.0 RC 2 (wazuh/internal-devel-requests#7048) each package publishes the passwords it owns
-in its own export/credentials.env, which is also the record the user reads them from: the indexer
-those of its users, the manager those of the Server API. Nothing here ever
-prints a password or passes one on a command line: a value read from the file goes to curl through
-its standard input (`curl -K -`), and the file is parsed, never sourced.
+Each package publishes the passwords it owns in its own export/credentials.env, which is also the
+record the user reads them from: the indexer those of its users, the manager those of the Server
+API. Nothing here ever prints a password or passes one on a command line: a value read from the
+file goes to curl through its standard input (`curl -K -`), and the file is parsed, never sourced.
 """
 
 import re
