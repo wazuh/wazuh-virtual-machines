@@ -108,12 +108,12 @@ Run every step on the 4.x VM:
     sudo python3 wazuh-migrate-identity.py export --with-rbac /root/wazuh-4x-bundle
     ```
 
-3. **Remove 4.x and what its packages leave behind.** `dnf remove` keeps the 4.x indexer data and configuration, the dashboard configuration and `/var/ossec`. A 5.0 indexer installed over them starts on the 4.x cluster and serves its indices, which is an in-place upgrade of the indexer, so remove them too:
+3. **Remove 4.x and what its packages leave behind.** `dnf remove` keeps the 4.x indexer data and configuration, the dashboard configuration and `/var/ossec`. A 5.0 indexer installed over them starts on the 4.x cluster and serves its indices, which is an in-place upgrade of the indexer, so remove them too. Remove Filebeat as well: 5.0 does not use it, and it is a package of its own that removing the manager does not take with it ([Remove Filebeat](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/migration/filebeat-to-indexer-connector.md#6-remove-filebeat)):
 
     ```bash
-    sudo systemctl stop wazuh-dashboard wazuh-indexer
-    sudo dnf remove -y wazuh-dashboard wazuh-manager wazuh-indexer
-    sudo rm -rf /var/lib/wazuh-indexer /etc/wazuh-indexer /etc/wazuh-dashboard /var/ossec
+    sudo systemctl stop wazuh-dashboard wazuh-indexer filebeat
+    sudo dnf remove -y wazuh-dashboard wazuh-manager wazuh-indexer filebeat
+    sudo rm -rf /var/lib/wazuh-indexer /etc/wazuh-indexer /etc/wazuh-dashboard /var/ossec /etc/filebeat /var/log/filebeat
     ```
 
 4. **Install the 5.0 packages** following the installation assistant's [All in one](https://github.com/wazuh/wazuh-installation-assistant/blob/v5.0.0/docs/guide/step-by-step-deployments/all-in-one.md) step-by-step guide, which adds the Wazuh repository, installs the indexer, runs `indexer-security-init.sh` and installs the manager and the dashboard. Three changes:
