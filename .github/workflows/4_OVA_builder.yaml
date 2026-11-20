@@ -77,7 +77,9 @@ permissions:
 
 jobs:
   build_and_run:
-    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
+    runs-on:
+      - codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
+      - buildspec-override:true
     steps:
       - name: View parameters
         run: echo "${{ toJson(inputs) }}"
