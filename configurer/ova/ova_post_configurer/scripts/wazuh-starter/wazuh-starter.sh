@@ -9,8 +9,8 @@
 logfile="/var/log/wazuh-starter.log"
 debug="| tee -a ${logfile}"
 
-# The manager's configuration directory since wazuh/wazuh#40346 (/var/wazuh-manager/etc is gone, no
-# symlink). Keep it in sync with WAZUH_MANAGER_CONF_DIR in configurer/core/utils/enums.py.
+# The manager's configuration directory. Keep it in sync with WAZUH_MANAGER_CONF_DIR in
+# configurer/core/utils/enums.py.
 wazuh_manager_conf_dir="/etc/wazuh-manager"
 
 # The manager CLI that mints enrollment tokens. It is a client of the local authd socket, not a
@@ -47,8 +47,8 @@ enrollment_token_max_retries=12
 enrollment_token_wait_time=5
 
 # The passwords are not known in advance: each package generates its own when its service first
-# starts (`resolve-credentials --prestart`) and publishes them to its own export/credentials.env
-# (RC 2): the indexer its users' passwords, the manager the Server API ones. Both stay on the VM as
+# starts (`resolve-credentials --prestart`) and publishes them to its own export/credentials.env:
+# the indexer its users' passwords, the manager the Server API ones. Both stay on the VM as
 # the record the user reads them from. They are parsed, never sourced, and a value read from them
 # only ever reaches curl through its standard input. Same split as credentials_file_for() in
 # configurer/core/utils/credentials.py.
@@ -73,12 +73,12 @@ wazuh_manager_api_key="WAZUH_MANAGER_WUI_PASSWORD"
 manager_max_retries=30
 manager_wait_time=5
 
-# Publishes the manager's certs/root-ca.pem to the agents (wazuh/wazuh#39319); see install_credentials().
+# Publishes the manager's certs/root-ca.pem to the agents; see install_credentials().
 wazuh_manager_certs_bin="/var/wazuh-manager/bin/wazuh-manager-certs"
 
 # Each package's credential resolver. `--install` mints the package's CA and issues its pairs; it is
 # the only mode that issues certificates, so first boot runs it again after the build purge cleared
-# what the packages' postinst made (wazuh/internal-devel-requests#7048). In this order: the manager
+# what the packages' postinst made. In this order: the manager
 # and the dashboard import the indexer's export/, the dashboard also the manager's. No local.env is
 # written: on the OVA every address agents dial is on a default-route interface, which is what each
 # resolver puts in its certificates' SANs when it is given no list.
@@ -89,7 +89,7 @@ credential_resolvers=(
 )
 
 # Where the enrollment-token bootstrap installs the agent's trust anchor on its first start. This
-# script no longer writes it -- it only makes sure the image did not ship one, which would make the
+# script does not write it -- it only makes sure the image did not ship one, which would make the
 # bootstrap skip the token entirely.
 wazuh_agent_ca="/var/ossec/etc/certs/root-ca.pem"
 # The marker the agent writes once it has committed to a trust anchor. With the marker present and
@@ -246,8 +246,7 @@ function reset_enrollment_state() {
   #
   #   * Credentials the manager generated during the build -- its Authd password and, if anything
   #     ever minted one there, its enrollment token store. Shipped as they are, every VM imported
-  #     from this OVA would share them. This is what the old rotate_authd_password() did, widened to
-  #     the artifact that replaced the password.
+  #     from this OVA would share them.
   #   * Anything on the agent side that makes the token bootstrap decline to run. It refuses
   #     whenever the agent already holds a trust anchor or a non-empty client.keys -- on both counts
   #     it deletes the token unused and returns -- so a baked anchor or a baked key would silently
@@ -311,15 +310,14 @@ function reset_agent_identity() {
 function set_agent_enrollment_token() {
   # Mint a fresh enrollment token on this VM and leave it where the pre-installed agent reads it.
   #
-  # Replaces the old authd.pass copy: the manager no longer hands the agent a shared registration
-  # password, it mints a credential for that one agent (wazuh/wazuh#39063). The agent reads this
+  # The manager mints a credential for that one agent. The agent reads this
   # file on its first start, while it is still root, installs the CA the token carries as its trust
-  # anchor, enrolls, and unlinks the file -- which is also why set_agent_ssl_ca() is gone: copying
-  # the CA by hand beforehand would make the bootstrap skip the token and never enroll.
+  # anchor, enrolls, and unlinks the file. Copying the CA by hand beforehand would make the
+  # bootstrap skip the token and never enroll.
   #
   # The token is minted, never baked: it is created here, against the CA and the listener
   # certificate this VM issued for itself moments earlier in install_credentials(). Its 30-day
-  # TTL (the CLI default, wazuh/wazuh#39068) is therefore irrelevant and is left alone on purpose --
+  # TTL (the CLI default) is therefore irrelevant and is left alone on purpose --
   # a token is minted on every first boot and consumed within seconds, so it never gets anywhere
   # near expiring. Do NOT "fix" this later by minting a long-lived token at build time and shipping
   # it in the image: that hands every VM imported from this OVA the same credential, which is the
@@ -365,7 +363,6 @@ function wait_for_network_address() {
   # The resolvers take the SANs from the default-route interfaces when --install runs, and issue a
   # pair only once. A remoted.pem issued before the address is up names the host name and loopback
   # only: agents cannot enroll by IP, and the manager refuses to mint a token for it (ERROR 9025).
-  # Confirmed on an OVA booted with its link down for 60 s (wazuh-virtual-machines#1039, TC-05).
   # The unit waits for network-online.target; this covers a DHCP lease that comes later. With no
   # address after the wait, carry on (an isolated VM still works locally) but say how to fix it.
   local retries=0 max_retries=60 wait_time=5
@@ -402,9 +399,9 @@ function install_credentials() {
     run_or_die "${resolver} --install failed" "${resolver}" --install < /dev/null
   done
   # remoted remembers the build-time root-ca.pem; replacing it without publishing makes remoted log
-  # "changed outside the tool and is not published" and announce ca_generation 0 to the agents
-  # (wazuh-virtual-machines#1022). stamp publishes the new bundle as is; it only needs the files, not
-  # a running manager, and checks the bundle against remoted.pem.
+  # "changed outside the tool and is not published" and announce ca_generation 0 to the agents.
+  # stamp publishes the new bundle as is; it only needs the files, not a running manager, and
+  # checks the bundle against remoted.pem.
   run_or_die "Failed to publish this VM's CA with wazuh-manager-certs stamp" \
       "${wazuh_manager_certs_bin}" stamp
 }

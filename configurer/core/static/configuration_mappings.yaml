@@ -16,8 +16,9 @@ wazuh_manager:
   - path: /etc/wazuh-manager/wazuh-manager.conf
     replace:
       keys:
-        # indexer.ssl.* is left as packaged: certs/indexer-ca.pem and certs/indexer-connector*.pem,
-        # which the manager's resolver imports from the indexer's export/ on a single host.
+        # indexer.ssl.* is left as packaged: certs/indexer-ca.pem, which the manager's resolver
+        # imports from the indexer's export/ on a single host. The manager presents no client
+        # certificate: it logs in with the wazuh-manager user and its password.
         - .wazuh_config.indexer.hosts.host
         # The packaged wazuh-manager.conf binds remoted's agent ports (1517 HTTPS, 1514 legacy) to
         # loopback; on a standalone VM the manager must listen on all interfaces or no external

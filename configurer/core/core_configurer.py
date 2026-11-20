@@ -10,18 +10,17 @@ from utils import Component, Logger
 
 logger = Logger("CoreConfigurer")
 
-# The pre-installed agent is NOT enrolled here, and that is deliberate. wazuh/wazuh#39063 replaced
-# the shared Authd password with a per-agent WAZUH_ENROLLMENT_TOKEN, which the manager mints locally
-# with `wazuh-manager-authd --create-enrollment-token`. Two things make the image the wrong place to
-# do that:
+# The pre-installed agent is NOT enrolled here, and that is deliberate. Agents enroll with a
+# per-agent WAZUH_ENROLLMENT_TOKEN (4.x used a shared Authd password), which the
+# manager mints locally with `wazuh-manager-authd --create-enrollment-token`. Two things make the
+# image the wrong place to do that:
 #
 #   * A mint is refused when the agent listener certificate names loopback only
 #     (enrollment_token_mint.c: "certificate only names loopback"), and at build time it does --
 #     the instance's real addresses only reach remoted.pem's SAN on the first boot of the deployed
 #     instance, when the first-boot hook runs the manager's `resolve-credentials --install`.
 #   * Anything minted here would be baked into the published image, so every instance launched from
-#     it would share one enrollment credential and one agent key. That is the exact problem the
-#     Authd password rotation existed to avoid, and a token is no better baked than a password was.
+#     it would share one enrollment credential and one agent key.
 #
 # So the image ships an agent that is installed, configured and disabled, with no key, no trust
 # anchor and no token. The first-boot hooks mint the token and let the agent enroll for real, each
@@ -29,13 +28,13 @@ logger = Logger("CoreConfigurer")
 # configurer/ova/ova_post_configurer/scripts/wazuh-starter/wazuh-starter.sh (OVA) and
 # configurer/ami/ami_post_configurer/wazuh-ami-customizer.py (AMI).
 
-# The manager's indexer credential is NOT set here any more. The manager package resolves it itself
-# (wazuh/wazuh-indexer#1928): its postinst reads WAZUH_INDEXER_MANAGER_PASSWORD from
+# The manager's indexer credential is NOT set here. The manager package resolves it itself:
+# its postinst reads WAZUH_INDEXER_MANAGER_PASSWORD from
 # /etc/wazuh-indexer/export/credentials.env, which the indexer package published with a generated value, and
-# stores it in the manager keystore. Writing the old wazuh-manager/wazuh-manager pair over it would
-# leave the manager unable to authenticate to the indexer.
+# stores it in the manager keystore. Writing any other value over it would leave the manager unable
+# to authenticate to the indexer.
 
-# No certificate is generated here either. Since 5.0.0 RC 2 every package mints its own CA and issues
+# No certificate is generated here either. Every package mints its own CA and issues
 # its own pairs in its postinst (`resolve-credentials --install`), and on a single host each imports
 # its peers' CAs from their export/. A pair issued from any other CA is refused at the next start.
 # The build purge clears all of it, and first boot runs `--install` again on the instance.
