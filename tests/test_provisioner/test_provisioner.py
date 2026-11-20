@@ -100,7 +100,7 @@ def test_provision_success(
     )
 
     # 3 for dependencies, 1 download package, 1 install package. No certs or passwords tool: the
-    # packages resolve their own credentials since RC 2.
+    # packages resolve their own credentials.
     assert mock_exec_command.call_count == 5
     assert not any("tool" in call.kwargs["command"] for call in mock_exec_command.call_args_list)
 

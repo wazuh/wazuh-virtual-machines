@@ -44,8 +44,8 @@ def test_get_instance_sans_names_the_instance_with_prefixes(customizer, monkeypa
 
     monkeypatch.setattr(customizer, "run_command", run)
 
-    # Prefixed (RC 2), the ENI's IPv6 from hostname -I, DNS names so agents can enroll by name
-    # (TC-03), and a metadata "not available" left out.
+    # Prefixed, the ENI's IPv6 from hostname -I, DNS names so agents can enroll by name,
+    # and a metadata "not available" left out.
     assert customizer.get_instance_sans() == [
         "DNS:wazuh",
         "IP:172.31.5.10",

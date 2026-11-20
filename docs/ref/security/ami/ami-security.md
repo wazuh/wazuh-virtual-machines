@@ -14,7 +14,7 @@
 
 To access the Wazuh dashboard through a browser, you must use the public IP address provided by AWS, or the private IP address if you are within a VPC without internet access. Log in with the username `admin`.
 
-The password is no longer the instance ID. On its first boot each instance generates unique passwords for every Wazuh account. Each package stores the ones it owns in its own `export/credentials.env` (readable by root only). Connect with SSH and read the `admin` password with:
+Unlike the 4.x AMI, the password is not the instance ID. On its first boot each instance generates unique passwords for every Wazuh account. Each package stores the ones it owns in its own `export/credentials.env` (readable by root only). Connect with SSH and read the `admin` password with:
 
 ```bash
 sudo grep '^WAZUH_INDEXER_ADMIN_PASSWORD=' /etc/wazuh-indexer/export/credentials.env | cut -d= -f2-
