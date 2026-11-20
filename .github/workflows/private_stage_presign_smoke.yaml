@@ -1,0 +1,93 @@
+name: Presign smoke test
+
+on:
+  push:
+    branches:
+      - change/4050-private-stage-vm
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: codebuild-github-actions-codebuild-runner-devops-amd-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: Checkout wazuh/wazuh-virtual-machines repository
+        uses: actions/checkout@v6
+
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_OVA_ROLE }}
+          aws-region: us-east-1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Download the artifact URLs file and keep one entry
+        run: |
+          WORK_DIR="$RUNNER_TEMP/presign_smoke"
+          echo WORK_DIR=$WORK_DIR >> $GITHUB_ENV
+          mkdir -p "$WORK_DIR"
+          WAZUH_VERSION=$(jq -r '.version' VERSION.json)
+          WAZUH_REVISION=$(jq -r '.stage' VERSION.json)
+          WAZUH_MAJOR=$(echo "$WAZUH_VERSION" | cut -d '.' -f 1)
+          PRIVATE_STAGE_PREFIX="private-stage/pre-release/${WAZUH_MAJOR}.x-test"
+          echo PRIVATE_STAGE_PREFIX=$PRIVATE_STAGE_PREFIX >> $GITHUB_ENV
+          aws s3 cp --quiet "s3://${{ vars.AWS_S3_BUCKET_DEV }}/${PRIVATE_STAGE_PREFIX}/artifact-urls/artifact_urls_${WAZUH_VERSION}-${WAZUH_REVISION}.yaml" "$WORK_DIR/full.yaml" --region us-west-1
+          python - "$WORK_DIR/full.yaml" "$WORK_DIR/artifact_urls.yaml" <<'EOF'
+          import sys
+          import yaml
+
+          with open(sys.argv[1]) as source:
+              content = yaml.safe_load(source)
+          selected = {"wazuh_certs_tool": content["wazuh_certs_tool"]}
+          with open(sys.argv[2], "w") as target:
+              yaml.safe_dump(selected, target, default_flow_style=False)
+          print(f"Entries in the stage file: {len(content)}. Entries kept: {len(selected)}")
+          EOF
+          rm -f "$WORK_DIR/full.yaml"
+
+      - name: Presign
+        env:
+          PRIVATE_BUCKET: ${{ vars.AWS_S3_BUCKET_DEV }}
+        run: python .github/scripts/presign_private_stage_urls.py "$WORK_DIR/artifact_urls.yaml" --prefix "$PRIVATE_STAGE_PREFIX" --expires-in 120
+
+      - name: Print the signed URL on purpose, as the provisioner would
+        run: |
+          python - "$WORK_DIR/artifact_urls.yaml" <<'EOF'
+          import sys
+          import yaml
+
+          with open(sys.argv[1]) as source:
+              url = list(yaml.safe_load(source).values())[0]
+          print(url)
+          print(f"Package URL used: {url}")
+          print(f"Package URL used: {url.split('?')[0]}")
+          EOF
+
+      - name: Check the signed URL before and after it expires
+        run: |
+          URL=$(python -c 'import sys, yaml; print(list(yaml.safe_load(open(sys.argv[1])).values())[0])' "$WORK_DIR/artifact_urls.yaml")
+          BEFORE=$(curl -s -o /dev/null -w '%{http_code}' "$URL")
+          sleep 130
+          AFTER=$(curl -s -o /dev/null -w '%{http_code}' "$URL")
+          echo "HTTP code before the expiration (expected 200): $BEFORE"
+          echo "HTTP code after the expiration (expected 403): $AFTER"
+          if [ "$BEFORE" != "200" ] || [ "$AFTER" != "403" ]; then
+            echo "::error::Unexpected HTTP codes"
+            exit 1
+          fi
+
+      - name: Counts
+        if: always()
+        run: |
+          echo "Entries in the signed file: $(grep -c ': ' "$WORK_DIR/artifact_urls.yaml")"
+          rm -rf "$WORK_DIR"
