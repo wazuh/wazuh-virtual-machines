@@ -69,6 +69,14 @@ There are two paths:
     sudo systemctl restart wazuh-manager
     ```
 
+    Compare the manager with the bundle before the local agent is enrolled again in step 5:
+
+    ```bash
+    sudo /var/wazuh-manager/framework/python/bin/python3 wazuh-migrate-identity.py check /root/wazuh-4x-bundle
+    ```
+
+    Expected: `The target matches the bundle.`
+
     Then migrate the configuration as [Configuration and content](#configuration-and-content) describes. The image's listeners already accept agents on every interface, so the listener change of [step 5](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/migration/manager-4x-to-5x.md#5-start-the-manager-open-it-to-the-fleet-and-verify-the-registry) of the manager guide is not needed.
 
 5. **Enroll the local agent again**, now that the import holds the 4.x IDs. Mint a token for it the way the first boot does and start it; it takes the next free ID:
@@ -78,13 +86,9 @@ There are two paths:
     sudo systemctl start wazuh-agent
     ```
 
-6. **Cut over.** Give the 5.0 VM the address the agents dial: for the OVA, move the 4.x VM to another IP and assign its IP to the 5.0 VM; for the AMI, reassign the Elastic IP or update the DNS name. Otherwise edit the address on every agent, as [step 6](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/migration/manager-4x-to-5x.md#6-reconnect-the-4x-agents) of the manager guide describes. The 4.x agents reconnect over the legacy channel with their 4.x IDs and keys. Then reissue the manager's certificates for the new address, as [AMI](modules/configurer/post/ami/post-ami.md#certificate-lifecycle-after-first-boot) or [OVA](modules/configurer/post/ova/post-ova.md#certificate-lifecycle-after-first-boot) post-configurer describes: 5.0 agents verify it against the manager's certificate, and the manager refuses to mint enrollment tokens for an address the certificate does not carry. Finally compare the manager with the bundle:
+    From here `check` reports this agent as one that was not in the bundle and exits with `1`: it is the only expected problem.
 
-    ```bash
-    sudo /var/wazuh-manager/framework/python/bin/python3 wazuh-migrate-identity.py check /root/wazuh-4x-bundle
-    ```
-
-    Expected: `The target matches the bundle.`
+6. **Cut over.** Give the 5.0 VM the address the agents dial: for the OVA, move the 4.x VM to another IP and assign its IP to the 5.0 VM; for the AMI, reassign the Elastic IP or update the DNS name. Otherwise edit the address on every agent, as [step 6](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/migration/manager-4x-to-5x.md#6-reconnect-the-4x-agents) of the manager guide describes. The 4.x agents reconnect over the legacy channel with their 4.x IDs and keys. Then reissue the manager's certificates for the new address, as [AMI](modules/configurer/post/ami/post-ami.md#certificate-lifecycle-after-first-boot) or [OVA](modules/configurer/post/ova/post-ova.md#certificate-lifecycle-after-first-boot) post-configurer describes: 5.0 agents verify it against the manager's certificate, and the manager refuses to mint enrollment tokens for an address the certificate does not carry.
 
 7. **Historical data.** The 4.x alerts stay in the 4.x VM's indexer, and its dashboard keeps serving them with the 4.x manager stopped. Keep that VM for as long as you need to consult them, or move them into the 5.0 indexer as [Historical data](#historical-data) describes.
 
@@ -223,16 +227,21 @@ The 5.0 indexer does not read the 4.x indices. On the new VM path they stay in t
         -d '{"indices": "wazuh-alerts-4.x-*,wazuh-states-*", "include_global_state": false}'
     ```
 
-    Expected: `"state":"SUCCESS"` and `"failed":0`. On the new VM path, copy `/var/backups/wazuh-4x-snapshots` to the same path on the 5.0 VM, owned by `wazuh-indexer`.
+    Expected: `"state":"SUCCESS"` and `"failed":0`. On the new VM path, copy `/var/backups/wazuh-4x-snapshots` to `/var/lib/wazuh-indexer/backup/wazuh-4x` on the 5.0 VM, owned by `wazuh-indexer`.
 
-2. **On the 5.0 VM**, once the migration is done, register the folder read-only and restore the snapshot under another name, so the 4.x indices do not mix with the 5.0 ones. Use the 5.0 `admin` password from `/etc/wazuh-indexer/export/credentials.env`:
+2. **On the 5.0 VM**, once the migration is done, register the snapshot read-only and restore it under another name, so the 4.x indices do not mix with the 5.0 ones. The 5.0 indexer already ships `path.repo: ["/var/lib/wazuh-indexer/backup"]`: do not add another `path.repo` line, or the indexer does not start (`Duplicate field 'path.repo'`), and no restart is needed. On the same VM path, first move the snapshot under that directory:
 
     ```bash
-    echo 'path.repo: ["/var/backups/wazuh-4x-snapshots"]' | sudo tee -a /etc/wazuh-indexer/opensearch.yml
-    sudo systemctl restart wazuh-indexer
+    sudo mv /var/backups/wazuh-4x-snapshots /var/lib/wazuh-indexer/backup/wazuh-4x
+    sudo chown -R wazuh-indexer:wazuh-indexer /var/lib/wazuh-indexer/backup/wazuh-4x
+    ```
+
+    Then, with the 5.0 `admin` password from `/etc/wazuh-indexer/export/credentials.env`:
+
+    ```bash
     curl -sk -u admin:<admin password> -X PUT "https://127.0.0.1:9200/_snapshot/wazuh-4x" \
         -H 'Content-Type: application/json' \
-        -d '{"type": "fs", "settings": {"location": "/var/backups/wazuh-4x-snapshots", "readonly": true}}'
+        -d '{"type": "fs", "settings": {"location": "/var/lib/wazuh-indexer/backup/wazuh-4x", "readonly": true}}'
     curl -sk -u admin:<admin password> -X POST "https://127.0.0.1:9200/_snapshot/wazuh-4x/4x/_restore?wait_for_completion=true" \
         -H 'Content-Type: application/json' \
         -d '{"indices": "wazuh-alerts-4.x-*,wazuh-states-*", "include_global_state": false, "rename_pattern": "(.+)", "rename_replacement": "restored-$1"}'
