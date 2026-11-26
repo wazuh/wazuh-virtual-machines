@@ -37,6 +37,7 @@
       - [AMI Post Configurer](ref/modules/configurer/post/ami/post-ami.md)
       - [OVA Post Configurer](ref/modules/configurer/post/ova/post-ova.md)
 - [Upgrade](ref/upgrade.md)
+- [Migration from 4.x](ref/migration.md)
 - [Security](ref/security/security.md)
   - [AMI Security](ref/security/ami/ami-security.md)
   - [OVA Security](ref/security/ova/ova-security.md)
