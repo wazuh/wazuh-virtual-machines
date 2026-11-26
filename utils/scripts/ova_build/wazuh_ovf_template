@@ -6,7 +6,7 @@
   </References>
   <DiskSection>
     <Info>Virtual disk information</Info>
-    <Disk ovf:capacity="40" ovf:capacityAllocationUnits="byte * 2^30" ovf:diskId="vmdisk1" ovf:fileRef="file1" ovf:format="http://www.vmware.com/interfaces/specifications/vmdk.html#streamOptimized" vbox:uuid="4b1c3f0e-6a1d-4d2e-9a57-1f0c7b6e5d01" />
+    <Disk ovf:capacity="40" ovf:capacityAllocationUnits="byte * 2^30" ovf:diskId="vmdisk1" ovf:fileRef="file1" ovf:format="http://www.vmware.com/interfaces/specifications/vmdk.html#streamOptimized" />
   </DiskSection>
   <NetworkSection>
     <Info>The list of logical networks</Info>
@@ -33,6 +33,13 @@
       <Description>Linux - Amazon Linux 2023</Description>
       <vbox:OSType ovf:required="false">Fedora_64</vbox:OSType>
     </OperatingSystemSection>
+    <!-- There is no vbox:Machine section on purpose, so VirtualBox imports the VM with the VBoxVGA
+         graphics controller and the user sets VMSVGA by hand. vbox:Machine is the only way to set
+         the controller in an OVF, but VirtualBox then takes the network from it too: a bridged
+         adapter needs the host interface name (eth0, en0, ...), and the VM does not start when that
+         name is empty or does not exist on the host. Without vbox:Machine, VirtualBox bridges
+         "VM Network" to a host interface it picks itself. The OS type does not change the
+         controller of a generic import either. Tested with VirtualBox 7.2 in issue #1105 -->
     <VirtualHardwareSection>
       <Info>Virtual hardware requirements</Info>
       <System>
@@ -106,42 +113,5 @@
         <rasd:ResourceType>14</rasd:ResourceType>
       </Item>
     </VirtualHardwareSection>
-    <!-- VirtualBox reads this section instead of the generic hardware above, and VMware skips it
-         (ovf:required="false"). It is the only place an OVF can set the graphics controller and the
-         RTC mode, so the VM imports ready to start: with VBoxVGA the VM window freezes, and a local
-         time RTC makes the guest clock skew. The Image uuid must match vbox:uuid in DiskSection.
-         VirtualBox gives the imported machine and disk new UUIDs, so importing twice is fine.
-         Settings version 1.16 is the format of VirtualBox 6.1; newer versions read it. -->
-    <vbox:Machine ovf:required="false" version="1.16-linux" uuid="{0f3c2a6b-8d4e-4c1a-b2f5-7e9d1c3a5b02}" name="wazuh-{WAZUH_VERSION}" OSType="Fedora_64">
-      <ovf:Info>Complete VirtualBox machine configuration in VirtualBox format</ovf:Info>
-      <Hardware>
-        <CPU count="8">
-          <PAE enabled="true"/>
-          <LongMode enabled="true"/>
-          <X2APIC enabled="true"/>
-        </CPU>
-        <Memory RAMSize="16384"/>
-        <Display controller="VMSVGA" VRAMSize="16"/>
-        <BIOS>
-          <IOAPIC enabled="true"/>
-        </BIOS>
-        <Network>
-          <Adapter slot="0" enabled="true" type="82540EM">
-            <NAT/>
-          </Adapter>
-        </Network>
-        <StorageControllers>
-          <StorageController name="IDE" type="PIIX4" PortCount="2" useHostIOCache="true" Bootable="true">
-            <AttachedDevice passthrough="false" type="DVD" hotpluggable="false" port="1" device="0"/>
-          </StorageController>
-          <StorageController name="SATA" type="AHCI" PortCount="1" useHostIOCache="false" Bootable="true">
-            <AttachedDevice type="HardDisk" hotpluggable="false" port="0" device="0">
-              <Image uuid="{4b1c3f0e-6a1d-4d2e-9a57-1f0c7b6e5d01}"/>
-            </AttachedDevice>
-          </StorageController>
-        </StorageControllers>
-        <RTC localOrUTC="UTC"/>
-      </Hardware>
-    </vbox:Machine>
   </VirtualSystem>
 </Envelope>

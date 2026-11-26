@@ -99,6 +99,7 @@
 
 | Issue | Comment |
 | - | - |
+| [#1105](https://github.com/wazuh/wazuh-virtual-machines/issues/1105) | Show the VM address in the OVA console banner, and explain in the OVA docs why the VirtualBox graphics controller is still set by hand |
 | [#1076](https://github.com/wazuh/wazuh-virtual-machines/issues/1076) | Fix the OVA workflow inputs in the docs (`wazuh_package_type` values `prod`, `pre-prod` and `dev`, and `ova_revision` examples `1` and `0`), the Python version required for development and the dependencies and deleted indexes listed for the OVA configurers |
 | [#1064](https://github.com/wazuh/wazuh-virtual-machines/issues/1064) | Wait for the instance's network address before the AMI first boot issues the certificates, and retry `ec2-metadata` for a bounded time, continuing with the local addresses and a warning if it keeps failing |
 | [#1059](https://github.com/wazuh/wazuh-virtual-machines/pull/1059) | Fixing integration tests |
