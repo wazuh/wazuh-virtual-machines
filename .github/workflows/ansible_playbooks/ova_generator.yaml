@@ -164,7 +164,7 @@
       become: true
 
     - name: Execute Python script in the VM
-      shell: "vagrant ssh -c 'sudo python3 /tmp/ova_configurer.py --wia_branch {{ wia_branch }} --wvm_branch {{ wvm_branch }} --repository {{ repository }} --debug {{ debug}}'"
+      shell: "vagrant ssh -c 'sudo python3 /tmp/ova_configurer.py --wia_branch {{ wia_branch }} --wvm_branch {{ wvm_branch }} --repository {{ repository }} --debug {{ debug}} --remove_authorized_keys'"
       args:
         chdir: "/tmp/wazuh-virtual-machines/ova/workflow_assets"
       register: python_script_result
@@ -183,10 +183,13 @@
       debug:
         msg: "{{ job_result.stdout_lines }}"
 
+    # The SSH keys are gone, so Vagrant logs in with the password. Fail if it could not and forced the power off.
     - name: Stop the VM
       shell: "vagrant halt"
       args:
         chdir: "/tmp/wazuh-virtual-machines/ova/workflow_assets"
+      register: halt_result
+      failed_when: halt_result.rc != 0 or 'Forcing shutdown' in halt_result.stdout
 
     - name: Configure VM network in VirtualBox
       shell: |
