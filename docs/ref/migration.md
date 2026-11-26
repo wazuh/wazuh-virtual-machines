@@ -96,7 +96,13 @@ Continue with [step 7](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/mig
 
 ## Same VM
 
-The 4.x AMI and OVA run Amazon Linux 2023, which 5.0 supports, so the 4.x packages can be replaced on the same VM. This keeps its address, so the agents need no change, at these costs:
+The 4.x AMI and OVA run Amazon Linux 2023 from 4.11 onwards, which 5.0 supports, so the 4.x packages can be replaced on the same VM. Images up to 4.10 run Amazon Linux 2, where this path does not apply: use the [new VM](#new-vm) path. Check it before starting, since step 3 cannot be undone:
+
+```bash
+grep PRETTY_NAME /etc/os-release
+```
+
+Expected: `PRETTY_NAME="Amazon Linux 2023..."`. This path keeps the VM's address, so the agents need no change, at these costs:
 
 - **Downtime.** The manager is down from the export until the agent listeners are reopened. The agents buffer their events and retry meanwhile.
 - **No rollback.** Once 4.x is removed, going back means reinstalling it and restoring your own backups. Take a hypervisor snapshot of the OVA, or an AMI or EBS snapshot of the instance, before starting.
@@ -106,7 +112,7 @@ Run every step on the 4.x VM:
 
 1. **Snapshot the 4.x indices**, with 4.x still running, as step 1 of [Historical data](#historical-data) describes. On this path it is the only copy of the 4.x alerts: the indexer data is removed in step 3.
 
-2. **Back up and export the 4.x manager** as in [step 1](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/migration/manager-4x-to-5x.md#1-back-up-the-4x-manager) of the manager guide, to folders outside `/var/ossec`. The export keeps `ossec.conf`, `local_internal_options.conf` and `api.yaml` in the bundle's `reference/` folder, but not your rules, decoders and CDB lists, the group files it reports as not migrated, or the indexer configuration: save them too, since step 3 removes them.
+2. **Back up and export the 4.x manager** as in [step 1](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/migration/manager-4x-to-5x.md#1-back-up-the-4x-manager) of the manager guide, to folders outside `/var/ossec`. The export keeps `ossec.conf`, `local_internal_options.conf` and `api.yaml` in the bundle's `reference/` folder, but not your rules, decoders and CDB lists, the group files it reports as not migrated, the indexer and dashboard configuration, or the rest of `/var/ossec`: the logs and archives under `/var/ossec/logs`, your own integrations, active response scripts and SCA policies. Save them too, since step 3 removes them.
 
     ```bash
     sudo systemctl stop wazuh-manager
@@ -114,8 +120,13 @@ Run every step on the 4.x VM:
     sudo mkdir -p /root/wazuh-4x-backup
     sudo tar -czf /root/wazuh-4x-backup/ruleset.tar.gz -C /var/ossec/etc rules decoders lists
     sudo tar -czf /root/wazuh-4x-backup/shared.tar.gz -C /var/ossec/etc shared
+    sudo tar -czf /root/wazuh-4x-backup/ossec.tar.gz -C /var ossec
     sudo cp /etc/wazuh-indexer/opensearch.yml /root/wazuh-4x-backup/opensearch-4x.yml
+    sudo cp /etc/wazuh-dashboard/opensearch_dashboards.yml /root/wazuh-4x-backup/opensearch_dashboards-4x.yml
+    sudo cp /usr/share/wazuh-dashboard/data/wazuh/config/wazuh.yml /root/wazuh-4x-backup/wazuh-4x.yml
     ```
+
+    `ossec.tar.gz` holds all of `/var/ossec`, including the 4.x logs: it can be large.
 
 3. **Remove 4.x and what its packages leave behind.** Take the dashboard backup of [Before you start](#before-you-start) first: this step removes the 4.x dashboard. `dnf remove` keeps the 4.x indexer data and configuration, the dashboard configuration and `/var/ossec`. A 5.0 indexer installed over them starts on the 4.x cluster and serves its indices, which is an in-place upgrade of the indexer, so remove them too. Remove Filebeat as well: 5.0 does not use it, and it is a package of its own that removing the manager does not take with it ([Remove Filebeat](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/migration/filebeat-to-indexer-connector.md#6-remove-filebeat)):
 
@@ -167,12 +178,13 @@ Run every step on the 4.x VM:
 7. **Install an agent on the VM.** 5.0 has no agent `000`, so nothing monitors the server host until an agent runs on it ([Monitoring the server host](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/ref/getting-started/installation.md#monitoring-the-server-host)). The 5.0 image ships one, enrolled with a token on the first boot; do the same here, from the Wazuh repository added in step 4:
 
     ```bash
-    TOKEN=$(sudo /var/wazuh-manager/bin/wazuh-manager-authd --create-enrollment-token --address 127.0.0.1 --embed-ca --max-uses 1)
-    sudo WAZUH_ENROLLMENT_TOKEN="$TOKEN" WAZUH_AGENT_NAME="$(hostname)" dnf install -y wazuh-agent
+    sudo dnf install -y wazuh-agent
+    sudo /var/wazuh-manager/bin/wazuh-manager-authd --create-enrollment-token --address 127.0.0.1 --embed-ca --max-uses 1 \
+        | sudo /var/ossec/bin/wazuh-agent-auth
     sudo systemctl daemon-reload && sudo systemctl enable --now wazuh-agent
     ```
 
-    It takes the next free ID after the migrated agents.
+    The token goes through the pipe, so it never appears on a command line. The agent takes the host name and the next free ID after the migrated agents.
 
 Continue with [step 7](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/migration/manager-4x-to-5x.md#7-upgrade-the-agents-to-50) of the manager guide to upgrade the agents to 5.0.
 
@@ -191,7 +203,7 @@ The VM keeps the 4.x image around the 5.0 packages:
 
 ## Configuration and content
 
-5.0 does not read any 4.x configuration file. Each one is rewritten on the 5.0 file, as [step 4](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/migration/manager-4x-to-5x.md#4-migrate-the-configuration) of the manager guide says: do not copy the 4.x files over the 5.0 ones. On the same VM, read them from the backup taken in step 2 once 4.x is removed: `ossec.conf`, `local_internal_options.conf` and `api.yaml` in `/root/wazuh-4x-bundle/reference/`, and the rules, decoders, lists, group files and the 4.x `opensearch.yml` in `/root/wazuh-4x-backup/`.
+5.0 does not read any 4.x configuration file. Each one is rewritten on the 5.0 file, as [step 4](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/migration/manager-4x-to-5x.md#4-migrate-the-configuration) of the manager guide says: do not copy the 4.x files over the 5.0 ones. On the same VM, read them from the backup taken in step 2 once 4.x is removed: `ossec.conf`, `local_internal_options.conf` and `api.yaml` in `/root/wazuh-4x-bundle/reference/`, and the rules, decoders, lists, group files, the rest of `/var/ossec` and the 4.x `opensearch.yml`, `opensearch_dashboards.yml` and `wazuh.yml` in `/root/wazuh-4x-backup/`.
 
 | 4.x file on the image | 5.0 destination |
 |---|---|
@@ -219,12 +231,13 @@ The 5.0 indexer does not read the 4.x indices. On the new VM path they stay in t
     sudo install -d -o wazuh-indexer -g wazuh-indexer /var/backups/wazuh-4x-snapshots
     echo 'path.repo: ["/var/backups/wazuh-4x-snapshots"]' | sudo tee -a /etc/wazuh-indexer/opensearch.yml
     sudo systemctl restart wazuh-indexer
+    until curl -sk -u admin:<4.x admin password> "https://127.0.0.1:9200/_cluster/health" | grep -qE '"status":"(green|yellow)"'; do sleep 5; done
     curl -sk -u admin:<4.x admin password> -X PUT "https://127.0.0.1:9200/_snapshot/wazuh-4x" \
         -H 'Content-Type: application/json' \
         -d '{"type": "fs", "settings": {"location": "/var/backups/wazuh-4x-snapshots"}}'
     curl -sk -u admin:<4.x admin password> -X PUT "https://127.0.0.1:9200/_snapshot/wazuh-4x/4x?wait_for_completion=true" \
         -H 'Content-Type: application/json' \
-        -d '{"indices": "wazuh-alerts-4.x-*,wazuh-states-*", "include_global_state": false}'
+        -d '{"indices": "wazuh-alerts-4.x-*,wazuh-archives-4.x-*,wazuh-states-*", "include_global_state": false}'
     ```
 
     Expected: `"state":"SUCCESS"` and `"failed":0`. On the new VM path, copy `/var/backups/wazuh-4x-snapshots` to `/var/lib/wazuh-indexer/backup/wazuh-4x` on the 5.0 VM, owned by `wazuh-indexer`.
@@ -244,7 +257,7 @@ The 5.0 indexer does not read the 4.x indices. On the new VM path they stay in t
         -d '{"type": "fs", "settings": {"location": "/var/lib/wazuh-indexer/backup/wazuh-4x", "readonly": true}}'
     curl -sk -u admin:<admin password> -X POST "https://127.0.0.1:9200/_snapshot/wazuh-4x/4x/_restore?wait_for_completion=true" \
         -H 'Content-Type: application/json' \
-        -d '{"indices": "wazuh-alerts-4.x-*,wazuh-states-*", "include_global_state": false, "rename_pattern": "(.+)", "rename_replacement": "restored-$1"}'
+        -d '{"indices": "wazuh-alerts-4.x-*,wazuh-archives-4.x-*,wazuh-states-*", "include_global_state": false, "rename_pattern": "(.+)", "rename_replacement": "restored-$1"}'
     ```
 
-    The 4.x alerts are then in `restored-wazuh-alerts-4.x-*`, and the restored indices stay in the 5.0 indexer. 5.0 does not read them: consult them with an index pattern of their own, as [Historical data](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/migration/manager-4x-to-5x.md#historical-data) in the manager guide describes.
+    The 4.x alerts are then in `restored-wazuh-alerts-4.x-*`, and the archives, if the 4.x indexer had them, in `restored-wazuh-archives-4.x-*`, and the restored indices stay in the 5.0 indexer. 5.0 does not read them: consult them with an index pattern of their own, as [Historical data](https://github.com/wazuh/wazuh/blob/v5.0.0/docs/guide/migration/manager-4x-to-5x.md#historical-data) in the manager guide describes.
