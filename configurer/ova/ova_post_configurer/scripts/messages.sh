@@ -10,7 +10,10 @@ SYSTEM_USER=$3
 # address of eth0 when it shows the login prompt, and shows the prompt again when the address
 # changes. The address is not known at build time, so it cannot be written here. The interface
 # is always eth0 (net.ifnames=0 in the GRUB config). The heredoc keeps \4 as it is, because the
-# shell only removes the backslash before $, `, \ and a newline
+# shell only removes the backslash before $, `, \ and a newline.
+# Not \4 without the interface: with no address on any interface agetty falls back to the
+# hostname's address and shows https://127.0.1.1, a URL that does not work. \4{eth0} stays empty
+# then. Tested in issue #1105
 cat > /etc/issue <<EOF
 
 Welcome to the Wazuh OVA version ${WAZUH_VERSION}

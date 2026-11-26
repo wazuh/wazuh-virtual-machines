@@ -21,7 +21,7 @@ curl -sO https://packages-staging.xdrsiem.wazuh.info/pre-release/5.x/vm/wazuh-5.
    2. Click Settings > Display
    3. In Graphic controller, select the **VMSVGA** option.
 
-   From the command line, run `VBoxManage modifyvm "<VM name>" --graphicscontroller vmsvga` instead. The OVA cannot set the controller itself: the only OVF section that sets it would also fix the network adapter to one host interface name, and the VM would not start on other hosts.
+   From the command line, with the VM powered off, run `VBoxManage modifyvm "<VM name>" --graphicscontroller vmsvga --rtc-use-utc on` instead. It also sets the hardware clock in UTC (see [VirtualBox time configuration](#virtualbox-time-configuration)). The OVA cannot set either one itself: the only OVF section that sets them would also fix the network adapter to one host interface name, and the VM would not start on other hosts.
 3. Start the machine.
 4. Access the virtual machine using the following user and password. You can use the virtualization platform or access it via **SSH**.
 
