@@ -21,4 +21,8 @@ A change applies only to the indices created after the restart; the indices that
 - A data stream, such as `wazuh-events-v5-<category>`, takes the new settings at its next rollover.
 - A changed retention policy is used by the indices created afterwards; the existing ones keep the policy version they run.
 
-The keys, their valid values and how to apply a change to the indices that already exist are described in the [Setup plugin customization](https://github.com/wazuh/wazuh-indexer-plugins/blob/v5.0.0/docs/ref/modules/setup/customization.md) reference.
+To change a retention policy, edit its `<policy-id>.json` file and set `policies.<policy-id>.custom: true` in `setup.yml`. Do not edit the policy through the dashboard or the ISM API: the Wazuh indexer writes the policy again from the default or from the file at every restart, so that edit is lost.
+
+An invalid `setup.yml` or policy file stops the setup with the status `failed`: the Wazuh indexer keeps running, but the Content Manager does not start its work. After a restart, check the indexer log, `/var/log/wazuh-indexer/wazuh-indexer.log`, for `Setup initialization failed`, fix the file and restart again. See [Invalid configuration](https://github.com/wazuh/wazuh-indexer-plugins/blob/v5.0.0/docs/ref/modules/setup/customization.md#invalid-configuration).
+
+The keys and their valid values are described in the [Setup plugin customization](https://github.com/wazuh/wazuh-indexer-plugins/blob/v5.0.0/docs/ref/modules/setup/customization.md) reference, and how to apply a change to the indices that already exist in [Applying a change to the indices that exist](https://github.com/wazuh/wazuh-indexer-plugins/blob/v5.0.0/docs/ref/modules/setup/customization.md#applying-a-change-to-the-indices-that-exist).
