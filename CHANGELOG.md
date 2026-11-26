@@ -38,6 +38,7 @@
 
 | Issue | Comment |
 | - | - |
+| [#1090](https://github.com/wazuh/wazuh-virtual-machines/issues/1090) | Move the migration from 4.x out of `upgrade.md` to its own page, `migration.md`, with the new VM and same VM paths for the AMI and the OVA, so the upgrade page covers only upgrades between 5.x releases |
 | [#1085](https://github.com/wazuh/wazuh-virtual-machines/issues/1085) | Align the OVA and AMI with the removal of the manager's indexer client certificate: the manager imports only the indexer's CA and password, and the build check keeps rejecting an `indexer-connector*.pem` left by an older package |
 | [#1086](https://github.com/wazuh/wazuh-virtual-machines/pull/1086) | Describe the 5.0.0 product in the docs and the builder comments without the pre-release chronology and pin the links to other Wazuh repositories to `v5.0.0` |
 | [#1051](https://github.com/wazuh/wazuh-virtual-machines/issues/1051) | Align the docs with the 5.0.0 code and packages (upgrade and 4.x migration paths, dashboard certificate reissue, README), and disable the first-boot units before removing them |
