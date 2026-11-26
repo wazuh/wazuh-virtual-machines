@@ -6,7 +6,11 @@ SYSTEM_USER=$3
 
 [[ ${DEBUG} = "yes" ]] && set -ex || set -e
 
-# OVA Welcome message
+# OVA Welcome message. \4{eth0} is an agetty escape: agetty replaces it with the current IPv4
+# address of eth0 when it shows the login prompt, and shows the prompt again when the address
+# changes. The address is not known at build time, so it cannot be written here. The interface
+# is always eth0 (net.ifnames=0 in the GRUB config). The heredoc keeps \4 as it is, because the
+# shell only removes the backslash before $, `, \ and a newline
 cat > /etc/issue <<EOF
 
 Welcome to the Wazuh OVA version ${WAZUH_VERSION}
@@ -14,7 +18,7 @@ Login credentials:
   User: ${SYSTEM_USER}
   Password: wazuh (you must change it on the first login)
 
-Wazuh dashboard: https://<this VM's IP address>   User: admin
+Wazuh dashboard: https://\4{eth0}   User: admin
 The passwords generated for this VM are stored in
 /etc/wazuh-indexer/export/credentials.env (dashboard and indexer users) and
 /etc/wazuh-manager/export/credentials.env (Server API users).
