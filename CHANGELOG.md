@@ -5,6 +5,7 @@
 
 | Issue | Comment |
 | - | - |
+| [#1091](https://github.com/wazuh/wazuh-virtual-machines/issues/1091) | Document the Wazuh indexer setup configuration file in the AMI and OVA configuration and upgrade guides |
 | [#1017](https://github.com/wazuh/wazuh-virtual-machines/pull/1017) | Check the signature of the Wazuh packages before installing them in the AMI and OVA, with `--skip-signature-check` for unsigned development packages |
 | [#991](https://github.com/wazuh/wazuh-virtual-machines/issues/991) | Add AMI dashboard access instructions and link the official upgrade, configuration and password management guides |
 | [#957](https://github.com/wazuh/wazuh-virtual-machines/issues/957) | Provision the agent listener certificate in the OVA and AMI, and reissue it at first boot |
