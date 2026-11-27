@@ -15,7 +15,7 @@ Once the **Provisioner and Core Configurer** have been executed, the Wazuh compo
 6. Changed the VM hostname to `wazuh`.  
 7. Disable the SSH connection to the `root` user.  
 8. Enable SSH connection via password.  
-9. Execute the `messages.sh` script which adds welcome messages, with the Wazuh version from `VERSION.json`, both at machine startup and login.  
+9. Execute the `messages.sh` script which adds welcome messages, with the Wazuh version from `VERSION.json`, both at machine startup and login. The startup message also shows the dashboard URL with the current address of `eth0`, through the agetty escape `\4{eth0}`.  
 10. Afterwards the `wazuh-manager` and `wazuh-agent` are stopped and the following indexes and data streams are deleted:  
     - `wazuh-*`  
     - `_data_stream/*`  

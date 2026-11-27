@@ -60,8 +60,10 @@ The console login screen shows the dashboard URL with the VM's current address, 
 You can also find `<wazuh_manager_ip>` by typing the following command in the VM:
 
 ```bash
-ip a
+ip -4 addr
 ```
+
+Use the `inet` address of the interface on the network you connect from.
 
 ## Enroll agents
 
