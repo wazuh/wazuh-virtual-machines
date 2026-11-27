@@ -213,6 +213,22 @@ def clean():
     subprocess.run("sudo systemctl restart sshd", shell=True, check=True)
 
 
+def remove_authorized_keys():
+    """
+    Removes the SSH authorized_keys of every user, such as the key that Vagrant adds to wazuh-user during the build.
+    Vagrant can only log in with the password after this, so it must be the last step run through vagrant ssh.
+
+    Raises:
+        RuntimeError: If an authorized_keys file is left.
+    """
+    subprocess.run("sudo rm -f /root/.ssh/authorized_keys /home/*/.ssh/authorized_keys && sync", shell=True, check=True)
+
+    leftovers = [path for path in [Path("/root/.ssh/authorized_keys"), *Path("/home").glob("*/.ssh/authorized_keys")] if path.exists()]
+    if leftovers:
+        raise RuntimeError(f"authorized_keys files left in the image: {[str(path) for path in leftovers]}")
+    print("All the SSH authorized_keys files have been removed")
+
+
 def main():
     """
     Main function
@@ -222,6 +238,7 @@ def main():
     parser.add_argument("--wvm_branch", required=True, help="Branch of the wazuh-virtual-machines repository")
     parser.add_argument("--repository", required=True, help="Production or development repository")
     parser.add_argument("--debug", required=True, help="Debug mode")
+    parser.add_argument("--remove_authorized_keys", action="store_true", help="Remove the SSH authorized_keys of every user at the end")
     args = parser.parse_args()
 
     set_hostname()
@@ -232,6 +249,8 @@ def main():
     create_network_config()
     change_ssh_config()
     clean()
+    if args.remove_authorized_keys:
+        remove_authorized_keys()
 
 if __name__ == "__main__":
     main()

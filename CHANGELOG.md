@@ -13,7 +13,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- None
+- Remove the SSH key that Vagrant leaves in the OVA `authorized_keys` during the build ([#1103](https://github.com/wazuh/wazuh-virtual-machines/issues/1103))
 
 ### Deleted
 
