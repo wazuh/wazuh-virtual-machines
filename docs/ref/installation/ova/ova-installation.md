@@ -20,6 +20,8 @@ curl -sO https://packages-staging.xdrsiem.wazuh.info/pre-release/5.x/vm/wazuh-5.
    1. Select the imported VM.
    2. Click Settings > Display
    3. In Graphic controller, select the **VMSVGA** option.
+
+   From the command line, with the VM powered off, run `VBoxManage modifyvm "<VM name>" --graphicscontroller vmsvga --rtc-use-utc on` instead. It also sets the hardware clock in UTC (see [VirtualBox time configuration](#virtualbox-time-configuration)). The OVA cannot set either one itself: the only OVF section that sets them would also fix the network adapter to one host interface name, and the VM would not start on other hosts.
 3. Start the machine.
 4. Access the virtual machine using the following user and password. You can use the virtualization platform or access it via **SSH**.
 
@@ -53,11 +55,15 @@ sudo grep '^WAZUH_INDEXER_ADMIN_PASSWORD=' /etc/wazuh-indexer/export/credentials
 
 Keep both files: each one is part of its package's state, and the other packages read it. The console login banner names both. See [OVA security](../../security/ova/ova-security.md#wazuh-credentials) for the rest of the accounts.
 
-You can find `<wazuh_manager_ip>` by typing the following command in the VM:
+The console login screen shows the dashboard URL with the VM's current address, for example `Wazuh dashboard: https://192.168.56.101`. The address appears when the VM gets it from DHCP, so the URL is empty until then. With a NAT network the address is internal to the virtualization platform: forward port 443 to the VM to open the dashboard from the host. With more than one network adapter, the URL shows the address of `eth0`, which is not always the first adapter of the platform.
+
+You can also find `<wazuh_manager_ip>` by typing the following command in the VM:
 
 ```bash
-ip a
+ip -4 addr
 ```
+
+Use the `inet` address of the interface on the network you connect from.
 
 ## Enroll agents
 

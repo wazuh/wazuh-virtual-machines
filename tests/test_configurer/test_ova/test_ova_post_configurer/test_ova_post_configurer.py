@@ -290,6 +290,8 @@ def test_messages_script_shows_version_in_both_banners(tmp_path):
     motd = (tmp_path / "motd.d" / "40-wazuh-banner").read_text()
     assert "Welcome to the Wazuh OVA version 5.0.0\n" in issue
     assert "Wazuh - 5.0.0" not in issue
+    # agetty replaces \4{eth0} with the VM's address, so the shell must leave the backslash in place
+    assert "Wazuh dashboard: https://\\4{eth0}   User: admin\n" in issue
     assert "    Welcome to the Wazuh OVA version 5.0.0\n" in motd
 
 

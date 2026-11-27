@@ -33,6 +33,13 @@
       <Description>Linux - Amazon Linux 2023</Description>
       <vbox:OSType ovf:required="false">Fedora_64</vbox:OSType>
     </OperatingSystemSection>
+    <!-- There is no vbox:Machine section on purpose, so VirtualBox imports the VM with the VBoxVGA
+         graphics controller and the user sets VMSVGA by hand. vbox:Machine is the only way to set
+         the controller in an OVF, but VirtualBox then takes the network from it too: a bridged
+         adapter needs the host interface name (eth0, en0, ...), and the VM does not start when that
+         name is empty or does not exist on the host. Without vbox:Machine, VirtualBox bridges
+         "VM Network" to a host interface it picks itself. The OS type does not change the
+         controller of a generic import either. Tested with VirtualBox 7.2 in issue #1105 -->
     <VirtualHardwareSection>
       <Info>Virtual hardware requirements</Info>
       <System>
